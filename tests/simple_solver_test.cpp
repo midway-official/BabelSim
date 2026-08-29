@@ -50,7 +50,7 @@ void configureChannelBoundaries(IncompressibleFields& fields) {
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
     const Mesh mesh = readMeshFile("tests/data/babelsim_channel.mesh");

@@ -1,0 +1,6 @@
+solver simpleFoam
+mesh mesh/poiseuille.mesh
+fields fields/initial
+physics physics/incompressible.bs
+numerics numerics/simple.bs
+output output.bs

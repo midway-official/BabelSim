@@ -35,5 +35,4 @@ struct Methods {
     TimeMethod time = TimeMethod::Steady;
 };
 
-}  // namespace babelsim
-
+}  // babelsim 命名空间

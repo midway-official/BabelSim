@@ -1,5 +1,6 @@
 #include "babelsim/incompressible.h"
 #include "babelsim/parallel.h"
+#include "babelsim/parallel_writer.h"
 
 #include "test_util.h"
 
@@ -103,8 +104,11 @@ int main(int argc, char* argv[]) {
 
         const std::filesystem::path output = argc > 1
             ? argv[1] : "build/mpi-output";
-        writeOwnedCsv(
-            output, fields.velocity, fields.pressure, parallel, "cavity3d");
+        const auto time = output / "cavity3d";
+        writeOwnedFieldCsv(time, fields.velocity, parallel);
+        writeOwnedFieldCsv(time, fields.pressure, parallel);
+        writeOwnedResultMetadata(time, mesh, parallel, "cavity3d", {
+            {"U", "vector", FieldLocation::Cell}, {"p", "scalar", FieldLocation::Cell}});
         if (parallel.rank == 0) {
             std::cout << "parallel_cavity_3d_test: ranks=" << parallel.size
                       << " iterations=" << iterations

@@ -353,7 +353,7 @@ void addTimeDerivativeImpl(
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 void interpolate(
     const ScalarField& cell,
@@ -730,9 +730,8 @@ void addVectorDiffusion(
             equation.source[static_cast<std::size_t>(owner)] +=
                 gamma * mesh.face_areas[f] * condition.value;
         } else if (condition.type == BoundaryType::Symmetry) {
-            // Mixed symmetry condition: normal velocity is fixed to zero,
-            // while tangential components use zero normal gradient. The
-            // projection is lagged, preserving a scalar LDU matrix.
+            // 混合对称条件：法向速度固定为零，切向分量采用零法向梯度。投影项
+            // 使用滞后值，从而保持标量 LDU 矩阵。
             equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
             equation.source[static_cast<std::size_t>(owner)] +=
                 coefficient * boundaryFaceValue(vector, face);
@@ -740,7 +739,7 @@ void addVectorDiffusion(
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 void addDiffusion(
     ScalarEquation& equation,
@@ -828,4 +827,4 @@ void addTimeDerivative(
     addTimeDerivativeImpl(equation, previous, dt, density, method, older);
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

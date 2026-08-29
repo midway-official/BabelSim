@@ -1,71 +1,96 @@
 # BabelSim
 
-BabelSim is a compact C++17 finite-volume framework for CFD, PDE, and
-multiphysics solvers. The framework separates mesh topology and geometry,
-contiguous fields, mathematical operators, discretization methods, equation
-assembly, algebraic solvers, and physics algorithms.
+BabelSim 是一个面向 CFD、PDE 与多物理场计算的紧凑 C++17 有限体积框架。它以
+TaihoCFD 的已验证数值算法为参考，但不依赖 TaihoCFD 的输入格式、运行时数据结构
+或求解器实现。
 
-The current development baseline is a unified three-dimensional structured
-mesh: a two-dimensional case is an extruded mesh with one cell in the
-z-direction and uses the same geometry and operator code. Orthogonal meshes
-are a special case of the non-orthogonal geometry representation.
+框架的核心边界是：
 
-Implemented:
+```text
+Mesh      空间在哪里，以及单元、面、顶点如何连接
+Field     空间中存放什么数据
+Operator  数据之间进行什么数学运算
+Method    该运算采用什么离散方式
+Equation  要求解的离散方程
+Assembly  如何形成代数矩阵与右端项
+Solver    如何求解 Ax=b
+Physics   如何组合方程与算子解决具体物理问题
+```
 
-- explicit cell/face/vertex topology with owner-neighbour and boundary patches;
-- three-dimensional hexahedral geometry, face area vectors, non-orthogonal and
-  skewness vectors;
-- contiguous scalar/vector/tensor fields with field-specific fixed-value,
-  fixed-gradient, zero-gradient, inlet-outlet, and symmetry/mirror conditions;
-- Green-Gauss and least-squares gradients, interpolation, flux, divergence,
-  skew-corrected reconstruction, convection, corrected diffusion, and
-  Euler/BDF2 time terms;
-- LDU finite-volume equations, constant or face-centred variable diffusion,
-  precomputed sparse assembly structure, and CFD-independent Eigen linear
-  solvers with reusable sparsity analysis and preconditioners;
-- a versioned native mesh-file reader and a three-component SIMPLE solver
-  with Rhie-Chow momentum interpolation, pressure correction, cell/face-flux
-  correction, and continuity monitoring.
+当前实现使用统一的三维结构化六面体网格；二维问题是 `nz=1` 的退化三维网格，
+不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、中心、面积向量、
+正交系数、非正交修正向量、偏斜量和插值权重，以少量内存换取迭代热点中的计算速度。
 
-TaihoCFD remains the numerical reference rather than a copied framework. See
-[`docs/architecture.md`](docs/architecture.md) for the audited mapping and
-[`docs/validation.md`](docs/validation.md) for quantitative and regression
-evidence.
+已实现：
 
-## Build and test
+- 三维结构化正交/非正交网格、边界 patch、cell/face/vertex 拓扑；
+- 连续存储的 scalar/vector/tensor Field 与通用边界条件；
+- Gradient、Interpolation、Flux、Divergence、Convection、Diffusion、Laplacian、
+  TimeDerivative 等有限体积算子；
+- LDU 方程、稀疏装配、串行与分布式 Krylov 线性求解；
+- 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
+- 不可压 SIMPLE；仅保留 `MomentumInterpolation` 与 `PressureCorrection` 两个
+  具有独立数值语义的 CFD 专用算子；
+- 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
 
-Dependencies are a C++17 compiler, Eigen 3, OpenMPI (or another MPI-3
-implementation), and GNU Make. The default Makefile compiler is `mpic++` so
-serial tests and MPI executables use one ABI.
+## 构建与运行
+
+依赖：C++17 编译器、Eigen 3、MPI-3 实现和 GNU Make。默认编译器为 `mpic++`，
+保证串行测试与 MPI 程序使用相同 ABI。
 
 ```bash
 make -j
-make test
-make test-mpi
-make test-mpi-poiseuille
-make validate-cavity
-make validate-poiseuille
-# after the MPI target, merge its rank files for ParaView/Tecplot
-make postprocess-mpi-poiseuille
+
+# 串行腔体
+build/babelsim-solve -case cases/cavity
+
+# MPI 通道流
+mpirun -np 4 build/babelsim-solve -case cases/poiseuille
+
+# 独立读取网格和并行结果，输出 ParaView/Tecplot 文件
+build/babelsim-post -case cases/poiseuille -format vtk tecplot
 ```
 
-`validate-poiseuille` uses the native `examples/meshes/poiseuille.mesh` file
-by default; set `POISEUILLE_MESH=/path/to/mesh` to override it.
+`-time <名称>` 可为同一案例保存多个结果时刻。例如：
 
-Both examples read a versioned BabelSim mesh file (`examples/meshes/*.mesh`);
-the files contain dimensions, Cartesian or explicit vertex geometry, and six
-boundary-patch records.  MPI field output is one owned-cell CSV per rank.  Use
-`tools/merge_parallel_csv.py <directory> --prefix <prefix> --ranks <N>` to
-write a merged legacy VTK point-cloud (`.vtk`) and Tecplot ASCII point zone
-(`.dat`) that can be opened directly by ParaView or Tecplot.
+```bash
+build/babelsim-solve -case cases/poiseuille -time serial
+mpirun -np 2 build/babelsim-solve -case cases/poiseuille -time mpi2
+python3 tools/compare_parallel_results.py \
+  cases/poiseuille/results/serial cases/poiseuille/results/mpi2 \
+  --atol 5e-6 --rtol 5e-6
+```
 
-For example, after `make test-mpi-poiseuille`, the merged files are written to
-`build/postprocess/poiseuille.vtk` and `build/postprocess/poiseuille.dat`.
+## 案例目录
 
-The validated baseline includes serial and MPI structured hexahedral finite volumes. Quantitative
-2D cavity and Poiseuille gates pass; the 3D and non-orthogonal cases are
-converged regression gates, not yet literature-accuracy claims. MPI currently
-decomposes structured meshes in x, exchanges two cell layers and interface
-face fields, reduces Krylov/SIMPLE metrics globally, and writes owned-cell
-rank files. Refined 3D validation, turbulence models, and general unstructured
-topology remain later stages.
+每个案例自包含，不照搬 OpenFOAM 的复杂层级：
+
+```text
+cases/poiseuille/
+├── case.bs                    # 选择求解器与各文件的相对路径
+├── mesh/poiseuille.mesh       # 几何、拓扑尺寸、patch 名称与角色
+├── fields/initial/U.field     # 初值与 U 的边界条件
+├── fields/initial/p.field     # 初值与 p 的边界条件
+├── physics/incompressible.bs  # 密度、黏度等物性
+├── numerics/simple.bs         # 算子方法、SIMPLE 与线性求解控制
+├── output.bs                  # 结果目录与时刻名
+└── results/<time>/rank-0000/  # 运行生成，不纳入 Git
+```
+
+每个 MPI rank 仅写出 owned cell 的 `U.csv`、`p.csv` 与 `metadata.bs`；ghost cell
+不会写出。`babelsim-post` 按 global ID 检查完整性并合并为原始六面体网格的 VTK
+`UNSTRUCTURED_GRID` 或 Tecplot `FEBRICK` 文件。
+
+## 测试与验证
+
+```bash
+make test                 # 几何、算子、case/field IO、专用算子、通用输出
+make test-mpi             # MPI 网格、halo、算子、装配、线性求解与 SIMPLE
+make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处理
+make validate-cavity      # 收敛的 Re=100 Ghia 腔体比较
+make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
+```
+
+详细设计与数据结构见 [架构说明](docs/architecture.md)，新增物理模型/求解器的流程
+见 [二次开发指南](docs/二次开发指南.md)，数值验证结果见
+[验证说明](docs/validation.md)。

@@ -1,6 +1,7 @@
 #include "babelsim/incompressible.h"
 #include "babelsim/mesh_io.h"
 #include "babelsim/parallel.h"
+#include "babelsim/parallel_writer.h"
 
 #include "test_util.h"
 
@@ -56,7 +57,7 @@ void configureChannelBoundaries(IncompressibleFields& fields) {
     }
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
@@ -129,9 +130,11 @@ int main(int argc, char* argv[]) {
         }
         const std::filesystem::path output = argc == 3
             ? argv[2] : "build/mpi-output";
-        writeOwnedCsv(
-            output, fields.velocity, fields.pressure, parallel,
-            "poiseuille" + std::to_string(parallel.size));
+        const auto time = output / ("poiseuille" + std::to_string(parallel.size));
+        writeOwnedFieldCsv(time, fields.velocity, parallel);
+        writeOwnedFieldCsv(time, fields.pressure, parallel);
+        writeOwnedResultMetadata(time, mesh, parallel, "poiseuille", {
+            {"U", "vector", FieldLocation::Cell}, {"p", "scalar", FieldLocation::Cell}});
     } catch (const std::exception& error) {
         std::cerr << "rank " << parallel.rank << ": " << error.what() << '\n';
         MPI_Abort(parallel.communicator, 1);

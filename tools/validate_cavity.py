@@ -31,10 +31,20 @@ GHIA_V = np.array(
 
 def _grid(csv: Path) -> tuple[np.ndarray, ...]:
     data = np.genfromtxt(csv, delimiter=",", names=True)
-    required = {"x", "y", "u", "v"}
+    required = {"x", "y"}
     if data.dtype.names is None or not required.issubset(data.dtype.names):
         raise ValueError(f"{csv} must contain columns {sorted(required)}")
-    if not all(np.isfinite(data[name]).all() for name in required):
+    # The launcher writes generic vector components as value0/value1, while
+    # the older one-file regression format used u/v.  Keep both readable so
+    # the reference data remains useful during the format transition.
+    if {"u", "v"}.issubset(data.dtype.names):
+        u, v = data["u"], data["v"]
+    elif {"value0", "value1"}.issubset(data.dtype.names):
+        u, v = data["value0"], data["value1"]
+    else:
+        raise ValueError(f"{csv} must contain u/v or value0/value1")
+    if not all(np.isfinite(data[name]).all() for name in required) or \
+       not np.isfinite(u).all() or not np.isfinite(v).all():
         raise ValueError("cavity CSV contains non-finite values")
     # Polyhedral centroids can differ by a few ulps between otherwise aligned
     # rows, so topology inference must not rely on bitwise-equal coordinates.
@@ -49,8 +59,8 @@ def _grid(csv: Path) -> tuple[np.ndarray, ...]:
     return (
         data["x"][order].reshape(shape),
         data["y"][order].reshape(shape),
-        data["u"][order].reshape(shape),
-        data["v"][order].reshape(shape),
+        u[order].reshape(shape),
+        v[order].reshape(shape),
     )
 
 

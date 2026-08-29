@@ -25,7 +25,7 @@ bool invalid(double value) {
     return !std::isfinite(value);
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 struct DistributedLinearSolver::Implementation {
     Implementation(
@@ -192,7 +192,7 @@ struct DistributedLinearSolver::Implementation {
         } else if (final_residual <= target * (1.0 + 1e-8)) {
             status = SolveStatus::Converged;
         } else if (status == SolveStatus::Converged) {
-            // Recursive Krylov residuals can drift from the true residual.
+            // 递推 Krylov 残差可能偏离真实残差。
             status = SolveStatus::MaxIterations;
         }
         return {
@@ -481,4 +481,4 @@ SolveResult DistributedLinearSolver::solve(
     return state.solveBicgstab(b, x, initial_residual, target, scale);
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

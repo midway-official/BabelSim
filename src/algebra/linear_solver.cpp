@@ -45,7 +45,7 @@ SolveResult runPreparedSolver(
     };
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 struct PreparedLinearSolver::Implementation {
     using ConjugateGradient = Eigen::ConjugateGradient<
@@ -114,9 +114,9 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
     state.bicgstab.setMaxIterations(state.config.max_iterations);
     state.bicgstab.preconditioner().setDroptol(1e-3);
     state.bicgstab.preconditioner().setFillfactor(2);
-    // Calling IterativeSolverBase::analyzePattern directly is unsafe with
-    // Eigen 3.4 IncompleteLUT because that preconditioner does not initialize
-    // its ComputationInfo until factorization. compute() performs both safely.
+    // 对 Eigen 3.4 的 IncompleteLUT 直接调用 IterativeSolverBase::analyzePattern
+    // 不安全，因为该预条件器直到 factorize 才初始化 ComputationInfo。compute() 会
+    // 安全地完成两步。
     state.bicgstab.compute(A);
     state.pattern_analyzed = true;
     state.factorization_succeeded = state.bicgstab.info() == Eigen::Success;
@@ -199,4 +199,4 @@ SolveResult solve(
     return solver.solve(b, x);
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

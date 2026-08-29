@@ -52,8 +52,7 @@ struct Mesh {
     Index owned_i_end = 0;
     Index ghost_layers = 0;
 
-    // Structure-of-arrays topology and geometry. The same arrays are used for
-    // nx*ny*1 and fully three-dimensional meshes.
+    // 结构化数组形式的拓扑与几何。相同数组同时服务 nx*ny*1 和完整三维网格。
     std::vector<Vec3> vertices;
     std::vector<Vec3> cell_centres;
     std::vector<double> cell_volumes;
@@ -73,8 +72,7 @@ struct Mesh {
     std::vector<double> face_owner_weights;
     std::vector<BoundaryPatch> patches;
 
-    // Local structured cell ids remain the storage indices. These compact
-    // maps select the owned subset used by distributed algebra and output.
+    // 局部结构化 cell ID 仍是存储索引。这些紧凑映射选择分布式代数和输出使用的 owned 子集。
     std::vector<Index> owned_cells;
     std::vector<Index> cell_owned_indices;
     std::vector<Index> cell_global_ids;
@@ -96,6 +94,29 @@ struct Mesh {
     }
     Index faceCount() const { return static_cast<Index>(face_owner.size()); }
     Index vertexCount() const { return static_cast<Index>(vertices.size()); }
+    Index owner(Index face) const { return face_owner[static_cast<std::size_t>(face)]; }
+    Index neighbour(Index face) const {
+        return face_neighbour[static_cast<std::size_t>(face)];
+    }
+    const Vec3& faceCentre(Index face) const {
+        return face_centres[static_cast<std::size_t>(face)];
+    }
+    const Vec3& cellCentre(Index cell) const {
+        return cell_centres[static_cast<std::size_t>(cell)];
+    }
+    const Vec3& faceAreaVector(Index face) const {
+        return face_area_vectors[static_cast<std::size_t>(face)];
+    }
+    double faceArea(Index face) const { return face_areas[static_cast<std::size_t>(face)]; }
+    double faceOrthogonalCoefficient(Index face) const {
+        return face_orthogonal_coefficients[static_cast<std::size_t>(face)];
+    }
+    const Vec3& faceNonOrthogonal(Index face) const {
+        return face_non_orthogonal[static_cast<std::size_t>(face)];
+    }
+    double faceOwnerWeight(Index face) const {
+        return face_owner_weights[static_cast<std::size_t>(face)];
+    }
     bool boundaryFace(Index face) const {
         return face_neighbour[static_cast<std::size_t>(face)] == invalid_index;
     }
@@ -118,4 +139,4 @@ struct Mesh {
     void validate() const;
 };
 
-}  // namespace babelsim
+}  // babelsim 命名空间

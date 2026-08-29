@@ -40,7 +40,7 @@ Vec3 linearVectorValue(const Vec3& point) {
     };
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
     const Mesh mesh = Mesh::cartesian({3, 3, 3}, {0, 0, 0}, {3, 3, 3});

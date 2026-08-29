@@ -59,7 +59,7 @@ void addTetrahedron(
     first_moment += tetra_volume * ((reference + a + b + c) / 4.0);
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 std::array<PatchSpec, 6> defaultPatches() {
     return {{
@@ -219,8 +219,7 @@ Mesh Mesh::structured(
         mesh.patches.push_back({patch.name, patch.kind, {}});
     }
 
-    // A vertex average is sufficient to orient faces. The exact polyhedral
-    // centroid is computed from a tetrahedral decomposition below.
+    // 顶点平均值足以确定面的朝向；精确多面体质心在下方通过四面体分解计算。
     for (Index k = 0; k < cells[2]; ++k) {
         for (Index j = 0; j < cells[1]; ++j) {
             for (Index i = 0; i < cells[0]; ++i) {
@@ -276,7 +275,7 @@ Mesh Mesh::structured(
         }
     };
 
-    // x-normal faces; vertex order has a positive logical-x normal.
+    // x 法向面；顶点顺序对应正逻辑 x 法向。
     for (Index k = 0; k < cells[2]; ++k) {
         for (Index j = 0; j < cells[1]; ++j) {
             for (Index i = 0; i <= cells[0]; ++i) {
@@ -300,7 +299,7 @@ Mesh Mesh::structured(
         }
     }
 
-    // y-normal faces; vertex order has a positive logical-y normal.
+    // y 法向面；顶点顺序对应正逻辑 y 法向。
     for (Index k = 0; k < cells[2]; ++k) {
         for (Index j = 0; j <= cells[1]; ++j) {
             for (Index i = 0; i < cells[0]; ++i) {
@@ -324,7 +323,7 @@ Mesh Mesh::structured(
         }
     }
 
-    // z-normal faces; vertex order has a positive logical-z normal.
+    // z 法向面；顶点顺序对应正逻辑 z 法向。
     for (Index k = 0; k <= cells[2]; ++k) {
         for (Index j = 0; j < cells[1]; ++j) {
             for (Index i = 0; i < cells[0]; ++i) {
@@ -348,7 +347,7 @@ Mesh Mesh::structured(
         }
     }
 
-    // Exact centroid and volume of the triangulated hexahedron.
+    // 对三角化六面体计算精确质心和体积。
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         const Vec3 reference = mesh.cell_centres[static_cast<std::size_t>(cell)];
         double volume = 0.0;
@@ -562,4 +561,4 @@ void Mesh::validate() const {
     }
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

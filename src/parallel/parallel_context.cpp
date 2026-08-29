@@ -1,8 +1,6 @@
 #include "babelsim/parallel.h"
 
 #include <algorithm>
-#include <fstream>
-#include <iomanip>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -33,7 +31,7 @@ std::array<PatchSpec, 6> temporaryPatches() {
     return patches;
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 ParallelContext ParallelContext::world(MPI_Comm communicator_value) {
     requireMpiInitialized();
@@ -429,50 +427,4 @@ void HaloExchange::exchange(TensorField& field) {
     }
 }
 
-void writeOwnedCsv(
-    const std::filesystem::path& directory,
-    const VectorField& velocity,
-    const ScalarField& pressure,
-    const ParallelContext& parallel,
-    const std::string& prefix)
-{
-    const Mesh& mesh = velocity.mesh();
-    if (&pressure.mesh() != &mesh ||
-        velocity.location() != FieldLocation::Cell ||
-        pressure.location() != FieldLocation::Cell || prefix.empty()) {
-        throw std::invalid_argument("parallel output fields are incompatible");
-    }
-    int directory_error = 0;
-    if (parallel.rank == 0) {
-        std::error_code error;
-        std::filesystem::create_directories(directory, error);
-        directory_error = error ? 1 : 0;
-    }
-    if (parallel.maximum(directory_error) != 0) {
-        throw std::runtime_error("cannot create parallel output directory: " +
-                                 directory.string());
-    }
-    parallel.barrier();
-    const auto path = directory /
-        (prefix + "_" + std::to_string(parallel.rank) + ".csv");
-    std::ofstream output(path);
-    if (parallel.maximum(output ? 0 : 1) != 0) {
-        throw std::runtime_error("cannot create parallel field output: " + path.string());
-    }
-    output << "global_id,x,y,z,u,v,w,p\n" << std::setprecision(17);
-    for (Index cell : mesh.owned_cells) {
-        const Vec3& point = mesh.cell_centres[static_cast<std::size_t>(cell)];
-        const Vec3& value = velocity[cell];
-        output << mesh.globalCellId(cell) << ','
-               << point.x << ',' << point.y << ',' << point.z << ','
-               << value.x << ',' << value.y << ',' << value.z << ','
-               << pressure[cell] << '\n';
-    }
-    output.close();
-    if (parallel.maximum(output ? 0 : 1) != 0) {
-        throw std::runtime_error("cannot flush parallel field output: " + path.string());
-    }
-    parallel.barrier();
-}
-
-}  // namespace babelsim
+}  // babelsim 命名空间

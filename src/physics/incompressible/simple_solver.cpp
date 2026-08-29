@@ -17,7 +17,7 @@ bool healthy(const SolveResult& result) {
         std::isfinite(result.relative_residual);
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 void FluidProperties::validate() const {
     if (!finitePositive(density) || !finitePositive(dynamic_viscosity)) {
@@ -67,7 +67,7 @@ SimpleSolver::SimpleSolver(
       pressure_gradient_(mesh_, FieldLocation::Cell, "gradP"),
       correction_gradient_(mesh_, FieldLocation::Cell, "gradPPrime"),
       mass_flux_(mesh_, FieldLocation::Face, "rhoPhi"),
-      mobility_(static_cast<std::size_t>(mesh_.cellCount()), 0.0),
+      mobility_(mesh_, FieldLocation::Cell, "rAU"),
       previous_velocity_(static_cast<std::size_t>(mesh_.cellCount())),
       pressure_source_(Eigen::VectorXd::Zero(mesh_.ownedCellCount())),
       pressure_solution_(Eigen::VectorXd::Zero(mesh_.ownedCellCount()))
@@ -144,8 +144,7 @@ void SimpleSolver::assembleMomentum(const TimeState& time) {
         momentum_.source[c] -= mesh_.cell_volumes[c] * pressure_gradient_[cell];
     }
 
-    // This is TaihoCFD's algebraically scaled form of standard equation
-    // under-relaxation: keep aP, scale off-diagonals and the physical source.
+    // 这是 TaihoCFD 经代数缩放的标准方程欠松弛：保持 aP，缩放非对角项与物理源项。
     const double alpha = control_.velocity_relaxation;
     for (Index face = 0; face < mesh_.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
@@ -161,7 +160,7 @@ void SimpleSolver::assembleMomentum(const TimeState& time) {
         momentum_.source[c] =
             alpha * momentum_.source[c] +
             (1.0 - alpha) * momentum_.diagonal[c] * fields_.velocity[cell];
-        mobility_[c] = mesh_.cell_volumes[c] / momentum_.diagonal[c];
+        mobility_[cell] = mesh_.cell_volumes[c] / momentum_.diagonal[c];
     }
     if (halo_) {
         halo_->exchange(mobility_);
@@ -211,110 +210,22 @@ std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
 
 void SimpleSolver::momentumInterpolation() {
     gradient(fields_.pressure, pressure_gradient_, methods_.gradient);
-    for (Index face = 0; face < mesh_.faceCount(); ++face) {
-        const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh_.face_owner[f];
-        const Index neighbour = mesh_.face_neighbour[f];
-        if (neighbour == invalid_index) {
-            const Vec3 boundary_velocity = boundaryFaceValue(
-                fields_.velocity, face, fields_.face_flux[face]);
-            fields_.face_flux[face] = dot(
-                boundary_velocity, mesh_.face_area_vectors[f]);
-            continue;
-        }
-        const double weight = mesh_.face_owner_weights[f];
-        const double face_mobility =
-            weight * mobility_[static_cast<std::size_t>(owner)] +
-            (1.0 - weight) * mobility_[static_cast<std::size_t>(neighbour)];
-        const Vec3 face_velocity =
-            weight * fields_.velocity[owner] +
-            (1.0 - weight) * fields_.velocity[neighbour];
-        const Vec3 interpolated_pressure_response =
-            weight * mobility_[static_cast<std::size_t>(owner)] *
-                pressure_gradient_[owner] +
-            (1.0 - weight) * mobility_[static_cast<std::size_t>(neighbour)] *
-                pressure_gradient_[neighbour];
-        fields_.face_flux[face] =
-            dot(face_velocity, mesh_.face_area_vectors[f]) +
-            dot(interpolated_pressure_response, mesh_.face_area_vectors[f]) -
-            face_mobility * mesh_.face_orthogonal_coefficients[f] *
-                (fields_.pressure[neighbour] - fields_.pressure[owner]);
-    }
+    MomentumInterpolation::apply(
+        mesh_, fields_.velocity, fields_.pressure, mobility_, pressure_gradient_,
+        fields_.face_flux);
 }
 
 void SimpleSolver::assemblePressureCorrection() {
-    pressure_equation_.reset();
-    pressure_correction_.fill(0.0);
-    for (Index face = 0; face < mesh_.faceCount(); ++face) {
-        const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh_.face_owner[f];
-        const Index neighbour = mesh_.face_neighbour[f];
-        pressure_equation_.source[static_cast<std::size_t>(owner)] -=
-            fields_.face_flux[face];
-        if (neighbour != invalid_index) {
-            pressure_equation_.source[static_cast<std::size_t>(neighbour)] +=
-                fields_.face_flux[face];
-            const double weight = mesh_.face_owner_weights[f];
-            const double face_mobility =
-                weight * mobility_[static_cast<std::size_t>(owner)] +
-                (1.0 - weight) * mobility_[static_cast<std::size_t>(neighbour)];
-            const double coefficient =
-                face_mobility * mesh_.face_orthogonal_coefficients[f];
-            pressure_equation_.diagonal[static_cast<std::size_t>(owner)] += coefficient;
-            pressure_equation_.diagonal[static_cast<std::size_t>(neighbour)] += coefficient;
-            pressure_equation_.upper[f] -= coefficient;
-            pressure_equation_.lower[f] -= coefficient;
-        } else if (fields_.pressure.boundary(mesh_.face_patch[f]).type ==
-                   BoundaryType::FixedValue) {
-            pressure_equation_.diagonal[static_cast<std::size_t>(owner)] +=
-                mobility_[static_cast<std::size_t>(owner)] *
-                mesh_.face_orthogonal_coefficients[f];
-        }
-    }
-
-    if (!has_fixed_pressure_ && parallel_.rank == 0) {
-        if (mesh_.owned_cells.empty()) {
-            throw std::runtime_error("closed domain has no pressure reference cell");
-        }
-        const auto reference = static_cast<std::size_t>(mesh_.owned_cells.front());
-        if (!(pressure_equation_.diagonal[reference] > 0.0)) {
-            throw std::runtime_error("pressure reference diagonal is invalid");
-        }
-        pressure_equation_.diagonal[reference] +=
-            pressure_equation_.diagonal[reference];
-    }
+    PressureCorrection::assemble(
+        pressure_equation_, pressure_correction_, mesh_, fields_.face_flux,
+        mobility_, fields_.pressure, has_fixed_pressure_, parallel_);
 }
 
 void SimpleSolver::correctPressureAndVelocity() {
-    for (Index cell : mesh_.owned_cells) {
-        fields_.pressure[cell] +=
-            control_.pressure_relaxation * pressure_correction_[cell];
-    }
     gradient(pressure_correction_, correction_gradient_, methods_.gradient);
-    for (Index cell : mesh_.owned_cells) {
-        fields_.velocity[cell] -=
-            mobility_[static_cast<std::size_t>(cell)] * correction_gradient_[cell];
-    }
-
-    for (Index face = 0; face < mesh_.faceCount(); ++face) {
-        const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh_.face_owner[f];
-        const Index neighbour = mesh_.face_neighbour[f];
-        if (neighbour != invalid_index) {
-            const double weight = mesh_.face_owner_weights[f];
-            const double face_mobility =
-                weight * mobility_[static_cast<std::size_t>(owner)] +
-                (1.0 - weight) * mobility_[static_cast<std::size_t>(neighbour)];
-            fields_.face_flux[face] +=
-                face_mobility * mesh_.face_orthogonal_coefficients[f] *
-                (pressure_correction_[owner] - pressure_correction_[neighbour]);
-        } else if (fields_.pressure.boundary(mesh_.face_patch[f]).type ==
-                   BoundaryType::FixedValue) {
-            fields_.face_flux[face] +=
-                mobility_[static_cast<std::size_t>(owner)] *
-                mesh_.face_orthogonal_coefficients[f] * pressure_correction_[owner];
-        }
-    }
+    PressureCorrection::apply(
+        mesh_, control_.pressure_relaxation, fields_.pressure, fields_.velocity,
+        fields_.face_flux, pressure_correction_, correction_gradient_, mobility_);
     if (halo_) {
         halo_->exchange(fields_.pressure);
         halo_->exchange(fields_.velocity);
@@ -437,4 +348,4 @@ SimpleIterationResult SimpleSolver::iterate(const TimeState& time) {
     return result;
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

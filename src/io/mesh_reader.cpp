@@ -49,7 +49,7 @@ PatchKind patchKind(const std::string& name, const std::filesystem::path& path) 
     invalidFile(path, "unknown patch kind " + name);
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 Mesh readMeshFile(const std::filesystem::path& path) {
     std::ifstream input(path);
@@ -136,4 +136,4 @@ Mesh readMeshFile(const std::filesystem::path& path) {
     return mesh;
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

@@ -14,11 +14,9 @@ struct LinearSystem {
     Eigen::VectorXd b;
 };
 
-// Precomputes the mesh-dependent compressed sparse structure and the direct
-// value-array positions of every LDU coefficient. On a decomposed mesh the
-// matrix contains owned rows only; cross-rank face entries are applied by the
-// distributed solver's halo matvec. update() therefore performs no topology
-// traversal, triplet allocation, sorting, or sparse insertion.
+// 预计算依赖网格的压缩稀疏结构及每个 LDU 系数在值数组中的直接位置。分区网格仅
+// 生成自有行；跨进程的面系数由分布式求解器的 halo 矩阵向量乘施加。因此 update()
+// 不遍历拓扑，不分配三元组，不排序，也不插入稀疏项。
 class SparseAssembly {
 public:
     explicit SparseAssembly(const Mesh& mesh);
@@ -50,4 +48,4 @@ void assembleSource(
     std::array<Eigen::VectorXd, 3>& result);
 std::array<Eigen::VectorXd, 3> assembleSource(const VectorEquation& equation);
 
-}  // namespace babelsim
+}  // babelsim 命名空间

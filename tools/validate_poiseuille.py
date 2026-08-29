@@ -21,17 +21,23 @@ def main() -> int:
         raise ValueError("y-max must exceed y-min")
 
     data = np.genfromtxt(args.csv, delimiter=",", names=True)
-    required = {"x", "y", "u"}
+    required = {"x", "y"}
     if data.dtype.names is None or not required.issubset(data.dtype.names):
         raise ValueError(f"{args.csv} must contain columns {sorted(required)}")
-    if not all(np.isfinite(data[name]).all() for name in required):
+    if "u" in data.dtype.names:
+        velocity = data["u"]
+    elif "value0" in data.dtype.names:
+        velocity = data["value0"]
+    else:
+        raise ValueError(f"{args.csv} must contain u or value0")
+    if not all(np.isfinite(data[name]).all() for name in required) or not np.isfinite(velocity).all():
         raise ValueError("Poiseuille CSV contains non-finite values")
     outlet = np.isclose(data["x"], np.max(data["x"]), rtol=0.0, atol=1e-13)
     if not np.any(outlet):
         raise ValueError("Poiseuille CSV contains no outlet cells")
     order = np.argsort(data["y"][outlet])
     y = data["y"][outlet][order]
-    u = data["u"][outlet][order]
+    u = velocity[outlet][order]
     eta = (y - args.y_min) / (args.y_max - args.y_min)
     exact = 6.0 * args.mean_velocity * eta * (1.0 - eta)
     error = u - exact

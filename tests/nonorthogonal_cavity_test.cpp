@@ -40,7 +40,7 @@ Mesh warpedCavity(Index n) {
     return Mesh::structured(dimensions, std::move(points), patches);
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 int main() {
     constexpr Index n = 10;

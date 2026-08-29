@@ -40,9 +40,8 @@ struct Vec3 {
     }
 };
 
-// Gradient of a vector field, stored by component: rows[0]=grad(Ux), etc.
-// Keeping three Vec3 rows makes each cell tensor contiguous without Eigen
-// alignment or allocator requirements.
+// 向量场梯度按分量存储：rows[0]=grad(Ux) 等。三个 Vec3 行使每个 cell 的 tensor 连续，
+// 不需要 Eigen 对齐或专用分配器。
 struct Tensor3 {
     Vec3 rows[3]{};
 
@@ -82,4 +81,4 @@ inline std::ostream& operator<<(std::ostream& output, const Vec3& value) {
     return output << '(' << value.x << ", " << value.y << ", " << value.z << ')';
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

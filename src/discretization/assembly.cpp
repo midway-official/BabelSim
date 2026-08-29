@@ -36,7 +36,7 @@ Eigen::SparseMatrix<double> assembleMatrixImpl(const Equation<T>& equation) {
     return assembly.matrix();
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 SparseAssembly::SparseAssembly(const Mesh& mesh)
     : mesh_(&mesh),
@@ -175,4 +175,4 @@ std::array<Eigen::VectorXd, 3> assembleSource(const VectorEquation& equation) {
     return result;
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

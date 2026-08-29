@@ -1,0 +1,12 @@
+interpolation linear
+gradient greenGauss
+convection upwind
+diffusion orthogonal
+time steady
+maxIterations 5000
+velocityRelaxation 0.5
+pressureRelaxation 0.3
+continuityTolerance 1e-8
+velocityTolerance 1e-6
+velocitySolver bicgstab ilut 1e-14 1e-8 1000
+pressureSolver cg incompleteCholesky 1e-14 1e-8 1000

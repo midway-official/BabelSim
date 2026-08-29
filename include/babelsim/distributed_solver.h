@@ -7,9 +7,8 @@
 
 namespace babelsim {
 
-// Distributed Krylov solver with a rank-local ILUT/IC block preconditioner.
-// Cross-rank LDU coefficients are applied after a halo exchange, while every
-// dot product and residual norm is reduced over the supplied communicator.
+// 带 rank-local ILUT/IC 块预条件器的分布式 Krylov 求解器。跨 rank LDU 系数在
+// halo exchange 后施加；所有点积和残差范数均在给定 communicator 上归约。
 class DistributedLinearSolver {
 public:
     DistributedLinearSolver(
@@ -41,4 +40,4 @@ private:
     std::unique_ptr<Implementation> implementation_;
 };
 
-}  // namespace babelsim
+}  // babelsim 命名空间

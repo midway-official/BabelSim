@@ -7,12 +7,10 @@
 
 namespace babelsim {
 
-// Coefficients are stored for every local cell/face so operators can use one
-// indexing scheme for owned and ghost cells. SparseAssembly emits only owned
-// rows; for an internal owner-neighbour face f, upper[f] is the owner-row
-// coupling to the neighbour and lower[f] is the neighbour-row coupling to the
-// owner. DistributedLinearSolver applies couplings to ghost neighbours in its
-// halo matvec.
+// 系数为每个局部单元/面存储，使算子可用同一索引方案访问自有与幽灵单元。
+// SparseAssembly 仅生成 owned 行；对内部 owner-neighbour 面 f，upper[f] 是
+// owner 行到 neighbour 的耦合，lower[f] 是 neighbour 行到 owner 的耦合。
+// DistributedLinearSolver 在 halo 矩阵向量乘中施加到幽灵 neighbour 的耦合。
 template <typename T>
 struct Equation {
     explicit Equation(const Mesh& mesh_value)
@@ -40,4 +38,4 @@ struct Equation {
 using ScalarEquation = Equation<double>;
 using VectorEquation = Equation<Vec3>;
 
-}  // namespace babelsim
+}  // babelsim 命名空间

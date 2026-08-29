@@ -2,6 +2,7 @@
 #include "babelsim/assembly.h"
 #include "babelsim/distributed_solver.h"
 #include "babelsim/operators.h"
+#include "babelsim/parallel_writer.h"
 
 #include "test_util.h"
 
@@ -9,7 +10,9 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -159,8 +162,8 @@ int main(int argc, char* argv[]) {
                 "distributed constant-field divergence is not zero");
         }
 
-        // Every generic equation operator is exercised on local owned rows
-        // with synchronized ghost inputs, independently of SIMPLE.
+        // 每个通用方程算子均在局部 owned 行和已同步的 ghost 输入上测试，
+        // 不依赖 SIMPLE。
         ScalarField previous(local, FieldLocation::Cell, "previous", 0.0);
         ScalarField older(local, FieldLocation::Cell, "older", 0.0);
         for (Index cell : local.owned_cells) {
@@ -298,10 +301,16 @@ int main(int argc, char* argv[]) {
         ScalarField pressure(local, FieldLocation::Cell, "p");
         const std::filesystem::path directory = argc > 1
             ? argv[1] : "build/mpi-output";
-        writeOwnedCsv(directory, vector, pressure, parallel, "domain");
+        const auto time = directory / "domain";
+        writeOwnedFieldCsv(time, vector, parallel);
+        writeOwnedFieldCsv(time, pressure, parallel);
+        writeOwnedResultMetadata(time, local, parallel, "domain", {
+            {"vector", "vector", FieldLocation::Cell}, {"p", "scalar", FieldLocation::Cell}});
         parallel.barrier();
+        std::ostringstream rank_directory;
+        rank_directory << "rank-" << std::setfill('0') << std::setw(4) << parallel.rank;
         std::ifstream input(
-            directory / ("domain_" + std::to_string(parallel.rank) + ".csv"));
+            time / rank_directory.str() / "vector.csv");
         require(static_cast<bool>(input), "parallel output file is missing");
         std::string line;
         Index lines = 0;

@@ -5,15 +5,12 @@
 #include <mpi.h>
 
 #include <cstddef>
-#include <filesystem>
 #include <stdexcept>
-#include <string>
 #include <vector>
 
 namespace babelsim {
 
-// A serial default keeps the mathematical core usable without MPI_Init.
-// world() is the explicit entry point for MPI applications.
+// 串行默认上下文使数学核心无需 MPI_Init 也可使用；world() 是 MPI 应用的显式入口。
 struct ParallelContext {
     MPI_Comm communicator = MPI_COMM_NULL;
     int rank = 0;
@@ -29,8 +26,7 @@ struct ParallelContext {
     void barrier() const;
 };
 
-// Structured x decomposition. Two layers are the default because corrected
-// face diffusion may consume a gradient reconstructed in the first ghost cell.
+// 结构化 x 向分区。默认两层 ghost，因为修正面扩散可能读取第一层 ghost cell 中重构的梯度。
 Mesh decompose(
     const Mesh& global,
     const ParallelContext& parallel,
@@ -49,8 +45,7 @@ void copyBoundaryConditions(const Field<T>& global, Field<T>& local) {
     }
 }
 
-// Packs strided x-normal planes into persistent buffers. Field storage remains
-// contiguous and independent of MPI data types.
+// 将非连续的 x 法向平面打包到持久缓冲区。Field 存储保持连续，且不依赖 MPI 数据类型。
 class HaloExchange {
 public:
     HaloExchange(const Mesh& mesh, ParallelContext parallel);
@@ -86,11 +81,4 @@ private:
     std::vector<double> receive_face_buffer_right_;
 };
 
-void writeOwnedCsv(
-    const std::filesystem::path& directory,
-    const VectorField& velocity,
-    const ScalarField& pressure,
-    const ParallelContext& parallel,
-    const std::string& prefix = "fields");
-
-}  // namespace babelsim
+}  // babelsim 命名空间

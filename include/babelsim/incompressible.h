@@ -1,6 +1,7 @@
 #pragma once
 
 #include "babelsim/distributed_solver.h"
+#include "babelsim/incompressible_operators.h"
 #include "babelsim/linear_solver.h"
 #include "babelsim/methods.h"
 #include "babelsim/operators.h"
@@ -114,7 +115,7 @@ private:
     VectorField pressure_gradient_;
     VectorField correction_gradient_;
     ScalarField mass_flux_;
-    std::vector<double> mobility_;
+    ScalarField mobility_;
     std::vector<Vec3> previous_velocity_;
     std::array<Eigen::VectorXd, 3> momentum_source_;
     std::array<Eigen::VectorXd, 3> velocity_solution_;
@@ -125,4 +126,4 @@ private:
     bool has_fixed_pressure_ = false;
 };
 
-}  // namespace babelsim
+}  // babelsim 命名空间

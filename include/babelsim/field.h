@@ -30,7 +30,7 @@ enum class BoundaryType {
 template <typename T>
 struct BoundaryCondition {
     BoundaryType type = BoundaryType::ZeroGradient;
-    // Fixed value, fixed outward-normal gradient, or inlet value.
+    // 固定值、固定外法向梯度，或入口值。
     T value{};
 
     static BoundaryCondition fixedValue(T value) {
@@ -190,4 +190,4 @@ inline Vec3 boundaryFaceValue(
     throw std::invalid_argument("unknown vector boundary condition");
 }
 
-}  // namespace babelsim
+}  // babelsim 命名空间

@@ -6,9 +6,8 @@
 
 namespace babelsim {
 
-// Operators are local finite-volume kernels. In a decomposed run, callers
-// exchange each input cell/face field with HaloExchange before invoking a
-// kernel; no operator reads a hidden global field or performs an MPI collective.
+// 算子是局部有限体积核。分区运行时，调用方在调用算子前用 HaloExchange 同步每个输入
+// 单元/面场；算子不会读取隐藏的全局场，也不会执行 MPI 集体通信。
 
 void interpolate(
     const ScalarField& cell,
@@ -19,8 +18,7 @@ void interpolate(
     VectorField& face,
     InterpolationMethod method = InterpolationMethod::Linear);
 
-// Linear interpolation to the owner-neighbour intersection followed by a
-// gradient correction from that intersection to the geometric face centre.
+// 先线性插值到 owner-neighbour 交点，再由该交点的梯度修正重构到几何面中心。
 void reconstruct(
     const ScalarField& cell,
     const VectorField& cell_gradient,
@@ -107,4 +105,4 @@ void addTimeDerivative(
     TimeMethod method = TimeMethod::Euler,
     const VectorField* older = nullptr);
 
-}  // namespace babelsim
+}  // babelsim 命名空间
