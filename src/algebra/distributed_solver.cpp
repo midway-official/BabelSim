@@ -192,7 +192,7 @@ struct DistributedLinearSolver::Implementation {
         } else if (final_residual <= target * (1.0 + 1e-8)) {
             status = SolveStatus::Converged;
         } else if (status == SolveStatus::Converged) {
-            // 递推 Krylov 残差可能偏离真实残差。
+            // 递推 Krylov 残差可能偏离真实残差，因此周期性计算实际残差。
             status = SolveStatus::MaxIterations;
         }
         return {

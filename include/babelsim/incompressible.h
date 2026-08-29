@@ -20,6 +20,7 @@ struct FluidProperties {
 
 struct SimpleControl {
     int max_iterations = 1000;
+    int non_orthogonal_corrections = 1;
     double velocity_relaxation = 0.7;
     double pressure_relaxation = 0.3;
     double continuity_tolerance = 1e-8;

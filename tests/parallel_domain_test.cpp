@@ -1,6 +1,7 @@
 #include "babelsim/parallel.h"
 #include "babelsim/assembly.h"
 #include "babelsim/distributed_solver.h"
+#include "babelsim/incompressible_operators.h"
 #include "babelsim/operators.h"
 #include "babelsim/parallel_writer.h"
 
@@ -297,6 +298,174 @@ int main(int argc, char* argv[]) {
                     "MPI corrected Laplacian failed at a partition face");
             }
         }
+
+        // 在分区交界面验证带偏斜修正的通用算子。所有输入只包含本地
+        // owned+ghost 数据，算子内部不访问全局场。
+        ScalarField skew_faces(skew, FieldLocation::Face, "skewFaces");
+        interpolate(
+            skew_linear, skew_faces,
+            InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+        VectorField skew_velocity(skew, FieldLocation::Cell, "skewVelocity");
+        for (Index cell : skew.owned_cells) {
+            const Vec3& point =
+                skew.cell_centres[static_cast<std::size_t>(cell)];
+            skew_velocity[cell] = {
+                point.x + 2.0 * point.y - 0.5 * point.z,
+                -point.x + 3.0 * point.z,
+                0.25 * point.x - point.y + 2.0 * point.z,
+            };
+        }
+        skew_halo.exchange(skew_velocity);
+        ScalarField skew_flux(skew, FieldLocation::Face, "skewFlux");
+        ScalarField skew_divergence(
+            skew, FieldLocation::Cell, "skewDivergence");
+        flux(
+            skew_velocity, skew_flux,
+            InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+        divergence(
+            skew_velocity, skew_divergence,
+            InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+        VectorField advecting_velocity(
+            skew, FieldLocation::Cell, "advectingVelocity", {0.7, -0.2, 0.4});
+        ScalarField advecting_flux(
+            skew, FieldLocation::Face, "advectingFlux");
+        flux(
+            advecting_velocity, advecting_flux,
+            InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+        ScalarEquation skew_convection(skew);
+        addConvection(
+            skew_convection, advecting_flux, skew_linear,
+            ConvectionMethod::Central, InterpolationMethod::Corrected,
+            GradientMethod::LeastSquares);
+
+        double local_operator_error = 0.0;
+        for (Index cell : skew.owned_cells) {
+            const Index global_id = skew.globalCellId(cell);
+            const Index global_i = global_id % skew_dimensions[0];
+            const Index global_j =
+                (global_id / skew_dimensions[0]) % skew_dimensions[1];
+            const Index global_k = global_id /
+                (skew_dimensions[0] * skew_dimensions[1]);
+            if ((global_i != 3 && global_i != 4) ||
+                global_j != 2 || global_k != 2) {
+                continue;
+            }
+            local_operator_error = std::max(
+                local_operator_error,
+                std::abs(skew_divergence[cell] - 3.0));
+            for (Index face : skew.cell_faces[static_cast<std::size_t>(cell)]) {
+                const auto f = static_cast<std::size_t>(face);
+                const Vec3& point = skew.face_centres[f];
+                local_operator_error = std::max(
+                    local_operator_error,
+                    std::abs(
+                        skew_faces[face] -
+                        (2.0 * point.x - 3.0 * point.y +
+                         0.5 * point.z + 1.0)));
+                const Vec3 exact_velocity{
+                    point.x + 2.0 * point.y - 0.5 * point.z,
+                    -point.x + 3.0 * point.z,
+                    0.25 * point.x - point.y + 2.0 * point.z,
+                };
+                local_operator_error = std::max(
+                    local_operator_error,
+                    std::abs(
+                        skew_flux[face] -
+                        dot(exact_velocity, skew.face_area_vectors[f])));
+            }
+            double row =
+                skew_convection.diagonal[static_cast<std::size_t>(cell)] *
+                    skew_linear[cell] -
+                skew_convection.source[static_cast<std::size_t>(cell)];
+            for (Index face : skew.cell_faces[static_cast<std::size_t>(cell)]) {
+                const auto f = static_cast<std::size_t>(face);
+                const Index owner = skew.face_owner[f];
+                const Index neighbour = skew.face_neighbour[f];
+                row += owner == cell
+                    ? skew_convection.upper[f] * skew_linear[neighbour]
+                    : skew_convection.lower[f] * skew_linear[owner];
+            }
+            const double expected =
+                skew.cell_volumes[static_cast<std::size_t>(cell)] * 2.2;
+            local_operator_error = std::max(
+                local_operator_error, std::abs(row - expected));
+        }
+        double global_operator_error = 0.0;
+        parallel.maximum(
+            &local_operator_error, &global_operator_error, 1);
+        require(
+            global_operator_error < 1e-10,
+            "MPI corrected operators failed at a partition face");
+
+        // 两个 CFD 专用算子仍只组合通用局部算子，并在同一 halo 数据布局上工作。
+        VectorField zero_velocity(skew, FieldLocation::Cell, "zeroVelocity");
+        ScalarField mobility(skew, FieldLocation::Cell, "rAU", 0.25);
+        ScalarField momentum_flux(skew, FieldLocation::Face, "momentumFlux");
+        MomentumInterpolation::apply(
+            skew, zero_velocity, skew_linear, mobility, skew_gradient,
+            momentum_flux, InterpolationMethod::Corrected,
+            GradientMethod::LeastSquares, DiffusionMethod::Corrected);
+        double local_momentum_error = 0.0;
+        for (Index cell : skew.owned_cells) {
+            const Index global_id = skew.globalCellId(cell);
+            const Index global_i = global_id % skew_dimensions[0];
+            const Index global_j =
+                (global_id / skew_dimensions[0]) % skew_dimensions[1];
+            const Index global_k = global_id /
+                (skew_dimensions[0] * skew_dimensions[1]);
+            if ((global_i == 3 || global_i == 4) &&
+                global_j == 2 && global_k == 2) {
+                for (Index face :
+                     skew.cell_faces[static_cast<std::size_t>(cell)]) {
+                    local_momentum_error = std::max(
+                        local_momentum_error, std::abs(momentum_flux[face]));
+                }
+            }
+        }
+        double global_momentum_error = 0.0;
+        parallel.maximum(
+            &local_momentum_error, &global_momentum_error, 1);
+        require(
+            global_momentum_error < 1e-10,
+            "MPI momentum interpolation failed at a partition face");
+
+        ScalarField correction_flux(
+            skew, FieldLocation::Face, "correctionFlux");
+        ScalarField pressure_after(
+            skew, FieldLocation::Cell, "pressureAfter");
+        VectorField velocity_after(
+            skew, FieldLocation::Cell, "velocityAfter");
+        PressureCorrection::apply(
+            skew, 0.3, pressure_after, velocity_after, correction_flux,
+            skew_linear, skew_gradient, mobility, DiffusionMethod::Corrected);
+        double local_correction_error = 0.0;
+        for (Index cell : skew.owned_cells) {
+            const Index global_id = skew.globalCellId(cell);
+            const Index global_i = global_id % skew_dimensions[0];
+            const Index global_j =
+                (global_id / skew_dimensions[0]) % skew_dimensions[1];
+            const Index global_k = global_id /
+                (skew_dimensions[0] * skew_dimensions[1]);
+            if ((global_i == 3 || global_i == 4) &&
+                global_j == 2 && global_k == 2) {
+                for (Index face :
+                     skew.cell_faces[static_cast<std::size_t>(cell)]) {
+                    const auto f = static_cast<std::size_t>(face);
+                    const double expected = -0.25 * dot(
+                        Vec3{2.0, -3.0, 0.5},
+                        skew.face_area_vectors[f]);
+                    local_correction_error = std::max(
+                        local_correction_error,
+                        std::abs(correction_flux[face] - expected));
+                }
+            }
+        }
+        double global_correction_error = 0.0;
+        parallel.maximum(
+            &local_correction_error, &global_correction_error, 1);
+        require(
+            global_correction_error < 1e-10,
+            "MPI pressure correction failed at a partition face");
 
         ScalarField pressure(local, FieldLocation::Cell, "p");
         const std::filesystem::path directory = argc > 1

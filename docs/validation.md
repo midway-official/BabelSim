@@ -25,7 +25,8 @@ make validate-poiseuille
 - `case.bs`、物性/数值字典、花括号 `.field`、通用 scalar/vector/tensor 结果写出与
   result reader；
 - 独立的 `MomentumInterpolation` 和 `PressureCorrection` 基本代数检查；
-- 小通道、二维腔体、三维腔体和 warped 非正交腔体的 SIMPLE 回归。
+- 三维仿射非正交制造解上的两个专用算子精确性检查；
+- 小通道、二维腔体、三维腔体、二维扭曲和三维扭曲非正交腔体的 SIMPLE 回归。
 
 代表性回归结果：
 
@@ -34,7 +35,8 @@ make validate-poiseuille
 | 小通道 | 9 | 49 | `1.59e-16` | `max(abs(w)) < 1e-13` |
 | 二维腔体 | 12 × 12 × 1 | 137 | `1.61e-16` | 中心 `u=-0.149236` |
 | 三维腔体 | 6 × 6 × 6 | 57 | `1.59e-15` | 中心 `u=-0.114134`，`max(abs(w))=0.0192033` |
-| 非正交腔体 | 10 × 10 × 1 | 151 | 约 `6.0e-16` | `max(abs(k_nonorth))/abs(Sf)=0.412398` |
+| 非正交腔体 | 10 × 10 × 1 | 164 | `9.77e-9` | `max(abs(k_nonorth))/abs(Sf)=0.412398` |
+| 三维非正交腔体 | 5 × 5 × 5 | 79 | `1.86e-8` | `centreU=-0.0940683`，`max(abs(w))=0.0108384` |
 
 ## 2. Re=100 顶盖驱动腔体
 
@@ -101,7 +103,8 @@ make test-mpi-poiseuille
 
 - `Mesh` 的 owned/ghost/global-ID 映射和两层 halo；
 - cell scalar/vector/tensor 与 interface face field 的 HaloExchange；
-- 分区接口处的 Green-Gauss、Least-Squares、插值、非正交扩散；
+- 分区接口处的 Green-Gauss、Least-Squares、修正插值、修正通量、散度、中心对流和非正交扩散；
+- 分区接口处的 `MomentumInterpolation` 与 `PressureCorrection`；
 - 仅生成 owned 行的 SparseAssembly；
 - halo matvec、全局点积/范数的分布式 Krylov 求解；
 - 1/2/4 rank 二维腔体及 2 rank 三维腔体。
@@ -125,7 +128,7 @@ global ID 比较通用 rank 结果：
 | 1 rank 与 2 rank | 865 / 865 | `6.15e-7` | `1.54e-6` | `atol=rtol=5e-6` |
 | 1 rank 与 4 rank | 865 / 1131 | `4.45e-4` | `5.56e-5` | `atol=rtol=1e-3` |
 
-4 rank 使用 rank-local 预条件块，Krylov 与 SIMPLE 的迭代路径可与串行不同；因此
+4 rank 使用各进程局部预条件块，Krylov 与 SIMPLE 的迭代路径可与串行不同；因此
 比较使用明确的绝对/相对容差，不要求逐 bit 一致。所有比较前会检查 global ID 无
 重复、无遗漏。随后 `babelsim-post` 读取 rank 文件并生成原始六面体 VTK/Tecplot
 文件，验证结果格式独立于求解器内存。

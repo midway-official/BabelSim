@@ -27,6 +27,8 @@ Physics   如何组合方程与算子解决具体物理问题
 - 连续存储的 scalar/vector/tensor Field 与通用边界条件；
 - Gradient、Interpolation、Flux、Divergence、Convection、Diffusion、Laplacian、
   TimeDerivative 等有限体积算子；
+- 三维非正交/偏斜修正：Least-Squares、修正 Green--Gauss、修正面插值、非正交
+  扩散与压力法向梯度，以及面通量和中心对流的一致重构；
 - LDU 方程、稀疏装配、串行与分布式 Krylov 线性求解；
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
 - 不可压 SIMPLE；仅保留 `MomentumInterpolation` 与 `PressureCorrection` 两个
@@ -90,6 +92,11 @@ make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处�
 make validate-cavity      # 收敛的 Re=100 Ghia 腔体比较
 make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 ```
+
+非正交离散的标准入口是 `interpolation corrected`、`gradient leastSquares`、
+`diffusion corrected`；网格角度较大时可改用 `diffusion limitedCorrected`，并通过
+`nonOrthogonalCorrections` 设置压力修正右端项的显式迭代次数。串行测试还包含
+三维扭曲腔体，MPI 测试包含分区界面上的修正通用算子和两个专用 CFD 算子。
 
 详细设计与数据结构见 [架构说明](docs/architecture.md)，新增物理模型/求解器的流程
 见 [二次开发指南](docs/二次开发指南.md)，数值验证结果见

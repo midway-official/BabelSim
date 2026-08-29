@@ -4,6 +4,7 @@ namespace babelsim {
 
 enum class InterpolationMethod {
     Linear,
+    Corrected,
 };
 
 enum class GradientMethod {
@@ -19,6 +20,7 @@ enum class ConvectionMethod {
 enum class DiffusionMethod {
     Orthogonal,
     Corrected,
+    LimitedCorrected,
 };
 
 enum class TimeMethod {
@@ -28,8 +30,8 @@ enum class TimeMethod {
 };
 
 struct Methods {
-    InterpolationMethod interpolation = InterpolationMethod::Linear;
-    GradientMethod gradient = GradientMethod::GreenGauss;
+    InterpolationMethod interpolation = InterpolationMethod::Corrected;
+    GradientMethod gradient = GradientMethod::LeastSquares;
     ConvectionMethod convection = ConvectionMethod::Upwind;
     DiffusionMethod diffusion = DiffusionMethod::Corrected;
     TimeMethod time = TimeMethod::Steady;

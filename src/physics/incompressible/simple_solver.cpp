@@ -26,7 +26,8 @@ void FluidProperties::validate() const {
 }
 
 void SimpleControl::validate() const {
-    if (max_iterations <= 0 ||
+    if (max_iterations <= 0 || non_orthogonal_corrections < 0 ||
+        non_orthogonal_corrections > 20 ||
         !(velocity_relaxation > 0.0 && velocity_relaxation <= 1.0) ||
         !(pressure_relaxation > 0.0 && pressure_relaxation <= 1.0) ||
         !finitePositive(continuity_tolerance) ||
@@ -117,7 +118,9 @@ SimpleSolver::SimpleSolver(
         halo_->exchange(fields_.velocity);
         halo_->exchange(fields_.pressure);
     }
-    flux(fields_.velocity, fields_.face_flux, methods_.interpolation);
+    flux(
+        fields_.velocity, fields_.face_flux,
+        methods_.interpolation, methods_.gradient);
 }
 
 void SimpleSolver::assembleMomentum(const TimeState& time) {
@@ -134,7 +137,8 @@ void SimpleSolver::assembleMomentum(const TimeState& time) {
             methods_.time, time.older);
     }
     addConvection(
-        momentum_, mass_flux_, fields_.velocity, methods_.convection);
+        momentum_, mass_flux_, fields_.velocity, methods_.convection,
+        methods_.interpolation, methods_.gradient);
     addDiffusion(
         momentum_, fluid_.dynamic_viscosity, fields_.velocity,
         methods_.gradient, methods_.diffusion);
@@ -212,20 +216,25 @@ void SimpleSolver::momentumInterpolation() {
     gradient(fields_.pressure, pressure_gradient_, methods_.gradient);
     MomentumInterpolation::apply(
         mesh_, fields_.velocity, fields_.pressure, mobility_, pressure_gradient_,
-        fields_.face_flux);
+        fields_.face_flux, methods_.interpolation, methods_.gradient,
+        methods_.diffusion);
 }
 
 void SimpleSolver::assemblePressureCorrection() {
     PressureCorrection::assemble(
         pressure_equation_, pressure_correction_, mesh_, fields_.face_flux,
-        mobility_, fields_.pressure, has_fixed_pressure_, parallel_);
+        mobility_, fields_.pressure,
+        methods_.diffusion == DiffusionMethod::Orthogonal
+            ? nullptr : &correction_gradient_,
+        methods_.diffusion, has_fixed_pressure_, parallel_);
 }
 
 void SimpleSolver::correctPressureAndVelocity() {
     gradient(pressure_correction_, correction_gradient_, methods_.gradient);
     PressureCorrection::apply(
         mesh_, control_.pressure_relaxation, fields_.pressure, fields_.velocity,
-        fields_.face_flux, pressure_correction_, correction_gradient_, mobility_);
+        fields_.face_flux, pressure_correction_, correction_gradient_, mobility_,
+        methods_.diffusion);
     if (halo_) {
         halo_->exchange(fields_.pressure);
         halo_->exchange(fields_.velocity);
@@ -267,40 +276,51 @@ SimpleIterationResult SimpleSolver::iterate(const TimeState& time) {
     SimpleIterationResult result;
     result.velocity = solveMomentum();
     momentumInterpolation();
-    assemblePressureCorrection();
-
-    pressure_assembly_.update(pressure_equation_);
-    assembleSource(pressure_equation_, pressure_source_);
-    const auto& pressure_matrix = pressure_assembly_.matrix();
-    pressure_solution_.setZero();
-    if (distributed_pressure_solver_) {
-        if (!pressure_pattern_ready_) {
-            distributed_pressure_solver_->compute(
-                pressure_matrix, pressure_equation_);
-            pressure_pattern_ready_ = true;
-        } else {
-            distributed_pressure_solver_->factorize(
-                pressure_matrix, pressure_equation_);
+    pressure_correction_.fill(0.0);
+    correction_gradient_.fill({});
+    const int pressure_passes = methods_.diffusion == DiffusionMethod::Orthogonal
+        ? 1 : control_.non_orthogonal_corrections + 1;
+    for (int pass = 0; pass < pressure_passes; ++pass) {
+        if (pass > 0) {
+            gradient(
+                pressure_correction_, correction_gradient_, methods_.gradient);
         }
-    } else {
-        if (!pressure_pattern_ready_) {
-            pressure_linear_solver_.compute(pressure_matrix);
-            pressure_pattern_ready_ = true;
-        } else {
-            pressure_linear_solver_.factorize(pressure_matrix);
+        assemblePressureCorrection();
+        if (pass == 0) {
+            pressure_assembly_.update(pressure_equation_);
+            const auto& pressure_matrix = pressure_assembly_.matrix();
+            if (distributed_pressure_solver_) {
+                if (!pressure_pattern_ready_) {
+                    distributed_pressure_solver_->compute(
+                        pressure_matrix, pressure_equation_);
+                    pressure_pattern_ready_ = true;
+                } else {
+                    distributed_pressure_solver_->factorize(
+                        pressure_matrix, pressure_equation_);
+                }
+            } else if (!pressure_pattern_ready_) {
+                pressure_linear_solver_.compute(pressure_matrix);
+                pressure_pattern_ready_ = true;
+            } else {
+                pressure_linear_solver_.factorize(pressure_matrix);
+            }
         }
-    }
-    result.pressure = distributed_pressure_solver_
-        ? distributed_pressure_solver_->solve(
-              pressure_source_, pressure_solution_)
-        : pressure_linear_solver_.solve(
-              pressure_source_, pressure_solution_);
-    for (Index cell : mesh_.owned_cells) {
-        pressure_correction_[cell] =
-            pressure_solution_[mesh_.ownedIndex(cell)];
-    }
-    if (halo_) {
-        halo_->exchange(pressure_correction_);
+        assembleSource(pressure_equation_, pressure_source_);
+        for (Index cell : mesh_.owned_cells) {
+            pressure_solution_[mesh_.ownedIndex(cell)] = pressure_correction_[cell];
+        }
+        result.pressure = distributed_pressure_solver_
+            ? distributed_pressure_solver_->solve(
+                  pressure_source_, pressure_solution_)
+            : pressure_linear_solver_.solve(
+                  pressure_source_, pressure_solution_);
+        for (Index cell : mesh_.owned_cells) {
+            pressure_correction_[cell] =
+                pressure_solution_[mesh_.ownedIndex(cell)];
+        }
+        if (halo_) {
+            halo_->exchange(pressure_correction_);
+        }
     }
     correctPressureAndVelocity();
 

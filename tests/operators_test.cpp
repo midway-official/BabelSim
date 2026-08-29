@@ -28,6 +28,30 @@ Mesh affineSkewedMesh() {
     return Mesh::structured(dimensions, std::move(points));
 }
 
+Mesh warpedThreeDimensionalMesh() {
+    constexpr Index n = 7;
+    constexpr double pi = 3.14159265358979323846;
+    std::vector<Vec3> points;
+    points.reserve(static_cast<std::size_t>((n + 1) * (n + 1) * (n + 1)));
+    for (Index k = 0; k <= n; ++k) {
+        for (Index j = 0; j <= n; ++j) {
+            for (Index i = 0; i <= n; ++i) {
+                const double xi = static_cast<double>(i) / n;
+                const double eta = static_cast<double>(j) / n;
+                const double zeta = static_cast<double>(k) / n;
+                const double envelope = std::sin(pi * xi) * std::sin(pi * eta);
+                points.push_back({
+                    xi + 0.12 * envelope + 0.08 * zeta,
+                    eta + 0.05 * std::sin(2.0 * pi * xi) *
+                        std::sin(pi * eta) + 0.04 * zeta,
+                    zeta,
+                });
+            }
+        }
+    }
+    return Mesh::structured({n, n, n}, std::move(points));
+}
+
 double linearValue(const Vec3& point) {
     return 2.0 * point.x - 3.0 * point.y + 0.5 * point.z + 1.0;
 }
@@ -131,6 +155,116 @@ int main() {
             near(skewed_tensor[skewed_centre][1], {-1.0, 0.0, 3.0}, 1e-10) &&
             near(skewed_tensor[skewed_centre][2], {0.25, -1.0, 2.0}, 1e-10),
         "least-squares vector gradient is not exact on an affine skew mesh");
+
+    const Mesh warped = warpedThreeDimensionalMesh();
+    const Index warped_centre = warped.cellId(3, 3, 3);
+    ScalarField warped_linear(warped, FieldLocation::Cell, "warpedLinear");
+    VectorField warped_vector(warped, FieldLocation::Cell, "warpedVector");
+    for (Index cell = 0; cell < warped.cellCount(); ++cell) {
+        const Vec3& point = warped.cell_centres[static_cast<std::size_t>(cell)];
+        warped_linear[cell] = linearValue(point);
+        warped_vector[cell] = linearVectorValue(point);
+    }
+    VectorField warped_ls(warped, FieldLocation::Cell, "warpedLS");
+    VectorField warped_gg(warped, FieldLocation::Cell, "warpedGG");
+    gradient(warped_linear, warped_ls, GradientMethod::LeastSquares);
+    gradient(warped_linear, warped_gg, GradientMethod::GreenGauss);
+    require(
+        near(warped_ls[warped_centre], {2.0, -3.0, 0.5}, 1e-10),
+        "three-dimensional warped-mesh least-squares gradient is not affine exact");
+    require(
+        near(warped_gg[warped_centre], {2.0, -3.0, 0.5}, 2e-2),
+        "corrected Green-Gauss gradient is inaccurate on a warped mesh");
+
+    ScalarField warped_faces(warped, FieldLocation::Face, "warpedFaces");
+    interpolate(
+        warped_linear, warped_faces,
+        InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+    TensorField warped_vector_gradient(
+        warped, FieldLocation::Cell, "warpedVectorGradient");
+    gradient(warped_vector, warped_vector_gradient, GradientMethod::LeastSquares);
+    ScalarField warped_flux(warped, FieldLocation::Face, "warpedFlux");
+    flux(
+        warped_vector, warped_flux,
+        InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+    for (Index face : warped.cell_faces[static_cast<std::size_t>(warped_centre)]) {
+        const auto f = static_cast<std::size_t>(face);
+        require(
+            near(warped_faces[face], linearValue(warped.face_centres[f]), 1e-10),
+            "corrected interpolation missed the physical face centre");
+        require(
+            near(
+                warped_flux[face],
+                dot(linearVectorValue(warped.face_centres[f]),
+                    warped.face_area_vectors[f]),
+                1e-10),
+            "corrected flux is not affine exact on a warped face");
+    }
+    ScalarField warped_divergence(
+        warped, FieldLocation::Cell, "warpedDivergence");
+    divergence(
+        warped_vector, warped_divergence,
+        InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+    require(
+        near(warped_divergence[warped_centre], 3.0, 1e-10),
+        "corrected divergence is not affine exact on a warped cell");
+
+    VectorField advecting_velocity(
+        warped, FieldLocation::Cell, "advectingVelocity", {0.7, -0.2, 0.4});
+    ScalarField advecting_flux(warped, FieldLocation::Face, "advectingFlux");
+    flux(
+        advecting_velocity, advecting_flux,
+        InterpolationMethod::Corrected, GradientMethod::LeastSquares);
+    ScalarEquation warped_convection(warped);
+    addConvection(
+        warped_convection, advecting_flux, warped_linear,
+        ConvectionMethod::Central, InterpolationMethod::Corrected,
+        GradientMethod::LeastSquares);
+    double convection_residual =
+        warped_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
+            warped_linear[warped_centre] -
+        warped_convection.source[static_cast<std::size_t>(warped_centre)];
+    for (Index face : warped.cell_faces[static_cast<std::size_t>(warped_centre)]) {
+        const auto f = static_cast<std::size_t>(face);
+        const Index owner = warped.face_owner[f];
+        const Index neighbour = warped.face_neighbour[f];
+        convection_residual += owner == warped_centre
+            ? warped_convection.upper[f] * warped_linear[neighbour]
+            : warped_convection.lower[f] * warped_linear[owner];
+    }
+    const double exact_convection =
+        warped.cell_volumes[static_cast<std::size_t>(warped_centre)] *
+        dot(Vec3{0.7, -0.2, 0.4}, Vec3{2.0, -3.0, 0.5});
+    require(
+        near(convection_residual, exact_convection, 1e-10),
+        "corrected central convection is not affine exact on a warped cell");
+    VectorEquation warped_vector_convection(warped);
+    addConvection(
+        warped_vector_convection, advecting_flux, warped_vector,
+        ConvectionMethod::Central, InterpolationMethod::Corrected,
+        GradientMethod::LeastSquares);
+    Vec3 vector_convection_residual =
+        warped_vector_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
+            warped_vector[warped_centre] -
+        warped_vector_convection.source[static_cast<std::size_t>(warped_centre)];
+    for (Index face : warped.cell_faces[static_cast<std::size_t>(warped_centre)]) {
+        const auto f = static_cast<std::size_t>(face);
+        const Index owner = warped.face_owner[f];
+        const Index neighbour = warped.face_neighbour[f];
+        if (neighbour == invalid_index) {
+            continue;
+        }
+        vector_convection_residual += owner == warped_centre
+            ? warped_vector_convection.upper[f] * warped_vector[neighbour]
+            : warped_vector_convection.lower[f] * warped_vector[owner];
+    }
+    const Vec3 exact_vector_convection{
+        0.1 * warped.cell_volumes[static_cast<std::size_t>(warped_centre)],
+        0.5 * warped.cell_volumes[static_cast<std::size_t>(warped_centre)],
+        1.175 * warped.cell_volumes[static_cast<std::size_t>(warped_centre)]};
+    require(
+        near(vector_convection_residual, exact_vector_convection, 1e-10),
+        "corrected central vector convection is not affine exact");
     VectorEquation vector_diffusion(skewed);
     addDiffusion(
         vector_diffusion, 1.0, skewed_vector,

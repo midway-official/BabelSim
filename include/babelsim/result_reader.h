@@ -9,7 +9,7 @@
 
 namespace babelsim {
 
-// 从 rank-local owned-cell 文件重构出的全局有序值。每个实体内分量连续：
+// 从各 rank 的 owned-cell 文件重构出的全局有序值。每个实体内分量连续：
 // values[id * components + c]。
 struct ResultField {
     FieldOutputInfo info;

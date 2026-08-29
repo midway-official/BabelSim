@@ -110,6 +110,7 @@ IncompressibleCaseControl readIncompressibleCase(const CaseDefinition& definitio
     bool diffusion = false;
     bool time = false;
     bool iterations = false;
+    bool non_orthogonal_corrections = false;
     bool velocity_relaxation = false;
     bool pressure_relaxation = false;
     bool continuity_tolerance = false;
@@ -120,7 +121,16 @@ IncompressibleCaseControl readIncompressibleCase(const CaseDefinition& definitio
         const std::string& key = line.tokens.front();
         if (key == "interpolation") {
             oneValue(definition.numerics_file, line);
-            if (interpolation || line.tokens[1] != "linear") invalid(definition.numerics_file, line, "interpolation must be linear");
+            if (interpolation) invalid(definition.numerics_file, line, "duplicate interpolation");
+            if (line.tokens[1] == "linear") {
+                result.methods.interpolation = InterpolationMethod::Linear;
+            } else if (line.tokens[1] == "corrected" ||
+                       line.tokens[1] == "linearCorrected" ||
+                       line.tokens[1] == "linear_corrected") {
+                result.methods.interpolation = InterpolationMethod::Corrected;
+            } else {
+                invalid(definition.numerics_file, line, "unknown interpolation method");
+            }
             interpolation = true;
         } else if (key == "gradient") {
             oneValue(definition.numerics_file, line);
@@ -145,6 +155,10 @@ IncompressibleCaseControl readIncompressibleCase(const CaseDefinition& definitio
             if (diffusion) invalid(definition.numerics_file, line, "duplicate diffusion");
             if (line.tokens[1] == "orthogonal") result.methods.diffusion = DiffusionMethod::Orthogonal;
             else if (line.tokens[1] == "corrected") result.methods.diffusion = DiffusionMethod::Corrected;
+            else if (line.tokens[1] == "limitedCorrected" ||
+                     line.tokens[1] == "limited_corrected") {
+                result.methods.diffusion = DiffusionMethod::LimitedCorrected;
+            }
             else invalid(definition.numerics_file, line, "unknown diffusion method");
             diffusion = true;
         } else if (key == "time") {
@@ -160,6 +174,17 @@ IncompressibleCaseControl readIncompressibleCase(const CaseDefinition& definitio
             if (iterations) invalid(definition.numerics_file, line, "duplicate max_iterations");
             result.simple.max_iterations = integer(definition.numerics_file, line, 1);
             iterations = true;
+        } else if (key == "nonOrthogonalCorrections" ||
+                   key == "non_orthogonal_corrections") {
+            oneValue(definition.numerics_file, line);
+            if (non_orthogonal_corrections) {
+                invalid(
+                    definition.numerics_file, line,
+                    "duplicate non_orthogonal_corrections");
+            }
+            result.simple.non_orthogonal_corrections =
+                integer(definition.numerics_file, line, 1);
+            non_orthogonal_corrections = true;
         } else if (key == "velocityRelaxation" || key == "velocity_relaxation") {
             oneValue(definition.numerics_file, line);
             if (velocity_relaxation) invalid(definition.numerics_file, line, "duplicate velocity_relaxation");

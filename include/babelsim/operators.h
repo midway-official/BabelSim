@@ -12,13 +12,15 @@ namespace babelsim {
 void interpolate(
     const ScalarField& cell,
     ScalarField& face,
-    InterpolationMethod method = InterpolationMethod::Linear);
+    InterpolationMethod method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 void interpolate(
     const VectorField& cell,
     VectorField& face,
-    InterpolationMethod method = InterpolationMethod::Linear);
+    InterpolationMethod method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 
-// 先线性插值到 owner-neighbour 交点，再由该交点的梯度修正重构到几何面中心。
+// 先线性插值到 owner 与 neighbour 连线交点，再由该交点的梯度修正重构到几何面中心。
 void reconstruct(
     const ScalarField& cell,
     const VectorField& cell_gradient,
@@ -37,15 +39,30 @@ void gradient(
     TensorField& result,
     GradientMethod method = GradientMethod::GreenGauss);
 
+// 返回面积积分后的面法向梯度。正交差分保持隐式所需的紧凑计算模板，非正交部分由
+// 已重构的单元梯度显式补偿；扩散和压力修正共享这一几何定义。
+double integratedNormalGradient(
+    const ScalarField& scalar,
+    const VectorField& scalar_gradient,
+    Index face,
+    DiffusionMethod method = DiffusionMethod::Corrected);
+Vec3 integratedNormalGradient(
+    const VectorField& vector,
+    const TensorField& vector_gradient,
+    Index face,
+    DiffusionMethod method = DiffusionMethod::Corrected);
+
 void flux(
     const VectorField& velocity,
     ScalarField& face_flux,
-    InterpolationMethod method = InterpolationMethod::Linear);
+    InterpolationMethod method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 
 void divergence(
     const VectorField& vector,
     ScalarField& result,
-    InterpolationMethod method = InterpolationMethod::Linear);
+    InterpolationMethod method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 void divergence(const ScalarField& face_flux, ScalarField& result);
 
 void laplacian(
@@ -58,12 +75,16 @@ void addConvection(
     ScalarEquation& equation,
     const ScalarField& face_flux,
     const ScalarField& transported,
-    ConvectionMethod method = ConvectionMethod::Upwind);
+    ConvectionMethod method = ConvectionMethod::Upwind,
+    InterpolationMethod interpolation_method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 void addConvection(
     VectorEquation& equation,
     const ScalarField& face_flux,
     const VectorField& transported,
-    ConvectionMethod method = ConvectionMethod::Upwind);
+    ConvectionMethod method = ConvectionMethod::Upwind,
+    InterpolationMethod interpolation_method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 
 void addDiffusion(
     ScalarEquation& equation,

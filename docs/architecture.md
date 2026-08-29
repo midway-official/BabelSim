@@ -23,7 +23,7 @@ babelsim-solve -case cases/poiseuille
   │
   ├─ 读取 case.bs
   ├─ 读取全局 Mesh 与初始 Field
-  ├─ MPI x 向分解为 local owned + ghost Mesh
+  ├─ MPI x 向分解为本地 owned + ghost Mesh
   ├─ 按 solver 名称分派物理算法
   ├─ SimpleSolver 组合通用算子、方程、装配和线性求解器
   └─ 每个 rank 写出 owned field
@@ -104,7 +104,7 @@ Sf = ((Sf · d) / |d|²) d + k_nonorth
 ```
 
 其中第一项形成矩阵系数，`k_nonorth · grad(phi)` 作为修正项。偏斜量用于把
-owner-neighbour 线上的插值值重构到真实面中心。
+owner 与 neighbour 连线上的插值值重构到真实面中心。
 
 ### 4.2 局部网格与所有权
 
@@ -137,7 +137,7 @@ cell field 的 patch 边界条件。`values_` 为连续内存；`Vec3` 与 `Tens
 紧凑的三/九个 `double` 的小对象，因此一个 Field 内按实体连续，当前是 AoS 值布局，
 没有隐含指针或逐单元分配。
 
-位置可以是 Cell、Face、Vertex。当前不可压求解器使用 cell-centered `U/p` 和
+位置可以是 Cell、Face、Vertex。当前不可压求解器使用 cell-centered（单元中心）`U/p` 和
 face-centered `phi`；通用 halo 已支持 cell/face scalar、vector、tensor。标准化结果
 写出目前针对 cell field，因为只有 cell 拥有完整的全局 ID 映射。
 
@@ -151,9 +151,10 @@ symmetry 等价于零法向梯度。patch 的 `Wall/Inlet/Outlet/Symmetry` 仅�
 `Methods` 用小枚举表达离散策略，而非为每种格式建立继承树：
 
 - `InterpolationMethod::Linear`；
+- `InterpolationMethod::Corrected`（交点线性值加偏斜重构）；
 - `GradientMethod::GreenGauss`、`LeastSquares`；
 - `ConvectionMethod::Upwind`、`Central`；
-- `DiffusionMethod::Orthogonal`、`Corrected`；
+- `DiffusionMethod::Orthogonal`、`Corrected`、`LimitedCorrected`；
 - `TimeMethod::Steady`、`Euler`、`BDF2`。
 
 通用算子包括 `gradient`、`interpolate`、`reconstruct`、`flux`、`divergence`、
@@ -169,6 +170,14 @@ addConvection(equation, face_flux, phi, methods.convection);
 addDiffusion(equation, gamma, phi,
              methods.gradient, methods.diffusion);
 ```
+
+`Corrected` 面值先在 owner 与 neighbour 连线和真实面中心的交点处做线性插值，再用
+交点梯度乘以 `face_skewness` 重构到真实面中心。扩散和压力修正使用同一个
+`integratedNormalGradient()`：面积向量先分解为正交隐式部分和非正交显式部分，
+`LimitedCorrected` 将显式交叉扩散限制在正交通量幅值以内，以提高大角度网格的稳定性。
+Green--Gauss 梯度也执行一次显式偏斜面值修正；Least--Squares 梯度直接由相邻
+单元中心位移构造三维法方程。边界重构会施加固定值、固定法向梯度、对称投影和
+入口出口流向条件，因此这些接口对 `nz=1` 和完整三维网格使用同一实现。
 
 `Equation<T>` 对每个局部 cell/face 保存 `diagonal`、`upper`、`lower` 和 `source`。
 这样通用算子可以同时处理 owned 与 ghost 邻接关系。`SparseAssembly` 只生成 owned
@@ -195,13 +204,18 @@ triplet 分配、排序或插入。
 
 不将每一步拆成一次性小类，只保留两个具有独立 CFD 数值含义的专用组件：
 
-- `MomentumInterpolation`：根据 collocated `U/p`、压力梯度、动量 mobility 和
+- `MomentumInterpolation`：根据同位网格的 `U/p`、压力梯度、动量 mobility 和
   面几何执行 Rhie-Chow 型插值，生成压力稳定的面通量；
 - `PressureCorrection`：组装压力修正 LDU 方程，并同步执行压力、cell velocity 与
   face flux 修正。
 
 两者仍只依赖 Mesh、Field、Equation、ParallelContext 和通用边界/几何接口；不会
 重新定义底层数据结构。压力出口和封闭域压力参考点处理保留在该算法组件中。
+
+非正交扩散采用显式校正迭代：矩阵只保留紧凑的正交 LDU 系数，`SimpleSolver` 在
+每个压力修正外迭代中先解正交系统，再按 `nonOrthogonalCorrections` 次数更新
+压力修正梯度和右端项。矩阵、装配和通信接口不因该循环改变；因此专用算法仍然
+可以替换为其他压力--速度耦合算法。
 
 ## 8. 原生文件与结果格式
 
@@ -239,6 +253,22 @@ metadata 和 rank CSV 恢复全局 cell 顺序并检查完整性。
 - 结果阶段只写 owned cell，避免 ghost 重复和串行重组；
 - case 解析仅发生在启动阶段，不进入迭代循环。
 
-当前已验证结构化单节点/MPI 基础。下一阶段可增加 Advection-Diffusion、Heat 等
+当前已验证结构化单节点/MPI 基础、三维扭曲非正交腔体和分区交界面上的全部主要
+通用算子。下一阶段可增加 Advection-Diffusion、Heat 等
 物理模型；它们应新增 `src/physics/<模型>/` 和必要的 IO/启动器分派，而不修改
 Mesh、Field、HaloExchange、SparseAssembly、LinearSolver 或 `babelsim-post` 的核心。
+
+## 10. 数值依据
+
+实现遵循有限体积法中“正交隐式项 + 非正交显式项”的标准分解，以及偏斜面中心
+梯度重构。可复核的主要资料包括：
+
+- [OpenFOAM 数值格式说明：corrected 与 limited corrected snGrad](https://doc.cfd.direct/openfoam/user-guide-v8/fvschemes?s=2025)；
+- [OpenFOAM correctedSnGrad 源码](https://github.com/OpenFOAM/OpenFOAM-dev/blob/master/src/finiteVolume/finiteVolume/snGradSchemes/correctedSnGrad/correctedSnGrad.C)；
+- [OpenFOAM snGradScheme 基类实现](https://github.com/OpenFOAM/OpenFOAM-dev/blob/master/src/finiteVolume/finiteVolume/snGradSchemes/snGradScheme/snGradScheme.C)；
+- [Rhie--Chow 动量插值的数值研究](https://www.sciencedirect.com/science/article/pii/S0377042716301649)；
+- [广义 Rhie--Chow 插值研究](https://www.sciencedirect.com/science/article/pii/S0021999113007523)；
+- [基于网格偏斜度的梯度修正研究](https://doi.org/10.1063/5.0246823)。
+
+这些资料用于确定离散公式和稳定性边界；BabelSim 当前仍限定为结构化六面体，
+并不宣称已经覆盖任意非结构化、多面体或高于约 70 度非正交角的无条件稳定性。

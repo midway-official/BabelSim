@@ -9,7 +9,7 @@ namespace babelsim {
 
 // 系数为每个局部单元/面存储，使算子可用同一索引方案访问自有与幽灵单元。
 // SparseAssembly 仅生成 owned 行；对内部 owner-neighbour 面 f，upper[f] 是
-// owner 行到 neighbour 的耦合，lower[f] 是 neighbour 行到 owner 的耦合。
+// owner 行到 neighbour 行的耦合，lower[f] 是 neighbour 行到 owner 行的耦合。
 // DistributedLinearSolver 在 halo 矩阵向量乘中施加到幽灵 neighbour 的耦合。
 template <typename T>
 struct Equation {

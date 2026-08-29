@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
         int rank = 0;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         std::cerr << "babelsim-solve rank " << rank << ": " << error.what() << '\n';
-        // 单个 rank 的 I/O 失败不能让其他 rank 阻塞在后续 halo exchange 或 collective；
+        // 单个 rank 的 I/O 失败不能让其他 rank 阻塞在后续 halo 交换或集体通信；
         // 正常的不收敛通过状态码 2 返回。
         MPI_Abort(MPI_COMM_WORLD, 1);
     }

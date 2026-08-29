@@ -1,4 +1,5 @@
 #include "babelsim/incompressible_operators.h"
+#include "babelsim/operators.h"
 
 #include <stdexcept>
 
@@ -14,16 +15,36 @@ void PressureCorrection::assemble(
     bool has_fixed_pressure,
     const ParallelContext& parallel)
 {
+    assemble(
+        equation, correction, mesh, face_flux, mobility, pressure, nullptr,
+        DiffusionMethod::Orthogonal, has_fixed_pressure, parallel);
+}
+
+void PressureCorrection::assemble(
+    ScalarEquation& equation,
+    ScalarField& correction,
+    const Mesh& mesh,
+    const ScalarField& face_flux,
+    const ScalarField& mobility,
+    const ScalarField& pressure,
+    const VectorField* correction_gradient,
+    DiffusionMethod diffusion_method,
+    bool has_fixed_pressure,
+    const ParallelContext& parallel)
+{
     if (equation.mesh != &mesh || &correction.mesh() != &mesh ||
         &face_flux.mesh() != &mesh || &mobility.mesh() != &mesh ||
         &pressure.mesh() != &mesh || correction.location() != FieldLocation::Cell ||
         face_flux.location() != FieldLocation::Face ||
         mobility.location() != FieldLocation::Cell ||
-        pressure.location() != FieldLocation::Cell) {
+        pressure.location() != FieldLocation::Cell ||
+        (diffusion_method != DiffusionMethod::Orthogonal &&
+         (correction_gradient == nullptr ||
+          &correction_gradient->mesh() != &mesh ||
+          correction_gradient->location() != FieldLocation::Cell))) {
         throw std::invalid_argument("pressure-correction fields do not match mesh");
     }
     equation.reset();
-    correction.fill(0.0);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
@@ -40,10 +61,32 @@ void PressureCorrection::assemble(
             equation.diagonal[static_cast<std::size_t>(neighbour)] += coefficient;
             equation.upper[f] -= coefficient;
             equation.lower[f] -= coefficient;
+            if (correction_gradient != nullptr) {
+                const double orthogonal_part =
+                    mesh.face_orthogonal_coefficients[f] *
+                    (correction[neighbour] - correction[owner]);
+                const double explicit_correction = face_mobility *
+                    (integratedNormalGradient(
+                         correction, *correction_gradient, face,
+                         diffusion_method) - orthogonal_part);
+                equation.source[static_cast<std::size_t>(owner)] +=
+                    explicit_correction;
+                equation.source[static_cast<std::size_t>(neighbour)] -=
+                    explicit_correction;
+            }
         } else if (pressure.boundary(mesh.face_patch[f]).type ==
                    BoundaryType::FixedValue) {
-            equation.diagonal[static_cast<std::size_t>(owner)] +=
+            const double coefficient =
                 mobility[owner] * mesh.face_orthogonal_coefficients[f];
+            equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
+            if (correction_gradient != nullptr) {
+                const double orthogonal_part =
+                    mesh.face_orthogonal_coefficients[f] * (-correction[owner]);
+                equation.source[static_cast<std::size_t>(owner)] += mobility[owner] *
+                    (integratedNormalGradient(
+                         correction, *correction_gradient, face,
+                         diffusion_method) - orthogonal_part);
+            }
         }
     }
     if (!has_fixed_pressure && parallel.rank == 0) {
@@ -68,6 +111,22 @@ void PressureCorrection::apply(
     const VectorField& correction_gradient,
     const ScalarField& mobility)
 {
+    apply(
+        mesh, pressure_relaxation, pressure, velocity, face_flux, correction,
+        correction_gradient, mobility, DiffusionMethod::Orthogonal);
+}
+
+void PressureCorrection::apply(
+    const Mesh& mesh,
+    double pressure_relaxation,
+    ScalarField& pressure,
+    VectorField& velocity,
+    ScalarField& face_flux,
+    const ScalarField& correction,
+    const VectorField& correction_gradient,
+    const ScalarField& mobility,
+    DiffusionMethod diffusion_method)
+{
     if (!(pressure_relaxation > 0.0 && pressure_relaxation <= 1.0) ||
         &pressure.mesh() != &mesh || &velocity.mesh() != &mesh ||
         &face_flux.mesh() != &mesh || &correction.mesh() != &mesh ||
@@ -86,12 +145,12 @@ void PressureCorrection::apply(
             const double weight = mesh.face_owner_weights[f];
             const double face_mobility =
                 weight * mobility[owner] + (1.0 - weight) * mobility[neighbour];
-            face_flux[face] += face_mobility * mesh.face_orthogonal_coefficients[f] *
-                (correction[owner] - correction[neighbour]);
+            face_flux[face] -= face_mobility * integratedNormalGradient(
+                correction, correction_gradient, face, diffusion_method);
         } else if (pressure.boundary(mesh.face_patch[f]).type ==
                    BoundaryType::FixedValue) {
-            face_flux[face] += mobility[owner] * mesh.face_orthogonal_coefficients[f] *
-                correction[owner];
+            face_flux[face] -= mobility[owner] * integratedNormalGradient(
+                correction, correction_gradient, face, diffusion_method);
         }
     }
 }

@@ -37,7 +37,8 @@ TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/specialized_operator_test.cpp \
                 tests/cavity_regression_test.cpp \
                 tests/cavity_3d_test.cpp \
-                tests/nonorthogonal_cavity_test.cpp
+                tests/nonorthogonal_cavity_test.cpp \
+                tests/nonorthogonal_cavity_3d_test.cpp
 TESTS := $(patsubst tests/%.cpp,$(BUILD)/%,$(TEST_SOURCES))
 MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
              $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test
@@ -49,6 +50,7 @@ all: $(LIB) $(APPS)
 
 $(LIB): $(OBJECTS)
 	@mkdir -p $(dir $@)
+	$(RM) $@
 	$(AR) rcs $@ $^
 
 $(BUILD)/%.o: src/%.cpp

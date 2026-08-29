@@ -114,7 +114,7 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
     state.bicgstab.setMaxIterations(state.config.max_iterations);
     state.bicgstab.preconditioner().setDroptol(1e-3);
     state.bicgstab.preconditioner().setFillfactor(2);
-    // 对 Eigen 3.4 的 IncompleteLUT 直接调用 IterativeSolverBase::analyzePattern
+    // 对 Eigen 3.4 的 IncompleteLUT 直接调用迭代求解基类的 analyzePattern
     // 不安全，因为该预条件器直到 factorize 才初始化 ComputationInfo。compute() 会
     // 安全地完成两步。
     state.bicgstab.compute(A);
