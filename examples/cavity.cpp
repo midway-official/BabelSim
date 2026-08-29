@@ -1,4 +1,5 @@
 #include "babelsim/incompressible.h"
+#include "babelsim/mesh_io.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,21 +13,16 @@ using namespace babelsim;
 
 int main(int argc, char* argv[]) {
     try {
-        const Index n = argc > 1 ? static_cast<Index>(std::stoi(argv[1])) : 32;
+        if (argc < 2 || argc > 5) {
+            throw std::invalid_argument(
+                "usage: cavity <BabelSim-mesh> [max-iterations] [mu] [csv]");
+        }
         const int maximum_iterations = argc > 2 ? std::stoi(argv[2]) : 5000;
         const double viscosity = argc > 3 ? std::stod(argv[3]) : 0.01;
-        if (n < 4 || maximum_iterations <= 0 || !(viscosity > 0.0)) {
-            throw std::invalid_argument("usage: cavity [n>=4] [max-iterations] [mu>0]");
+        Mesh mesh = readMeshFile(argv[1]);
+        if (maximum_iterations <= 0 || !(viscosity > 0.0)) {
+            throw std::invalid_argument("maximum iterations and viscosity must be positive");
         }
-
-        auto patches = defaultPatches();
-        for (Side side : {Side::XMin, Side::XMax, Side::YMin, Side::YMax}) {
-            patches[static_cast<std::size_t>(side)].kind = PatchKind::Wall;
-        }
-        patches[static_cast<std::size_t>(Side::ZMin)].kind = PatchKind::Symmetry;
-        patches[static_cast<std::size_t>(Side::ZMax)].kind = PatchKind::Symmetry;
-        const Mesh mesh = Mesh::cartesian(
-            {n, n, 1}, {0, 0, 0}, {1, 1, 1}, patches);
         IncompressibleFields fields(mesh);
         for (Side side : {Side::XMin, Side::XMax, Side::YMin}) {
             fields.velocity.setBoundary(
@@ -80,7 +76,8 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        const Index centre = mesh.cellId(n / 2 - 1, n / 2 - 1, 0);
+        const Index centre = mesh.cellId(
+            mesh.dimensions[0] / 2 - 1, mesh.dimensions[1] / 2 - 1, 0);
         std::cout << "completed=" << completed
                   << " converged=" << std::boolalpha << result.converged
                   << " centre=" << fields.velocity[centre]

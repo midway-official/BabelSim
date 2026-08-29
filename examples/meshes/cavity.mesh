@@ -1,0 +1,11 @@
+BABELSIM_MESH 1
+dimensions 64 64 1
+geometry cartesian
+bounds 0 0 0 1 1 1
+patch xmin cavity_left wall
+patch xmax cavity_right wall
+patch ymin cavity_bottom wall
+patch ymax lid wall
+patch zmin front symmetry
+patch zmax back symmetry
+end

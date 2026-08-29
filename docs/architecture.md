@@ -3,11 +3,11 @@
 ## Audited starting point
 
 `/home/midway/BabelSim` started with only a README and license. TaihoCFD is a
-working C++17/Eigen/MPI two-dimensional incompressible finite-volume solver.
-Its executable path is:
+working C++17/Eigen/MPI two-dimensional incompressible finite-volume solver;
+the following is its historical executable path used for the migration audit:
 
 ```text
-case.cfg -> legacy mesh reader -> x-decomposition -> SolverContext
+case.cfg -> Taiho mesh reader -> x-decomposition -> SolverContext
          -> SIMPLE iteration
               momentum assembly (ddt + upwind + diffusion + grad(p))
               BiCGSTAB/ILUT velocity solves
@@ -24,12 +24,10 @@ converges in 896 SIMPLE iterations; its outlet profile has approximately
 fields differ by roughly `1e-6` in relative maximum norm at the configured
 iterative tolerances.
 
-The bundled 64 by 64 cavity example is not a quantitative benchmark: it reaches
-its 1000-iteration limit with `dU=6.61e-5`, above the configured `1e-6` target.
-It also treats the outer cell layer as boundary cells, so an input grid whose
-nodes span `[0,1]` solves on a domain inset by one face. Quantitative cavity
-validation must use `N+2` cells with an outer coordinate layer so that the
-interior control-volume faces lie at 0 and 1.
+The bundled 64 by 64 cavity example is now driven by the native
+`examples/meshes/cavity.mesh` file. Its converged Ghia comparison is recorded
+in `docs/validation.md`; the old boundary-cell input convention is no longer
+part of the BabelSim example path.
 
 ## What is retained
 
@@ -67,7 +65,7 @@ overloads that merely reconstruct global MPI state, and the virtual
 | TaihoCFD component | Decision | BabelSim component |
 |---|---|---|
 | `mesh/Mesh` geometry plus `u/v/p` arrays | split; keep indexing ideas, remove physics ownership | `Mesh` geometry/topology and independent `Field<T>` |
-| boundary cells, integer `bctype/zoneid` | keep only in an adapter | boundary-face `BoundaryPatch`, field BCs, `legacy_taiho` |
+| boundary cells, integer `bctype/zoneid` | delete from the runtime core | native `Mesh` file patches and field boundary conditions |
 | fixed E/W/N/S operator loops | retain verified formulas in the orthogonal limit; generalize by faces | free functions in `operators` with `Method` enums |
 | 2D five-point `Equation` | replace | face-addressed scalar/vector LDU `Equation<T>` |
 | Eigen solver wrappers | retain solver/preconditioner choices and residual checks | CFD-independent `PreparedLinearSolver` |
@@ -75,9 +73,9 @@ overloads that merely reconstruct global MPI state, and the virtual
 | virtual `FlowSolver` plus one concrete implementation | delete | direct construction/composition |
 | MPI x-decomposition and global reconstruction overloads | retain the owner/ghost idea, replace global reconstruction with owned output | `ParallelContext`, `decompose`, `HaloExchange`, global reductions, and rank-owned output |
 
-No TaihoCFD source file is copied verbatim. The legacy adapter is deliberately
-outside Mesh/Field/Operator so deleting old input support later does not change
-the numerical core.
+No TaihoCFD source file is copied verbatim. TaihoCFD remains a numerical
+reference only; its old boundary-cell input format is not a BabelSim runtime
+dependency.
 
 ## Flat target modules
 
@@ -123,6 +121,36 @@ the owner-neighbour line intersection with the face plane.
 A two-dimensional mesh is an extrusion with `nz=1`. Front and back patches use
 symmetry conditions; volumes and in-plane areas retain a finite thickness.
 No solver or operator has a two-dimensional branch.
+
+## Native mesh files
+
+Executable examples and mesh-file regression tests use the versioned BabelSim
+text format, not a solver-specific legacy input format:
+
+```text
+BABELSIM_MESH 1
+dimensions 62 70 1
+geometry cartesian
+bounds 0 0 0 10 1 1
+patch xmin inlet inlet
+patch xmax outlet outlet
+patch ymin lower_wall wall
+patch ymax upper_wall wall
+patch zmin front symmetry
+patch zmax back symmetry
+end
+```
+
+`geometry vertices` may be used instead of `geometry cartesian`, followed by
+the `(nx+1)(ny+1)(nz+1)` vertex triples in logical order. The file describes
+geometry and patch roles only; physical field values remain Field boundary
+conditions, so the same mesh can be reused by different PDEs.
+
+MPI output is intentionally a separate concern: `writeOwnedCsv` writes one
+CSV per rank with only owned cells. `tools/merge_parallel_csv.py` validates
+global-id uniqueness and emits a legacy VTK point cloud plus a Tecplot ASCII
+point zone. This keeps the runtime writer lightweight while providing a
+standard visualization interchange format without serializing ghost cells.
 
 ## Field and boundary model
 
@@ -234,9 +262,9 @@ nor the linear solver contains pressure, velocity, or CFD semantics.
    gradients, divergence, flux, convection, corrected diffusion, and
    Euler/BDF2 terms. Affine linear and cross-quadratic manufactured tests cover
    non-orthogonality and skewness.
-3. **Complete for single-node execution:** Taiho mesh adapter and three-component
-   SIMPLE/Rhie-Chow migration. The old boundary-cell representation is not
-   retained in the core.
+3. **Complete for single-node execution:** native BabelSim mesh-file reader and
+   three-component SIMPLE/Rhie-Chow migration. The old boundary-cell
+   representation is not retained in the core.
 4. **Complete:** converged Ghia Re=100 and analytic Poiseuille gates. Reaching an
    iteration limit is never accepted as a result.
 5. **Complete as a regression gate:** all three face orientations, corrected
@@ -255,7 +283,7 @@ nor the linear solver contains pressure, velocity, or CFD semantics.
    decomposition, two-layer cell and interface-face halo exchange, distributed
    Krylov matvec/global reductions, distributed SIMPLE metrics, and owned-cell
    rank output. One-, two-, and four-rank cavity tests plus one-/two-rank
-   imported Poiseuille equivalence are regression gates.
+   native Poiseuille equivalence are regression gates.
 9. **Remaining:** general (non-structured) partitioning, vertex-field halos,
    scalable distributed preconditioners, refined 3D benchmark validation, and
    scaling/memory-bandwidth studies.

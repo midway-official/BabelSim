@@ -1,5 +1,5 @@
 #include "babelsim/incompressible.h"
-#include "babelsim/legacy_taiho.h"
+#include "babelsim/mesh_io.h"
 
 #include <algorithm>
 #include <cmath>
@@ -11,18 +11,61 @@
 
 using namespace babelsim;
 
+namespace {
+
+void configureChannelBoundaries(IncompressibleFields& fields) {
+    const Mesh& mesh = fields.velocity.mesh();
+    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+        switch (mesh.patches[static_cast<std::size_t>(patch)].kind) {
+            case PatchKind::Inlet:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+            case PatchKind::Outlet:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::zeroGradient());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::fixedValue(0.0));
+                break;
+            case PatchKind::Wall:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::fixedValue({}));
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+            case PatchKind::Symmetry:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::symmetry());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::symmetry());
+                break;
+            case PatchKind::Generic:
+            case PatchKind::Processor:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::zeroGradient());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+        }
+    }
+}
+
+}  // namespace
+
 int main(int argc, char* argv[]) {
     try {
         if (argc < 2 || argc > 6) {
             throw std::invalid_argument(
-                "usage: imported_simple <Taiho-mesh> [max-iterations] [rho] [mu] [csv]");
+                "usage: channel_simple <BabelSim-mesh> [max-iterations] [rho] [mu] [csv]");
         }
         const int maximum_iterations = argc > 2 ? std::stoi(argv[2]) : 5000;
         const double density = argc > 3 ? std::stod(argv[3]) : 1.0;
         const double viscosity = argc > 4 ? std::stod(argv[4]) : 0.01;
-        ImportedTaihoMesh imported = readTaihoMesh(argv[1]);
-        IncompressibleFields fields(imported.mesh);
-        applyImportedBoundaryConditions(imported, fields.velocity, fields.pressure);
+        Mesh mesh = readMeshFile(argv[1]);
+        IncompressibleFields fields(mesh);
+        configureChannelBoundaries(fields);
 
         Methods methods;
         methods.gradient = GradientMethod::GreenGauss;
@@ -66,14 +109,14 @@ int main(int argc, char* argv[]) {
         Vec3 sum_velocity{};
         double sum_pressure = 0.0;
         double maximum_velocity = 0.0;
-        for (Index cell = 0; cell < imported.mesh.cellCount(); ++cell) {
+        for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
             sum_velocity += fields.velocity[cell];
             sum_pressure += fields.pressure[cell];
             maximum_velocity = std::max(maximum_velocity, norm(fields.velocity[cell]));
         }
         std::cout << "completed=" << completed
                   << " converged=" << std::boolalpha << result.converged
-                  << " cells=" << imported.mesh.cellCount()
+                  << " cells=" << mesh.cellCount()
                   << " sumU=" << sum_velocity
                   << " sumP=" << sum_pressure
                   << " max|U|=" << maximum_velocity
@@ -86,12 +129,12 @@ int main(int argc, char* argv[]) {
                 throw std::runtime_error("cannot create output CSV");
             }
             output << "id,x,y,z,u,v,w,p\n" << std::setprecision(17);
-            for (Index cell = 0; cell < imported.mesh.cellCount(); ++cell) {
-                const Vec3& centre = imported.mesh.cell_centres[static_cast<std::size_t>(cell)];
+            for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+                const Vec3& point = mesh.cell_centres[static_cast<std::size_t>(cell)];
                 const Vec3& velocity = fields.velocity[cell];
-                output << cell << ',' << centre.x << ',' << centre.y << ',' << centre.z
-                       << ',' << velocity.x << ',' << velocity.y << ',' << velocity.z
-                       << ',' << fields.pressure[cell] << '\n';
+                output << mesh.globalCellId(cell) << ',' << point.x << ',' << point.y
+                       << ',' << point.z << ',' << velocity.x << ',' << velocity.y
+                       << ',' << velocity.z << ',' << fields.pressure[cell] << '\n';
             }
         }
         return result.converged ? 0 : 1;
@@ -100,4 +143,3 @@ int main(int argc, char* argv[]) {
         return 2;
     }
 }
-

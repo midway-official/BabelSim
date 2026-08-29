@@ -10,7 +10,7 @@ Poiseuille comparisons are quantitative accuracy claims.
 
 - Cartesian `nz=1` degeneration and a skewed 3D hexahedral geometry;
 - scalar, vector, and symmetry/mirror boundary conditions;
-- TaihoCFD boundary-cell to boundary-face import;
+- native BabelSim mesh-file parsing and patch-role validation;
 - Green-Gauss and least-squares scalar/vector gradients;
 - scalar and vector non-orthogonal diffusion plus skewness reconstruction;
 - a cross-quadratic manufactured solution that distinguishes corrected from
@@ -18,7 +18,7 @@ Poiseuille comparisons are quantitative accuracy claims.
 - divergence, flux, Laplacian, upwind/central convection, Euler/BDF2 terms;
 - LDU assembly, constant/face-variable diffusivity, cached sparse topology,
   CG/incomplete-Cholesky solution, and prepared-solver reuse;
-- imported-channel, 2D cavity, true 3D cavity, and warped-mesh cavity SIMPLE.
+- native channel, 2D cavity, true 3D cavity, and warped-mesh cavity SIMPLE.
 - MPI ownership maps, two-cell-layer scalar/vector/tensor and interface-face
   halos, distributed sparse matvec/Krylov solves, global reductions, and
   owned-cell output.
@@ -27,7 +27,7 @@ Representative regression results:
 
 | Case | Cells | SIMPLE iterations | Relative mass imbalance | Other gate |
 |---|---:|---:|---:|---|
-| imported small channel | 9 | 49 | `1.59e-16` | `max(abs(w)) < 1e-13` |
+| native small channel | 9 | 49 | `1.59e-16` | `max(abs(w)) < 1e-13` |
 | 2D cavity | 12 x 12 x 1 | 137 | `1.61e-16` | centre `u=-0.149236` |
 | 3D cavity | 6 x 6 x 6 | 57 | `1.59e-15` | centre `u=-0.114134`, `max(abs(w))=0.0192033` |
 | warped cavity | 10 x 10 x 1 | 151 | about `6.0e-16` | `max(abs(k_nonorth))/abs(Sf)=0.412398` |
@@ -70,19 +70,19 @@ Run:
 make validate-poiseuille
 ```
 
-The TaihoCFD mesh adapter solves 4340 interior cells. The run converges in 897
-SIMPLE iterations (TaihoCFD reference: 896), with relative mass imbalance
-`3.03e-15`. At the outlet, comparison with the fully developed parabola gives:
+The native BabelSim mesh file solves 4340 cells. The run converges in 865
+SIMPLE iterations, with relative mass imbalance `2.60e-15`. At the outlet,
+comparison with the fully developed parabola gives:
 
 | Metric | Value |
 |---|---:|
-| maximum velocity | `1.49809557` |
-| L-infinity error | `0.000371012` |
-| L2 error | `0.000286418` |
+| maximum velocity | `1.49850478` |
+| L-infinity error | `0.001189098` |
+| L2 error | `0.000645703` |
 
-The one-iteration difference is within the configured iterative tolerances and
-the boundary representation changed from TaihoCFD ghost/boundary cells to
-finite-volume boundary faces.
+The run uses native BabelSim finite-volume boundary faces and the difference
+from the earlier reference trajectory is within the configured iterative
+tolerances.
 
 ## MPI domain decomposition and equivalence
 
@@ -111,16 +111,28 @@ wall-bounded cavity. It converges in 57 iterations with relative mass
 imbalance `3.09e-15`, centre `u=-0.114134`, and `max(abs(w))=0.0192033`; the
 centre-plane symmetry gate passes.
 
-`test-mpi-poiseuille` solves the imported 4340-cell channel on one and two
-ranks and compares rank-owned CSV files by global cell id. Both runs converge
-in 897 SIMPLE iterations; the maximum component-wise field difference is
-`2.63e-7` with the comparison gate `atol=rtol=5e-6`. MPI reduction order and
+`test-mpi-poiseuille` solves the native 4340-cell channel on one and two ranks
+and compares rank-owned CSV files by global cell id. Both runs converge in 865
+SIMPLE iterations; the maximum component-wise field difference is `4.58e-6`
+with the comparison gate `atol=rtol=5e-6`. MPI reduction order and
 distributed Krylov trajectories are therefore allowed to introduce bounded
 floating-point differences; bitwise identity is neither required nor claimed.
 
-Parallel output is one file per rank (`<prefix>_<rank>.csv`) containing only
-owned cells and a global id. The files can be merged or compared without
-duplicating ghost layers.
+Parallel output is one file per rank containing only owned cells and a global
+id. The Poiseuille target also exercises the postprocessor:
+
+```bash
+make postprocess-mpi-poiseuille
+# or, for any rank-owned CSV directory:
+python3 tools/merge_parallel_csv.py build/mpi-poiseuille-np2 \
+  --prefix poiseuille --ranks 2 --output build/postprocess/poiseuille
+```
+
+This writes `poiseuille.vtk` and `poiseuille.dat`.  The VTK file is a point
+cloud with cell-centre coordinates, velocity vectors, pressure, and global-id
+arrays; the Tecplot file is an equivalent `F=POINT` zone.  Ghost layers are
+never emitted, so global ids remain unique and the result is safe to inspect
+or compare after domain decomposition.
 
 ## Memory safety and profiling
 

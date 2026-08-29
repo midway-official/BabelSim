@@ -23,7 +23,7 @@ Implemented:
 - LDU finite-volume equations, constant or face-centred variable diffusion,
   precomputed sparse assembly structure, and CFD-independent Eigen linear
   solvers with reusable sparsity analysis and preconditioners;
-- a TaihoCFD face-boundary mesh adapter and a three-component SIMPLE solver
+- a versioned native mesh-file reader and a three-component SIMPLE solver
   with Rhie-Chow momentum interpolation, pressure correction, cell/face-flux
   correction, and continuity monitoring.
 
@@ -45,10 +45,22 @@ make test-mpi
 make test-mpi-poiseuille
 make validate-cavity
 make validate-poiseuille
+# after the MPI target, merge its rank files for ParaView/Tecplot
+make postprocess-mpi-poiseuille
 ```
 
-`validate-poiseuille` uses `/home/midway/TaihoCFD/examples/meshes/poiseuille`
-by default; set `TAIHO_POISEUILLE=/path/to/mesh` to override it.
+`validate-poiseuille` uses the native `examples/meshes/poiseuille.mesh` file
+by default; set `POISEUILLE_MESH=/path/to/mesh` to override it.
+
+Both examples read a versioned BabelSim mesh file (`examples/meshes/*.mesh`);
+the files contain dimensions, Cartesian or explicit vertex geometry, and six
+boundary-patch records.  MPI field output is one owned-cell CSV per rank.  Use
+`tools/merge_parallel_csv.py <directory> --prefix <prefix> --ranks <N>` to
+write a merged legacy VTK point-cloud (`.vtk`) and Tecplot ASCII point zone
+(`.dat`) that can be opened directly by ParaView or Tecplot.
+
+For example, after `make test-mpi-poiseuille`, the merged files are written to
+`build/postprocess/poiseuille.vtk` and `build/postprocess/poiseuille.dat`.
 
 The validated baseline includes serial and MPI structured hexahedral finite volumes. Quantitative
 2D cavity and Poiseuille gates pass; the 3D and non-orthogonal cases are

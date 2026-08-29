@@ -1,0 +1,11 @@
+BABELSIM_MESH 1
+dimensions 3 3 1
+geometry cartesian
+bounds 0 0 0 3 3 1
+patch xmin inlet inlet
+patch xmax outlet outlet
+patch ymin lower_wall wall
+patch ymax upper_wall wall
+patch zmin front symmetry
+patch zmax back symmetry
+end

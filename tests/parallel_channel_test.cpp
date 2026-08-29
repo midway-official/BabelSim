@@ -1,5 +1,5 @@
 #include "babelsim/incompressible.h"
-#include "babelsim/legacy_taiho.h"
+#include "babelsim/mesh_io.h"
 #include "babelsim/parallel.h"
 
 #include "test_util.h"
@@ -11,8 +11,52 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 using namespace babelsim;
+
+namespace {
+
+void configureChannelBoundaries(IncompressibleFields& fields) {
+    const Mesh& mesh = fields.velocity.mesh();
+    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+        switch (mesh.patches[static_cast<std::size_t>(patch)].kind) {
+            case PatchKind::Inlet:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+            case PatchKind::Outlet:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::zeroGradient());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::fixedValue(0.0));
+                break;
+            case PatchKind::Wall:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::fixedValue({}));
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+            case PatchKind::Symmetry:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::symmetry());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::symmetry());
+                break;
+            case PatchKind::Generic:
+            case PatchKind::Processor:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::zeroGradient());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+        }
+    }
+}
+
+}  // namespace
 
 int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
@@ -20,19 +64,15 @@ int main(int argc, char* argv[]) {
     try {
         if (argc < 2 || argc > 3) {
             throw std::invalid_argument(
-                "usage: parallel_imported_test <Taiho-mesh> [output-dir]");
+                "usage: parallel_channel_test <BabelSim-mesh> [output-dir]");
         }
         require(
             parallel.size == 1 || parallel.size == 2 || parallel.size == 4,
-            "parallel_imported_test supports one, two, or four MPI ranks");
-        ImportedTaihoMesh imported = readTaihoMesh(argv[1]);
-        IncompressibleFields global_fields(imported.mesh);
-        applyImportedBoundaryConditions(
-            imported, global_fields.velocity, global_fields.pressure);
-        const Mesh mesh = decompose(imported.mesh, parallel);
+            "parallel_channel_test supports one, two, or four MPI ranks");
+        const Mesh global = readMeshFile(argv[1]);
+        const Mesh mesh = decompose(global, parallel);
         IncompressibleFields fields(mesh);
-        copyBoundaryConditions(global_fields.velocity, fields.velocity);
-        copyBoundaryConditions(global_fields.pressure, fields.pressure);
+        configureChannelBoundaries(fields);
 
         Methods methods;
         methods.gradient = GradientMethod::GreenGauss;
@@ -58,12 +98,12 @@ int main(int argc, char* argv[]) {
         for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {
             result = solver.iterate();
             iterations = iteration;
-            require(result.healthy, "distributed imported SIMPLE became unhealthy");
+            require(result.healthy, "distributed channel SIMPLE became unhealthy");
             if (result.converged) {
                 break;
             }
         }
-        require(result.converged, "distributed imported SIMPLE did not converge");
+        require(result.converged, "distributed channel SIMPLE did not converge");
 
         Vec3 local_sum{};
         double local_max = 0.0;
@@ -71,15 +111,15 @@ int main(int argc, char* argv[]) {
             local_sum += fields.velocity[cell];
             local_max = std::max(local_max, norm(fields.velocity[cell]));
         }
-        double global_sum_values[3] = {};
         const double local_sum_values[3] = {
             local_sum.x, local_sum.y, local_sum.z};
+        double global_sum_values[3] = {};
         parallel.sum(local_sum_values, global_sum_values, 3);
         double global_max = 0.0;
         parallel.maximum(&local_max, &global_max, 1);
-        require(global_max > 1.0, "imported Poiseuille flow is empty");
+        require(global_max > 1.0, "native Poiseuille flow is empty");
         if (parallel.rank == 0) {
-            std::cout << "parallel_imported_test: ranks=" << parallel.size
+            std::cout << "parallel_channel_test: ranks=" << parallel.size
                       << " iterations=" << iterations
                       << " mass=" << result.continuity.relative
                       << " dU=" << result.relative_velocity_change

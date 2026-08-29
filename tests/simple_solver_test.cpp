@@ -1,17 +1,61 @@
 #include "babelsim/incompressible.h"
-#include "babelsim/legacy_taiho.h"
+#include "babelsim/mesh_io.h"
 
 #include "test_util.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
 using namespace babelsim;
 
+namespace {
+
+void configureChannelBoundaries(IncompressibleFields& fields) {
+    const Mesh& mesh = fields.velocity.mesh();
+    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+        switch (mesh.patches[static_cast<std::size_t>(patch)].kind) {
+            case PatchKind::Inlet:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+            case PatchKind::Outlet:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::zeroGradient());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::fixedValue(0.0));
+                break;
+            case PatchKind::Wall:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::fixedValue({}));
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+            case PatchKind::Symmetry:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::symmetry());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::symmetry());
+                break;
+            case PatchKind::Generic:
+            case PatchKind::Processor:
+                fields.velocity.setBoundary(
+                    patch, BoundaryCondition<Vec3>::zeroGradient());
+                fields.pressure.setBoundary(
+                    patch, BoundaryCondition<double>::zeroGradient());
+                break;
+        }
+    }
+}
+
+}  // namespace
+
 int main() {
-    ImportedTaihoMesh imported = readTaihoMesh("tests/data/taiho_5x5");
-    IncompressibleFields fields(imported.mesh);
-    applyImportedBoundaryConditions(imported, fields.velocity, fields.pressure);
+    const Mesh mesh = readMeshFile("tests/data/babelsim_channel.mesh");
+    IncompressibleFields fields(mesh);
+    configureChannelBoundaries(fields);
 
     Methods methods;
     methods.gradient = GradientMethod::GreenGauss;
@@ -39,7 +83,7 @@ int main() {
             break;
         }
     }
-    require(result.converged, "SIMPLE did not converge on the imported channel");
+    require(result.converged, "SIMPLE did not converge on the native channel");
     require(
         result.continuity.relative <= control.continuity_tolerance,
         "SIMPLE converged without satisfying continuity");
@@ -51,10 +95,9 @@ int main() {
     }
     require(maximum_z_velocity < 1e-13, "nz=1 SIMPLE generated a z velocity");
 
-    IncompressibleFields transient_fields(imported.mesh);
-    applyImportedBoundaryConditions(
-        imported, transient_fields.velocity, transient_fields.pressure);
-    VectorField previous(imported.mesh, FieldLocation::Cell, "Uold");
+    IncompressibleFields transient_fields(mesh);
+    configureChannelBoundaries(transient_fields);
+    VectorField previous(mesh, FieldLocation::Cell, "Uold");
     Methods transient_methods = methods;
     transient_methods.time = TimeMethod::Euler;
     SimpleSolver transient_solver(

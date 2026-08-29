@@ -1,0 +1,18 @@
+BABELSIM_MESH 1
+dimensions 1 1 1
+geometry vertices
+0 0 0
+1 0 0
+0 1 0
+1 1 0
+0 0 1
+1 0 1
+0 1 1
+1 1 1
+patch xmin xmin generic
+patch xmax xmax generic
+patch ymin ymin generic
+patch ymax ymax generic
+patch zmin zmin symmetry
+patch zmax zmax symmetry
+end
