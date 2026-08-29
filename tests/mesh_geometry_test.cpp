@@ -9,6 +9,7 @@ using namespace babelsim;
 
 int main() {
     const Mesh planar = Mesh::cartesian({2, 3, 1}, {0, 0, 0}, {2, 3, 1});
+    require(planar.orthogonalGeometry(), "Cartesian mesh was not recognized as orthogonal");
     require(planar.cellCount() == 6, "nz=1 cell count is incorrect");
     require(planar.faceCount() == 29, "nz=1 face count is incorrect");
     require(planar.vertexCount() == 24, "nz=1 vertex count is incorrect");
@@ -76,4 +77,3 @@ int main() {
               << " max_nonorth=" << maximum_non_orthogonal
               << " max_skew=" << maximum_skewness << '\n';
 }
-

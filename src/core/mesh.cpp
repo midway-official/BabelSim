@@ -145,6 +145,17 @@ void Mesh::setOwnership(
             }
         }
     }
+    owned_faces.clear();
+    owned_faces.reserve(static_cast<std::size_t>(faceCount()));
+    for (Index face = 0; face < faceCount(); ++face) {
+        const auto f = static_cast<std::size_t>(face);
+        const Index owner = face_owner[f];
+        const Index neighbour = face_neighbour[f];
+        if (isOwned(owner) ||
+            (neighbour != invalid_index && isOwned(neighbour))) {
+            owned_faces.push_back(face);
+        }
+    }
 }
 
 void Mesh::setPatches(std::vector<BoundaryPatch> new_patches) {
@@ -239,6 +250,7 @@ Mesh Mesh::structured(
     mesh.vertices.assign(std::move(points));
     mesh.cell_centres.resize(number_of_cells);
     mesh.cell_volumes.resize(number_of_cells);
+    mesh.cell_inverse_volumes.resize(number_of_cells);
     mesh.cell_faces.resize(number_of_cells);
     mesh.cell_neighbours.resize(number_of_cells);
     for (auto& faces : mesh.cell_faces) {
@@ -398,15 +410,18 @@ Mesh Mesh::structured(
             throw std::runtime_error("structured mesh contains a non-positive cell");
         }
         mesh.cell_volumes[static_cast<std::size_t>(cell)] = volume;
+        mesh.cell_inverse_volumes[static_cast<std::size_t>(cell)] = 1.0 / volume;
         mesh.cell_centres[static_cast<std::size_t>(cell)] = first_moment / volume;
     }
 
     const std::size_t number_of_faces = mesh.face_owner.size();
     mesh.face_areas.resize(number_of_faces);
+    mesh.face_normals.resize(number_of_faces);
     mesh.face_orthogonal_coefficients.resize(number_of_faces);
     mesh.face_owner_weights.resize(number_of_faces);
     mesh.face_non_orthogonal.resize(number_of_faces);
     mesh.face_skewness.resize(number_of_faces);
+    mesh.orthogonal_geometry = true;
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
@@ -426,6 +441,7 @@ Mesh Mesh::structured(
         }
         const double orthogonal = projected / delta_squared;
         mesh.face_areas[f] = area;
+        mesh.face_normals[f] = area_vector / area;
         mesh.face_orthogonal_coefficients[f] = orthogonal;
         mesh.face_non_orthogonal[f] = area_vector - orthogonal * delta;
 
@@ -433,7 +449,7 @@ Mesh Mesh::structured(
             mesh.face_owner_weights[f] = 1.0;
             mesh.face_skewness[f] = {};
         } else {
-            const Vec3 normal = area_vector / area;
+            const Vec3 normal = mesh.face_normals[f];
             const double owner_distance = std::abs(dot(
                 centre - mesh.cell_centres[static_cast<std::size_t>(owner)], normal));
             const double neighbour_distance = std::abs(dot(
@@ -451,6 +467,16 @@ Mesh Mesh::structured(
                 mesh.cell_centres[static_cast<std::size_t>(owner)] + fraction * delta;
             mesh.face_skewness[f] = centre - intersection;
         }
+        // 两个量的物理量纲不同：非正交向量与面面积同量纲，偏斜量与长度同量纲。
+        // 分别归一化后再判断，避免极端长宽比网格被误判为正交网格。
+        const double non_orthogonal_ratio =
+            norm(mesh.face_non_orthogonal[f]) / area;
+        const double skew_scale = std::max(norm(delta), std::sqrt(area));
+        const double skew_ratio =
+            skew_scale > 0.0 ? norm(mesh.face_skewness[f]) / skew_scale : 0.0;
+        if (non_orthogonal_ratio > 1e-14 || skew_ratio > 1e-14) {
+            mesh.orthogonal_geometry = false;
+        }
     }
 
     mesh.setOwnership(cells, 0, 0, cells[0], 0);
@@ -466,7 +492,8 @@ void Mesh::validate() const {
         checkedIncrement(dimensions[1], "vertex"),
         checkedIncrement(dimensions[2], "vertex"), "vertex");
     if (vertices.size() != expected_vertices || cell_centres.size() != cells ||
-        cell_volumes.size() != cells || cell_faces.size() != cells ||
+        cell_volumes.size() != cells || cell_inverse_volumes.size() != cells ||
+        cell_faces.size() != cells ||
         cell_neighbours.size() != cells) {
         throw std::runtime_error("mesh cell or vertex arrays have inconsistent sizes");
     }
@@ -530,7 +557,8 @@ void Mesh::validate() const {
     const std::size_t faces = face_owner.size();
     if (face_vertices.size() != faces || face_neighbour.size() != faces ||
         face_patch.size() != faces || face_centres.size() != faces ||
-        face_area_vectors.size() != faces || face_non_orthogonal.size() != faces ||
+        face_area_vectors.size() != faces || face_normals.size() != faces ||
+        face_non_orthogonal.size() != faces ||
         face_skewness.size() != faces || face_areas.size() != faces ||
         face_orthogonal_coefficients.size() != faces ||
         face_owner_weights.size() != faces) {
@@ -565,11 +593,15 @@ void Mesh::validate() const {
             neighbour >= 0 && static_cast<std::size_t>(neighbour) < cells;
         if (!owner_valid || (!neighbour_valid && neighbour != invalid_index) ||
             !isFinite(face_centres[face]) || !isFinite(face_area_vectors[face]) ||
+            !isFinite(face_normals[face]) ||
             !isFinite(face_non_orthogonal[face]) || !isFinite(face_skewness[face]) ||
             !(face_areas[face] > 0.0) ||
             !(face_orthogonal_coefficients[face] > 0.0) ||
             !(face_owner_weights[face] >= 0.0 && face_owner_weights[face] <= 1.0)) {
             throw std::runtime_error("mesh contains an invalid face");
+        }
+        if (std::abs(norm(face_normals[face]) - 1.0) > 1e-12) {
+            throw std::runtime_error("mesh face normal is not normalized");
         }
         for (Index vertex : face_vertices[face]) {
             if (vertex < 0 || static_cast<std::size_t>(vertex) >= vertices.size()) {
@@ -589,7 +621,9 @@ void Mesh::validate() const {
 
     for (std::size_t cell = 0; cell < cells; ++cell) {
         if (!isFinite(cell_centres[cell]) || !(cell_volumes[cell] > 0.0) ||
-            !std::isfinite(cell_volumes[cell])) {
+            !std::isfinite(cell_volumes[cell]) ||
+            !(cell_inverse_volumes[cell] > 0.0) ||
+            !std::isfinite(cell_inverse_volumes[cell])) {
             throw std::runtime_error("mesh contains an invalid cell geometry");
         }
         Vec3 closure{};
@@ -615,6 +649,24 @@ void Mesh::validate() const {
         }
         if (norm(closure) > 1e-10 * std::max(area_sum, 1.0)) {
             throw std::runtime_error("cell face area vectors do not form a closed surface");
+        }
+    }
+
+    std::size_t expected_owned_faces = 0;
+    for (std::size_t face = 0; face < faces; ++face) {
+        const Index owner = face_owner[face];
+        const Index neighbour = face_neighbour[face];
+        if (isOwned(owner) ||
+            (neighbour != invalid_index && isOwned(neighbour))) {
+            ++expected_owned_faces;
+        }
+    }
+    if (owned_faces.size() != expected_owned_faces) {
+        throw std::runtime_error("mesh owned-face mapping is inconsistent");
+    }
+    for (Index face : owned_faces) {
+        if (face < 0 || static_cast<std::size_t>(face) >= faces) {
+            throw std::runtime_error("mesh owned-face index is invalid");
         }
     }
 }

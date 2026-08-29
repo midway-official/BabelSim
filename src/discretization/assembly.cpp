@@ -42,22 +42,23 @@ SparseAssembly::SparseAssembly(const Mesh& mesh)
     : mesh_(&mesh),
       matrix_(mesh.ownedCellCount(), mesh.ownedCellCount()),
       diagonal_positions_(
-          static_cast<std::size_t>(mesh.cellCount()), Eigen::Index{-1}),
+          static_cast<std::size_t>(mesh.ownedCellCount()), Eigen::Index{-1}),
       upper_positions_(
           static_cast<std::size_t>(mesh.faceCount()), Eigen::Index{-1}),
       lower_positions_(
           static_cast<std::size_t>(mesh.faceCount()), Eigen::Index{-1})
 {
     mesh.validate();
+    coupled_faces_.reserve(mesh.owned_faces.size());
     std::vector<Eigen::Triplet<double>> entries;
     entries.reserve(
         static_cast<std::size_t>(mesh.ownedCellCount()) +
-        2U * static_cast<std::size_t>(mesh.faceCount()));
+        2U * mesh.owned_faces.size());
     for (Index cell : mesh.owned_cells) {
         const Index row = mesh.ownedIndex(cell);
         entries.emplace_back(row, row, 1.0);
     }
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index neighbour = mesh.face_neighbour[f];
         if (neighbour == invalid_index) {
@@ -65,6 +66,7 @@ SparseAssembly::SparseAssembly(const Mesh& mesh)
         }
         const Index owner = mesh.face_owner[f];
         if (mesh.isOwned(owner) && mesh.isOwned(neighbour)) {
+            coupled_faces_.push_back(face);
             entries.emplace_back(
                 mesh.ownedIndex(owner), mesh.ownedIndex(neighbour), 1.0);
             entries.emplace_back(
@@ -76,10 +78,10 @@ SparseAssembly::SparseAssembly(const Mesh& mesh)
     matrix_.makeCompressed();
     for (Index cell : mesh.owned_cells) {
         const Index row = mesh.ownedIndex(cell);
-        diagonal_positions_[static_cast<std::size_t>(cell)] =
+        diagonal_positions_[static_cast<std::size_t>(row)] =
             coefficientPosition(matrix_, row, row);
     }
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : coupled_faces_) {
         const auto f = static_cast<std::size_t>(face);
         const Index neighbour = mesh.face_neighbour[f];
         if (neighbour == invalid_index) {
@@ -102,7 +104,7 @@ void SparseAssembly::update(
     const std::vector<double>& lower)
 {
     if (equation_mesh != mesh_ ||
-        diagonal.size() != diagonal_positions_.size() ||
+        diagonal.size() != static_cast<std::size_t>(mesh_->cellCount()) ||
         upper.size() != upper_positions_.size() ||
         lower.size() != lower_positions_.size()) {
         throw std::invalid_argument("equation coefficients do not match assembly mesh");
@@ -110,12 +112,11 @@ void SparseAssembly::update(
     double* values = matrix_.valuePtr();
     for (Index cell : mesh_->owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
-        values[diagonal_positions_[c]] = diagonal[c];
+        const auto row = static_cast<std::size_t>(mesh_->ownedIndex(cell));
+        values[diagonal_positions_[row]] = diagonal[c];
     }
-    for (std::size_t face = 0; face < upper.size(); ++face) {
-        if (upper_positions_[face] < 0) {
-            continue;
-        }
+    for (Index face_index : coupled_faces_) {
+        const std::size_t face = static_cast<std::size_t>(face_index);
         values[upper_positions_[face]] = upper[face];
         values[lower_positions_[face]] = lower[face];
     }

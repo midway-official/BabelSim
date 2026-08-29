@@ -61,7 +61,7 @@ void MomentumInterpolation::apply(
         interpolation_method, gradient_method);
     interpolate(mobility, face_mobility, interpolation_method, gradient_method);
 
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index neighbour = mesh.face_neighbour[f];
         if (neighbour == invalid_index) {

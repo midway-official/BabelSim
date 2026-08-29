@@ -92,11 +92,15 @@ struct Mesh {
     Index owned_i_begin = 0;
     Index owned_i_end = 0;
     Index ghost_layers = 0;
+    // 网格构造阶段识别的正交几何标志。正交网格无需重复执行偏斜面重构。
+    bool orthogonal_geometry = true;
 
     // 结构化数组形式的拓扑与几何。相同数组同时服务 nx*ny*1 和完整三维网格。
     MeshStorage<Vec3> vertices;
     MeshStorage<Vec3> cell_centres;
     MeshStorage<double> cell_volumes;
+    // 常用几何量的倒数/归一化缓存，避免算子热路径重复做除法。
+    MeshStorage<double> cell_inverse_volumes;
     MeshStorage<std::array<Index, 6>> cell_faces;
     MeshStorage<std::array<Index, 6>> cell_neighbours;
 
@@ -106,6 +110,7 @@ struct Mesh {
     MeshStorage<Index> face_patch;
     MeshStorage<Vec3> face_centres;
     MeshStorage<Vec3> face_area_vectors;
+    MeshStorage<Vec3> face_normals;
     MeshStorage<Vec3> face_non_orthogonal;
     MeshStorage<Vec3> face_skewness;
     MeshStorage<double> face_areas;
@@ -115,6 +120,8 @@ struct Mesh {
 
     // 局部结构化 cell ID 仍是存储索引。这些紧凑映射选择分布式代数和输出使用的 owned 子集。
     MeshStorage<Index> owned_cells;
+    // 至少连接一个 owned cell 的面。分区后代数装配和物理更新无需扫描 ghost-only 面。
+    MeshStorage<Index> owned_faces;
     MeshStorage<Index> cell_owned_indices;
     MeshStorage<Index> cell_global_ids;
 
@@ -158,12 +165,12 @@ struct Mesh {
     double faceOwnerWeight(Index face) const {
         return face_owner_weights[static_cast<std::size_t>(face)];
     }
+    bool orthogonalGeometry() const { return orthogonal_geometry; }
     bool boundaryFace(Index face) const {
         return face_neighbour[static_cast<std::size_t>(face)] == invalid_index;
     }
     Vec3 faceNormal(Index face) const {
-        const auto n = static_cast<std::size_t>(face);
-        return face_area_vectors[n] / face_areas[n];
+        return face_normals[static_cast<std::size_t>(face)];
     }
 
     Index cellId(Index i, Index j, Index k) const;

@@ -30,6 +30,21 @@ void requireCommunicator(MPI_Comm communicator, const char* operation) {
     detail::requireMpiReady(operation);
 }
 
+void requireCollectiveContext(const ParallelContext& parallel, const char* operation) {
+    if (parallel.size <= 0 || parallel.rank < 0 || parallel.rank >= parallel.size) {
+        throw std::invalid_argument("parallel rank or size is invalid");
+    }
+    if (parallel.communicator == MPI_COMM_NULL) {
+        if (parallel.size != 1 || parallel.rank != 0) {
+            throw std::invalid_argument("distributed collective has MPI_COMM_NULL");
+        }
+        return;
+    }
+    // 热路径只检查 MPI 生命周期和空通信器；rank/size 与通信器的一致性在
+    // world()/Solver/HaloExchange 构造时完整校验，避免每个点积重复查询。
+    detail::requireMpiReady(operation);
+}
+
 void assignPartitionPatches(
     Mesh& local,
     const std::array<PatchSpec, 6>& specifications,
@@ -276,10 +291,10 @@ void ParallelContext::sum(
     double* global,
     int count) const
 {
-    validate();
     if (count < 0 || (count > 0 && (local == nullptr || global == nullptr))) {
         throw std::invalid_argument("parallel sum buffer is invalid");
     }
+    requireCollectiveContext(*this, "ParallelContext::sum");
     if (count == 0) {
         return;
     }
@@ -292,15 +307,36 @@ void ParallelContext::sum(
         "MPI_Allreduce(sum)");
 }
 
+void ParallelContext::sum(
+    const int* local,
+    int* global,
+    int count) const
+{
+    if (count < 0 || (count > 0 && (local == nullptr || global == nullptr))) {
+        throw std::invalid_argument("parallel integer sum buffer is invalid");
+    }
+    requireCollectiveContext(*this, "ParallelContext::sum int array");
+    if (count == 0) {
+        return;
+    }
+    if (!distributed()) {
+        std::copy(local, local + count, global);
+        return;
+    }
+    detail::checkMpi(
+        MPI_Allreduce(local, global, count, MPI_INT, MPI_SUM, communicator),
+        "MPI_Allreduce(sum int array)");
+}
+
 void ParallelContext::maximum(
     const double* local,
     double* global,
     int count) const
 {
-    validate();
     if (count < 0 || (count > 0 && (local == nullptr || global == nullptr))) {
         throw std::invalid_argument("parallel maximum buffer is invalid");
     }
+    requireCollectiveContext(*this, "ParallelContext::maximum");
     if (count == 0) {
         return;
     }
@@ -314,22 +350,14 @@ void ParallelContext::maximum(
 }
 
 int ParallelContext::sum(int local) const {
-    validate();
-    if (!distributed()) {
-        return local;
-    }
     int global = 0;
-    detail::checkMpi(
-        MPI_Allreduce(&local, &global, 1, MPI_INT, MPI_SUM, communicator),
-        "MPI_Allreduce(sum int)");
+    sum(&local, &global, 1);
     return global;
 }
 
 int ParallelContext::maximum(int local) const {
-    validate();
-    if (!distributed()) {
-        return local;
-    }
+    requireCollectiveContext(*this, "ParallelContext::maximum int");
+    if (!distributed()) return local;
     int global = 0;
     detail::checkMpi(
         MPI_Allreduce(&local, &global, 1, MPI_INT, MPI_MAX, communicator),
@@ -467,6 +495,21 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
         appendPlane(send_right_, mesh.owned_i_end - mesh.ghost_layers);
         appendPlane(receive_right_, mesh.owned_i_end);
     }
+    const auto appendFirstPlane = [&](std::vector<Index>& indices, Index begin) {
+        for (Index k = 0; k < mesh.dimensions[2]; ++k) {
+            for (Index j = 0; j < mesh.dimensions[1]; ++j) {
+                indices.push_back(mesh.cellId(begin, j, k));
+            }
+        }
+    };
+    if (left_ != MPI_PROC_NULL) {
+        appendFirstPlane(send_left_first_, mesh.owned_i_begin);
+        appendFirstPlane(receive_left_first_, mesh.owned_i_begin - 1);
+    }
+    if (right_ != MPI_PROC_NULL) {
+        appendFirstPlane(send_right_first_, mesh.owned_i_end - 1);
+        appendFirstPlane(receive_right_first_, mesh.owned_i_end);
+    }
     const auto appendInterface = [&](std::vector<Index>& indices, Index cell_i, Side side) {
         for (Index k = 0; k < mesh.dimensions[2]; ++k) {
             for (Index j = 0; j < mesh.dimensions[1]; ++j) {
@@ -483,9 +526,29 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
     if (right_ != MPI_PROC_NULL) {
         appendInterface(send_face_right_, mesh.owned_i_end - 1, Side::XMax);
     }
+    // 常用场最多包含 9 个 double（Tensor3）。预留一次后，后续时间步/外迭代
+    // 的打包和接收不会再次触发堆分配。
+    send_buffer_left_.reserve(send_left_.size() * 9U);
+    send_buffer_right_.reserve(send_right_.size() * 9U);
+    receive_buffer_left_.reserve(receive_left_.size() * 9U);
+    receive_buffer_right_.reserve(receive_right_.size() * 9U);
+    send_face_buffer_right_.reserve(send_face_right_.size() * 9U);
+    receive_face_buffer_left_.reserve(receive_face_left_.size() * 9U);
 }
 
 void HaloExchange::exchange(double* values, std::size_t components) {
+    exchangeCells(
+        values, components, send_left_, send_right_, receive_left_, receive_right_);
+}
+
+void HaloExchange::exchangeCells(
+    double* values,
+    std::size_t components,
+    const std::vector<Index>& send_left,
+    const std::vector<Index>& send_right,
+    const std::vector<Index>& receive_left,
+    const std::vector<Index>& receive_right)
+{
     if (!parallel_.distributed()) {
         return;
     }
@@ -516,10 +579,10 @@ void HaloExchange::exchange(double* values, std::size_t components) {
         }
     };
 
-    pack(send_left_, send_buffer_left_);
-    pack(send_right_, send_buffer_right_);
-    receive_buffer_right_.resize(receive_right_.size() * components);
-    receive_buffer_left_.resize(receive_left_.size() * components);
+    pack(send_left, send_buffer_left_);
+    pack(send_right, send_buffer_right_);
+    receive_buffer_right_.resize(receive_right.size() * components);
+    receive_buffer_left_.resize(receive_left.size() * components);
     double dummy = 0.0;
     detail::checkMpi(MPI_Sendrecv(
         send_buffer_left_.empty() ? &dummy : send_buffer_left_.data(),
@@ -533,8 +596,8 @@ void HaloExchange::exchange(double* values, std::size_t components) {
         receive_buffer_left_.empty() ? &dummy : receive_buffer_left_.data(),
         detail::mpiCount(receive_buffer_left_.size(), "left halo buffer"), MPI_DOUBLE, left_, 102,
         parallel_.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(right halo)");
-    unpack(receive_right_, receive_buffer_right_);
-    unpack(receive_left_, receive_buffer_left_);
+    unpack(receive_right, receive_buffer_right_);
+    unpack(receive_left, receive_buffer_left_);
 }
 
 void HaloExchange::exchangeFaces(double* values, std::size_t components) {
@@ -587,6 +650,16 @@ void HaloExchange::exchange(std::vector<double>& values) {
         throw std::invalid_argument("raw halo field has the wrong size");
     }
     exchange(values.data(), 1);
+}
+
+void HaloExchange::exchangeFirstLayer(std::vector<double>& values) {
+    if (mesh_ == nullptr) throw std::logic_error("halo exchange has no mesh");
+    if (values.size() != static_cast<std::size_t>(mesh_->cellCount())) {
+        throw std::invalid_argument("raw first-layer halo field has the wrong size");
+    }
+    exchangeCells(
+        values.data(), 1, send_left_first_, send_right_first_,
+        receive_left_first_, receive_right_first_);
 }
 
 void HaloExchange::exchange(ScalarField& field) {

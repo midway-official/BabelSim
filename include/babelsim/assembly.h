@@ -38,6 +38,7 @@ private:
     std::vector<Eigen::Index> diagonal_positions_;
     std::vector<Eigen::Index> upper_positions_;
     std::vector<Eigen::Index> lower_positions_;
+    std::vector<Index> coupled_faces_;
 };
 
 Eigen::SparseMatrix<double> assembleMatrix(const ScalarEquation& equation);

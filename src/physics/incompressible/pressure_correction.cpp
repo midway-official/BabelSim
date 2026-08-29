@@ -51,7 +51,7 @@ void PressureCorrection::assemble(
     pressure.validateStorage();
     if (correction_gradient != nullptr) correction_gradient->validateStorage();
     equation.reset();
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
         const Index neighbour = mesh.face_neighbour[f];
@@ -143,7 +143,7 @@ void PressureCorrection::apply(
         pressure[cell] += pressure_relaxation * correction[cell];
         velocity[cell] -= mobility[cell] * correction_gradient[cell];
     }
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
         const Index neighbour = mesh.face_neighbour[f];

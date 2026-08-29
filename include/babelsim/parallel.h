@@ -21,6 +21,7 @@ struct ParallelContext {
     bool distributed() const { return size > 1; }
     void validate() const;
     void sum(const double* local, double* global, int count) const;
+    void sum(const int* local, int* global, int count) const;
     void maximum(const double* local, double* global, int count) const;
     int sum(int local) const;
     int maximum(int local) const;
@@ -61,12 +62,22 @@ public:
     HaloExchange(const Mesh& mesh, ParallelContext parallel);
 
     void exchange(std::vector<double>& values);
+    // 分布式稀疏矩阵乘只访问接口两侧第一层 ghost；该入口避免传输非正交
+    // 重构所需的第二层 ghost，从而减少 Krylov 热路径的通信量。
+    void exchangeFirstLayer(std::vector<double>& values);
     void exchange(ScalarField& field);
     void exchange(VectorField& field);
     void exchange(TensorField& field);
 
 private:
     void exchange(double* values, std::size_t components);
+    void exchangeCells(
+        double* values,
+        std::size_t components,
+        const std::vector<Index>& send_left,
+        const std::vector<Index>& send_right,
+        const std::vector<Index>& receive_left,
+        const std::vector<Index>& receive_right);
     void exchangeFaces(double* values, std::size_t components);
 
     const Mesh* mesh_;
@@ -77,6 +88,10 @@ private:
     std::vector<Index> send_right_;
     std::vector<Index> receive_left_;
     std::vector<Index> receive_right_;
+    std::vector<Index> send_left_first_;
+    std::vector<Index> send_right_first_;
+    std::vector<Index> receive_left_first_;
+    std::vector<Index> receive_right_first_;
     std::vector<Index> send_face_right_;
     std::vector<Index> receive_face_left_;
     std::vector<double> send_buffer_left_;

@@ -19,6 +19,7 @@ struct RemoteCoupling {
     Index ghost_cell = invalid_index;
     Index face = invalid_index;
     bool upper = false;
+    double coefficient = 0.0;
 };
 
 bool invalid(double value) {
@@ -86,8 +87,13 @@ struct DistributedLinearSolver::Implementation {
             throw std::invalid_argument(
                 "distributed equation coefficients do not match the mesh");
         }
-        upper = equation_upper;
-        lower = equation_lower;
+        // 只有跨分区面会在 halo 矩阵向量乘中使用系数；本地系数已经由
+        // Eigen 稀疏矩阵保存，因此不再为每个外迭代复制整套 LDU 数组。
+        for (RemoteCoupling& coupling : remote) {
+            const std::size_t f = static_cast<std::size_t>(coupling.face);
+            coupling.coefficient = coupling.upper
+                ? equation_upper[f] : equation_lower[f];
+        }
         equation_ready = true;
     }
 
@@ -148,18 +154,52 @@ struct DistributedLinearSolver::Implementation {
         return std::sqrt(std::max(dotGlobal(value, value), 0.0));
     }
 
+    double dotGlobalWithStatus(
+        const Eigen::VectorXd& left,
+        const Eigen::VectorXd& right,
+        bool local_success,
+        bool& global_success) const
+    {
+        const double local[2] = {
+            local_success ? left.dot(right) : 0.0,
+            local_success ? 0.0 : 1.0,
+        };
+        double global[2]{};
+        parallel.sum(local, global, 2);
+        global_success = global[1] == 0.0;
+        return global[0];
+    }
+
+    void productsGlobalWithStatus(
+        double local_first,
+        double local_second,
+        bool local_success,
+        double& global_first,
+        double& global_second,
+        bool& global_success) const
+    {
+        const double local[3] = {
+            local_success ? local_first : 0.0,
+            local_success ? local_second : 0.0,
+            local_success ? 0.0 : 1.0,
+        };
+        double global[3]{};
+        parallel.sum(local, global, 3);
+        global_first = global[0];
+        global_second = global[1];
+        global_success = global[2] == 0.0;
+    }
+
     void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
         output.noalias() = matrix * input;
-        for (Index cell : mesh.owned_cells) {
-            local_values[static_cast<std::size_t>(cell)] =
-                input[mesh.ownedIndex(cell)];
+        for (std::size_t owned = 0; owned < mesh.owned_cells.size(); ++owned) {
+            const Index cell = mesh.owned_cells[owned];
+            local_values[static_cast<std::size_t>(cell)] = input[
+                static_cast<Eigen::Index>(owned)];
         }
-        halo.exchange(local_values);
+        halo.exchangeFirstLayer(local_values);
         for (const RemoteCoupling& coupling : remote) {
-            const auto f = static_cast<std::size_t>(coupling.face);
-            const double coefficient = coupling.upper
-                ? upper[f] : lower[f];
-            output[coupling.row] += coefficient *
+            output[coupling.row] += coupling.coefficient *
                 local_values[static_cast<std::size_t>(coupling.ghost_cell)];
         }
     }
@@ -176,7 +216,12 @@ struct DistributedLinearSolver::Implementation {
             output = ilut.solve(input);
             local_success = ilut.info() == Eigen::Success;
         }
-        return parallel.maximum(local_success ? 0 : 1) == 0;
+        if (!local_success || !output.allFinite()) {
+            // 失败 rank 仍需参加下一次全局归约；零向量避免把 NaN 传播给其他 rank。
+            output.setZero();
+            return false;
+        }
+        return true;
     }
 
     SolveResult finish(
@@ -216,13 +261,17 @@ struct DistributedLinearSolver::Implementation {
         double target,
         double scale)
     {
-        if (!precondition(residual, preconditioned_direction)) {
+        const bool local_precondition_success =
+            precondition(residual, preconditioned_direction);
+        bool global_precondition_success = false;
+        double residual_preconditioned = dotGlobalWithStatus(
+            residual, preconditioned_direction, local_precondition_success,
+            global_precondition_success);
+        if (!global_precondition_success) {
             return finish(
                 SolveStatus::NumericalFailure, 0, initial_residual, scale, b, x);
         }
         direction = preconditioned_direction;
-        double residual_preconditioned =
-            dotGlobal(residual, preconditioned_direction);
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
         for (int iteration = 1; iteration <= config.max_iterations; ++iteration) {
@@ -249,11 +298,16 @@ struct DistributedLinearSolver::Implementation {
                 status = SolveStatus::Converged;
                 break;
             }
-            if (!precondition(residual, preconditioned_direction)) {
+            const bool local_success =
+                precondition(residual, preconditioned_direction);
+            bool global_success = false;
+            const double next = dotGlobalWithStatus(
+                residual, preconditioned_direction, local_success,
+                global_success);
+            if (!global_success) {
                 status = SolveStatus::NumericalFailure;
                 break;
             }
-            const double next = dotGlobal(residual, preconditioned_direction);
             if (invalid(next)) {
                 status = SolveStatus::NumericalFailure;
                 break;
@@ -297,12 +351,17 @@ struct DistributedLinearSolver::Implementation {
             }
             const double beta = (rho / previous_rho) * (alpha / omega);
             direction = residual + beta * (direction - omega * direction_product);
-            if (!precondition(direction, preconditioned_direction)) {
+            const bool local_precondition_success =
+                precondition(direction, preconditioned_direction);
+            apply(preconditioned_direction, direction_product);
+            bool global_precondition_success = false;
+            const double shadow_product = dotGlobalWithStatus(
+                shadow, direction_product, local_precondition_success,
+                global_precondition_success);
+            if (!global_precondition_success) {
                 status = SolveStatus::NumericalFailure;
                 break;
             }
-            apply(preconditioned_direction, direction_product);
-            const double shadow_product = dotGlobal(shadow, direction_product);
             if (invalid(shadow_product)) {
                 status = SolveStatus::NumericalFailure;
                 break;
@@ -325,17 +384,24 @@ struct DistributedLinearSolver::Implementation {
                 status = SolveStatus::Converged;
                 break;
             }
-            if (!precondition(intermediate, preconditioned_intermediate)) {
-                status = SolveStatus::NumericalFailure;
-                break;
-            }
+            const bool local_intermediate_precondition_success =
+                precondition(intermediate, preconditioned_intermediate);
             apply(preconditioned_intermediate, intermediate_product);
             const double local_products[2] = {
                 intermediate_product.dot(intermediate),
                 intermediate_product.squaredNorm(),
             };
             double global_products[2]{};
-            parallel.sum(local_products, global_products, 2);
+            bool global_intermediate_precondition_success = false;
+            productsGlobalWithStatus(
+                local_products[0], local_products[1],
+                local_intermediate_precondition_success,
+                global_products[0], global_products[1],
+                global_intermediate_precondition_success);
+            if (!global_intermediate_precondition_success) {
+                status = SolveStatus::NumericalFailure;
+                break;
+            }
             if (invalid(global_products[0]) || invalid(global_products[1])) {
                 status = SolveStatus::NumericalFailure;
                 break;
@@ -376,8 +442,6 @@ struct DistributedLinearSolver::Implementation {
     HaloExchange halo;
     // 系数和局部矩阵均由求解器拥有快照，Equation/Assembly 可安全地在调用后销毁。
     Eigen::SparseMatrix<double> matrix;
-    std::vector<double> upper;
-    std::vector<double> lower;
     std::vector<RemoteCoupling> remote;
     std::vector<double> local_values;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
@@ -473,8 +537,12 @@ SolveResult DistributedLinearSolver::solve(
     }
     state.apply(x, state.matrix_product);
     state.residual = b - state.matrix_product;
-    const double initial_residual = state.normGlobal(state.residual);
-    const double rhs_norm = state.normGlobal(b);
+    const double local_norms[2] = {
+        state.residual.squaredNorm(), b.squaredNorm()};
+    double global_norms[2]{};
+    state.parallel.sum(local_norms, global_norms, 2);
+    const double initial_residual = std::sqrt(std::max(global_norms[0], 0.0));
+    const double rhs_norm = std::sqrt(std::max(global_norms[1], 0.0));
     const double scale = std::max({initial_residual, rhs_norm, 1e-30});
     const double target = std::max(
         state.config.absolute_tolerance,

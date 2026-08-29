@@ -82,13 +82,13 @@ src/
 | 数据 | 类型 | 含义 |
 |---|---|---|
 | `vertices` | `MeshStorage<Vec3>` | 顶点坐标，按结构化逻辑顺序连续存储 |
-| `cell_centres`、`cell_volumes` | `MeshStorage<Vec3/double>` | 单元几何缓存 |
+| `cell_centres`、`cell_volumes`、`cell_inverse_volumes` | `MeshStorage<Vec3/double>` | 单元几何及逆体积缓存 |
 | `cell_faces[6]` | `MeshStorage<std::array<Index,6>>` | 单元六个面的局部索引 |
 | `cell_neighbours[6]` | 同上 | 六个相邻单元；边界为 `invalid_index` |
 | `face_vertices[4]` | `MeshStorage<std::array<Index,4>>` | 四边形面的顶点索引 |
 | `face_owner`、`face_neighbour` | `MeshStorage<Index>` | 面的 owner/neighbour 单元 |
 | `face_patch`、`patches` | `MeshStorage` | 边界面的 patch 归属 |
-| `face_centres`、`face_area_vectors`、`face_areas` | `MeshStorage` | 面中心、面积向量、面积 |
+| `face_centres`、`face_area_vectors`、`face_normals`、`face_areas` | `MeshStorage` | 面中心、面积向量、单位法向、面积 |
 | `face_orthogonal_coefficients` | `MeshStorage<double>` | 扩散隐式正交部分的系数 |
 | `face_non_orthogonal`、`face_skewness` | `MeshStorage<Vec3>` | 非正交与偏斜显式修正 |
 | `face_owner_weights` | `MeshStorage<double>` | owner 到面上的线性插值权重 |
@@ -120,6 +120,7 @@ ghost cell；两层是为了让非正交扩散在第一层 ghost 单元使用已
 局部 `Mesh` 还保存：
 
 - `owned_cells`：本 rank 真正拥有的局部 cell 索引；
+- `owned_faces`：至少连接一个 owned cell 的局部面索引；代数装配、通量更新和压力修正只遍历这些面，避免扫描 ghost-only 面；
 - `cell_owned_indices`：局部 cell 到 owned 行号的映射，ghost 为 `invalid_index`；
 - `cell_global_ids`：局部 cell 到全局 cell ID 的映射；
 - `global_dimensions`、`global_i_offset`、`owned_i_begin/end`、`ghost_layers`：
@@ -199,7 +200,8 @@ Green--Gauss 梯度也执行一次显式偏斜面值修正；Least--Squares 梯�
 triplet 分配、排序或插入。
 
 串行 `PreparedLinearSolver` 复用稀疏结构和预条件器；MPI `DistributedLinearSolver`
-执行 owned block 的矩阵乘法，交换输入向量的 ghost 值，再加跨分区 face 系数。所有
+执行 owned block 的矩阵乘法，只交换矩阵接口所需的第一层 ghost 值，再加跨分区 face
+系数。跨分区系数仅缓存接口面快照，不在每个外迭代复制完整 LDU 数组。所有
 点积、范数和连续性统计使用 `MPI_Allreduce`。SIMPLE 还对健康状态、内层线性收敛
 状态和外迭代物理收敛条件做全局归约，所有 rank 因而在同一个外迭代上继续或停止；
 局部预条件器的 `MaxIterations` 不会再导致某个分区单独多做外迭代。
@@ -264,8 +266,10 @@ metadata 和 rank CSV 恢复全局 cell 顺序并检查完整性。
 
 ## 9. 性能原则与当前范围
 
-- 几何、稀疏结构、halo 通信平面、迭代向量和线性求解 workspace 均复用；
+- 几何（含逆体积和单位法向）、稀疏结构、owned-face 列表、halo 通信平面、迭代向量和线性求解 workspace 均复用；
 - Operator 热点无虚函数、无全局 Field、无不必要的大型临时对象；
+- 正交网格跳过等价的偏斜重构 pass；分布式 Krylov 矩阵乘只交换第一层 ghost，场和梯度同步仍使用完整 halo；
+- MPI 全局归约保持生命周期检查，但不在每次归约重复查询 rank/size；SIMPLE 的三个状态标志合并为一次整型归约；
 - 结果阶段只写 owned cell，避免 ghost 重复和串行重组；
 - case 解析仅发生在启动阶段，不进入迭代循环。
 

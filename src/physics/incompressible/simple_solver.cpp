@@ -128,7 +128,7 @@ SimpleSolver::SimpleSolver(
 
 void SimpleSolver::assembleMomentum(const TimeState& time) {
     momentum_.reset();
-    for (Index face = 0; face < mesh_.faceCount(); ++face) {
+    for (Index face : mesh_.owned_faces) {
         mass_flux_[face] = fluid_.density * fields_.face_flux[face];
     }
     if (methods_.time != TimeMethod::Steady) {
@@ -150,19 +150,19 @@ void SimpleSolver::assembleMomentum(const TimeState& time) {
     if (halo_) {
         halo_->exchange(pressure_gradient_);
     }
-    for (Index cell = 0; cell < mesh_.cellCount(); ++cell) {
+    for (Index cell : mesh_.owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
         momentum_.source[c] -= mesh_.cell_volumes[c] * pressure_gradient_[cell];
     }
 
     // 这是 TaihoCFD 经代数缩放的标准方程欠松弛：保持 aP，缩放非对角项与物理源项。
     const double alpha = control_.velocity_relaxation;
-    for (Index face = 0; face < mesh_.faceCount(); ++face) {
+    for (Index face : mesh_.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         momentum_.upper[f] *= alpha;
         momentum_.lower[f] *= alpha;
     }
-    for (Index cell = 0; cell < mesh_.cellCount(); ++cell) {
+    for (Index cell : mesh_.owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
         if (!(momentum_.diagonal[c] > 0.0) ||
             !std::isfinite(momentum_.diagonal[c])) {
@@ -220,10 +220,8 @@ std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
 }
 
 void SimpleSolver::momentumInterpolation() {
-    gradient(fields_.pressure, pressure_gradient_, methods_.gradient);
-    if (halo_) {
-        halo_->exchange(pressure_gradient_);
-    }
+    // 本外迭代中压力尚未修正；assembleMomentum() 已经计算并同步 grad(p)，
+    // 这里直接复用该派生场，避免重复遍历整个局部网格。
     MomentumInterpolation::apply(
         mesh_, fields_.velocity, fields_.pressure, mobility_, pressure_gradient_,
         fields_.face_flux, methods_.interpolation, methods_.gradient,
@@ -392,11 +390,16 @@ SimpleIterationResult SimpleSolver::iterate(const TimeState& time) {
     // 所有 rank 必须在同一个外迭代上作出相同决定。分区局部预条件器
     // 可能使某个内层线性系统到达 maxIterations，但只要没有数值失败，
     // SIMPLE 仍按全局物理残差停止；线性状态通过独立字段保留。
-    const int healthy_ranks = parallel_.sum(local_healthy ? 1 : 0);
-    const int linear_converged_ranks =
-        parallel_.sum(local_linear_converged ? 1 : 0);
-    const int outer_converged_ranks =
-        parallel_.sum(local_outer_converged ? 1 : 0);
+    const int local_flags[3] = {
+        local_healthy ? 1 : 0,
+        local_linear_converged ? 1 : 0,
+        local_outer_converged ? 1 : 0,
+    };
+    int global_flags[3]{};
+    parallel_.sum(local_flags, global_flags, 3);
+    const int healthy_ranks = global_flags[0];
+    const int linear_converged_ranks = global_flags[1];
+    const int outer_converged_ranks = global_flags[2];
     result.healthy = healthy_ranks == parallel_.size;
     result.linear_converged =
         linear_converged_ranks == parallel_.size;

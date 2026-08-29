@@ -197,15 +197,19 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
         const Index neighbour = mesh.face_neighbour[f];
         const double value = interpolatedFaceValue(scalar, face);
         const Vec3 contribution = value * mesh.face_area_vectors[f];
-        result[owner] += contribution / mesh.cell_volumes[static_cast<std::size_t>(owner)];
+        result[owner] += contribution *
+            mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
         if (neighbour != invalid_index) {
-            result[neighbour] -=
-                contribution / mesh.cell_volumes[static_cast<std::size_t>(neighbour)];
+            result[neighbour] -= contribution *
+                mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
         }
     }
 
     // 用初始高斯梯度把交点面值重构到真实面中心。一次显式修正已能恢复光滑网格上的
     // 二阶面值，同时只把计算模板扩展到两层邻居，符合当前 MPI halo 宽度。
+    if (mesh.orthogonalGeometry()) {
+        return;
+    }
     const VectorField initial_gradient = result;
     result.fill({});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
@@ -214,10 +218,11 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
         const Index neighbour = mesh.face_neighbour[f];
         const double value = correctedFaceValue(scalar, initial_gradient, face);
         const Vec3 contribution = value * mesh.face_area_vectors[f];
-        result[owner] += contribution / mesh.cell_volumes[static_cast<std::size_t>(owner)];
+        result[owner] += contribution *
+            mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
         if (neighbour != invalid_index) {
-            result[neighbour] -=
-                contribution / mesh.cell_volumes[static_cast<std::size_t>(neighbour)];
+            result[neighbour] -= contribution *
+                mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
         }
     }
 }
@@ -279,17 +284,17 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
         const Vec3 value = interpolatedFaceValue(vector, face);
         for (std::size_t component = 0; component < 3; ++component) {
             const Vec3 contribution = value[component] * mesh.face_area_vectors[f];
-            result[owner][component] +=
-                contribution / mesh.cell_volumes[static_cast<std::size_t>(owner)];
+            result[owner][component] += contribution *
+                mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
             if (neighbour != invalid_index) {
-                result[neighbour][component] -=
-                    contribution /
-                    mesh.cell_volumes[static_cast<std::size_t>(neighbour)];
+                result[neighbour][component] -= contribution *
+                    mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
             }
         }
     }
-
-
+    if (mesh.orthogonalGeometry()) {
+        return;
+    }
     const TensorField initial_gradient = result;
     result.fill({});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
@@ -299,12 +304,11 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
         const Vec3 value = correctedFaceValue(vector, initial_gradient, face);
         for (std::size_t component = 0; component < 3; ++component) {
             const Vec3 contribution = value[component] * mesh.face_area_vectors[f];
-            result[owner][component] +=
-                contribution / mesh.cell_volumes[static_cast<std::size_t>(owner)];
+            result[owner][component] += contribution *
+                mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
             if (neighbour != invalid_index) {
-                result[neighbour][component] -=
-                    contribution /
-                    mesh.cell_volumes[static_cast<std::size_t>(neighbour)];
+                result[neighbour][component] -= contribution *
+                    mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
             }
         }
     }
@@ -372,10 +376,11 @@ void addFaceDivergence(
     const auto f = static_cast<std::size_t>(face);
     const Index owner = mesh.face_owner[f];
     const Index neighbour = mesh.face_neighbour[f];
-    result[owner] += integrated_flux / mesh.cell_volumes[static_cast<std::size_t>(owner)];
+    result[owner] += integrated_flux *
+        mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
     if (neighbour != invalid_index) {
-        result[neighbour] -=
-            integrated_flux / mesh.cell_volumes[static_cast<std::size_t>(neighbour)];
+        result[neighbour] -= integrated_flux *
+            mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
     }
 }
 
@@ -447,7 +452,7 @@ void addConvectionImpl(
         gradient(transported, *transported_gradient, gradient_method);
     }
 
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
         const Index neighbour = mesh.face_neighbour[f];
@@ -556,7 +561,7 @@ void addTimeDerivativeImpl(
         throw std::invalid_argument("unsupported time method");
     }
 
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+    for (Index cell : mesh.owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
         const double coefficient = density * mesh.cell_volumes[c] / dt;
         if (method == TimeMethod::Euler) {
@@ -956,7 +961,7 @@ void addScalarDiffusion(
         throw std::invalid_argument("unsupported diffusion method");
     }
 
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
         const Index neighbour = mesh.face_neighbour[f];
@@ -1028,7 +1033,7 @@ void addVectorDiffusion(
         throw std::invalid_argument("unsupported vector diffusion method");
     }
 
-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+    for (Index face : mesh.owned_faces) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
         const Index neighbour = mesh.face_neighbour[f];
