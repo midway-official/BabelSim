@@ -121,6 +121,9 @@ SimpleSolver::SimpleSolver(
     flux(
         fields_.velocity, fields_.face_flux,
         methods_.interpolation, methods_.gradient);
+    if (halo_) {
+        halo_->exchange(fields_.face_flux);
+    }
 }
 
 void SimpleSolver::assembleMomentum(const TimeState& time) {
@@ -143,6 +146,10 @@ void SimpleSolver::assembleMomentum(const TimeState& time) {
         momentum_, fluid_.dynamic_viscosity, fields_.velocity,
         methods_.gradient, methods_.diffusion);
     gradient(fields_.pressure, pressure_gradient_, methods_.gradient);
+    // 梯度是派生 cell 场；分区后的 ghost 梯度必须在跨分区重构前更新。
+    if (halo_) {
+        halo_->exchange(pressure_gradient_);
+    }
     for (Index cell = 0; cell < mesh_.cellCount(); ++cell) {
         const auto c = static_cast<std::size_t>(cell);
         momentum_.source[c] -= mesh_.cell_volumes[c] * pressure_gradient_[cell];
@@ -214,10 +221,16 @@ std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
 
 void SimpleSolver::momentumInterpolation() {
     gradient(fields_.pressure, pressure_gradient_, methods_.gradient);
+    if (halo_) {
+        halo_->exchange(pressure_gradient_);
+    }
     MomentumInterpolation::apply(
         mesh_, fields_.velocity, fields_.pressure, mobility_, pressure_gradient_,
         fields_.face_flux, methods_.interpolation, methods_.gradient,
         methods_.diffusion);
+    if (halo_) {
+        halo_->exchange(fields_.face_flux);
+    }
 }
 
 void SimpleSolver::assemblePressureCorrection() {
@@ -236,6 +249,7 @@ void SimpleSolver::correctPressureAndVelocity() {
         fields_.face_flux, pressure_correction_, correction_gradient_, mobility_,
         methods_.diffusion);
     if (halo_) {
+        halo_->exchange(fields_.face_flux);
         halo_->exchange(fields_.pressure);
         halo_->exchange(fields_.velocity);
     }
@@ -280,10 +294,15 @@ SimpleIterationResult SimpleSolver::iterate(const TimeState& time) {
     correction_gradient_.fill({});
     const int pressure_passes = methods_.diffusion == DiffusionMethod::Orthogonal
         ? 1 : control_.non_orthogonal_corrections + 1;
+    bool pressure_healthy = true;
+    bool pressure_linear_converged = true;
     for (int pass = 0; pass < pressure_passes; ++pass) {
         if (pass > 0) {
             gradient(
                 pressure_correction_, correction_gradient_, methods_.gradient);
+            if (halo_) {
+                halo_->exchange(correction_gradient_);
+            }
         }
         assemblePressureCorrection();
         if (pass == 0) {
@@ -314,6 +333,9 @@ SimpleIterationResult SimpleSolver::iterate(const TimeState& time) {
                   pressure_source_, pressure_solution_)
             : pressure_linear_solver_.solve(
                   pressure_source_, pressure_solution_);
+        pressure_healthy = pressure_healthy && healthy(result.pressure);
+        pressure_linear_converged =
+            pressure_linear_converged && result.pressure.converged();
         for (Index cell : mesh_.owned_cells) {
             pressure_correction_[cell] =
                 pressure_solution_[mesh_.ownedIndex(cell)];
@@ -353,18 +375,33 @@ SimpleIterationResult SimpleSolver::iterate(const TimeState& time) {
         std::sqrt(global_norms[2]) /
         std::max(std::sqrt(global_norms[3]), 1e-30);
     result.continuity = continuity();
-    result.healthy =
+    const bool local_healthy =
         std::all_of(result.velocity.begin(), result.velocity.end(), healthy) &&
-        healthy(result.pressure) &&
+        pressure_healthy &&
         std::isfinite(result.relative_velocity_change) &&
         std::isfinite(result.continuity.relative);
-    result.converged = result.healthy &&
+    const bool local_linear_converged =
         std::all_of(
             result.velocity.begin(), result.velocity.end(),
             [](const SolveResult& solve_result) { return solve_result.converged(); }) &&
-        result.pressure.converged() &&
+        pressure_linear_converged;
+    const bool local_outer_converged =
         result.continuity.relative <= control_.continuity_tolerance &&
         result.relative_velocity_change <= control_.velocity_tolerance;
+
+    // 所有 rank 必须在同一个外迭代上作出相同决定。分区局部预条件器
+    // 可能使某个内层线性系统到达 maxIterations，但只要没有数值失败，
+    // SIMPLE 仍按全局物理残差停止；线性状态通过独立字段保留。
+    const int healthy_ranks = parallel_.sum(local_healthy ? 1 : 0);
+    const int linear_converged_ranks =
+        parallel_.sum(local_linear_converged ? 1 : 0);
+    const int outer_converged_ranks =
+        parallel_.sum(local_outer_converged ? 1 : 0);
+    result.healthy = healthy_ranks == parallel_.size;
+    result.linear_converged =
+        linear_converged_ranks == parallel_.size;
+    result.converged = result.healthy &&
+        outer_converged_ranks == parallel_.size;
     return result;
 }
 

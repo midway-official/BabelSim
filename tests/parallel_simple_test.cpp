@@ -15,7 +15,7 @@
 using namespace babelsim;
 
 int main(int argc, char* argv[]) {
-    MPI_Init(&argc, &argv);
+    if (MPI_Init(&argc, &argv) != MPI_SUCCESS) return 1;
     const ParallelContext parallel = ParallelContext::world();
     try {
         require(
@@ -78,6 +78,13 @@ int main(int argc, char* argv[]) {
             }
         }
         require(result.converged, "distributed cavity SIMPLE did not converge");
+        // 收敛决定必须是 collective；若某个 rank 使用了本地状态提前/延后
+        // 跳出，这里的最小和最大外迭代次数会立即暴露控制流分叉。
+        const int maximum_iterations = parallel.maximum(iterations);
+        const int minimum_iterations = -parallel.maximum(-iterations);
+        require(
+            minimum_iterations == maximum_iterations,
+            "MPI ranks stopped SIMPLE at different outer iterations");
 
         const Index centre_global = global.cellId(n / 2 - 1, n / 2 - 1, 0);
         double local_centre_u = 0.0;
@@ -114,8 +121,8 @@ int main(int argc, char* argv[]) {
         }
     } catch (const std::exception& error) {
         std::cerr << "rank " << parallel.rank << ": " << error.what() << '\n';
-        MPI_Abort(parallel.communicator, 1);
+        const int abort_status = MPI_Abort(parallel.communicator, 1);
+        if (abort_status != MPI_SUCCESS) return 1;
     }
-    MPI_Finalize();
-    return 0;
+    return MPI_Finalize() == MPI_SUCCESS ? 0 : 1;
 }

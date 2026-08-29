@@ -48,6 +48,7 @@ SparseAssembly::SparseAssembly(const Mesh& mesh)
       lower_positions_(
           static_cast<std::size_t>(mesh.faceCount()), Eigen::Index{-1})
 {
+    mesh.validate();
     std::vector<Eigen::Triplet<double>> entries;
     entries.reserve(
         static_cast<std::size_t>(mesh.ownedCellCount()) +
@@ -121,10 +122,12 @@ void SparseAssembly::update(
 }
 
 void SparseAssembly::update(const ScalarEquation& equation) {
+    equation.validateStorage();
     update(equation.mesh, equation.diagonal, equation.upper, equation.lower);
 }
 
 void SparseAssembly::update(const VectorEquation& equation) {
+    equation.validateStorage();
     update(equation.mesh, equation.diagonal, equation.upper, equation.lower);
 }
 
@@ -144,6 +147,7 @@ LinearSystem assemble(const ScalarEquation& equation) {
 }
 
 void assembleSource(const ScalarEquation& equation, Eigen::VectorXd& result) {
+    equation.validateStorage();
     const Mesh& mesh = equationMesh(equation.mesh);
     result.resize(mesh.ownedCellCount());
     for (Index cell : mesh.owned_cells) {
@@ -156,6 +160,7 @@ void assembleSource(
     const VectorEquation& equation,
     std::array<Eigen::VectorXd, 3>& result)
 {
+    equation.validateStorage();
     const Mesh& mesh = equationMesh(equation.mesh);
     for (auto& component : result) {
         component.resize(mesh.ownedCellCount());

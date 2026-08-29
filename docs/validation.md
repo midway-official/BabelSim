@@ -109,6 +109,11 @@ make test-mpi-poiseuille
 - halo matvec、全局点积/范数的分布式 Krylov 求解；
 - 1/2/4 rank 二维腔体及 2 rank 三维腔体。
 
+文件型启动器还通过 `readDistributedMesh()` 验证根 rank 解析、尺寸/patch 广播、
+局部顶点点对点传输和接收端重建；`parallel_channel_test` 使用该入口，不再先在
+每个进程创建全局 Mesh。uniform `.field` 初值直接绑定各 rank 的局部 Field，因而
+求解阶段不存在全局 Field 副本。
+
 12 × 12 × 1 腔体结果：
 
 | rank 数 | SIMPLE 迭代 | 相对质量不平衡 | 中心 `u` |
@@ -126,12 +131,14 @@ global ID 比较通用 rank 结果：
 | 比较 | 迭代 | 最大 `U` 差异 | 最大 `p` 差异 | 比较容差 |
 |---|---:|---:|---:|---|
 | 1 rank 与 2 rank | 865 / 865 | `6.15e-7` | `1.54e-6` | `atol=rtol=5e-6` |
-| 1 rank 与 4 rank | 865 / 1131 | `4.45e-4` | `5.56e-5` | `atol=rtol=1e-3` |
+| 1 rank 与 4 rank | 865 / 865 | `6.17e-7` | `1.53e-6` | `atol=rtol=5e-6` |
 
-4 rank 使用各进程局部预条件块，Krylov 与 SIMPLE 的迭代路径可与串行不同；因此
-比较使用明确的绝对/相对容差，不要求逐 bit 一致。所有比较前会检查 global ID 无
-重复、无遗漏。随后 `babelsim-post` 读取 rank 文件并生成原始六面体 VTK/Tecplot
-文件，验证结果格式独立于求解器内存。
+4 rank 仍使用各进程局部预条件块，压力线性解可能报告 `MaxIterations`，但这只作为
+`linear_converged=false` 的诊断状态保存；SIMPLE 外迭代的连续性、速度变化量和健康
+状态由 `MPI_Allreduce` 的全局值共同决定。因此 1/2/4 rank 在该算例的外迭代停止点
+一致，结果差异仅来自分区矩阵乘法、归约顺序和局部内层迭代的浮点误差。所有比较前
+会检查 global ID 无重复、无遗漏。随后 `babelsim-post` 读取 rank 文件并生成原始
+六面体 VTK/Tecplot 文件，验证结果格式独立于求解器内存。
 
 ## 5. 内存安全与性能检查
 

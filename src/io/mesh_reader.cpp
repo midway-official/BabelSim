@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -70,7 +71,10 @@ Mesh readMeshFile(const std::filesystem::path& path) {
         read<Index>(input, path, "nx"),
         read<Index>(input, path, "ny"),
         read<Index>(input, path, "nz")};
-    if (dimensions[0] <= 0 || dimensions[1] <= 0 || dimensions[2] <= 0) {
+    if (dimensions[0] <= 0 || dimensions[1] <= 0 || dimensions[2] <= 0 ||
+        dimensions[0] == std::numeric_limits<Index>::max() ||
+        dimensions[1] == std::numeric_limits<Index>::max() ||
+        dimensions[2] == std::numeric_limits<Index>::max()) {
         invalidFile(path, "dimensions must be positive");
     }
 

@@ -22,8 +22,8 @@ Rhie-Chow 插值、压力修正和 MPI 分区思路。BabelSim 保留这些数�
 babelsim-solve -case cases/poiseuille
   │
   ├─ 读取 case.bs
-  ├─ 读取全局 Mesh 与初始 Field
-  ├─ MPI x 向分解为本地 owned + ghost Mesh
+  ├─ rank 0 读取全局 Mesh，按 x 向只分发各 rank 的 owned + ghost Mesh
+  ├─ 每个 rank 直接在本地 Mesh 上创建初始 Field（不复制全局 Field）
   ├─ 按 solver 名称分派物理算法
   ├─ SimpleSolver 组合通用算子、方程、装配和线性求解器
   └─ 每个 rank 写出 owned field
@@ -81,20 +81,23 @@ src/
 
 | 数据 | 类型 | 含义 |
 |---|---|---|
-| `vertices` | `std::vector<Vec3>` | 顶点坐标，按结构化逻辑顺序连续存储 |
-| `cell_centres`、`cell_volumes` | `std::vector<Vec3/double>` | 单元几何缓存 |
-| `cell_faces[6]` | `std::vector<std::array<Index,6>>` | 单元六个面的局部索引 |
+| `vertices` | `MeshStorage<Vec3>` | 顶点坐标，按结构化逻辑顺序连续存储 |
+| `cell_centres`、`cell_volumes` | `MeshStorage<Vec3/double>` | 单元几何缓存 |
+| `cell_faces[6]` | `MeshStorage<std::array<Index,6>>` | 单元六个面的局部索引 |
 | `cell_neighbours[6]` | 同上 | 六个相邻单元；边界为 `invalid_index` |
-| `face_vertices[4]` | `std::vector<std::array<Index,4>>` | 四边形面的顶点索引 |
-| `face_owner`、`face_neighbour` | `std::vector<Index>` | 面的 owner/neighbour 单元 |
-| `face_patch`、`patches` | 索引与 patch 数组 | 边界面的 patch 归属 |
-| `face_centres`、`face_area_vectors`、`face_areas` | 几何缓存 | 面中心、面积向量、面积 |
-| `face_orthogonal_coefficients` | `std::vector<double>` | 扩散隐式正交部分的系数 |
-| `face_non_orthogonal`、`face_skewness` | `std::vector<Vec3>` | 非正交与偏斜显式修正 |
-| `face_owner_weights` | `std::vector<double>` | owner 到面上的线性插值权重 |
+| `face_vertices[4]` | `MeshStorage<std::array<Index,4>>` | 四边形面的顶点索引 |
+| `face_owner`、`face_neighbour` | `MeshStorage<Index>` | 面的 owner/neighbour 单元 |
+| `face_patch`、`patches` | `MeshStorage` | 边界面的 patch 归属 |
+| `face_centres`、`face_area_vectors`、`face_areas` | `MeshStorage` | 面中心、面积向量、面积 |
+| `face_orthogonal_coefficients` | `MeshStorage<double>` | 扩散隐式正交部分的系数 |
+| `face_non_orthogonal`、`face_skewness` | `MeshStorage<Vec3>` | 非正交与偏斜显式修正 |
+| `face_owner_weights` | `MeshStorage<double>` | owner 到面上的线性插值权重 |
 
 这些量在 `Mesh::structured()` 或 `Mesh::cartesian()` 中只计算一次。热点算子通过
 内联只读访问器或数组索引读取，不重新计算几何，也不进行虚函数分派。
+数组使用 `MeshStorage<T>` 保留连续内存；`resize/clear/push_back` 仅能由 Mesh 的
+构造和分区成员函数调用，避免外部改变索引布局。`Mesh::validate()` 在装配、halo
+和分布式读取边界检查拓扑、几何、所有权及 global ID 一致性。
 
 内部面面积向量从 owner 指向 neighbour；边界面面积向量从 owner 指向域外。扩散将
 面积向量拆为正交隐式部分与非正交显式部分：
@@ -108,7 +111,10 @@ owner 与 neighbour 连线上的插值值重构到真实面中心。
 
 ### 4.2 局部网格与所有权
 
-当前 MPI 分区沿 x 方向。`decompose()` 从全局网格构造局部结构化网格，保留两层
+当前 MPI 分区沿 x 方向。`decompose()` 适用于调用方已经持有全局 Mesh 的库代码；
+应用启动器使用 `readDistributedMesh()`：仅 rank 0 调用 `readMeshFile()`，随后广播
+尺寸/patch 元数据并逐 rank 发送局部顶点。接收 rank 直接重建本地几何并建立完整的
+owned/ghost 映射，整个读取过程不会在非零 rank 保存全局 Mesh。局部网格保留两层
 ghost cell；两层是为了让非正交扩散在第一层 ghost 单元使用已重构的梯度。
 
 局部 `Mesh` 还保存：
@@ -132,14 +138,22 @@ using VectorField = Field<Vec3>;
 using TensorField = Field<Tensor3>;
 ```
 
-Field 保存 `const Mesh*`、位置 `FieldLocation`、名称、`std::vector<T> values_` 和
-cell field 的 patch 边界条件。`values_` 为连续内存；`Vec3` 与 `Tensor3` 分别是
+Field 保存 `const Mesh*`、位置 `FieldLocation`、名称、连续 `std::vector<T> values_`
+和 cell field 的 patch 边界条件。`values_` 的长度由 `(Mesh, FieldLocation)` 唯一
+决定；公开接口不提供 `resize`，`mutableData()` 仅用于框架内部 halo 原地写入，
+`validateStorage()` 在通信、算子和输出入口检查不变量。`Vec3` 与 `Tensor3` 分别是
 紧凑的三/九个 `double` 的小对象，因此一个 Field 内按实体连续，当前是 AoS 值布局，
 没有隐含指针或逐单元分配。
 
 位置可以是 Cell、Face、Vertex。当前不可压求解器使用 cell-centered（单元中心）`U/p` 和
 face-centered `phi`；通用 halo 已支持 cell/face scalar、vector、tensor。标准化结果
 写出目前针对 cell field，因为只有 cell 拥有完整的全局 ID 映射。
+
+MPI 启动时每个 rank 仅构造局部 Field。当前 `.field` 文件是 uniform 初值，因此各
+rank 可独立解析同一个小文件；processor patch 自动采用 ZeroGradient，接口数据由
+`HaloExchange` 同步。cell ghost 由相邻 owned cell 覆盖，重复的 face field 由低 rank
+owner 单向发布到高 rank，保证同步是幂等的。若以后加入非 uniform 场文件，应只按 `cell_global_ids` 分发或
+读取本地 owned 数据，不能重新创建全局 Field。
 
 边界条件属于 Field 而不是 Solver：FixedValue/Dirichlet、FixedGradient/Neumann、
 ZeroGradient、InletOutlet、Symmetry/Mirror。向量 symmetry 去除法向分量；标量
@@ -186,7 +200,9 @@ triplet 分配、排序或插入。
 
 串行 `PreparedLinearSolver` 复用稀疏结构和预条件器；MPI `DistributedLinearSolver`
 执行 owned block 的矩阵乘法，交换输入向量的 ghost 值，再加跨分区 face 系数。所有
-点积、范数、状态和连续性统计使用 `MPI_Allreduce`。
+点积、范数和连续性统计使用 `MPI_Allreduce`。SIMPLE 还对健康状态、内层线性收敛
+状态和外迭代物理收敛条件做全局归约，所有 rank 因而在同一个外迭代上继续或停止；
+局部预条件器的 `MaxIterations` 不会再导致某个分区单独多做外迭代。
 
 ## 7. 不可压算法与专用算子
 

@@ -5,6 +5,7 @@
 #include <mpi.h>
 
 #include <cstddef>
+#include <filesystem>
 #include <stdexcept>
 #include <vector>
 
@@ -32,6 +33,13 @@ Mesh decompose(
     const ParallelContext& parallel,
     Index ghost_layers = 2);
 
+// 并行读取原生网格：rank 0 解析完整文件并仅分发各 rank 所需的局部几何，
+// 调用者不会在每个 rank 上保留全局 Mesh 副本。串行时退化为 readMeshFile。
+Mesh readDistributedMesh(
+    const std::filesystem::path& path,
+    const ParallelContext& parallel,
+    Index ghost_layers = 2);
+
 template <typename T>
 void copyBoundaryConditions(const Field<T>& global, Field<T>& local) {
     if (global.location() != FieldLocation::Cell ||
@@ -46,6 +54,8 @@ void copyBoundaryConditions(const Field<T>& global, Field<T>& local) {
 }
 
 // 将非连续的 x 法向平面打包到持久缓冲区。Field 存储保持连续，且不依赖 MPI 数据类型。
+// cell halo 按 owned 值覆盖 ghost；face halo 采用低 rank owner 单向发布，避免
+// 两个重复界面值互相覆盖后在连续交换中振荡。
 class HaloExchange {
 public:
     HaloExchange(const Mesh& mesh, ParallelContext parallel);
@@ -67,18 +77,14 @@ private:
     std::vector<Index> send_right_;
     std::vector<Index> receive_left_;
     std::vector<Index> receive_right_;
-    std::vector<Index> send_face_left_;
     std::vector<Index> send_face_right_;
     std::vector<Index> receive_face_left_;
-    std::vector<Index> receive_face_right_;
     std::vector<double> send_buffer_left_;
     std::vector<double> send_buffer_right_;
     std::vector<double> receive_buffer_left_;
     std::vector<double> receive_buffer_right_;
-    std::vector<double> send_face_buffer_left_;
     std::vector<double> send_face_buffer_right_;
     std::vector<double> receive_face_buffer_left_;
-    std::vector<double> receive_face_buffer_right_;
 };
 
 }  // babelsim 命名空间

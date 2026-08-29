@@ -39,28 +39,17 @@ Arguments parseArguments(int argc, char* argv[]) {
     return result;
 }
 
-template <typename T>
-void localize(const Field<T>& global, Field<T>& local) {
-    copyBoundaryConditions(global, local);
-    for (Index cell = 0; cell < local.mesh().cellCount(); ++cell) {
-        local[cell] = global[local.mesh().globalCellId(cell)];
-    }
-}
-
 int runSimpleFoam(
     const CaseDefinition& definition,
     const ParallelContext& parallel,
     const std::string& requested_time)
 {
-    const Mesh global_mesh = readMeshFile(definition.mesh_file);
-    IncompressibleFields global_fields(global_mesh);
-    readFieldFile(definition.fields_directory / "U.field", global_fields.velocity);
-    readFieldFile(definition.fields_directory / "p.field", global_fields.pressure);
-
-    Mesh local_mesh = decompose(global_mesh, parallel);
+    // 根 rank 读取并分发局部几何；每个 rank 只构造自己的 owned+ghost Mesh。
+    // Field 同样直接绑定局部 Mesh，避免先创建全局 Field 再复制内部值。
+    Mesh local_mesh = readDistributedMesh(definition.mesh_file, parallel);
     IncompressibleFields fields(local_mesh);
-    localize(global_fields.velocity, fields.velocity);
-    localize(global_fields.pressure, fields.pressure);
+    readFieldFile(definition.fields_directory / "U.field", fields.velocity);
+    readFieldFile(definition.fields_directory / "p.field", fields.pressure);
     fields.face_flux.fill(0.0);
 
     const IncompressibleCaseControl controls = readIncompressibleCase(definition);
@@ -75,7 +64,9 @@ int runSimpleFoam(
             std::cout << "SIMPLE " << std::setw(5) << iteration << std::scientific
                       << std::setprecision(4) << " mass=" << result.continuity.relative
                       << " dU=" << result.relative_velocity_change
-                      << " linP=" << result.pressure.relative_residual << '\n';
+                      << " linP=" << result.pressure.relative_residual
+                      << " linear=" << (result.linear_converged ? "ok" : "inexact")
+                      << '\n';
         }
         if (!result.healthy || result.converged) break;
     }
@@ -96,6 +87,7 @@ int runSimpleFoam(
     if (parallel.rank == 0) {
         std::cout << "SIMPLE completed=" << completed
                   << " converged=" << (result.converged ? "true" : "false")
+                  << " linear=" << (result.linear_converged ? "ok" : "inexact")
                   << " mass=" << std::scientific << result.continuity.relative
                   << " dU=" << result.relative_velocity_change << '\n';
     }
@@ -114,19 +106,34 @@ int run(const Arguments& arguments, const ParallelContext& parallel) {
 }  // babelsim 命名空间
 
 int main(int argc, char* argv[]) {
-    MPI_Init(&argc, &argv);
+    const int init_status = MPI_Init(&argc, &argv);
+    if (init_status != MPI_SUCCESS) {
+        std::cerr << "MPI_Init failed with code " << init_status << '\n';
+        return 1;
+    }
+    int status = 1;
     try {
         const babelsim::ParallelContext parallel = babelsim::ParallelContext::world();
-        const int status = babelsim::run(babelsim::parseArguments(argc, argv), parallel);
-        MPI_Finalize();
-        return status;
+        status = babelsim::run(babelsim::parseArguments(argc, argv), parallel);
     } catch (const std::exception& error) {
         int rank = 0;
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        const int rank_status = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        if (rank_status != MPI_SUCCESS) rank = -1;
         std::cerr << "babelsim-solve rank " << rank << ": " << error.what() << '\n';
         // 单个 rank 的 I/O 失败不能让其他 rank 阻塞在后续 halo 交换或集体通信；
         // 正常的不收敛通过状态码 2 返回。
-        MPI_Abort(MPI_COMM_WORLD, 1);
+        const int abort_status = MPI_Abort(MPI_COMM_WORLD, 1);
+        if (abort_status != MPI_SUCCESS) {
+            std::cerr << "MPI_Abort failed with code " << abort_status << '\n';
+        }
+        return 1;
     }
-    return 1;
+    // Finalize 不再放在可能抛异常的 try 块内；避免 finalize 失败后异常路径
+    // 再次调用 MPI_Comm_rank/MPI_Abort，违反 MPI 生命周期。
+    const int finalize_status = MPI_Finalize();
+    if (finalize_status != MPI_SUCCESS) {
+        std::cerr << "MPI_Finalize failed with code " << finalize_status << '\n';
+        return 1;
+    }
+    return status;
 }

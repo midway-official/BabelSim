@@ -15,6 +15,7 @@ void PressureCorrection::assemble(
     bool has_fixed_pressure,
     const ParallelContext& parallel)
 {
+    mesh.validate();
     assemble(
         equation, correction, mesh, face_flux, mobility, pressure, nullptr,
         DiffusionMethod::Orthogonal, has_fixed_pressure, parallel);
@@ -44,6 +45,11 @@ void PressureCorrection::assemble(
           correction_gradient->location() != FieldLocation::Cell))) {
         throw std::invalid_argument("pressure-correction fields do not match mesh");
     }
+    correction.validateStorage();
+    face_flux.validateStorage();
+    mobility.validateStorage();
+    pressure.validateStorage();
+    if (correction_gradient != nullptr) correction_gradient->validateStorage();
     equation.reset();
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);

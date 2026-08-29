@@ -60,7 +60,7 @@ void configureChannelBoundaries(IncompressibleFields& fields) {
 }  // 匿名命名空间
 
 int main(int argc, char* argv[]) {
-    MPI_Init(&argc, &argv);
+    if (MPI_Init(&argc, &argv) != MPI_SUCCESS) return 1;
     const ParallelContext parallel = ParallelContext::world();
     try {
         if (argc < 2 || argc > 3) {
@@ -70,8 +70,8 @@ int main(int argc, char* argv[]) {
         require(
             parallel.size == 1 || parallel.size == 2 || parallel.size == 4,
             "parallel_channel_test supports one, two, or four MPI ranks");
-        const Mesh global = readMeshFile(argv[1]);
-        const Mesh mesh = decompose(global, parallel);
+        // 验证原生网格的根 rank 读取与局部分发路径；测试进程不保留全局 Mesh。
+        const Mesh mesh = readDistributedMesh(argv[1], parallel);
         IncompressibleFields fields(mesh);
         configureChannelBoundaries(fields);
 
@@ -137,8 +137,8 @@ int main(int argc, char* argv[]) {
             {"U", "vector", FieldLocation::Cell}, {"p", "scalar", FieldLocation::Cell}});
     } catch (const std::exception& error) {
         std::cerr << "rank " << parallel.rank << ": " << error.what() << '\n';
-        MPI_Abort(parallel.communicator, 1);
+        const int abort_status = MPI_Abort(parallel.communicator, 1);
+        if (abort_status != MPI_SUCCESS) return 1;
     }
-    MPI_Finalize();
-    return 0;
+    return MPI_Finalize() == MPI_SUCCESS ? 0 : 1;
 }

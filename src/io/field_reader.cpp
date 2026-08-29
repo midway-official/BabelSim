@@ -3,6 +3,7 @@
 #include "babelsim/config.h"
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -41,7 +42,7 @@ public:
         try {
             std::size_t consumed = 0;
             const double result = std::stod(token.text, &consumed);
-            if (consumed == token.text.size()) return result;
+            if (consumed == token.text.size() && std::isfinite(result)) return result;
         } catch (const std::exception&) {
         }
         fail(token, "expected a number");
@@ -151,6 +152,17 @@ void read(const std::filesystem::path& path, Field<T>& field, const char* type_n
     }
     input.take("}");
     if (!input.done()) input.fail("unexpected trailing tokens");
+    // 分区网格会附加 processor patch；其值由 halo exchange 提供，输入文件无需
+    // 为每个 rank 重复保存一份。物理边界仍必须显式配置。
+    for (Index patch = 0;
+         patch < static_cast<Index>(configured.size()); ++patch) {
+        if (!configured[static_cast<std::size_t>(patch)] &&
+            field.mesh().patches[static_cast<std::size_t>(patch)].kind ==
+                PatchKind::Processor) {
+            field.setBoundary(patch, BoundaryCondition<T>::zeroGradient());
+            configured[static_cast<std::size_t>(patch)] = true;
+        }
+    }
     if (!type || !location || !internal ||
         std::find(configured.begin(), configured.end(), false) != configured.end()) {
         throw std::runtime_error("incomplete field file: " + path.string());

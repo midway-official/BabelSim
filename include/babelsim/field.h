@@ -68,19 +68,44 @@ public:
         }
     }
 
+    Field(const Mesh&&, FieldLocation, std::string = {}, T initial = T{}) = delete;
+
     const Mesh& mesh() const { return *mesh_; }
     FieldLocation location() const { return location_; }
     const std::string& name() const { return name_; }
     std::size_t size() const { return values_.size(); }
 
-    T* data() { return values_.data(); }
+    // 计算热路径只暴露连续的只读视图；需要原地交换 halo 时使用明确命名的
+    // mutableData()，避免调用者绕过存储不变量替换底层容器。
+    T* mutableData() { return values_.data(); }
+    // 保留旧 API 的元素级写入兼容性；容量仍只能由构造函数决定。
+    T* data() { return mutableData(); }
     const T* data() const { return values_.data(); }
     T& operator[](Index index) { return values_[static_cast<std::size_t>(index)]; }
     const T& operator[](Index index) const {
         return values_[static_cast<std::size_t>(index)];
     }
-    std::vector<T>& values() { return values_; }
     const std::vector<T>& values() const { return values_; }
+    T& at(Index index) {
+        return values_.at(checkedIndex(index));
+    }
+    const T& at(Index index) const {
+        return values_.at(checkedIndex(index));
+    }
+    // Field 的长度由 (Mesh, FieldLocation) 唯一决定，禁止外部 resize。
+    // 该检查在 MPI halo、算子和输出入口调用，尽早捕获生命周期/越界错误。
+    void validateStorage() const {
+        if (mesh_ == nullptr || values_.size() != entityCount(*mesh_, location_) ||
+            (location_ == FieldLocation::Cell &&
+             boundaries_.size() != mesh_->patches.size())) {
+            throw std::logic_error("field storage invariant is violated");
+        }
+    }
+
+    Field(const Field&) = default;
+    Field(Field&&) noexcept = default;
+    Field& operator=(const Field&) = delete;
+    Field& operator=(Field&&) = delete;
     void fill(const T& value) { std::fill(values_.begin(), values_.end(), value); }
 
     void setBoundary(Index patch, BoundaryCondition<T> condition) {
@@ -97,6 +122,13 @@ public:
     }
 
 private:
+    std::size_t checkedIndex(Index index) const {
+        if (index < 0 || static_cast<std::size_t>(index) >= values_.size()) {
+            throw std::out_of_range("field index is outside storage");
+        }
+        return static_cast<std::size_t>(index);
+    }
+
     static std::size_t entityCount(const Mesh& mesh, FieldLocation location) {
         switch (location) {
             case FieldLocation::Cell:

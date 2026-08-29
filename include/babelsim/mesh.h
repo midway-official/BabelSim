@@ -6,12 +6,53 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace babelsim {
 
 using Index = std::int32_t;
 constexpr Index invalid_index = -1;
+
+// Mesh 的数组一旦构造完成，其长度决定所有整数索引和 Field 布局。该轻量容器
+// 保留连续 vector 存储和索引性能，但把会改变容量的操作限制为 Mesh 的成员函数。
+// 外部仍可在受控的构造阶段修改元素值，不能通过公开 API resize/clear/push_back。
+template <typename T>
+class MeshStorage {
+public:
+    MeshStorage() = default;
+    MeshStorage(const MeshStorage&) = default;
+    MeshStorage(MeshStorage&&) noexcept = default;
+
+    std::size_t size() const { return data_.size(); }
+    bool empty() const { return data_.empty(); }
+    T& operator[](std::size_t index) { return data_[index]; }
+    const T& operator[](std::size_t index) const { return data_[index]; }
+    T& at(std::size_t index) { return data_.at(index); }
+    const T& at(std::size_t index) const { return data_.at(index); }
+    T* data() { return data_.data(); }
+    const T* data() const { return data_.data(); }
+    T& front() { return data_.front(); }
+    const T& front() const { return data_.front(); }
+    auto begin() { return data_.begin(); }
+    auto end() { return data_.end(); }
+    auto begin() const { return data_.begin(); }
+    auto end() const { return data_.end(); }
+
+private:
+    friend struct Mesh;
+    void reserve(std::size_t count) { data_.reserve(count); }
+    void resize(std::size_t count) { data_.resize(count); }
+    void assign(std::size_t count, const T& value) { data_.assign(count, value); }
+    void assign(std::vector<T>&& values) { data_ = std::move(values); }
+    void clear() { data_.clear(); }
+    void push_back(const T& value) { data_.push_back(value); }
+    void push_back(T&& value) { data_.push_back(std::move(value)); }
+    MeshStorage& operator=(const MeshStorage&) = default;
+    MeshStorage& operator=(MeshStorage&&) noexcept = default;
+
+    std::vector<T> data_;
+};
 
 enum class Side : std::size_t {
     XMin,
@@ -39,7 +80,7 @@ struct PatchSpec {
 struct BoundaryPatch {
     std::string name;
     PatchKind kind = PatchKind::Generic;
-    std::vector<Index> faces;
+    MeshStorage<Index> faces;
 };
 
 std::array<PatchSpec, 6> defaultPatches();
@@ -53,29 +94,29 @@ struct Mesh {
     Index ghost_layers = 0;
 
     // 结构化数组形式的拓扑与几何。相同数组同时服务 nx*ny*1 和完整三维网格。
-    std::vector<Vec3> vertices;
-    std::vector<Vec3> cell_centres;
-    std::vector<double> cell_volumes;
-    std::vector<std::array<Index, 6>> cell_faces;
-    std::vector<std::array<Index, 6>> cell_neighbours;
+    MeshStorage<Vec3> vertices;
+    MeshStorage<Vec3> cell_centres;
+    MeshStorage<double> cell_volumes;
+    MeshStorage<std::array<Index, 6>> cell_faces;
+    MeshStorage<std::array<Index, 6>> cell_neighbours;
 
-    std::vector<std::array<Index, 4>> face_vertices;
-    std::vector<Index> face_owner;
-    std::vector<Index> face_neighbour;
-    std::vector<Index> face_patch;
-    std::vector<Vec3> face_centres;
-    std::vector<Vec3> face_area_vectors;
-    std::vector<Vec3> face_non_orthogonal;
-    std::vector<Vec3> face_skewness;
-    std::vector<double> face_areas;
-    std::vector<double> face_orthogonal_coefficients;
-    std::vector<double> face_owner_weights;
-    std::vector<BoundaryPatch> patches;
+    MeshStorage<std::array<Index, 4>> face_vertices;
+    MeshStorage<Index> face_owner;
+    MeshStorage<Index> face_neighbour;
+    MeshStorage<Index> face_patch;
+    MeshStorage<Vec3> face_centres;
+    MeshStorage<Vec3> face_area_vectors;
+    MeshStorage<Vec3> face_non_orthogonal;
+    MeshStorage<Vec3> face_skewness;
+    MeshStorage<double> face_areas;
+    MeshStorage<double> face_orthogonal_coefficients;
+    MeshStorage<double> face_owner_weights;
+    MeshStorage<BoundaryPatch> patches;
 
     // 局部结构化 cell ID 仍是存储索引。这些紧凑映射选择分布式代数和输出使用的 owned 子集。
-    std::vector<Index> owned_cells;
-    std::vector<Index> cell_owned_indices;
-    std::vector<Index> cell_global_ids;
+    MeshStorage<Index> owned_cells;
+    MeshStorage<Index> cell_owned_indices;
+    MeshStorage<Index> cell_global_ids;
 
     static Mesh structured(
         std::array<Index, 3> cells,
@@ -136,6 +177,10 @@ struct Mesh {
         Index owned_x_begin,
         Index owned_x_end,
         Index halo_layers);
+    // 仅用于构造/分区阶段一次性替换 patch 拓扑；调用后应立即 validate()。
+    void setPatches(std::vector<BoundaryPatch> patches);
+    // 受控地登记一个边界面，避免调用者直接改变 patch 面列表容量。
+    void addPatchFace(Index patch, Index face);
     void validate() const;
 };
 

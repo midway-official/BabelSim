@@ -20,7 +20,7 @@
 using namespace babelsim;
 
 int main(int argc, char* argv[]) {
-    MPI_Init(&argc, &argv);
+    if (MPI_Init(&argc, &argv) != MPI_SUCCESS) return 1;
     const ParallelContext parallel = ParallelContext::world();
     try {
         require(parallel.size == 2, "parallel_domain_test requires two MPI ranks");
@@ -97,11 +97,11 @@ int main(int argc, char* argv[]) {
                 const Index face = local.cell_faces[static_cast<std::size_t>(cell)]
                     [static_cast<std::size_t>(Side::XMax)];
                 require(
-                    near(face_field[face], 1.0),
-                    "face-centred halo exchange failed on the right interface");
+                    near(face_field[face], 0.0),
+                    "face-centred owner-authoritative exchange changed the owner");
                 require(
-                    near(face_vector[face], {1.0, 11.0, 21.0}),
-                    "vector face halo exchange failed on the right interface");
+                    near(face_vector[face], {0.0, 10.0, 20.0}),
+                    "vector face owner-authoritative exchange changed the owner");
             }
         }
 
@@ -498,8 +498,8 @@ int main(int argc, char* argv[]) {
         }
     } catch (const std::exception& error) {
         std::cerr << "rank " << parallel.rank << ": " << error.what() << '\n';
-        MPI_Abort(parallel.communicator, 1);
+        const int abort_status = MPI_Abort(parallel.communicator, 1);
+        if (abort_status != MPI_SUCCESS) return 1;
     }
-    MPI_Finalize();
-    return 0;
+    return MPI_Finalize() == MPI_SUCCESS ? 0 : 1;
 }

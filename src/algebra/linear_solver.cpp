@@ -61,7 +61,8 @@ struct PreparedLinearSolver::Implementation {
     {}
 
     LinearSolverConfig config;
-    const Eigen::SparseMatrix<double>* matrix = nullptr;
+    // 求解器拥有快照，调用者可以在 compute/factorize 返回后释放临时矩阵。
+    Eigen::SparseMatrix<double> matrix;
     ConjugateGradient conjugate_gradient;
     BiCGSTAB bicgstab;
     bool pattern_analyzed = false;
@@ -99,13 +100,14 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
     if (A.rows() != A.cols()) {
         throw std::invalid_argument("linear-system matrix must be square");
     }
+    if (!implementation_) throw std::logic_error("linear solver is moved-from");
     auto& state = *implementation_;
-    state.matrix = &A;
+    state.matrix = A;
     state.pattern_analyzed = false;
     state.factorization_succeeded = false;
     if (state.config.solver == LinearSolverType::ConjugateGradient) {
         state.conjugate_gradient.setMaxIterations(state.config.max_iterations);
-        state.conjugate_gradient.compute(A);
+        state.conjugate_gradient.compute(state.matrix);
         state.pattern_analyzed = true;
         state.factorization_succeeded =
             state.conjugate_gradient.info() == Eigen::Success;
@@ -117,7 +119,7 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
     // 对 Eigen 3.4 的 IncompleteLUT 直接调用迭代求解基类的 analyzePattern
     // 不安全，因为该预条件器直到 factorize 才初始化 ComputationInfo。compute() 会
     // 安全地完成两步。
-    state.bicgstab.compute(A);
+    state.bicgstab.compute(state.matrix);
     state.pattern_analyzed = true;
     state.factorization_succeeded = state.bicgstab.info() == Eigen::Success;
 }
@@ -125,20 +127,21 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
 void PreparedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& A)
 {
+    if (!implementation_) throw std::logic_error("linear solver is moved-from");
     auto& state = *implementation_;
     if (!state.pattern_analyzed || A.rows() != A.cols()) {
         throw std::logic_error(
             "linear-solver pattern must be analyzed before factorization");
     }
-    state.matrix = &A;
+    state.matrix = A;
     state.factorization_succeeded = false;
     if (state.config.solver == LinearSolverType::ConjugateGradient) {
-        state.conjugate_gradient.factorize(A);
+        state.conjugate_gradient.factorize(state.matrix);
         state.factorization_succeeded =
             state.conjugate_gradient.info() == Eigen::Success;
         return;
     }
-    state.bicgstab.factorize(A);
+    state.bicgstab.factorize(state.matrix);
     state.factorization_succeeded = state.bicgstab.info() == Eigen::Success;
 }
 
@@ -146,15 +149,16 @@ SolveResult PreparedLinearSolver::solve(
     const Eigen::VectorXd& b,
     Eigen::VectorXd& x)
 {
+    if (!implementation_) throw std::logic_error("linear solver is moved-from");
     auto& state = *implementation_;
-    if (state.matrix == nullptr || state.matrix->rows() != b.size()) {
+    if (!state.pattern_analyzed || state.matrix.rows() != b.size()) {
         throw std::invalid_argument("linear system dimensions are inconsistent");
     }
     if (!state.config.warm_start || x.size() != b.size()) {
         x = Eigen::VectorXd::Zero(b.size());
     }
 
-    const auto& A = *state.matrix;
+    const auto& A = state.matrix;
     const double initial_residual = (b - A * x).norm();
     const double scale = std::max({initial_residual, b.norm(), 1e-30});
     const double target = std::max(

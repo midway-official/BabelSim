@@ -31,6 +31,8 @@ Physics   如何组合方程与算子解决具体物理问题
   扩散与压力法向梯度，以及面通量和中心对流的一致重构；
 - LDU 方程、稀疏装配、串行与分布式 Krylov 线性求解；
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
+- 分布式网格读取：rank 0 解析原生 `.mesh`，只发送各 rank 局部几何；不会在每个
+  rank 重复保留全局 Mesh/Field；
 - 不可压 SIMPLE；仅保留 `MomentumInterpolation` 与 `PressureCorrection` 两个
   具有独立数值语义的 CFD 专用算子；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
@@ -82,6 +84,10 @@ cases/poiseuille/
 每个 MPI rank 仅写出 owned cell 的 `U.csv`、`p.csv` 与 `metadata.bs`；ghost cell
 不会写出。`babelsim-post` 按 global ID 检查完整性并合并为原始六面体网格的 VTK
 `UNSTRUCTURED_GRID` 或 Tecplot `FEBRICK` 文件。
+
+库代码需要从已存在的全局网格分区时仍可使用 `decompose()`；启动器和文件型并行程序
+应使用 `readDistributedMesh(path, parallel)`。该接口在 rank 0 读取网格、广播尺寸和
+patch 元数据、点对点发送局部顶点；接收方只持有本地 owned+ghost 几何和索引映射。
 
 ## 测试与验证
 

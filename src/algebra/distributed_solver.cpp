@@ -39,6 +39,7 @@ struct DistributedLinearSolver::Implementation {
           local_values(static_cast<std::size_t>(mesh.cellCount()), 0.0)
     {
         parallel.validate();
+        mesh.validate();
         config.validate();
         if (!parallel.distributed() ||
             mesh.ownedCellCount() >= mesh.cellCount()) {
@@ -76,14 +77,18 @@ struct DistributedLinearSolver::Implementation {
         const std::vector<double>& equation_upper,
         const std::vector<double>& equation_lower)
     {
+        if (equation_mesh == nullptr) {
+            throw std::invalid_argument("distributed equation has no mesh");
+        }
         if (equation_mesh != &mesh ||
             equation_upper.size() != static_cast<std::size_t>(mesh.faceCount()) ||
             equation_lower.size() != static_cast<std::size_t>(mesh.faceCount())) {
             throw std::invalid_argument(
                 "distributed equation coefficients do not match the mesh");
         }
-        upper = &equation_upper;
-        lower = &equation_lower;
+        upper = equation_upper;
+        lower = equation_lower;
+        equation_ready = true;
     }
 
     void setMatrix(const Eigen::SparseMatrix<double>& value) {
@@ -91,19 +96,19 @@ struct DistributedLinearSolver::Implementation {
             value.cols() != mesh.ownedCellCount()) {
             throw std::invalid_argument("distributed local matrix size is invalid");
         }
-        matrix = &value;
+        matrix = value;
     }
 
     void computePreconditioner() {
         factorization_succeeded = false;
         if (config.solver == LinearSolverType::ConjugateGradient) {
-            incomplete_cholesky.compute(*matrix);
+            incomplete_cholesky.compute(matrix);
             factorization_succeeded =
                 incomplete_cholesky.info() == Eigen::Success;
         } else {
             ilut.setDroptol(1e-3);
             ilut.setFillfactor(2);
-            ilut.compute(*matrix);
+            ilut.compute(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }
         factorization_succeeded =
@@ -118,11 +123,11 @@ struct DistributedLinearSolver::Implementation {
         }
         factorization_succeeded = false;
         if (config.solver == LinearSolverType::ConjugateGradient) {
-            incomplete_cholesky.factorize(*matrix);
+            incomplete_cholesky.factorize(matrix);
             factorization_succeeded =
                 incomplete_cholesky.info() == Eigen::Success;
         } else {
-            ilut.factorize(*matrix);
+            ilut.factorize(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }
         factorization_succeeded =
@@ -144,7 +149,7 @@ struct DistributedLinearSolver::Implementation {
     }
 
     void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
-        output.noalias() = (*matrix) * input;
+        output.noalias() = matrix * input;
         for (Index cell : mesh.owned_cells) {
             local_values[static_cast<std::size_t>(cell)] =
                 input[mesh.ownedIndex(cell)];
@@ -153,7 +158,7 @@ struct DistributedLinearSolver::Implementation {
         for (const RemoteCoupling& coupling : remote) {
             const auto f = static_cast<std::size_t>(coupling.face);
             const double coefficient = coupling.upper
-                ? (*upper)[f] : (*lower)[f];
+                ? upper[f] : lower[f];
             output[coupling.row] += coefficient *
                 local_values[static_cast<std::size_t>(coupling.ghost_cell)];
         }
@@ -369,9 +374,10 @@ struct DistributedLinearSolver::Implementation {
     ParallelContext parallel;
     LinearSolverConfig config;
     HaloExchange halo;
-    const Eigen::SparseMatrix<double>* matrix = nullptr;
-    const std::vector<double>* upper = nullptr;
-    const std::vector<double>* lower = nullptr;
+    // 系数和局部矩阵均由求解器拥有快照，Equation/Assembly 可安全地在调用后销毁。
+    Eigen::SparseMatrix<double> matrix;
+    std::vector<double> upper;
+    std::vector<double> lower;
     std::vector<RemoteCoupling> remote;
     std::vector<double> local_values;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
@@ -387,6 +393,7 @@ struct DistributedLinearSolver::Implementation {
     Eigen::VectorXd intermediate_product;
     bool pattern_ready = false;
     bool factorization_succeeded = false;
+    bool equation_ready = false;
 };
 
 DistributedLinearSolver::DistributedLinearSolver(
@@ -407,7 +414,9 @@ void DistributedLinearSolver::compute(
     const Eigen::SparseMatrix<double>& local_matrix,
     const ScalarEquation& equation)
 {
+    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
     auto& state = *implementation_;
+    equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
     state.computePreconditioner();
@@ -417,7 +426,9 @@ void DistributedLinearSolver::compute(
     const Eigen::SparseMatrix<double>& local_matrix,
     const VectorEquation& equation)
 {
+    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
     auto& state = *implementation_;
+    equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
     state.computePreconditioner();
@@ -427,7 +438,9 @@ void DistributedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& local_matrix,
     const ScalarEquation& equation)
 {
+    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
     auto& state = *implementation_;
+    equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
     state.factorizePreconditioner();
@@ -437,7 +450,9 @@ void DistributedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& local_matrix,
     const VectorEquation& equation)
 {
+    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
     auto& state = *implementation_;
+    equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
     state.factorizePreconditioner();
@@ -447,8 +462,9 @@ SolveResult DistributedLinearSolver::solve(
     const Eigen::VectorXd& b,
     Eigen::VectorXd& x)
 {
+    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
     auto& state = *implementation_;
-    if (state.matrix == nullptr || state.upper == nullptr ||
+    if (!state.pattern_ready || !state.equation_ready || state.matrix.rows() == 0 ||
         b.size() != state.mesh.ownedCellCount()) {
         throw std::invalid_argument("distributed linear system is not prepared");
     }

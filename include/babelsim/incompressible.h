@@ -70,6 +70,10 @@ struct SimpleIterationResult {
     double relative_velocity_change = 0.0;
     double relative_pressure_correction = 0.0;
     bool healthy = false;
+    // 本次迭代的所有线性系统均达到内层容差时为 true。MaxIterations
+    // 仍是可诊断的内层状态，不应改变所有 rank 的外迭代停止时刻。
+    bool linear_converged = false;
+    // 外迭代的物理收敛状态，由全局归约后的连续性和速度变化量决定。
     bool converged = false;
 };
 

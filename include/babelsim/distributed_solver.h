@@ -15,6 +15,10 @@ public:
         const Mesh& mesh,
         ParallelContext parallel,
         LinearSolverConfig config = {});
+    DistributedLinearSolver(
+        const Mesh&&,
+        ParallelContext,
+        LinearSolverConfig = {}) = delete;
     ~DistributedLinearSolver();
     DistributedLinearSolver(DistributedLinearSolver&&) noexcept;
     DistributedLinearSolver& operator=(DistributedLinearSolver&&) noexcept;

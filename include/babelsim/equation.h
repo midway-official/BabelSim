@@ -3,6 +3,7 @@
 #include "babelsim/mesh.h"
 
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 
 namespace babelsim {
@@ -20,6 +21,18 @@ struct Equation {
           lower(static_cast<std::size_t>(mesh_value.faceCount()), 0.0),
           source(static_cast<std::size_t>(mesh_value.cellCount()), T{})
     {}
+
+    Equation(const Mesh&&) = delete;
+
+    void validateStorage() const {
+        if (mesh == nullptr ||
+            diagonal.size() != static_cast<std::size_t>(mesh->cellCount()) ||
+            source.size() != static_cast<std::size_t>(mesh->cellCount()) ||
+            upper.size() != static_cast<std::size_t>(mesh->faceCount()) ||
+            lower.size() != static_cast<std::size_t>(mesh->faceCount())) {
+            throw std::logic_error("equation storage invariant is violated");
+        }
+    }
 
     void reset() {
         std::fill(diagonal.begin(), diagonal.end(), 0.0);

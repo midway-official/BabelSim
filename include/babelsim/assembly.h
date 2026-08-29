@@ -20,6 +20,7 @@ struct LinearSystem {
 class SparseAssembly {
 public:
     explicit SparseAssembly(const Mesh& mesh);
+    SparseAssembly(const Mesh&&) = delete;
 
     void update(const ScalarEquation& equation);
     void update(const VectorEquation& equation);

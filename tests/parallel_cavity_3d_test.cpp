@@ -15,7 +15,7 @@
 using namespace babelsim;
 
 int main(int argc, char* argv[]) {
-    MPI_Init(&argc, &argv);
+    if (MPI_Init(&argc, &argv) != MPI_SUCCESS) return 1;
     const ParallelContext parallel = ParallelContext::world();
     try {
         require(parallel.size == 2, "parallel_cavity_3d_test requires two MPI ranks");
@@ -118,8 +118,8 @@ int main(int argc, char* argv[]) {
         }
     } catch (const std::exception& error) {
         std::cerr << "rank " << parallel.rank << ": " << error.what() << '\n';
-        MPI_Abort(parallel.communicator, 1);
+        const int abort_status = MPI_Abort(parallel.communicator, 1);
+        if (abort_status != MPI_SUCCESS) return 1;
     }
-    MPI_Finalize();
-    return 0;
+    return MPI_Finalize() == MPI_SUCCESS ? 0 : 1;
 }

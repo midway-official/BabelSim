@@ -21,6 +21,7 @@ void requireField(
     if (&field.mesh() != &mesh || field.location() != location) {
         throw std::invalid_argument(std::string(label) + " field location or mesh is invalid");
     }
+    field.validateStorage();
 }
 
 double ownerWeight(const Mesh& mesh, Index face) {

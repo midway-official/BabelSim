@@ -22,9 +22,17 @@ std::size_t checkedProduct(Index a, Index b, Index c, const char* label) {
     return static_cast<std::size_t>(product);
 }
 
+Index checkedIncrement(Index value, const char* label) {
+    if (value <= 0 || value == std::numeric_limits<Index>::max()) {
+        throw std::overflow_error(std::string(label) + " dimension exceeds 32-bit indexing");
+    }
+    return static_cast<Index>(value + 1);
+}
+
+template <typename VertexStorage>
 std::pair<Vec3, Vec3> quadGeometry(
     const std::array<Index, 4>& ids,
-    const std::vector<Vec3>& vertices)
+    const VertexStorage& vertices)
 {
     const Vec3& a = vertices[static_cast<std::size_t>(ids[0])];
     const Vec3& b = vertices[static_cast<std::size_t>(ids[1])];
@@ -105,7 +113,7 @@ void Mesh::setOwnership(
     const auto [nx, ny, nz] = dimensions;
     if (global_cells[0] < nx || global_cells[1] != ny ||
         global_cells[2] != nz || global_x_offset < 0 ||
-        global_x_offset + nx > global_cells[0] ||
+        static_cast<std::int64_t>(global_x_offset) + nx > global_cells[0] ||
         owned_x_begin < 0 || owned_x_begin > owned_x_end ||
         owned_x_end > nx || halo_layers < 0) {
         throw std::invalid_argument("structured mesh ownership is invalid");
@@ -139,6 +147,27 @@ void Mesh::setOwnership(
     }
 }
 
+void Mesh::setPatches(std::vector<BoundaryPatch> new_patches) {
+    if (new_patches.empty()) {
+        throw std::invalid_argument("mesh must contain at least one boundary patch");
+    }
+    patches.clear();
+    patches.reserve(new_patches.size());
+    for (BoundaryPatch& patch : new_patches) {
+        patches.push_back(std::move(patch));
+    }
+}
+
+void Mesh::addPatchFace(Index patch, Index face) {
+    if (patch < 0 || static_cast<std::size_t>(patch) >= patches.size() ||
+        face < 0 || static_cast<std::size_t>(face) >=
+            static_cast<std::size_t>(faceCount()) ||
+        face_neighbour[static_cast<std::size_t>(face)] != invalid_index) {
+        throw std::out_of_range("mesh patch face is invalid");
+    }
+    patches[static_cast<std::size_t>(patch)].faces.push_back(face);
+}
+
 Index Mesh::cellId(Index i, Index j, Index k) const {
     const auto [nx, ny, nz] = dimensions;
     if (i < 0 || i >= nx || j < 0 || j >= ny || k < 0 || k >= nz) {
@@ -170,7 +199,9 @@ Mesh Mesh::cartesian(
 
     std::vector<Vec3> points;
     points.reserve(checkedProduct(
-        cells[0] + 1, cells[1] + 1, cells[2] + 1, "vertex"));
+        checkedIncrement(cells[0], "vertex"),
+        checkedIncrement(cells[1], "vertex"),
+        checkedIncrement(cells[2], "vertex"), "vertex"));
     for (Index k = 0; k <= cells[2]; ++k) {
         for (Index j = 0; j <= cells[1]; ++j) {
             for (Index i = 0; i <= cells[0]; ++i) {
@@ -192,8 +223,10 @@ Mesh Mesh::structured(
 {
     const std::size_t number_of_cells =
         checkedProduct(cells[0], cells[1], cells[2], "cell");
-    const std::size_t number_of_vertices =
-        checkedProduct(cells[0] + 1, cells[1] + 1, cells[2] + 1, "vertex");
+    const std::size_t number_of_vertices = checkedProduct(
+        checkedIncrement(cells[0], "vertex"),
+        checkedIncrement(cells[1], "vertex"),
+        checkedIncrement(cells[2], "vertex"), "vertex");
     if (points.size() != number_of_vertices) {
         throw std::invalid_argument("structured vertex array has the wrong size");
     }
@@ -203,7 +236,7 @@ Mesh Mesh::structured(
 
     Mesh mesh;
     mesh.dimensions = cells;
-    mesh.vertices = std::move(points);
+    mesh.vertices.assign(std::move(points));
     mesh.cell_centres.resize(number_of_cells);
     mesh.cell_volumes.resize(number_of_cells);
     mesh.cell_faces.resize(number_of_cells);
@@ -429,12 +462,23 @@ void Mesh::validate() const {
     const std::size_t cells = checkedProduct(
         dimensions[0], dimensions[1], dimensions[2], "cell");
     const std::size_t expected_vertices = checkedProduct(
-        dimensions[0] + 1, dimensions[1] + 1, dimensions[2] + 1, "vertex");
+        checkedIncrement(dimensions[0], "vertex"),
+        checkedIncrement(dimensions[1], "vertex"),
+        checkedIncrement(dimensions[2], "vertex"), "vertex");
     if (vertices.size() != expected_vertices || cell_centres.size() != cells ||
         cell_volumes.size() != cells || cell_faces.size() != cells ||
         cell_neighbours.size() != cells) {
         throw std::runtime_error("mesh cell or vertex arrays have inconsistent sizes");
     }
+    if (global_dimensions[0] <= 0 || global_dimensions[1] <= 0 ||
+        global_dimensions[2] <= 0 || owned_i_begin < 0 ||
+        owned_i_end < owned_i_begin || owned_i_end > dimensions[0] ||
+        global_i_offset < 0 || ghost_layers < 0) {
+        throw std::runtime_error("mesh ownership arrays are inconsistent");
+    }
+    checkedProduct(
+        global_dimensions[0], global_dimensions[1], global_dimensions[2],
+        "global cell");
     const std::int64_t expected_owned =
         static_cast<std::int64_t>(owned_i_end - owned_i_begin) *
         dimensions[1] * dimensions[2];
@@ -459,11 +503,12 @@ void Mesh::validate() const {
             for (Index i = 0; i < dimensions[0]; ++i) {
                 const Index cell = cellId(i, j, k);
                 const auto c = static_cast<std::size_t>(cell);
-                const Index expected_global =
-                    global_i_offset + i + global_dimensions[0] *
-                        (j + global_dimensions[1] * k);
+                const std::int64_t expected_global =
+                    static_cast<std::int64_t>(global_i_offset) + i +
+                    static_cast<std::int64_t>(global_dimensions[0]) *
+                        (j + static_cast<std::int64_t>(global_dimensions[1]) * k);
                 const bool owned = i >= owned_i_begin && i < owned_i_end;
-                if (cell_global_ids[c] != expected_global ||
+                if (cell_global_ids[c] != static_cast<Index>(expected_global) ||
                     (owned != (cell_owned_indices[c] != invalid_index))) {
                     throw std::runtime_error(
                         "mesh cell ownership/global-id mapping is inconsistent");
@@ -496,6 +541,8 @@ void Mesh::validate() const {
     std::vector<int> patch_visits(faces, 0);
     for (std::size_t patch = 0; patch < patches.size(); ++patch) {
         if (patches[patch].name.empty() ||
+            static_cast<int>(patches[patch].kind) < static_cast<int>(PatchKind::Generic) ||
+            static_cast<int>(patches[patch].kind) > static_cast<int>(PatchKind::Processor) ||
             !patch_names.insert(patches[patch].name).second) {
             throw std::runtime_error("boundary patch names must be non-empty and unique");
         }
@@ -524,6 +571,11 @@ void Mesh::validate() const {
             !(face_owner_weights[face] >= 0.0 && face_owner_weights[face] <= 1.0)) {
             throw std::runtime_error("mesh contains an invalid face");
         }
+        for (Index vertex : face_vertices[face]) {
+            if (vertex < 0 || static_cast<std::size_t>(vertex) >= vertices.size()) {
+                throw std::runtime_error("face vertex index is outside the mesh");
+            }
+        }
         if (neighbour == invalid_index) {
             if (face_patch[face] < 0 ||
                 static_cast<std::size_t>(face_patch[face]) >= patches.size() ||
@@ -542,7 +594,8 @@ void Mesh::validate() const {
         }
         Vec3 closure{};
         double area_sum = 0.0;
-        for (Index face : cell_faces[cell]) {
+        for (std::size_t side = 0; side < 6; ++side) {
+            const Index face = cell_faces[cell][side];
             if (face < 0 || static_cast<std::size_t>(face) >= faces) {
                 throw std::runtime_error("cell is missing one of its six faces");
             }
@@ -551,6 +604,11 @@ void Mesh::validate() const {
             const bool neighbours = face_neighbour[f] == static_cast<Index>(cell);
             if (owns == neighbours) {
                 throw std::runtime_error("cell-face owner/neighbour mapping is inconsistent");
+            }
+            const Index expected_neighbour = owns
+                ? face_neighbour[f] : face_owner[f];
+            if (cell_neighbours[cell][side] != expected_neighbour) {
+                throw std::runtime_error("cell-neighbour topology is inconsistent");
             }
             closure += owns ? face_area_vectors[f] : -face_area_vectors[f];
             area_sum += face_areas[f];

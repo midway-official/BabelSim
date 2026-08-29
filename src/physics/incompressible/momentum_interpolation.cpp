@@ -14,6 +14,7 @@ void MomentumInterpolation::apply(
     const VectorField& pressure_gradient,
     ScalarField& face_flux)
 {
+    mesh.validate();
     apply(
         mesh, velocity, pressure, mobility, pressure_gradient, face_flux,
         InterpolationMethod::Linear, GradientMethod::GreenGauss,
@@ -40,6 +41,11 @@ void MomentumInterpolation::apply(
         face_flux.location() != FieldLocation::Face) {
         throw std::invalid_argument("momentum interpolation fields do not match mesh");
     }
+    velocity.validateStorage();
+    pressure.validateStorage();
+    mobility.validateStorage();
+    pressure_gradient.validateStorage();
+    face_flux.validateStorage();
 
     // H/a 在真实面中心重构；压力响应仍保留为独立项，使直接面压力差能够抑制
     // 同位网格的棋盘格压力。
