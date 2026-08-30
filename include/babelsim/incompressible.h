@@ -74,8 +74,8 @@ struct SimpleIterationResult {
     bool converged = false;
 };
 
-// 稳态层流不可压缩 SIMPLE 算法。它只看到场、物性、方程和两个具名 CFD 算子；
-// RunTime 隐藏 FVM 装配、线性代数、同步和时间/执行后端。
+// 稳态层流不可压缩 SIMPLE 算法。它是 Algorithm-driven Solver：内部组织多个
+// Equation-driven 方程与修正步骤，RunTime 隐藏 FVM 装配、线性代数和并行后端。
 class SimpleSolver {
 public:
     SimpleSolver(
@@ -98,53 +98,59 @@ private:
     SimpleControl m_control;
     Methods m_methods;
 
-    // 以下场不是物理状态：它们是一次 SIMPLE 对象生命周期内复用的 rAU、pPrime、
-    // Rhie-Chow 与诊断工作区。合并为一个私有工作区后，Solver 的公开概念只剩 U、p、
-    // phi、物性和算法控制。
-    struct Workspace {
-        explicit Workspace(const Mesh& mesh)
-            : pressure_correction(mesh, FieldLocation::Cell, "pPrime"),
-              pressure_gradient(mesh, FieldLocation::Cell, "gradP"),
-              correction_gradient(mesh, FieldLocation::Cell, "gradPPrime"),
-              mass_flux(mesh, FieldLocation::Face, "rhoPhi"),
-              mobility(mesh, FieldLocation::Cell, "rAU"),
-              face_mobility(mesh, FieldLocation::Face, "rAUFace"),
-              divergence(mesh, FieldLocation::Cell, "divPhi"),
-              previous_velocity(mesh, FieldLocation::Cell, "UPrevious"),
-              pressure_response(mesh, FieldLocation::Cell, "rAUGradP"),
-              face_pressure_response(mesh, FieldLocation::Face, "rAUGradPFace"),
-              interpolation_mobility(mesh, FieldLocation::Face, "rAUInterpolation")
+    // 算法状态跨一次 SIMPLE 外迭代的多个步骤存在，并直接对应 p'、rAU、phiHbyA。
+    // 它与物理状态 U/p/phi 分离，也不包含可随时重算的梯度工作量。
+    struct AlgorithmState {
+        explicit AlgorithmState(const Mesh& mesh)
+            : p_prime(mesh, FieldLocation::Cell, "pPrime"),
+              rAU(mesh, FieldLocation::Cell, "rAU"),
+              phiHbyA(mesh, FieldLocation::Face, "phiHbyA"),
+              previous_velocity(mesh, FieldLocation::Cell, "UPrevious")
         {}
 
-        ScalarField pressure_correction;
-        VectorField pressure_gradient;
-        VectorField correction_gradient;
-        ScalarField mass_flux;
-        ScalarField mobility;
-        ScalarField face_mobility;
-        ScalarField divergence;
+        ScalarField p_prime;
+        ScalarField rAU;
+        ScalarField phiHbyA;
         VectorField previous_velocity;
-        VectorField pressure_response;
-        VectorField face_pressure_response;
-        ScalarField interpolation_mobility;
     };
 
-    struct PressureStep {
+    // 数值工作区仅为避免每次外迭代重新分配完整 Field；它没有独立物理生命周期。
+    struct NumericalWorkspace {
+        explicit NumericalWorkspace(const Mesh& mesh)
+            : grad_p(mesh, FieldLocation::Cell, "gradP"),
+              grad_p_prime(mesh, FieldLocation::Cell, "gradPPrime"),
+              rAU_grad_p(mesh, FieldLocation::Cell, "rAUGradP"),
+              rAU_grad_p_face(mesh, FieldLocation::Face, "rAUGradPFace"),
+              rAU_face(mesh, FieldLocation::Face, "rAUFace"),
+              div_phiHbyA(mesh, FieldLocation::Cell, "divPhiHbyA")
+        {}
+
+        VectorField grad_p;
+        VectorField grad_p_prime;
+        VectorField rAU_grad_p;
+        VectorField rAU_grad_p_face;
+        ScalarField rAU_face;
+        ScalarField div_phiHbyA;
+    };
+
+    struct PressureEquationResult {
         SolveResult linear;
         bool healthy = false;
         bool linear_converged = false;
     };
 
     std::array<SolveResult, 3> solveMomentum();
-    PressureStep solvePressure();
+    PressureEquationResult solvePressure();
+    void predictMomentumFlux();
     void correctVelocity();
     void correctFlux();
     void checkContinuityAndConvergence(
         SimpleIterationResult& result,
-        const PressureStep& pressure) const;
+        const PressureEquationResult& pressure) const;
     void initializePressureCorrectionBoundaries();
 
-    Workspace m_workspace;
+    AlgorithmState m_algorithm;
+    NumericalWorkspace m_workspace;
     bool m_has_fixed_pressure = false;
 };
 

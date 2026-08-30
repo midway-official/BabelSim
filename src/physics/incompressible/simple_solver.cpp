@@ -46,6 +46,7 @@ SimpleSolver::SimpleSolver(
       m_fluid(fluid),
       m_control(control),
       m_methods(run_time.methods()),
+      m_algorithm(m_mesh),
       m_workspace(m_mesh)
 {
     if (&run_time.mesh() != &m_mesh || &m_fields.pressure.mesh() != &m_mesh ||
@@ -71,7 +72,7 @@ SimpleIterationResult SimpleSolver::iterate() {
     // 该顺序就是 SIMPLE：UEqn 生成 rAU/预测通量，pEqn 在非正交循环中求 pPrime，
     // 随后分别修正 U 和 phi，最后用全局连续性与速度变化判定外迭代。
     result.velocity = solveMomentum();
-    const PressureStep pressure = solvePressure();
+    const PressureEquationResult pressure = solvePressure();
     correctVelocity();
     correctFlux();
     checkContinuityAndConvergence(result, pressure);
@@ -80,13 +81,13 @@ SimpleIterationResult SimpleSolver::iterate() {
 
 void SimpleSolver::checkContinuityAndConvergence(
     SimpleIterationResult& result,
-    const PressureStep& pressure) const
+    const PressureEquationResult& pressure) const
 {
     result.pressure = pressure.linear;
     result.relative_velocity_change = diagnostics::relativeChange(
-        m_fields.velocity, m_workspace.previous_velocity);
+        m_fields.velocity, m_algorithm.previous_velocity);
     result.relative_pressure_correction = diagnostics::relativeMagnitude(
-        m_workspace.pressure_correction, m_fields.pressure);
+        m_algorithm.p_prime, m_fields.pressure);
     result.continuity = diagnostics::fluxBalance(m_fields.face_flux);
 
     bool local_healthy = pressure.healthy &&

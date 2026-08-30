@@ -28,6 +28,7 @@ fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 →
 | `fvm::ddt(rhoCp, T)` | \(\rho c_p\partial T/\partial t\) | cell scalar 系数与场 |
 | `fvm::ddt(rho, U)` | \(\rho\partial U/\partial t\) | cell scalar 系数与 vector 场 |
 | `fvm::div(phi, T/U)` | \(\nabla\cdot(\phi T/U)\) | face scalar 通量、cell 场 |
+| `fvm::div(rho,phi,U)` | \(\nabla\cdot(\rho\phi U)\) | 常数缩放的 face 通量、cell vector 场 |
 | `fvm::laplacian(k, T/U)` | \(\nabla\cdot(k\nabla T/U)\) | 常数、cell 或 face 系数 |
 | `fvm::source(Q)` | 体源 \(Q\) | 常数或 cell scalar Field |
 
@@ -35,7 +36,6 @@ fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 →
 
 ```cpp
 solve(
-    runTime,
     fvm::ddt(rhoCp, concentration)
       + fvm::div(phi, concentration)
         == fvm::laplacian(diffusivity, concentration)
@@ -57,9 +57,9 @@ VectorField grad_p(mesh, FieldLocation::Cell, "grad(p)");
 ScalarField phi(mesh, FieldLocation::Face, "phi");
 ScalarField div_phi(mesh, FieldLocation::Cell, "div(phi)");
 
-runTime.evaluate(fvc::grad(p), grad_p);
-runTime.evaluate(fvc::flux(U), phi);
-runTime.evaluate(fvc::div(phi), div_phi);
+fvc::evaluate(fvc::grad(p), grad_p);
+fvc::evaluate(fvc::flux(U), phi);
+fvc::evaluate(fvc::div(phi), div_phi);
 ```
 
 当前显式描述包括：
@@ -98,7 +98,7 @@ interpolation/Green--Gauss reconstruction 处理。梯度可选择 Green--Gauss 
 
 ## 求解时发生的事情
 
-`solve(runTime, equation)` 的固定顺序为：
+`solve(equation)` 的固定顺序为：
 
 ```text
 检查表达式与 Field 位置

@@ -36,12 +36,13 @@ FluxBalance
 这与 OpenFOAM `simpleFoam` 的 `UEqn.H → pEqn.H → SIMPLE loop` 思路相同。详细的
 数据结构和矩阵操作被 Runtime 隐藏，但算法顺序没有被抽象掉。
 
-`SimpleSolver::iterate()` 的主逻辑保持为以下五个步骤；私有工作区和具体非正交实现不进入
+`SimpleSolver` 是 Algorithm-driven 黄金模板。`iterate()` 的主逻辑保持为以下五个步骤；
+私有算法状态、工作区和具体非正交实现不进入
 这里：
 
 ```cpp
 result.velocity = solveMomentum();
-const PressureStep pressure = solvePressure();
+const PressureEquationResult pressure = solvePressure();
 correctVelocity();
 correctFlux();
 checkContinuityAndConvergence();
@@ -53,23 +54,23 @@ checkContinuityAndConvergence();
 
 ```cpp
 solve(
-    fvm::div(mass_flux, U) ==
+    fvm::div(rho, phi, U) ==
         -fvc::grad(p) + fvm::laplacian(mu, U),
     momentum_control);
 ```
 
-`mass_flux` 是私有工作区中由 Field 的 `assignScaled(rho, phi)` 形成的 \(\rho\phi\)。
+常密度直接作为轻量 `fvm::div` 系数进入方程，不再为 \(\rho\phi\) 长期保存完整面场。
 `momentum_control` 仅在 SIMPLE 内部传递速度欠松弛和 `rAU` 输出位；Runtime 在组装后的
 对角中计算 \(rAU=V/a_P\)，并完成方程求解。普通 Solver 不会看到这个控制对象。
 
 该 Solver 源码不出现 MPI、通信器、rank、halo、矩阵、LDU、CSR、Eigen 或线性求解器。
 
-## 两个保留的专用数值步骤
+## SIMPLE 私有数值步骤
 
 OpenFOAM 的压力方程代码也不会把所有内容简化为一条通用 Laplacian：它明确计算 `rAU`、
 `HbyA`、预测通量和压力修正。BabelSim 只保留两个相同层级、具稳定数值意义的组件：
 
-### 动量插值
+### 动量预测通量
 
 同位网格上，简单插值得到的面通量可能产生压力棋盘格。该组件以
 
@@ -82,7 +83,7 @@ OpenFOAM 的压力方程代码也不会把所有内容简化为一条通用 Lapl
 构造 Rhie--Chow 风格的预测通量。内部使用 `fvc::flux`、`fvc::interpolate` 与统一的
 非正交 `integratedNormalGradient`；其工作场持久复用，不在每次外迭代分配完整 Field。
 
-### 压力修正
+### 压力方程与修正
 
 它通过
 
@@ -90,7 +91,9 @@ OpenFOAM 的压力方程代码也不会把所有内容简化为一条通用 Lapl
 -\nabla\cdot(rAU\nabla p') = -\nabla\cdot\phi^*
 \]
 
-调用通用 `fvm::laplacian` 和 `fvc::div`。其专用职责仅为选择压力参考、控制非正交循环，
+调用通用 `fvm::laplacian` 和 `fvc::div`。压力方程明确使用 `phiHbyA`、`rAUFace` 与 `pPrime`；
+非正交迭代通过 `correctNonOrthogonal()` 表达循环原因，而不是暴露裸 `pass` 编号。其专用
+职责仅为选择压力参考、控制非正交循环，
 并施加
 
 \[
@@ -99,8 +102,20 @@ U\leftarrow U-rAU\nabla p',\qquad
 \phi\leftarrow\phi-rAU_fS_f\cdot\nabla p'.
 \]
 
-它们是 `SimpleSolver` 的私有实现，不向其他 PDE Solver 暴露长参数表，也没有独立的矩阵、
+这些步骤是 `SimpleSolver` 的私有实现，不向其他 PDE Solver 暴露长参数表，也没有独立的矩阵、
 Field 存储或 MPI 路径。
+
+## 状态与工作区
+
+| 类别 | Field | 说明 |
+| --- | --- | --- |
+| 物理状态 | `U/p/phi` | Case 初值、边界和最终输出 |
+| 算法状态 | `pPrime/rAU/phiHbyA/UPrevious` | 跨一个外迭代的方程与修正步骤 |
+| 数值工作区 | `gradP/gradPPrime/rAUGradP/rAUFace/divPhiHbyA` | 只为复用内存，不属于物理模型 |
+
+没有额外持久化 `HbyA`：当前动量预测速度与 `rAU*grad(p)` 已足够形成数学等价的
+`phiHbyA`，省去一个完整 cell vector Field 的存储和内存带宽。算法命名仍明确保留
+`rAU → phiHbyA → pPrime → U/phi correction` 的依赖链。
 
 ## 使用与配置
 
@@ -146,9 +161,9 @@ for (int i = 0; i < control.max_iterations; ++i) {
 | `createFields.H` | Case 读取后构造 `IncompressibleFields` |
 | `simple.loop()` | 应用外层迭代与 `SimpleIterationResult` |
 | `UEqn.H` | `fvm::div == -fvc::grad + fvm::laplacian` |
-| `rAU/HbyA/phiHbyA` | SIMPLE 私有工作区与动量插值步骤 |
+| `rAU/HbyA/phiHbyA` | `rAU/phiHbyA` 私有算法状态；等价 HbyA 不额外存场 |
 | `pEqn.H` | `solvePressure()`、`correctVelocity()`、`correctFlux()` |
-| `correctNonOrthogonal()` | `nonOrthogonalCorrections` 循环 |
+| `correctNonOrthogonal()` | 私有 `NonOrthogonalCorrections::correctNonOrthogonal()` |
 | 全局 continuity check | `diagnostics::fluxBalance` 与 `diagnostics::all` |
 
 OpenFOAM 把 Rhie--Chow 和压力修正组织在 `pEqn.H` 的算法段，而不是完全变成通用

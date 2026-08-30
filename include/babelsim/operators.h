@@ -103,14 +103,16 @@ void addConvection(
     const ScalarField& transported,
     ConvectionMethod method = ConvectionMethod::Upwind,
     InterpolationMethod interpolation_method = InterpolationMethod::Corrected,
-    GradientMethod gradient_method = GradientMethod::LeastSquares);
+    GradientMethod gradient_method = GradientMethod::LeastSquares,
+    double flux_scale = 1.0);
 void addConvection(
     VectorEquation& equation,
     const ScalarField& face_flux,
     const VectorField& transported,
     ConvectionMethod method = ConvectionMethod::Upwind,
     InterpolationMethod interpolation_method = InterpolationMethod::Corrected,
-    GradientMethod gradient_method = GradientMethod::LeastSquares);
+    GradientMethod gradient_method = GradientMethod::LeastSquares,
+    double flux_scale = 1.0);
 
 void addDiffusion(
     ScalarEquation& equation,

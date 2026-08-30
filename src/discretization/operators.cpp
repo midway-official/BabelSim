@@ -449,7 +449,8 @@ void addConvectionImpl(
     const Field<T>& transported,
     ConvectionMethod method,
     InterpolationMethod interpolation_method,
-    GradientMethod gradient_method)
+    GradientMethod gradient_method,
+    double flux_scale)
 {
     const Mesh& mesh = transported.mesh();
     requireEquation(equation, mesh);
@@ -459,6 +460,9 @@ void addConvectionImpl(
     if (interpolation_method != InterpolationMethod::Linear &&
         interpolation_method != InterpolationMethod::Corrected) {
         throw std::invalid_argument("unsupported convection interpolation method");
+    }
+    if (!std::isfinite(flux_scale)) {
+        throw std::invalid_argument("convection flux scale must be finite");
     }
     using GradientField = typename GradientFieldType<T>::Type;
     std::optional<GradientField> transported_gradient;
@@ -473,7 +477,7 @@ void addConvectionImpl(
         const auto f = static_cast<std::size_t>(face);
         const Index owner = mesh.face_owner[f];
         const Index neighbour = mesh.face_neighbour[f];
-        const double F = face_flux[face];
+        const double F = flux_scale * face_flux[face];
         if (neighbour != invalid_index) {
             if (method == ConvectionMethod::Upwind) {
                 equation.diagonal[static_cast<std::size_t>(owner)] += std::max(F, 0.0);
@@ -1108,11 +1112,12 @@ void addConvection(
     const ScalarField& transported,
     ConvectionMethod method,
     InterpolationMethod interpolation_method,
-    GradientMethod gradient_method)
+    GradientMethod gradient_method,
+    double flux_scale)
 {
     addConvectionImpl(
         equation, face_flux, transported, method,
-        interpolation_method, gradient_method);
+        interpolation_method, gradient_method, flux_scale);
 }
 
 void addConvection(
@@ -1121,11 +1126,12 @@ void addConvection(
     const VectorField& transported,
     ConvectionMethod method,
     InterpolationMethod interpolation_method,
-    GradientMethod gradient_method)
+    GradientMethod gradient_method,
+    double flux_scale)
 {
     addConvectionImpl(
         equation, face_flux, transported, method,
-        interpolation_method, gradient_method);
+        interpolation_method, gradient_method, flux_scale);
 }
 
 namespace {

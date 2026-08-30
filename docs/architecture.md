@@ -115,6 +115,19 @@ T.boundary("wall") = zeroGradient();
 U.boundary("side") = symmetry();
 ```
 
+## 两种 Solver 组织模式
+
+BabelSim 不建立通用 `BaseSolver`。现有 Solver 通过实际源码正式确立两种互补模式：
+
+| 模式 | 适用问题 | 顶层职责 | 当前黄金模板 |
+| --- | --- | --- | --- |
+| Equation-driven | Heat、Poisson、Diffusion、Advection-Diffusion、Species | 直接表达并求解 PDE | `solveTransientHeat`、标量输运 |
+| Algorithm-driven | SIMPLE、PIMPLE、Projection、耦合迭代 | 组织多个 Equation、Correction 与 Convergence | `SimpleSolver` |
+
+Algorithm-driven 位于 Equation-driven 之上：SIMPLE 的动量方程和压力方程仍由相同
+`fvm/fvc/solve` 路径离散；只有 `phiHbyA`、压力/速度/通量修正与外层收敛属于算法层。
+两者的完整边界见 [solver-programming-model.md](solver-programming-model.md)。
+
 ## 内部框架 API
 
 下列对象属于 FVM、代数或运行时实现，不能成为 Physics Solver 的日常接口：

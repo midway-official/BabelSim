@@ -4,8 +4,8 @@
 
 namespace babelsim {
 
-// 标量输运是复用通用 FVM API 的最小非热学示例：储存、对流、扩散和体源均没有
-// 专用矩阵或并行实现。
+// 标量输运是 Equation-driven 模式的非热学示例：储存、对流、扩散和体源均没有
+// 专用矩阵、算法状态或并行实现。
 struct ScalarTransportResult {
     SolveResult linear;
     int steps = 0;

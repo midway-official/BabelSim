@@ -453,7 +453,8 @@ SolveResult RunTime::solve(
                     state.synchronize(unknown);
                     addConvection(
                         equation, *term.flux, unknown, state.control.methods.convection,
-                        state.control.methods.interpolation, state.control.methods.gradient);
+                        state.control.methods.interpolation, state.control.methods.gradient,
+                        term.coefficient);
                     break;
                 case FvmTermKind::Laplacian:
                     if (canonical != -1 || term.field != &unknown) {
@@ -592,7 +593,8 @@ std::array<SolveResult, 3> RunTime::solve(
                     state.synchronize(unknown);
                     addConvection(
                         equation, *term.flux, unknown, state.control.methods.convection,
-                        state.control.methods.interpolation, state.control.methods.gradient);
+                        state.control.methods.interpolation, state.control.methods.gradient,
+                        term.coefficient);
                     break;
                 case FvmTermKind::Laplacian:
                     if (canonical != -1 || term.vector_field != &unknown) {
@@ -876,6 +878,24 @@ SolveResult solve(const ScalarEquationDefinition& equation) {
 std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation) {
     return RunTime::current().solve(equation);
 }
+
+namespace detail {
+
+SolveResult solve(
+    const ScalarEquationDefinition& equation,
+    ScalarEquationControl control)
+{
+    return RunTime::current().solve(equation, control);
+}
+
+std::array<SolveResult, 3> solve(
+    const VectorEquationDefinition& equation,
+    VectorEquationControl control)
+{
+    return RunTime::current().solve(equation, control);
+}
+
+}  // detail 命名空间
 
 namespace fvc {
 

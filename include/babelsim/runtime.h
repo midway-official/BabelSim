@@ -25,9 +25,16 @@ struct RuntimeControl {
 };
 
 struct VectorEquationControl;
-class SimpleSolver;
-
 struct ScalarEquationControl;
+
+namespace detail {
+SolveResult solve(
+    const ScalarEquationDefinition& equation,
+    ScalarEquationControl control);
+std::array<SolveResult, 3> solve(
+    const VectorEquationDefinition& equation,
+    VectorEquationControl control);
+}  // detail 命名空间
 
 // 面通量在每个控制体上的守恒误差。它是通用有限体积诊断量；不可压缩 SIMPLE 将
 // 它命名为连续性残差。归约由 RunTime 完成，调用者不会接触 rank 或通信器。
@@ -124,7 +131,10 @@ private:
 
     friend SolveResult solve(const ScalarEquationDefinition& equation);
     friend std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation);
-    friend class SimpleSolver;
+    friend SolveResult detail::solve(
+        const ScalarEquationDefinition&, ScalarEquationControl);
+    friend std::array<SolveResult, 3> detail::solve(
+        const VectorEquationDefinition&, VectorEquationControl);
     friend void fvc::evaluate(fvc::ScalarGradient, VectorField&);
     friend void fvc::evaluate(fvc::VectorGradient, TensorField&);
     friend void fvc::evaluate(fvc::FaceFlux, ScalarField&);

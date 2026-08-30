@@ -149,8 +149,17 @@ inline ScalarExpression ddt(
 
 inline ScalarExpression ddt(const ScalarField& field) { return ddt(1.0, field); }
 
+inline ScalarExpression div(
+    double flux_scale,
+    const ScalarField& flux,
+    const ScalarField& field)
+{
+    return ScalarExpression(
+        {FvmTermKind::Convection, 1, flux_scale, &field, nullptr, &flux});
+}
+
 inline ScalarExpression div(const ScalarField& flux, const ScalarField& field) {
-    return ScalarExpression({FvmTermKind::Convection, 1, 1.0, &field, nullptr, &flux});
+    return div(1.0, flux, field);
 }
 
 inline ScalarExpression laplacian(double diffusivity, const ScalarField& field) {
@@ -190,12 +199,21 @@ inline VectorExpression ddt(const ScalarField& density, const VectorField& field
 
 inline VectorExpression ddt(const VectorField& field) { return ddt(1.0, field); }
 
-inline VectorExpression div(const ScalarField& flux, const VectorField& field) {
+inline VectorExpression div(
+    double flux_scale,
+    const ScalarField& flux,
+    const VectorField& field)
+{
     VectorFvmTerm term;
     term.kind = FvmTermKind::Convection;
+    term.coefficient = flux_scale;
     term.vector_field = &field;
     term.flux = &flux;
     return VectorExpression(term);
+}
+
+inline VectorExpression div(const ScalarField& flux, const VectorField& field) {
+    return div(1.0, flux, field);
 }
 
 inline VectorExpression laplacian(double diffusivity, const VectorField& field) {

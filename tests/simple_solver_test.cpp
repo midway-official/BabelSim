@@ -73,7 +73,9 @@ int main() {
     control.pressure_solver.relative_tolerance = 1e-10;
 
     RunTime run_time = RunTime::forMesh(mesh, simpleRunTimeControl(methods, control));
-    SimpleSolver solver(run_time, fields, {1.0, 0.1}, control);
+    // rho=2 同时验证 fvm::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
+    // 黏度以维持该回归的 Reynolds 数。
+    SimpleSolver solver(run_time, fields, {2.0, 0.2}, control);
     SimpleIterationResult result;
     int iterations = 0;
     for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {

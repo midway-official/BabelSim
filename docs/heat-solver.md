@@ -1,6 +1,6 @@
 # 瞬态热传导 Solver
 
-`heatFoam` 是 BabelSim 的最小 PDE Solver 模板。它验证 Field、边界、时间、方程表达、
+`heatFoam` 是 BabelSim 的 Equation-driven 黄金模板。它验证 Field、边界、时间、方程表达、
 FVM 装配、线性求解和 MPI 都可以在不向物理代码暴露底层细节的情况下组合。
 
 ## 控制方程
@@ -21,7 +21,6 @@ Runtime、代数或 MPI 层。
 ```cpp
 while (run_time.loop()) {
     result.linear = solve(
-        run_time,
         fvm::ddt(material.volumetricHeatCapacity(), temperature) ==
             fvm::laplacian(material.conductivity, temperature) +
             fvm::source(volumetric_source));
@@ -35,7 +34,6 @@ buffer、稀疏矩阵、LDU、Eigen、`mutableData()` 或手写 cell/face 循环
 
 ```cpp
 solve(
-    run_time,
     fvm::ddt(rho_cp, T)
         == fvm::laplacian(conductivity, T) + fvm::source(source));
 ```

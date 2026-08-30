@@ -4,6 +4,15 @@
 
 ## 先选对层次
 
+先判断 Solver 的组织方式：
+
+- 单方程或弱耦合 PDE 使用 Equation-driven，核心源码就是 `solve(lhs == rhs)`；
+- 多方程、预测--修正或非线性外迭代使用 Algorithm-driven，顶层源码组织 Equation、
+  Correction 与 Convergence。
+
+Algorithm-driven 可以复用多个 Equation-driven 方程，但不能重新实现 Field、离散、矩阵或
+MPI。详细模型见 [solver-programming-model.md](solver-programming-model.md)。
+
 新增 Solver 时只应依赖以下概念：
 
 ```text
@@ -25,15 +34,15 @@ Field::data()、mutableData()、values()、手写单元循环来组装 PDE
 | 分类 | Solver 可见概念 | 原因 |
 | --- | --- | --- |
 | A：直接使用 | `Field`、边界、Material、`fvm`、`fvc`、`solve`、`RunTime::loop`、`diagnostics` | 分别对应物理量、PDE、显式数学量、时间循环和收敛量。 |
-| B：算法层使用 | `SimpleSolver`、`SimpleControl`、`SimpleIterationResult` | 只在压力速度耦合等明确算法中出现。 |
+| B：算法层使用 | `SimpleSolver`、`SimpleControl`、`SimpleIterationResult` | 只在压力速度耦合等 Algorithm-driven Solver 中出现。 |
 | C：仅框架内部 | `RunTime::current()`、内部动量/压力方程控制、时间历史 | 用于把 `solve/fvc/diagnostics` 绑定到活动运行域；普通 Solver 不直接调用。 |
 | D：禁止 Physics 使用 | MPI、Halo、并行上下文、LDU/CSR/Eigen、稀疏装配、Field 原始存储 | 它们只属于 Runtime、并行和线性代数层。 |
 
-当前 `src/physics` 审计中，除 `std::array<SolveResult,3>`（三个速度分量的轻量结果）及
-SIMPLE 私有步骤中的 `RunTime::current().solve(...)` 外，没有容器、智能指针、MPI、矩阵或
-Field 原始存储。后者是从动量离散主对角提取 `rAU` 的内部桥接，不属于主循环或新 Solver API。
+当前 `src/physics` 审计中，除 `std::array<SolveResult,3>`（三个速度分量的轻量结果）外，
+没有容器、智能指针、MPI、矩阵或 Field 原始存储。SIMPLE 为提取 `rAU` 使用的额外方程控制
+通过 `detail::solve` 下沉到内部入口，Physics 文件不再直接访问 `RunTime::current()`。
 
-## 第一个标量 Solver：热/扩散
+## Equation-driven：第一个标量 Solver
 
 1. 在 Case 中放置初值和边界条件；
 2. 定义物性；
@@ -129,6 +138,15 @@ solve(
 `rAU`、欠松弛和动量对角属于 SIMPLE 私有实现；普通 PDE Solver 不需要、也不应创建
 内部动量控制或任何矩阵辅助对象。除压力速度耦合等确有领域意义的算法外，普通
 PDE 不应创建专用 `TemperatureMatrix`、`EquationManager` 或 `SolverManager`。
+
+## Algorithm-driven：组织耦合算法
+
+算法层只保留具有稳定数值含义的步骤。例如 SIMPLE 的顶层依次调用动量方程、压力方程、
+速度修正、通量修正和连续性检查。`rAU/pPrime/phiHbyA` 是私有算法状态，梯度和插值场是
+私有数值工作区；二次开发者不会向任何专用算子传递 Mesh/Runtime/Field 长参数表。
+
+如果一个新算法只是求解一个方程，不应为了形式统一创建 Algorithm 类；如果确实需要多个
+方程协同，也不应创建 `UniversalSolver`、`Manager` 或第二套 Linear Solver。
 
 ## 新 Solver 的文件与 Case
 

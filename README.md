@@ -20,6 +20,11 @@ Physics   如何组合方程与算子解决具体物理问题
 `Equation` 的数学表达与内部离散 LDU 系统明确分离。Heat 与 SIMPLE 的 Physics 源码不接触
 MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 Runtime 自动处理。
 
+Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
+采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE、PIMPLE 和耦合算法采用
+**Algorithm-driven**，用多个 Equation 与 Correction 直接表达算法流程。两者共享同一套
+Field、`fvm/fvc`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
+
 当前实现使用统一的三维结构化六面体网格；二维问题是 `nz=1` 的退化三维网格，
 不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、
 正交系数、非正交修正向量、偏斜量和插值权重，以少量内存换取迭代热点中的计算速度。
@@ -116,4 +121,6 @@ make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 见 [Solver 开发指南](docs/solver-development.md)，数学表达规则见
 [fvm/fvc 说明](docs/fvm-fvc.md)，两个内置 Solver 的对照说明见
 [热传导](docs/heat-solver.md)、[SIMPLE](docs/simple-solver.md)，案例组织见
-[Case 结构](docs/case-structure.md)，数值验证结果见 [验证说明](docs/validation.md)。
+[Case 结构](docs/case-structure.md)，两种 Solver 组织模式见
+[Solver Programming Model](docs/solver-programming-model.md)，数值验证结果见
+[验证说明](docs/validation.md)。

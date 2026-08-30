@@ -20,8 +20,8 @@ struct HeatResult {
     bool converged = false;
 };
 
-// 最小瞬态热传导 Solver。其实现只写热方程和时间循环：历史场、离散系统、线性
-// 求解、并行同步和全局归约均由 RunTime 隐藏。
+// Equation-driven Solver 的黄金模板。其实现只写热方程和时间循环：历史场、离散
+// 系统、线性求解、并行同步和全局归约均由 RunTime 隐藏。
 HeatResult solveTransientHeat(
     RunTime& run_time,
     ScalarField& temperature,
