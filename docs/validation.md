@@ -21,10 +21,10 @@ make validate-poiseuille
   InletOutlet、Symmetry/Mirror；
 - Green-Gauss/Least-Squares 梯度、插值、重构、通量、散度、中心/迎风对流、
   正交/非正交扩散、Laplacian、Euler/BDF2；
-- LDU 装配、可变扩散系数、稀疏结构复用与串行线性求解；
+- Runtime 隐藏的离散 LDU 装配、Field 系数时间/扩散项、稀疏结构复用与串行线性求解；
 - `case.bs`、物性/数值字典、花括号 `.field`、通用 scalar/vector/tensor 结果写出与
   result reader；
-- 独立的 `MomentumInterpolation` 和 `PressureCorrection` 基本代数检查；
+- 使用 `RunTime + fvm/fvc` 的 `MomentumInterpolation` 和 `PressureCorrection` 检查；
 - 三维仿射非正交制造解上的两个专用算子精确性检查；
 - 小通道、二维腔体、三维腔体、二维扭曲和三维扭曲非正交腔体的 SIMPLE 回归。
 
@@ -36,7 +36,7 @@ make validate-poiseuille
 | 二维腔体 | 12 × 12 × 1 | 137 | `1.61e-16` | 中心 `u=-0.149236` |
 | 三维腔体 | 6 × 6 × 6 | 57 | `1.59e-15` | 中心 `u=-0.114134`，`max(abs(w))=0.0192033` |
 | 非正交腔体 | 10 × 10 × 1 | 164 | `9.77e-9` | `max(abs(k_nonorth))/abs(Sf)=0.412398` |
-| 三维非正交腔体 | 5 × 5 × 5 | 79 | `1.86e-8` | `centreU=-0.0940683`，`max(abs(w))=0.0108384` |
+| 三维非正交腔体 | 5 × 5 × 5 | 85 | `1.93e-8` | `centreU=-0.0940686`，`max(abs(w))=0.0108379` |
 
 ## 2. Re=100 顶盖驱动腔体
 
@@ -107,7 +107,7 @@ make test-mpi-poiseuille
 - 分区接口处的 `MomentumInterpolation` 与 `PressureCorrection`；
 - 仅生成 owned 行的 SparseAssembly；
 - halo matvec、全局点积/范数的分布式 Krylov 求解；
-- 1/2/4 rank 二维腔体及 2 rank 三维腔体。
+- 1/2/4 rank 二维腔体、2 rank 原生网格通道流、2 rank 三维腔体，以及 1/2 rank 热传导。
 
 文件型启动器还通过 `readDistributedMesh()` 验证根 rank 解析、尺寸/patch 广播、
 局部顶点点对点传输和接收端重建；`parallel_channel_test` 使用该入口，不再先在
@@ -139,6 +139,10 @@ global ID 比较通用 rank 结果：
 一致，结果差异仅来自分区矩阵乘法、归约顺序和局部内层迭代的浮点误差。所有比较前
 会检查 global ID 无重复、无遗漏。随后 `babelsim-post` 读取 rank 文件并生成原始
 六面体 VTK/Tecplot 文件，验证结果格式独立于求解器内存。
+
+`test-mpi` 同时用 `cases/heat` 比较 1 与 2 rank 的瞬态温度场。五个 Euler 步后最大
+`T` 差异为 `3.80e-11`（`atol=rtol=1e-9`），表明新的热 Solver 通过同一 Runtime 自动
+使用 halo、分布式矩阵和全局线性收敛，而不是在 Solver 外额外包一层 MPI。
 
 ## 5. 内存安全与性能检查
 

@@ -1,0 +1,9 @@
+interpolation linear
+gradient greenGauss
+convection upwind
+diffusion orthogonal
+time euler
+startTime 0
+endTime 0.05
+deltaT 0.01
+scalarSolver bicgstab ilut 1e-14 1e-10 1000

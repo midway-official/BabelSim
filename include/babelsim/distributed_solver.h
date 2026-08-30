@@ -41,7 +41,7 @@ public:
 
 private:
     struct Implementation;
-    std::unique_ptr<Implementation> implementation_;
+    std::unique_ptr<Implementation> m_implementation;
 };
 
 }  // babelsim 命名空间

@@ -80,26 +80,26 @@ private:
         const std::vector<Index>& receive_right);
     void exchangeFaces(double* values, std::size_t components);
 
-    const Mesh* mesh_;
-    ParallelContext parallel_;
-    int left_ = MPI_PROC_NULL;
-    int right_ = MPI_PROC_NULL;
-    std::vector<Index> send_left_;
-    std::vector<Index> send_right_;
-    std::vector<Index> receive_left_;
-    std::vector<Index> receive_right_;
-    std::vector<Index> send_left_first_;
-    std::vector<Index> send_right_first_;
-    std::vector<Index> receive_left_first_;
-    std::vector<Index> receive_right_first_;
-    std::vector<Index> send_face_right_;
-    std::vector<Index> receive_face_left_;
-    std::vector<double> send_buffer_left_;
-    std::vector<double> send_buffer_right_;
-    std::vector<double> receive_buffer_left_;
-    std::vector<double> receive_buffer_right_;
-    std::vector<double> send_face_buffer_right_;
-    std::vector<double> receive_face_buffer_left_;
+    const Mesh* m_mesh;
+    ParallelContext m_parallel;
+    int m_left = MPI_PROC_NULL;
+    int m_right = MPI_PROC_NULL;
+    std::vector<Index> m_send_left;
+    std::vector<Index> m_send_right;
+    std::vector<Index> m_receive_left;
+    std::vector<Index> m_receive_right;
+    std::vector<Index> m_send_left_first;
+    std::vector<Index> m_send_right_first;
+    std::vector<Index> m_receive_left_first;
+    std::vector<Index> m_receive_right_first;
+    std::vector<Index> m_send_face_right;
+    std::vector<Index> m_receive_face_left;
+    std::vector<double> m_send_buffer_left;
+    std::vector<double> m_send_buffer_right;
+    std::vector<double> m_receive_buffer_left;
+    std::vector<double> m_receive_buffer_right;
+    std::vector<double> m_send_face_buffer_right;
+    std::vector<double> m_receive_face_buffer_left;
 };
 
 }  // babelsim 命名空间

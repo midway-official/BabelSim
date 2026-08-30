@@ -3,7 +3,7 @@ AR ?= ar
 
 CXXFLAGS ?= -std=c++17 -O3 -march=native -Wall -Wextra -Wpedantic -Wshadow \
             -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
-CPPFLAGS ?= -Iinclude -I/usr/include/eigen3
+CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 
 BUILD := build
 LIB := $(BUILD)/libbabelsim.a
@@ -12,14 +12,18 @@ SOURCES := src/core/mesh.cpp \
            src/io/case_reader.cpp \
            src/io/field_reader.cpp \
            src/io/incompressible_case_reader.cpp \
+           src/io/thermal_case_reader.cpp \
            src/io/mesh_reader.cpp \
            src/io/result_reader.cpp \
            src/discretization/operators.cpp \
+           src/discretization/fvm_expression.cpp \
            src/discretization/assembly.cpp \
            src/algebra/linear_solver.cpp \
            src/algebra/distributed_solver.cpp \
            src/parallel/parallel_context.cpp \
            src/parallel/parallel_writer.cpp \
+           src/runtime/runtime.cpp \
+           src/physics/heat/transient_heat_solver.cpp \
            src/physics/incompressible/simple_solver.cpp \
            src/physics/incompressible/momentum_interpolation.cpp \
            src/physics/incompressible/pressure_correction.cpp
@@ -29,12 +33,14 @@ HEADERS := $(wildcard include/babelsim/*.h)
 TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
                 tests/operators_test.cpp \
+                tests/fvc_runtime_test.cpp \
                 tests/assembly_solver_test.cpp \
                 tests/simple_solver_test.cpp \
                 tests/mesh_file_test.cpp \
                 tests/case_io_test.cpp \
                 tests/field_writer_test.cpp \
                 tests/specialized_operator_test.cpp \
+                tests/heat_solver_test.cpp \
                 tests/cavity_regression_test.cpp \
                 tests/cavity_3d_test.cpp \
                 tests/nonorthogonal_cavity_test.cpp \
@@ -82,10 +88,22 @@ test: $(TESTS)
 
 test-mpi: $(MPI_TESTS)
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_domain_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
+		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_cavity_3d_test $(BUILD)/mpi-output
+	$(MAKE) test-mpi-heat
+
+test-mpi-heat: $(BUILD)/babelsim-solve
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/babelsim-solve \
+		-case cases/heat -time mpi-np1
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/babelsim-solve \
+		-case cases/heat -time mpi-np2
+	python3 tools/compare_parallel_results.py \
+		cases/heat/results/mpi-np1 cases/heat/results/mpi-np2 \
+		--atol 1e-9 --rtol 1e-9
 
 test-mpi-poiseuille: $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 	TMPDIR=/tmp mpirun -np 1 $(BUILD)/babelsim-solve \
@@ -121,7 +139,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all test test-mpi test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all test test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d)

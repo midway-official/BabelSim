@@ -401,9 +401,16 @@ int main(int argc, char* argv[]) {
         VectorField zero_velocity(skew, FieldLocation::Cell, "zeroVelocity");
         ScalarField mobility(skew, FieldLocation::Cell, "rAU", 0.25);
         ScalarField momentum_flux(skew, FieldLocation::Face, "momentumFlux");
+        RuntimeControl specialized_control;
+        specialized_control.methods.interpolation = InterpolationMethod::Corrected;
+        specialized_control.methods.gradient = GradientMethod::LeastSquares;
+        specialized_control.methods.diffusion = DiffusionMethod::Corrected;
+        RunTime specialized_run_time = RunTime::forMesh(skew, specialized_control);
+        MomentumInterpolationWorkspace momentum_workspace(skew);
         MomentumInterpolation::apply(
-            skew, zero_velocity, skew_linear, mobility, skew_gradient,
-            momentum_flux, InterpolationMethod::Corrected,
+            specialized_run_time, skew, zero_velocity, skew_linear, mobility,
+            skew_gradient, momentum_flux, momentum_workspace,
+            InterpolationMethod::Corrected,
             GradientMethod::LeastSquares, DiffusionMethod::Corrected);
         double local_momentum_error = 0.0;
         for (Index cell : skew.owned_cells) {
@@ -435,9 +442,12 @@ int main(int argc, char* argv[]) {
             skew, FieldLocation::Cell, "pressureAfter");
         VectorField velocity_after(
             skew, FieldLocation::Cell, "velocityAfter");
+        VectorField correction_gradient(
+            skew, FieldLocation::Cell, "gradPPrime");
         PressureCorrection::apply(
-            skew, 0.3, pressure_after, velocity_after, correction_flux,
-            skew_linear, skew_gradient, mobility, DiffusionMethod::Corrected);
+            specialized_run_time, skew, 0.3, pressure_after, velocity_after,
+            correction_flux, skew_linear, mobility, correction_gradient,
+            DiffusionMethod::Corrected);
         double local_correction_error = 0.0;
         for (Index cell : skew.owned_cells) {
             const Index global_id = skew.globalCellId(cell);

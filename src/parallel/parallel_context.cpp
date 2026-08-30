@@ -462,22 +462,22 @@ Mesh readDistributedMesh(
 }
 
 HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
-    : mesh_(&mesh), parallel_(parallel)
+    : m_mesh(&mesh), m_parallel(parallel)
 {
-    parallel_.validate();
+    m_parallel.validate();
     mesh.validate();
-    if (!parallel_.distributed()) {
+    if (!m_parallel.distributed()) {
         return;
     }
     if (mesh.ghost_layers < 1 ||
-        mesh.owned_i_begin < (parallel_.rank == 0 ? 0 : mesh.ghost_layers) ||
+        mesh.owned_i_begin < (m_parallel.rank == 0 ? 0 : mesh.ghost_layers) ||
         mesh.dimensions[0] - mesh.owned_i_end <
-            (parallel_.rank + 1 == parallel_.size ? 0 : mesh.ghost_layers)) {
+            (m_parallel.rank + 1 == m_parallel.size ? 0 : mesh.ghost_layers)) {
         throw std::invalid_argument("mesh halo layout does not match MPI partition");
     }
-    left_ = parallel_.rank == 0 ? MPI_PROC_NULL : parallel_.rank - 1;
-    right_ = parallel_.rank + 1 == parallel_.size
-        ? MPI_PROC_NULL : parallel_.rank + 1;
+    m_left = m_parallel.rank == 0 ? MPI_PROC_NULL : m_parallel.rank - 1;
+    m_right = m_parallel.rank + 1 == m_parallel.size
+        ? MPI_PROC_NULL : m_parallel.rank + 1;
     const auto appendPlane = [&](std::vector<Index>& indices, Index begin) {
         for (Index k = 0; k < mesh.dimensions[2]; ++k) {
             for (Index j = 0; j < mesh.dimensions[1]; ++j) {
@@ -487,13 +487,13 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
             }
         }
     };
-    if (left_ != MPI_PROC_NULL) {
-        appendPlane(send_left_, mesh.owned_i_begin);
-        appendPlane(receive_left_, mesh.owned_i_begin - mesh.ghost_layers);
+    if (m_left != MPI_PROC_NULL) {
+        appendPlane(m_send_left, mesh.owned_i_begin);
+        appendPlane(m_receive_left, mesh.owned_i_begin - mesh.ghost_layers);
     }
-    if (right_ != MPI_PROC_NULL) {
-        appendPlane(send_right_, mesh.owned_i_end - mesh.ghost_layers);
-        appendPlane(receive_right_, mesh.owned_i_end);
+    if (m_right != MPI_PROC_NULL) {
+        appendPlane(m_send_right, mesh.owned_i_end - mesh.ghost_layers);
+        appendPlane(m_receive_right, mesh.owned_i_end);
     }
     const auto appendFirstPlane = [&](std::vector<Index>& indices, Index begin) {
         for (Index k = 0; k < mesh.dimensions[2]; ++k) {
@@ -502,13 +502,13 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
             }
         }
     };
-    if (left_ != MPI_PROC_NULL) {
-        appendFirstPlane(send_left_first_, mesh.owned_i_begin);
-        appendFirstPlane(receive_left_first_, mesh.owned_i_begin - 1);
+    if (m_left != MPI_PROC_NULL) {
+        appendFirstPlane(m_send_left_first, mesh.owned_i_begin);
+        appendFirstPlane(m_receive_left_first, mesh.owned_i_begin - 1);
     }
-    if (right_ != MPI_PROC_NULL) {
-        appendFirstPlane(send_right_first_, mesh.owned_i_end - 1);
-        appendFirstPlane(receive_right_first_, mesh.owned_i_end);
+    if (m_right != MPI_PROC_NULL) {
+        appendFirstPlane(m_send_right_first, mesh.owned_i_end - 1);
+        appendFirstPlane(m_receive_right_first, mesh.owned_i_end);
     }
     const auto appendInterface = [&](std::vector<Index>& indices, Index cell_i, Side side) {
         for (Index k = 0; k < mesh.dimensions[2]; ++k) {
@@ -519,26 +519,26 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
             }
         }
     };
-    if (left_ != MPI_PROC_NULL) {
+    if (m_left != MPI_PROC_NULL) {
         // 分区界面由较小 rank（左侧 owned cell）作为唯一发布者。
-        appendInterface(receive_face_left_, mesh.owned_i_begin, Side::XMin);
+        appendInterface(m_receive_face_left, mesh.owned_i_begin, Side::XMin);
     }
-    if (right_ != MPI_PROC_NULL) {
-        appendInterface(send_face_right_, mesh.owned_i_end - 1, Side::XMax);
+    if (m_right != MPI_PROC_NULL) {
+        appendInterface(m_send_face_right, mesh.owned_i_end - 1, Side::XMax);
     }
     // 常用场最多包含 9 个 double（Tensor3）。预留一次后，后续时间步/外迭代
     // 的打包和接收不会再次触发堆分配。
-    send_buffer_left_.reserve(send_left_.size() * 9U);
-    send_buffer_right_.reserve(send_right_.size() * 9U);
-    receive_buffer_left_.reserve(receive_left_.size() * 9U);
-    receive_buffer_right_.reserve(receive_right_.size() * 9U);
-    send_face_buffer_right_.reserve(send_face_right_.size() * 9U);
-    receive_face_buffer_left_.reserve(receive_face_left_.size() * 9U);
+    m_send_buffer_left.reserve(m_send_left.size() * 9U);
+    m_send_buffer_right.reserve(m_send_right.size() * 9U);
+    m_receive_buffer_left.reserve(m_receive_left.size() * 9U);
+    m_receive_buffer_right.reserve(m_receive_right.size() * 9U);
+    m_send_face_buffer_right.reserve(m_send_face_right.size() * 9U);
+    m_receive_face_buffer_left.reserve(m_receive_face_left.size() * 9U);
 }
 
 void HaloExchange::exchange(double* values, std::size_t components) {
     exchangeCells(
-        values, components, send_left_, send_right_, receive_left_, receive_right_);
+        values, components, m_send_left, m_send_right, m_receive_left, m_receive_right);
 }
 
 void HaloExchange::exchangeCells(
@@ -549,7 +549,7 @@ void HaloExchange::exchangeCells(
     const std::vector<Index>& receive_left,
     const std::vector<Index>& receive_right)
 {
-    if (!parallel_.distributed()) {
+    if (!m_parallel.distributed()) {
         return;
     }
     if (values == nullptr || components == 0) {
@@ -579,29 +579,29 @@ void HaloExchange::exchangeCells(
         }
     };
 
-    pack(send_left, send_buffer_left_);
-    pack(send_right, send_buffer_right_);
-    receive_buffer_right_.resize(receive_right.size() * components);
-    receive_buffer_left_.resize(receive_left.size() * components);
+    pack(send_left, m_send_buffer_left);
+    pack(send_right, m_send_buffer_right);
+    m_receive_buffer_right.resize(receive_right.size() * components);
+    m_receive_buffer_left.resize(receive_left.size() * components);
     double dummy = 0.0;
     detail::checkMpi(MPI_Sendrecv(
-        send_buffer_left_.empty() ? &dummy : send_buffer_left_.data(),
-        detail::mpiCount(send_buffer_left_.size(), "left halo buffer"), MPI_DOUBLE, left_, 101,
-        receive_buffer_right_.empty() ? &dummy : receive_buffer_right_.data(),
-        detail::mpiCount(receive_buffer_right_.size(), "right halo buffer"), MPI_DOUBLE, right_, 101,
-        parallel_.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(left halo)");
+        m_send_buffer_left.empty() ? &dummy : m_send_buffer_left.data(),
+        detail::mpiCount(m_send_buffer_left.size(), "left halo buffer"), MPI_DOUBLE, m_left, 101,
+        m_receive_buffer_right.empty() ? &dummy : m_receive_buffer_right.data(),
+        detail::mpiCount(m_receive_buffer_right.size(), "right halo buffer"), MPI_DOUBLE, m_right, 101,
+        m_parallel.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(left halo)");
     detail::checkMpi(MPI_Sendrecv(
-        send_buffer_right_.empty() ? &dummy : send_buffer_right_.data(),
-        detail::mpiCount(send_buffer_right_.size(), "right halo buffer"), MPI_DOUBLE, right_, 102,
-        receive_buffer_left_.empty() ? &dummy : receive_buffer_left_.data(),
-        detail::mpiCount(receive_buffer_left_.size(), "left halo buffer"), MPI_DOUBLE, left_, 102,
-        parallel_.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(right halo)");
-    unpack(receive_right, receive_buffer_right_);
-    unpack(receive_left, receive_buffer_left_);
+        m_send_buffer_right.empty() ? &dummy : m_send_buffer_right.data(),
+        detail::mpiCount(m_send_buffer_right.size(), "right halo buffer"), MPI_DOUBLE, m_right, 102,
+        m_receive_buffer_left.empty() ? &dummy : m_receive_buffer_left.data(),
+        detail::mpiCount(m_receive_buffer_left.size(), "left halo buffer"), MPI_DOUBLE, m_left, 102,
+        m_parallel.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(right halo)");
+    unpack(receive_right, m_receive_buffer_right);
+    unpack(receive_left, m_receive_buffer_left);
 }
 
 void HaloExchange::exchangeFaces(double* values, std::size_t components) {
-    if (!parallel_.distributed()) {
+    if (!m_parallel.distributed()) {
         return;
     }
     if (values == nullptr || components == 0) {
@@ -630,40 +630,40 @@ void HaloExchange::exchangeFaces(double* values, std::size_t components) {
             }
         }
     };
-    pack(send_face_right_, send_face_buffer_right_);
-    receive_face_buffer_left_.resize(receive_face_left_.size() * components);
+    pack(m_send_face_right, m_send_face_buffer_right);
+    m_receive_face_buffer_left.resize(m_receive_face_left.size() * components);
     double dummy = 0.0;
     // 每个 rank 只向右侧发布自己的 XMax 界面；同时从左侧接收 XMin
     // 界面。这样一个物理面始终由较小 rank 决定，不会出现交换振荡。
     detail::checkMpi(MPI_Sendrecv(
-        send_face_buffer_right_.empty() ? &dummy : send_face_buffer_right_.data(),
-        detail::mpiCount(send_face_buffer_right_.size(), "right face halo buffer"), MPI_DOUBLE, right_, 201,
-        receive_face_buffer_left_.empty() ? &dummy : receive_face_buffer_left_.data(),
-        detail::mpiCount(receive_face_buffer_left_.size(), "left face halo buffer"), MPI_DOUBLE, left_, 201,
-        parallel_.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(face owner halo)");
-    unpack(receive_face_left_, receive_face_buffer_left_);
+        m_send_face_buffer_right.empty() ? &dummy : m_send_face_buffer_right.data(),
+        detail::mpiCount(m_send_face_buffer_right.size(), "right face halo buffer"), MPI_DOUBLE, m_right, 201,
+        m_receive_face_buffer_left.empty() ? &dummy : m_receive_face_buffer_left.data(),
+        detail::mpiCount(m_receive_face_buffer_left.size(), "left face halo buffer"), MPI_DOUBLE, m_left, 201,
+        m_parallel.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(face owner halo)");
+    unpack(m_receive_face_left, m_receive_face_buffer_left);
 }
 
 void HaloExchange::exchange(std::vector<double>& values) {
-    if (mesh_ == nullptr) throw std::logic_error("halo exchange has no mesh");
-    if (values.size() != static_cast<std::size_t>(mesh_->cellCount())) {
+    if (m_mesh == nullptr) throw std::logic_error("halo exchange has no mesh");
+    if (values.size() != static_cast<std::size_t>(m_mesh->cellCount())) {
         throw std::invalid_argument("raw halo field has the wrong size");
     }
     exchange(values.data(), 1);
 }
 
 void HaloExchange::exchangeFirstLayer(std::vector<double>& values) {
-    if (mesh_ == nullptr) throw std::logic_error("halo exchange has no mesh");
-    if (values.size() != static_cast<std::size_t>(mesh_->cellCount())) {
+    if (m_mesh == nullptr) throw std::logic_error("halo exchange has no mesh");
+    if (values.size() != static_cast<std::size_t>(m_mesh->cellCount())) {
         throw std::invalid_argument("raw first-layer halo field has the wrong size");
     }
     exchangeCells(
-        values.data(), 1, send_left_first_, send_right_first_,
-        receive_left_first_, receive_right_first_);
+        values.data(), 1, m_send_left_first, m_send_right_first,
+        m_receive_left_first, m_receive_right_first);
 }
 
 void HaloExchange::exchange(ScalarField& field) {
-    if (&field.mesh() != mesh_) {
+    if (&field.mesh() != m_mesh) {
         throw std::invalid_argument("scalar halo field is incompatible");
     }
     field.validateStorage();
@@ -677,7 +677,7 @@ void HaloExchange::exchange(ScalarField& field) {
 }
 
 void HaloExchange::exchange(VectorField& field) {
-    if (&field.mesh() != mesh_) {
+    if (&field.mesh() != m_mesh) {
         throw std::invalid_argument("vector halo field is incompatible");
     }
     field.validateStorage();
@@ -691,7 +691,7 @@ void HaloExchange::exchange(VectorField& field) {
 }
 
 void HaloExchange::exchange(TensorField& field) {
-    if (&field.mesh() != mesh_) {
+    if (&field.mesh() != m_mesh) {
         throw std::invalid_argument("tensor halo field is incompatible");
     }
     field.validateStorage();

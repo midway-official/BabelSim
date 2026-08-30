@@ -64,8 +64,34 @@ void divergence(
     InterpolationMethod method = InterpolationMethod::Corrected,
     GradientMethod gradient_method = GradientMethod::LeastSquares);
 void divergence(const ScalarField& face_flux, ScalarField& result);
+void convection(
+    const ScalarField& face_flux,
+    const ScalarField& transported,
+    ScalarField& result,
+    ConvectionMethod method = ConvectionMethod::Upwind,
+    InterpolationMethod interpolation_method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
+void convection(
+    const ScalarField& face_flux,
+    const VectorField& transported,
+    VectorField& result,
+    ConvectionMethod method = ConvectionMethod::Upwind,
+    InterpolationMethod interpolation_method = InterpolationMethod::Corrected,
+    GradientMethod gradient_method = GradientMethod::LeastSquares);
 
 void laplacian(
+    const ScalarField& scalar,
+    ScalarField& result,
+    GradientMethod gradient_method = GradientMethod::GreenGauss,
+    DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
+void laplacian(
+    double diffusivity,
+    const ScalarField& scalar,
+    ScalarField& result,
+    GradientMethod gradient_method = GradientMethod::GreenGauss,
+    DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
+void laplacian(
+    const ScalarField& face_diffusivity,
     const ScalarField& scalar,
     ScalarField& result,
     GradientMethod gradient_method = GradientMethod::GreenGauss,
@@ -123,6 +149,20 @@ void addTimeDerivative(
     const VectorField& previous,
     double dt,
     double density = 1.0,
+    TimeMethod method = TimeMethod::Euler,
+    const VectorField* older = nullptr);
+void addTimeDerivative(
+    ScalarEquation& equation,
+    const ScalarField& previous,
+    double dt,
+    const ScalarField& volumetric_capacity,
+    TimeMethod method = TimeMethod::Euler,
+    const ScalarField* older = nullptr);
+void addTimeDerivative(
+    VectorEquation& equation,
+    const VectorField& previous,
+    double dt,
+    const ScalarField& density,
     TimeMethod method = TimeMethod::Euler,
     const VectorField* older = nullptr);
 

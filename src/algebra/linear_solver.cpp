@@ -86,9 +86,9 @@ void LinearSolverConfig::validate() const {
 }
 
 PreparedLinearSolver::PreparedLinearSolver(LinearSolverConfig config)
-    : implementation_(std::make_unique<Implementation>(std::move(config)))
+    : m_implementation(std::make_unique<Implementation>(std::move(config)))
 {
-    implementation_->config.validate();
+    m_implementation->config.validate();
 }
 
 PreparedLinearSolver::~PreparedLinearSolver() = default;
@@ -100,8 +100,8 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
     if (A.rows() != A.cols()) {
         throw std::invalid_argument("linear-system matrix must be square");
     }
-    if (!implementation_) throw std::logic_error("linear solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("linear solver is moved-from");
+    auto& state = *m_implementation;
     state.matrix = A;
     state.pattern_analyzed = false;
     state.factorization_succeeded = false;
@@ -127,8 +127,8 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
 void PreparedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& A)
 {
-    if (!implementation_) throw std::logic_error("linear solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("linear solver is moved-from");
+    auto& state = *m_implementation;
     if (!state.pattern_analyzed || A.rows() != A.cols()) {
         throw std::logic_error(
             "linear-solver pattern must be analyzed before factorization");
@@ -149,8 +149,8 @@ SolveResult PreparedLinearSolver::solve(
     const Eigen::VectorXd& b,
     Eigen::VectorXd& x)
 {
-    if (!implementation_) throw std::logic_error("linear solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("linear solver is moved-from");
+    auto& state = *m_implementation;
     if (!state.pattern_analyzed || state.matrix.rows() != b.size()) {
         throw std::invalid_argument("linear system dimensions are inconsistent");
     }

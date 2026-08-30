@@ -24,7 +24,7 @@ public:
 
     void update(const ScalarEquation& equation);
     void update(const VectorEquation& equation);
-    const Eigen::SparseMatrix<double>& matrix() const { return matrix_; }
+    const Eigen::SparseMatrix<double>& matrix() const { return m_matrix; }
 
 private:
     void update(
@@ -33,12 +33,12 @@ private:
         const std::vector<double>& upper,
         const std::vector<double>& lower);
 
-    const Mesh* mesh_;
-    Eigen::SparseMatrix<double> matrix_;
-    std::vector<Eigen::Index> diagonal_positions_;
-    std::vector<Eigen::Index> upper_positions_;
-    std::vector<Eigen::Index> lower_positions_;
-    std::vector<Index> coupled_faces_;
+    const Mesh* m_mesh;
+    Eigen::SparseMatrix<double> m_matrix;
+    std::vector<Eigen::Index> m_diagonal_positions;
+    std::vector<Eigen::Index> m_upper_positions;
+    std::vector<Eigen::Index> m_lower_positions;
+    std::vector<Index> m_coupled_faces;
 };
 
 Eigen::SparseMatrix<double> assembleMatrix(const ScalarEquation& equation);

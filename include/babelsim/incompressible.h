@@ -1,16 +1,14 @@
 #pragma once
 
-#include "babelsim/distributed_solver.h"
 #include "babelsim/incompressible_operators.h"
-#include "babelsim/linear_solver.h"
-#include "babelsim/methods.h"
-#include "babelsim/operators.h"
+#include "babelsim/runtime.h"
 
 #include <array>
-#include <vector>
 
 namespace babelsim {
 
+// 不可压缩牛顿流体的常物性模型。若未来引入变黏度模型，仍由该层提供等价物性场，
+// 而不是让 SIMPLE 接触底层存储或 Case 解析。
 struct FluidProperties {
     double density = 1.0;
     double dynamic_viscosity = 1e-3;
@@ -18,6 +16,7 @@ struct FluidProperties {
     void validate() const;
 };
 
+// SIMPLE 只拥有算法控制；空间方法、时间方法和线性后端属于 RunTime 配置。
 struct SimpleControl {
     int max_iterations = 1000;
     int non_orthogonal_corrections = 1;
@@ -38,11 +37,16 @@ struct SimpleControl {
     void validate() const;
 };
 
-struct TimeState {
-    double dt = 0.0;
-    const VectorField* previous = nullptr;
-    const VectorField* older = nullptr;
-};
+inline RuntimeControl simpleRunTimeControl(
+    const Methods& methods,
+    const SimpleControl& control)
+{
+    RuntimeControl result;
+    result.methods = methods;
+    result.scalar_solver = control.pressure_solver;
+    result.vector_solver = control.velocity_solver;
+    return result;
+}
 
 struct IncompressibleFields {
     explicit IncompressibleFields(const Mesh& mesh)
@@ -56,12 +60,9 @@ struct IncompressibleFields {
     ScalarField face_flux;
 };
 
-struct ContinuityMetrics {
-    double l1 = 0.0;
-    double l2 = 0.0;
-    double maximum = 0.0;
-    double relative = 0.0;
-};
+// 通用 RunTime 计算的面通量平衡在不可压缩流中就是连续性度量。保留熟悉的名称，
+// 但不把全局归约和数据分区暴露给 SIMPLE。
+using ContinuityMetrics = FluxBalance;
 
 struct SimpleIterationResult {
     std::array<SolveResult, 3> velocity;
@@ -70,65 +71,43 @@ struct SimpleIterationResult {
     double relative_velocity_change = 0.0;
     double relative_pressure_correction = 0.0;
     bool healthy = false;
-    // 本次迭代的所有线性系统均达到内层容差时为 true。MaxIterations
-    // 仍是可诊断的内层状态，不应改变所有 rank 的外迭代停止时刻。
     bool linear_converged = false;
-    // 外迭代的物理收敛状态，由全局归约后的连续性和速度变化量决定。
     bool converged = false;
 };
 
+// 稳态层流不可压缩 SIMPLE 算法。它只看到场、物性、方程和两个具名 CFD 算子；
+// RunTime 隐藏 FVM 装配、线性代数、同步和时间/执行后端。
 class SimpleSolver {
 public:
     SimpleSolver(
+        RunTime& run_time,
         IncompressibleFields& fields,
         FluidProperties fluid,
-        Methods methods,
         SimpleControl control);
-    SimpleSolver(
-        IncompressibleFields& fields,
-        FluidProperties fluid,
-        Methods methods,
-        SimpleControl control,
-        ParallelContext parallel);
+    ~SimpleSolver() = default;
+    SimpleSolver(const SimpleSolver&) = delete;
+    SimpleSolver& operator=(const SimpleSolver&) = delete;
 
-    SimpleIterationResult iterate(const TimeState& time = {});
+    // 单次调用正好对应 SIMPLE 的一个外迭代：动量、Rhie-Chow、压力修正、速度/通量
+    // 修正和连续性检查。外层停止判据是 RunTime 内部全局归约后的值。
+    SimpleIterationResult iterate();
 
 private:
-    void assembleMomentum(const TimeState& time);
-    std::array<SolveResult, 3> solveMomentum();
-    void momentumInterpolation();
-    void assemblePressureCorrection();
-    void correctPressureAndVelocity();
-    ContinuityMetrics continuity() const;
-
-    IncompressibleFields& fields_;
-    const Mesh& mesh_;
-    FluidProperties fluid_;
-    Methods methods_;
-    SimpleControl control_;
-    ParallelContext parallel_;
-    std::unique_ptr<HaloExchange> halo_;
-    SparseAssembly momentum_assembly_;
-    SparseAssembly pressure_assembly_;
-    PreparedLinearSolver velocity_linear_solver_;
-    PreparedLinearSolver pressure_linear_solver_;
-    std::unique_ptr<DistributedLinearSolver> distributed_velocity_solver_;
-    std::unique_ptr<DistributedLinearSolver> distributed_pressure_solver_;
-    VectorEquation momentum_;
-    ScalarEquation pressure_equation_;
-    ScalarField pressure_correction_;
-    VectorField pressure_gradient_;
-    VectorField correction_gradient_;
-    ScalarField mass_flux_;
-    ScalarField mobility_;
-    std::vector<Vec3> previous_velocity_;
-    std::array<Eigen::VectorXd, 3> momentum_source_;
-    std::array<Eigen::VectorXd, 3> velocity_solution_;
-    Eigen::VectorXd pressure_source_;
-    Eigen::VectorXd pressure_solution_;
-    bool velocity_pattern_ready_ = false;
-    bool pressure_pattern_ready_ = false;
-    bool has_fixed_pressure_ = false;
+    RunTime& m_run_time;
+    IncompressibleFields& m_fields;
+    const Mesh& m_mesh;
+    FluidProperties m_fluid;
+    SimpleControl m_control;
+    ScalarField m_pressure_correction;
+    VectorField m_pressure_gradient;
+    VectorField m_correction_gradient;
+    ScalarField m_mass_flux;
+    ScalarField m_mobility;
+    ScalarField m_face_mobility;
+    ScalarField m_divergence;
+    VectorField m_previous_velocity;
+    MomentumInterpolationWorkspace m_interpolation_workspace;
+    bool m_has_fixed_pressure = false;
 };
 
 }  // babelsim 命名空间

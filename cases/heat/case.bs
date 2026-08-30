@@ -1,0 +1,6 @@
+solver heatFoam
+mesh mesh/heat.mesh
+fields fields/initial
+physics physics/thermal.bs
+numerics numerics/heat.bs
+output output.bs

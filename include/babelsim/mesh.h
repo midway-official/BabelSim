@@ -24,34 +24,34 @@ public:
     MeshStorage(const MeshStorage&) = default;
     MeshStorage(MeshStorage&&) noexcept = default;
 
-    std::size_t size() const { return data_.size(); }
-    bool empty() const { return data_.empty(); }
-    T& operator[](std::size_t index) { return data_[index]; }
-    const T& operator[](std::size_t index) const { return data_[index]; }
-    T& at(std::size_t index) { return data_.at(index); }
-    const T& at(std::size_t index) const { return data_.at(index); }
-    T* data() { return data_.data(); }
-    const T* data() const { return data_.data(); }
-    T& front() { return data_.front(); }
-    const T& front() const { return data_.front(); }
-    auto begin() { return data_.begin(); }
-    auto end() { return data_.end(); }
-    auto begin() const { return data_.begin(); }
-    auto end() const { return data_.end(); }
+    std::size_t size() const { return m_data.size(); }
+    bool empty() const { return m_data.empty(); }
+    T& operator[](std::size_t index) { return m_data[index]; }
+    const T& operator[](std::size_t index) const { return m_data[index]; }
+    T& at(std::size_t index) { return m_data.at(index); }
+    const T& at(std::size_t index) const { return m_data.at(index); }
+    T* data() { return m_data.data(); }
+    const T* data() const { return m_data.data(); }
+    T& front() { return m_data.front(); }
+    const T& front() const { return m_data.front(); }
+    auto begin() { return m_data.begin(); }
+    auto end() { return m_data.end(); }
+    auto begin() const { return m_data.begin(); }
+    auto end() const { return m_data.end(); }
 
 private:
     friend struct Mesh;
-    void reserve(std::size_t count) { data_.reserve(count); }
-    void resize(std::size_t count) { data_.resize(count); }
-    void assign(std::size_t count, const T& value) { data_.assign(count, value); }
-    void assign(std::vector<T>&& values) { data_ = std::move(values); }
-    void clear() { data_.clear(); }
-    void push_back(const T& value) { data_.push_back(value); }
-    void push_back(T&& value) { data_.push_back(std::move(value)); }
+    void reserve(std::size_t count) { m_data.reserve(count); }
+    void resize(std::size_t count) { m_data.resize(count); }
+    void assign(std::size_t count, const T& value) { m_data.assign(count, value); }
+    void assign(std::vector<T>&& values) { m_data = std::move(values); }
+    void clear() { m_data.clear(); }
+    void push_back(const T& value) { m_data.push_back(value); }
+    void push_back(T&& value) { m_data.push_back(std::move(value)); }
     MeshStorage& operator=(const MeshStorage&) = default;
     MeshStorage& operator=(MeshStorage&&) noexcept = default;
 
-    std::vector<T> data_;
+    std::vector<T> m_data;
 };
 
 enum class Side : std::size_t {

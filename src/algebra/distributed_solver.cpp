@@ -464,7 +464,7 @@ DistributedLinearSolver::DistributedLinearSolver(
     const Mesh& mesh,
     ParallelContext parallel,
     LinearSolverConfig config)
-    : implementation_(std::make_unique<Implementation>(
+    : m_implementation(std::make_unique<Implementation>(
           mesh, parallel, std::move(config)))
 {}
 
@@ -478,8 +478,8 @@ void DistributedLinearSolver::compute(
     const Eigen::SparseMatrix<double>& local_matrix,
     const ScalarEquation& equation)
 {
-    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
+    auto& state = *m_implementation;
     equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
@@ -490,8 +490,8 @@ void DistributedLinearSolver::compute(
     const Eigen::SparseMatrix<double>& local_matrix,
     const VectorEquation& equation)
 {
-    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
+    auto& state = *m_implementation;
     equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
@@ -502,8 +502,8 @@ void DistributedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& local_matrix,
     const ScalarEquation& equation)
 {
-    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
+    auto& state = *m_implementation;
     equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
@@ -514,8 +514,8 @@ void DistributedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& local_matrix,
     const VectorEquation& equation)
 {
-    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
+    auto& state = *m_implementation;
     equation.validateStorage();
     state.setMatrix(local_matrix);
     state.setEquation(equation.mesh, equation.upper, equation.lower);
@@ -526,8 +526,8 @@ SolveResult DistributedLinearSolver::solve(
     const Eigen::VectorXd& b,
     Eigen::VectorXd& x)
 {
-    if (!implementation_) throw std::logic_error("distributed solver is moved-from");
-    auto& state = *implementation_;
+    if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
+    auto& state = *m_implementation;
     if (!state.pattern_ready || !state.equation_ready || state.matrix.rows() == 0 ||
         b.size() != state.mesh.ownedCellCount()) {
         throw std::invalid_argument("distributed linear system is not prepared");

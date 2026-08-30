@@ -45,4 +45,4 @@ inline int mpiCount(std::size_t count, const char* what) {
     return static_cast<int>(count);
 }
 
-}  // namespace babelsim::detail
+}  // babelsim::detail 命名空间

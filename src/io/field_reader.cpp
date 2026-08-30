@@ -14,27 +14,27 @@ namespace {
 class Reader {
 public:
     Reader(const std::filesystem::path& path, std::vector<ConfigToken> tokens)
-        : path_(path), tokens_(std::move(tokens)) {}
+        : m_path(path), m_tokens(std::move(tokens)) {}
 
-    bool done() const { return position_ == tokens_.size(); }
+    bool done() const { return m_position == m_tokens.size(); }
     bool nextIs(const char* text) const {
-        return !done() && tokens_[position_].text == text;
+        return !done() && m_tokens[m_position].text == text;
     }
     const ConfigToken& take(const char* expected = nullptr) {
         if (done()) fail("unexpected end of file");
-        const ConfigToken& token = tokens_[position_++];
+        const ConfigToken& token = m_tokens[m_position++];
         if (expected != nullptr && token.text != expected) {
             fail(token, std::string("expected ") + expected + ", got " + token.text);
         }
         return token;
     }
     [[noreturn]] void fail(const std::string& message) const {
-        const std::size_t line = done() ? 0 : tokens_[position_].line;
-        throw std::runtime_error("invalid " + path_.string() + ":" +
+        const std::size_t line = done() ? 0 : m_tokens[m_position].line;
+        throw std::runtime_error("invalid " + m_path.string() + ":" +
                                  std::to_string(line) + ": " + message);
     }
     [[noreturn]] void fail(const ConfigToken& token, const std::string& message) const {
-        throw std::runtime_error("invalid " + path_.string() + ":" +
+        throw std::runtime_error("invalid " + m_path.string() + ":" +
                                  std::to_string(token.line) + ": " + message);
     }
     double number() {
@@ -49,9 +49,9 @@ public:
     }
 
 private:
-    const std::filesystem::path& path_;
-    std::vector<ConfigToken> tokens_;
-    std::size_t position_ = 0;
+    const std::filesystem::path& m_path;
+    std::vector<ConfigToken> m_tokens;
+    std::size_t m_position = 0;
 };
 
 Index patchIndex(const Mesh& mesh, const std::string& name) {

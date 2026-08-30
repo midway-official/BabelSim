@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -58,46 +59,46 @@ public:
         FieldLocation location,
         std::string name = {},
         T initial = T{})
-        : mesh_(&mesh),
-          location_(location),
-          name_(std::move(name)),
-          values_(entityCount(mesh, location), std::move(initial))
+        : m_mesh(&mesh),
+          m_location(location),
+          m_name(std::move(name)),
+          m_values(entityCount(mesh, location), std::move(initial))
     {
         if (location == FieldLocation::Cell) {
-            boundaries_.resize(mesh.patches.size());
+            m_boundaries.resize(mesh.patches.size());
         }
     }
 
     Field(const Mesh&&, FieldLocation, std::string = {}, T initial = T{}) = delete;
 
-    const Mesh& mesh() const { return *mesh_; }
-    FieldLocation location() const { return location_; }
-    const std::string& name() const { return name_; }
-    std::size_t size() const { return values_.size(); }
+    const Mesh& mesh() const { return *m_mesh; }
+    FieldLocation location() const { return m_location; }
+    const std::string& name() const { return m_name; }
+    std::size_t size() const { return m_values.size(); }
 
     // 计算热路径只暴露连续的只读视图；需要原地交换 halo 时使用明确命名的
     // mutableData()，避免调用者绕过存储不变量替换底层容器。
-    T* mutableData() { return values_.data(); }
+    T* mutableData() { return m_values.data(); }
     // 保留旧 API 的元素级写入兼容性；容量仍只能由构造函数决定。
     T* data() { return mutableData(); }
-    const T* data() const { return values_.data(); }
-    T& operator[](Index index) { return values_[static_cast<std::size_t>(index)]; }
+    const T* data() const { return m_values.data(); }
+    T& operator[](Index index) { return m_values[static_cast<std::size_t>(index)]; }
     const T& operator[](Index index) const {
-        return values_[static_cast<std::size_t>(index)];
+        return m_values[static_cast<std::size_t>(index)];
     }
-    const std::vector<T>& values() const { return values_; }
+    const std::vector<T>& values() const { return m_values; }
     T& at(Index index) {
-        return values_.at(checkedIndex(index));
+        return m_values.at(checkedIndex(index));
     }
     const T& at(Index index) const {
-        return values_.at(checkedIndex(index));
+        return m_values.at(checkedIndex(index));
     }
     // Field 的长度由 (Mesh, FieldLocation) 唯一决定，禁止外部 resize。
     // 该检查在 MPI halo、算子和输出入口调用，尽早捕获生命周期/越界错误。
     void validateStorage() const {
-        if (mesh_ == nullptr || values_.size() != entityCount(*mesh_, location_) ||
-            (location_ == FieldLocation::Cell &&
-             boundaries_.size() != mesh_->patches.size())) {
+        if (m_mesh == nullptr || m_values.size() != entityCount(*m_mesh, m_location) ||
+            (m_location == FieldLocation::Cell &&
+             m_boundaries.size() != m_mesh->patches.size())) {
             throw std::logic_error("field storage invariant is violated");
         }
     }
@@ -106,24 +107,30 @@ public:
     Field(Field&&) noexcept = default;
     Field& operator=(const Field&) = delete;
     Field& operator=(Field&&) = delete;
-    void fill(const T& value) { std::fill(values_.begin(), values_.end(), value); }
+    void fill(const T& value) { std::fill(m_values.begin(), m_values.end(), value); }
 
     void setBoundary(Index patch, BoundaryCondition<T> condition) {
         requireCellBoundary(patch);
-        boundaries_[static_cast<std::size_t>(patch)] = std::move(condition);
+        m_boundaries[static_cast<std::size_t>(patch)] = std::move(condition);
     }
     BoundaryCondition<T>& boundary(Index patch) {
         requireCellBoundary(patch);
-        return boundaries_[static_cast<std::size_t>(patch)];
+        return m_boundaries[static_cast<std::size_t>(patch)];
     }
     const BoundaryCondition<T>& boundary(Index patch) const {
         requireCellBoundary(patch);
-        return boundaries_[static_cast<std::size_t>(patch)];
+        return m_boundaries[static_cast<std::size_t>(patch)];
+    }
+    BoundaryCondition<T>& boundary(std::string_view patch_name) {
+        return boundary(findPatch(patch_name));
+    }
+    const BoundaryCondition<T>& boundary(std::string_view patch_name) const {
+        return boundary(findPatch(patch_name));
     }
 
 private:
     std::size_t checkedIndex(Index index) const {
-        if (index < 0 || static_cast<std::size_t>(index) >= values_.size()) {
+        if (index < 0 || static_cast<std::size_t>(index) >= m_values.size()) {
             throw std::out_of_range("field index is outside storage");
         }
         return static_cast<std::size_t>(index);
@@ -142,22 +149,61 @@ private:
     }
 
     void requireCellBoundary(Index patch) const {
-        if (location_ != FieldLocation::Cell || patch < 0 ||
-            static_cast<std::size_t>(patch) >= boundaries_.size()) {
+        if (m_location != FieldLocation::Cell || patch < 0 ||
+            static_cast<std::size_t>(patch) >= m_boundaries.size()) {
             throw std::out_of_range("field boundary patch is invalid");
         }
     }
 
-    const Mesh* mesh_;
-    FieldLocation location_;
-    std::string name_;
-    std::vector<T> values_;
-    std::vector<BoundaryCondition<T>> boundaries_;
+    Index findPatch(std::string_view patch_name) const {
+        if (m_location != FieldLocation::Cell) {
+            throw std::logic_error("only cell fields have boundary conditions");
+        }
+        for (Index patch = 0; patch < static_cast<Index>(m_mesh->patches.size()); ++patch) {
+            if (m_mesh->patches[static_cast<std::size_t>(patch)].name == patch_name) {
+                return patch;
+            }
+        }
+        throw std::out_of_range("field boundary patch name is unknown");
+    }
+
+    const Mesh* m_mesh;
+    FieldLocation m_location;
+    std::string m_name;
+    std::vector<T> m_values;
+    std::vector<BoundaryCondition<T>> m_boundaries;
 };
 
 using ScalarField = Field<double>;
 using VectorField = Field<Vec3>;
 using TensorField = Field<Tensor3>;
+
+template <typename T>
+inline BoundaryCondition<T> fixedValue(T value) {
+    return BoundaryCondition<T>::fixedValue(std::move(value));
+}
+
+template <typename T>
+inline BoundaryCondition<T> fixedGradient(T gradient) {
+    return BoundaryCondition<T>::fixedGradient(std::move(gradient));
+}
+
+struct ZeroGradientBoundary {
+    template <typename T>
+    operator BoundaryCondition<T>() const {
+        return BoundaryCondition<T>::zeroGradient();
+    }
+};
+
+struct SymmetryBoundary {
+    template <typename T>
+    operator BoundaryCondition<T>() const {
+        return BoundaryCondition<T>::symmetry();
+    }
+};
+
+inline ZeroGradientBoundary zeroGradient() { return {}; }
+inline SymmetryBoundary symmetry() { return {}; }
 
 inline double boundaryNormalDistance(const Mesh& mesh, Index face) {
     const auto f = static_cast<std::size_t>(face);

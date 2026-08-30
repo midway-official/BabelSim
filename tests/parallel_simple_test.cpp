@@ -64,8 +64,8 @@ int main(int argc, char* argv[]) {
         control.pressure_solver.absolute_tolerance = 1e-14;
         control.pressure_solver.relative_tolerance = 1e-10;
 
-        SimpleSolver solver(
-            fields, {1.0, 0.01}, methods, control, parallel);
+        RunTime run_time = RunTime::forMesh(mesh, simpleRunTimeControl(methods, control));
+        SimpleSolver solver(run_time, fields, {1.0, 0.01}, control);
         SimpleIterationResult result;
         int iterations = 0;
         for (int iteration = 1;

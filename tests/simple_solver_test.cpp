@@ -72,7 +72,8 @@ int main() {
     control.pressure_solver.absolute_tolerance = 1e-13;
     control.pressure_solver.relative_tolerance = 1e-10;
 
-    SimpleSolver solver(fields, {1.0, 0.1}, methods, control);
+    RunTime run_time = RunTime::forMesh(mesh, simpleRunTimeControl(methods, control));
+    SimpleSolver solver(run_time, fields, {1.0, 0.1}, control);
     SimpleIterationResult result;
     int iterations = 0;
     for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {
@@ -94,19 +95,6 @@ int main() {
         require(isFinite(velocity), "SIMPLE velocity contains a non-finite value");
     }
     require(maximum_z_velocity < 1e-13, "nz=1 SIMPLE generated a z velocity");
-
-    IncompressibleFields transient_fields(mesh);
-    configureChannelBoundaries(transient_fields);
-    VectorField previous(mesh, FieldLocation::Cell, "Uold");
-    Methods transient_methods = methods;
-    transient_methods.time = TimeMethod::Euler;
-    SimpleSolver transient_solver(
-        transient_fields, {1.0, 0.1}, transient_methods, control);
-    const SimpleIterationResult transient = transient_solver.iterate(
-        {0.1, &previous, nullptr});
-    require(
-        transient.healthy,
-        "SIMPLE ignored or failed the configured Euler time method");
 
     std::cout << "simple_solver_test: iterations=" << iterations
               << " mass=" << result.continuity.relative

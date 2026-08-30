@@ -384,6 +384,23 @@ void addFaceDivergence(
     }
 }
 
+void addFaceDivergence(
+    const Mesh& mesh,
+    Index face,
+    const Vec3& integrated_flux,
+    VectorField& result)
+{
+    const std::size_t index = static_cast<std::size_t>(face);
+    const Index owner = mesh.face_owner[index];
+    const Index neighbour = mesh.face_neighbour[index];
+    result[owner] += integrated_flux * mesh.cell_inverse_volumes[
+        static_cast<std::size_t>(owner)];
+    if (neighbour != invalid_index) {
+        result[neighbour] -= integrated_flux * mesh.cell_inverse_volumes[
+            static_cast<std::size_t>(neighbour)];
+    }
+}
+
 bool correctedDiffusion(DiffusionMethod method) {
     return method == DiffusionMethod::Corrected ||
         method == DiffusionMethod::LimitedCorrected;
@@ -570,6 +587,46 @@ void addTimeDerivativeImpl(
         } else {
             equation.diagonal[c] += 1.5 * coefficient;
             equation.source[c] += coefficient *
+                (2.0 * previous[cell] - 0.5 * (*older)[cell]);
+        }
+    }
+}
+
+template <typename T>
+void addFieldTimeDerivativeImpl(
+    Equation<T>& equation,
+    const Field<T>& previous,
+    double dt,
+    const ScalarField& capacity,
+    TimeMethod method,
+    const Field<T>* older)
+{
+    const Mesh& mesh = previous.mesh();
+    requireEquation(equation, mesh);
+    requireField(previous, mesh, FieldLocation::Cell, "previous");
+    requireField(capacity, mesh, FieldLocation::Cell, "time coefficient");
+    if (method == TimeMethod::Steady) return;
+    if (!(dt > 0.0) || !std::isfinite(dt)) {
+        throw std::invalid_argument("time step must be positive and finite");
+    }
+    if (method == TimeMethod::BDF2) {
+        if (older == nullptr) throw std::invalid_argument("BDF2 requires two previous fields");
+        requireField(*older, mesh, FieldLocation::Cell, "older");
+    } else if (method != TimeMethod::Euler) {
+        throw std::invalid_argument("unsupported time method");
+    }
+    for (Index cell : mesh.owned_cells) {
+        const std::size_t index = static_cast<std::size_t>(cell);
+        if (!(capacity[cell] > 0.0) || !std::isfinite(capacity[cell])) {
+            throw std::invalid_argument("time coefficient must be positive and finite");
+        }
+        const double coefficient = capacity[cell] * mesh.cell_volumes[index] / dt;
+        if (method == TimeMethod::Euler) {
+            equation.diagonal[index] += coefficient;
+            equation.source[index] += coefficient * previous[cell];
+        } else {
+            equation.diagonal[index] += 1.5 * coefficient;
+            equation.source[index] += coefficient *
                 (2.0 * previous[cell] - 0.5 * (*older)[cell]);
         }
     }
@@ -786,6 +843,28 @@ Vec3 integratedNormalGradient(
     return result;
 }
 
+namespace fvc {
+
+double integratedNormalGradient(
+    const ScalarField& field,
+    const VectorField& gradient,
+    Index face,
+    DiffusionMethod method)
+{
+    return ::babelsim::integratedNormalGradient(field, gradient, face, method);
+}
+
+Vec3 integratedNormalGradient(
+    const VectorField& field,
+    const TensorField& gradient,
+    Index face,
+    DiffusionMethod method)
+{
+    return ::babelsim::integratedNormalGradient(field, gradient, face, method);
+}
+
+}  // fvc 命名空间
+
 void flux(
     const VectorField& velocity,
     ScalarField& face_flux,
@@ -856,15 +935,99 @@ void divergence(const ScalarField& face_flux, ScalarField& result) {
     }
 }
 
-void laplacian(
+template <typename T>
+void convectionImpl(
+    const ScalarField& face_flux,
+    const Field<T>& transported,
+    Field<T>& result,
+    ConvectionMethod method,
+    InterpolationMethod interpolation_method,
+    GradientMethod gradient_method)
+{
+    const Mesh& mesh = transported.mesh();
+    requireField(face_flux, mesh, FieldLocation::Face, "face flux");
+    requireField(transported, mesh, FieldLocation::Cell, "transported");
+    requireField(result, mesh, FieldLocation::Cell, "convection");
+    if (method != ConvectionMethod::Upwind && method != ConvectionMethod::Central) {
+        throw std::invalid_argument("unsupported convection method");
+    }
+    if (interpolation_method != InterpolationMethod::Linear &&
+        interpolation_method != InterpolationMethod::Corrected) {
+        throw std::invalid_argument("unsupported convection interpolation method");
+    }
+    using GradientField = typename GradientFieldType<T>::Type;
+    std::optional<GradientField> transported_gradient;
+    if (method == ConvectionMethod::Central &&
+        interpolation_method == InterpolationMethod::Corrected) {
+        transported_gradient.emplace(
+            mesh, FieldLocation::Cell, "grad(" + transported.name() + ')');
+        gradient(transported, *transported_gradient, gradient_method);
+    }
+    result.fill(T{});
+    for (Index face = 0; face < mesh.faceCount(); ++face) {
+        const std::size_t index = static_cast<std::size_t>(face);
+        const Index owner = mesh.face_owner[index];
+        const Index neighbour = mesh.face_neighbour[index];
+        const double flux_value = face_flux[face];
+        T face_value{};
+        if (method == ConvectionMethod::Upwind) {
+            if (neighbour != invalid_index) {
+                face_value = flux_value >= 0.0 ? transported[owner] : transported[neighbour];
+            } else {
+                face_value = flux_value >= 0.0
+                    ? transported[owner] : boundaryFaceValue(transported, face, flux_value);
+            }
+        } else if (transported_gradient) {
+            face_value = correctedFaceValue(
+                transported, *transported_gradient, face, flux_value);
+        } else {
+            face_value = interpolatedFaceValue(transported, face, flux_value);
+        }
+        addFaceDivergence(mesh, face, flux_value * face_value, result);
+    }
+}
+
+void convection(
+    const ScalarField& face_flux,
+    const ScalarField& transported,
+    ScalarField& result,
+    ConvectionMethod method,
+    InterpolationMethod interpolation_method,
+    GradientMethod gradient_method)
+{
+    convectionImpl(
+        face_flux, transported, result, method, interpolation_method, gradient_method);
+}
+
+void convection(
+    const ScalarField& face_flux,
+    const VectorField& transported,
+    VectorField& result,
+    ConvectionMethod method,
+    InterpolationMethod interpolation_method,
+    GradientMethod gradient_method)
+{
+    convectionImpl(
+        face_flux, transported, result, method, interpolation_method, gradient_method);
+}
+
+void laplacianImpl(
     const ScalarField& scalar,
     ScalarField& result,
+    double constant_diffusivity,
+    const ScalarField* face_diffusivity,
     GradientMethod gradient_method,
     DiffusionMethod diffusion_method)
 {
     const Mesh& mesh = scalar.mesh();
     requireField(scalar, mesh, FieldLocation::Cell, "scalar");
     requireField(result, mesh, FieldLocation::Cell, "laplacian");
+    if (!(constant_diffusivity >= 0.0) || !std::isfinite(constant_diffusivity)) {
+        throw std::invalid_argument("diffusivity must be non-negative and finite");
+    }
+    if (face_diffusivity != nullptr) {
+        requireField(*face_diffusivity, mesh, FieldLocation::Face, "face diffusivity");
+    }
     std::optional<VectorField> cell_gradient;
     if (correctedDiffusion(diffusion_method)) {
         cell_gradient.emplace(
@@ -900,8 +1063,43 @@ void laplacian(
                 integrated_flux = condition.value * mesh.face_areas[f];
             }
         }
-        addFaceDivergence(mesh, face, integrated_flux, result);
+        const double diffusivity = face_diffusivity == nullptr
+            ? constant_diffusivity : (*face_diffusivity)[face];
+        if (!(diffusivity >= 0.0) || !std::isfinite(diffusivity)) {
+            throw std::invalid_argument("face diffusivity must be non-negative and finite");
+        }
+        addFaceDivergence(mesh, face, diffusivity * integrated_flux, result);
     }
+}
+
+void laplacian(
+    const ScalarField& scalar,
+    ScalarField& result,
+    GradientMethod gradient_method,
+    DiffusionMethod diffusion_method)
+{
+    laplacianImpl(scalar, result, 1.0, nullptr, gradient_method, diffusion_method);
+}
+
+void laplacian(
+    double diffusivity,
+    const ScalarField& scalar,
+    ScalarField& result,
+    GradientMethod gradient_method,
+    DiffusionMethod diffusion_method)
+{
+    laplacianImpl(scalar, result, diffusivity, nullptr, gradient_method, diffusion_method);
+}
+
+void laplacian(
+    const ScalarField& face_diffusivity,
+    const ScalarField& scalar,
+    ScalarField& result,
+    GradientMethod gradient_method,
+    DiffusionMethod diffusion_method)
+{
+    laplacianImpl(
+        scalar, result, 1.0, &face_diffusivity, gradient_method, diffusion_method);
 }
 
 void addConvection(
@@ -1164,6 +1362,29 @@ void addTimeDerivative(
     const ScalarField* older)
 {
     addTimeDerivativeImpl(equation, previous, dt, density, method, older);
+}
+
+void addTimeDerivative(
+    ScalarEquation& equation,
+    const ScalarField& previous,
+    double dt,
+    const ScalarField& volumetric_capacity,
+    TimeMethod method,
+    const ScalarField* older)
+{
+    addFieldTimeDerivativeImpl(
+        equation, previous, dt, volumetric_capacity, method, older);
+}
+
+void addTimeDerivative(
+    VectorEquation& equation,
+    const VectorField& previous,
+    double dt,
+    const ScalarField& density,
+    TimeMethod method,
+    const VectorField* older)
+{
+    addFieldTimeDerivativeImpl(equation, previous, dt, density, method, older);
 }
 
 void addTimeDerivative(
