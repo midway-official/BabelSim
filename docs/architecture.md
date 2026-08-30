@@ -42,8 +42,8 @@ MPI / 内存 / I/O 基础设施
 而不是必须复制它的模板和对象注册机制。
 
 BabelSim 采用相同的层次和表达习惯：`fvm` 是隐式方程贡献，`fvc` 是显式场计算；通用 FVM
-提供基础算子，SIMPLE 仅保留 `MomentumInterpolation` 和 `PressureCorrection` 两个有独立
-数值语义的专用组件。相关对照和原始资料见 [fvm/fvc 说明](fvm-fvc.md)、[热传导 Solver](heat-solver.md)
+提供基础算子，SIMPLE 仅在其私有实现中保留动量插值和压力修正两个有独立数值语义的步骤。
+相关对照和原始资料见 [fvm/fvc 说明](fvm-fvc.md)、[热传导 Solver](heat-solver.md)
 和 [SIMPLE Solver](simple-solver.md)。
 
 ## 当前模块审计
@@ -58,7 +58,7 @@ BabelSim 采用相同的层次和表达习惯：`fvm` 是隐式方程贡献，`f
 | `src/physics`、`thermal.h`、`incompressible.h` | 热传导和 SIMPLE 物理/算法（物理层） | Mesh、Field、`fvm/fvc`、RunTime | `solveTransientHeat`、`SimpleSolver` | 不得依赖代数、并行或存储入口；已移除旧泄漏 |
 | `fvm.h`、`fvc.h`、`methods.h` | 轻量数学表达和 FVM 方法（离散接口层） | Field、网格几何 | `fvm::*`、`fvc::*`、Methods | 不创建 LDU/通信；只保存描述符，求解时解释 |
 | `src/discretization` | 梯度、插值、扩散、对流和方程装配（离散实现层） | Mesh、Field、内部离散方程 | Runtime 调用的算子核 | 可使用连续数组和非正交缓存，不应知道具体 Physics |
-| `src/runtime`、`runtime.h` | 方程解释、Field 同步、时间历史、全局判据（执行数学层） | 离散、代数、Parallel | `RunTime::solve/evaluate/loop` | PImpl 隐藏后端；统一管理对象生命周期和 MPI 选择 |
+| `src/runtime`、`runtime.h` | 方程解释、Field 同步、时间历史、全局判据（执行数学层） | 离散、代数、Parallel | `RunTime::loop`、`solve`、`fvc::evaluate`、`diagnostics` | PImpl 隐藏后端；统一管理对象生命周期和 MPI 选择 |
 | `src/algebra`、`assembly.h`、`linear_solver.h` | LDU/稀疏装配、Krylov 和预条件器（线性代数层） | Eigen、DiscreteEquation、Parallel | 仅框架级旧/内部接口 | 不知道温度、速度或 SIMPLE；不作为 Physics API |
 | `src/parallel`、`parallel.h` | owned/ghost 映射、Halo、全局归约、并行写出（运行时基础设施） | MPI、Mesh、Field | 仅启动器/Runtime 使用 | 校验 MPI 生命周期和返回码；不向 Physics 暴露 |
 | `src/core`、`mesh.h`、`field.h` | 三维结构化 Mesh/Field 数据和不变量（核心对象层） | 标量/向量值类型 | Mesh、Field、Boundary | 连续存储和容量由构造决定；内部受控修改，禁止任意 resize |
@@ -100,7 +100,6 @@ babelsim/incompressible.h  不可压缩物性、场和 SIMPLE 算法
 
 ```cpp
 solve(
-    runTime,
     fvm::ddt(rhoCp, T)
         == fvm::laplacian(k, T) + fvm::source(Q));
 ```
@@ -164,10 +163,10 @@ cell Field 绑定 patch 边界条件。已实现 `fixedValue/Dirichlet`、
 ## SIMPLE 的位置
 
 SIMPLE 不是通用 FVM 的一部分。通用层只定义梯度、散度、对流、扩散、插值、通量与时间项。
-不可压缩算法层保留两个具有独立数值语义的组件：
+不可压缩算法层保留两个具有独立数值语义的私有步骤：
 
-- `MomentumInterpolation`：同位网格的 Rhie--Chow 风格面动量插值；
-- `PressureCorrection`：由 `rAU`、预测通量与连续性形成压力修正，并一致修正 `p/U/phi`。
+- 动量插值：同位网格的 Rhie--Chow 风格面动量插值；
+- 压力修正：由 `rAU`、预测通量与连续性形成压力修正，并一致修正 `p/U/phi`。
 
 二者内部使用同一个 `RunTime`、`fvm/fvc` 与 Mesh/Field，不创建第二套矩阵、通信或数据布局。
 其工作场在 SIMPLE 创建一次并跨外迭代复用，避免重复完整 Field 分配。

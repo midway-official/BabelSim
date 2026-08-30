@@ -24,6 +24,7 @@ SOURCES := src/core/mesh.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
            src/physics/heat/transient_heat_solver.cpp \
+           src/physics/transport/transient_scalar_transport_solver.cpp \
            src/physics/incompressible/simple_solver.cpp \
            src/physics/incompressible/momentum_interpolation.cpp \
            src/physics/incompressible/pressure_correction.cpp
@@ -39,15 +40,16 @@ TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/mesh_file_test.cpp \
                 tests/case_io_test.cpp \
                 tests/field_writer_test.cpp \
-                tests/specialized_operator_test.cpp \
                 tests/heat_solver_test.cpp \
+                tests/transport_solver_test.cpp \
                 tests/cavity_regression_test.cpp \
                 tests/cavity_3d_test.cpp \
                 tests/nonorthogonal_cavity_test.cpp \
                 tests/nonorthogonal_cavity_3d_test.cpp
 TESTS := $(patsubst tests/%.cpp,$(BUILD)/%,$(TEST_SOURCES))
 MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
-             $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test
+             $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test \
+             $(BUILD)/parallel_transport_test
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
 .DEFAULT_GOAL := all
@@ -94,6 +96,7 @@ test-mpi: $(MPI_TESTS)
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_cavity_3d_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_transport_test
 	$(MAKE) test-mpi-heat
 
 test-mpi-heat: $(BUILD)/babelsim-solve

@@ -3,6 +3,7 @@
 #include "babelsim/mesh.h"
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -109,6 +110,23 @@ public:
     Field& operator=(Field&&) = delete;
     void fill(const T& value) { std::fill(m_values.begin(), m_values.end(), value); }
 
+    // 显式场赋值保留 Mesh、位置、名称和边界定义，只复制数值。它用于算法历史场和
+    // 已知物性变换，避免 Solver 接触底层连续存储或重新分配容器。
+    void assign(const Field& source) {
+        requireCompatible(source, "field assignment");
+        std::copy(source.m_values.begin(), source.m_values.end(), m_values.begin());
+    }
+
+    void assignScaled(double factor, const Field& source) {
+        if (!std::isfinite(factor)) {
+            throw std::invalid_argument("field scale factor must be finite");
+        }
+        requireCompatible(source, "field scaling");
+        std::transform(
+            source.m_values.begin(), source.m_values.end(), m_values.begin(),
+            [factor](const T& value) { return factor * value; });
+    }
+
     void setBoundary(Index patch, BoundaryCondition<T> condition) {
         requireCellBoundary(patch);
         m_boundaries[static_cast<std::size_t>(patch)] = std::move(condition);
@@ -134,6 +152,15 @@ private:
             throw std::out_of_range("field index is outside storage");
         }
         return static_cast<std::size_t>(index);
+    }
+
+    void requireCompatible(const Field& source, const char* operation) const {
+        validateStorage();
+        source.validateStorage();
+        if (m_mesh != source.m_mesh || m_location != source.m_location) {
+            throw std::invalid_argument(std::string(operation) +
+                                        " requires fields on the same mesh and location");
+        }
     }
 
     static std::size_t entityCount(const Mesh& mesh, FieldLocation location) {

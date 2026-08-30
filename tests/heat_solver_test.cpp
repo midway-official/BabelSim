@@ -42,10 +42,7 @@ int main() {
     for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
         variable_temperature.boundary(patch) = fixedValue(0.0);
     }
-    RunTime variable_run_time = RunTime::forMesh(mesh, control);
-    require(variable_run_time.loop(), "variable-coefficient heat step was not started");
     const SolveResult variable_result = solve(
-        variable_run_time,
         fvm::ddt(heat_capacity, variable_temperature) ==
             fvm::laplacian(conductivity, variable_temperature));
     require(variable_result.converged(), "variable-coefficient heat solve did not converge");

@@ -33,7 +33,6 @@ HeatResult solveTransientHeat(
     HeatResult result;
     while (run_time.loop()) {
         result.linear = solve(
-            run_time,
             fvm::ddt(material.volumetricHeatCapacity(), temperature) ==
                 fvm::laplacian(material.conductivity, temperature) +
                 fvm::source(volumetric_source));

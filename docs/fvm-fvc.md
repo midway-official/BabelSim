@@ -11,8 +11,8 @@
 OpenFOAM 相同的**语义分离**，但不复制它复杂的矩阵模板体系。
 
 ```text
-fvm::operator  轻量方程项 → RunTime::solve → 离散方程 → 线性系统
-fvc::operator  轻量求值描述 → RunTime::evaluate → 已计算的 Field
+fvm::operator  轻量方程项 → solve → Runtime 内部离散方程 → 线性系统
+fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 → 已计算的 Field
 ```
 
 两类描述都只保存 Field 引用和常数。不会在表达式构造、`+`、`-` 或 `==` 时复制大型场，

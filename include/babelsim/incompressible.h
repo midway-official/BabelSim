@@ -1,6 +1,5 @@
 #pragma once
 
-#include "babelsim/incompressible_operators.h"
 #include "babelsim/runtime.h"
 
 #include <array>
@@ -93,20 +92,59 @@ public:
     SimpleIterationResult iterate();
 
 private:
-    RunTime& m_run_time;
     IncompressibleFields& m_fields;
     const Mesh& m_mesh;
     FluidProperties m_fluid;
     SimpleControl m_control;
-    ScalarField m_pressure_correction;
-    VectorField m_pressure_gradient;
-    VectorField m_correction_gradient;
-    ScalarField m_mass_flux;
-    ScalarField m_mobility;
-    ScalarField m_face_mobility;
-    ScalarField m_divergence;
-    VectorField m_previous_velocity;
-    MomentumInterpolationWorkspace m_interpolation_workspace;
+    Methods m_methods;
+
+    // 以下场不是物理状态：它们是一次 SIMPLE 对象生命周期内复用的 rAU、pPrime、
+    // Rhie-Chow 与诊断工作区。合并为一个私有工作区后，Solver 的公开概念只剩 U、p、
+    // phi、物性和算法控制。
+    struct Workspace {
+        explicit Workspace(const Mesh& mesh)
+            : pressure_correction(mesh, FieldLocation::Cell, "pPrime"),
+              pressure_gradient(mesh, FieldLocation::Cell, "gradP"),
+              correction_gradient(mesh, FieldLocation::Cell, "gradPPrime"),
+              mass_flux(mesh, FieldLocation::Face, "rhoPhi"),
+              mobility(mesh, FieldLocation::Cell, "rAU"),
+              face_mobility(mesh, FieldLocation::Face, "rAUFace"),
+              divergence(mesh, FieldLocation::Cell, "divPhi"),
+              previous_velocity(mesh, FieldLocation::Cell, "UPrevious"),
+              pressure_response(mesh, FieldLocation::Cell, "rAUGradP"),
+              face_pressure_response(mesh, FieldLocation::Face, "rAUGradPFace"),
+              interpolation_mobility(mesh, FieldLocation::Face, "rAUInterpolation")
+        {}
+
+        ScalarField pressure_correction;
+        VectorField pressure_gradient;
+        VectorField correction_gradient;
+        ScalarField mass_flux;
+        ScalarField mobility;
+        ScalarField face_mobility;
+        ScalarField divergence;
+        VectorField previous_velocity;
+        VectorField pressure_response;
+        VectorField face_pressure_response;
+        ScalarField interpolation_mobility;
+    };
+
+    struct PressureStep {
+        SolveResult linear;
+        bool healthy = false;
+        bool linear_converged = false;
+    };
+
+    std::array<SolveResult, 3> solveMomentum();
+    PressureStep solvePressure();
+    void correctVelocity();
+    void correctFlux();
+    void checkContinuityAndConvergence(
+        SimpleIterationResult& result,
+        const PressureStep& pressure) const;
+    void initializePressureCorrectionBoundaries();
+
+    Workspace m_workspace;
     bool m_has_fixed_pressure = false;
 };
 

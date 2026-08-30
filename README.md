@@ -13,7 +13,7 @@ Operator  数据之间进行什么数学运算
 Method    该运算采用什么离散方式
 Equation  表达要求解的数学方程
 fvm/fvc   分别表达隐式离散项与显式场运算
-RunTime   管理时间、离散、求解、并行同步与收敛
+RunTime   管理时间循环与活动运行域；solve/fvc/diagnostics 自动使用它
 Physics   如何组合方程与算子解决具体物理问题
 ```
 
@@ -36,8 +36,7 @@ MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 Runtime 自动�
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
 - 分布式网格读取：rank 0 解析原生 `.mesh`，只发送各 rank 局部几何；不会在每个
   rank 重复保留全局 Mesh/Field；
-- 不可压 SIMPLE；仅保留 `MomentumInterpolation` 与 `PressureCorrection` 两个
-  具有独立数值语义的 CFD 专用算子；
+- 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
 - OpenFOAM 风格的轻量 `fvm/fvc`：数学表达式只在 `solve()` 时离散，不复制大矩阵；
 - `heatFoam` 瞬态热传导 Solver，支持常数或 Field 系数；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
@@ -100,8 +99,8 @@ patch 元数据、点对点发送局部顶点；接收方只持有本地 owned+g
 ## 测试与验证
 
 ```bash
-make test                 # 几何、算子、case/field IO、专用算子、通用输出
-make test-mpi             # MPI 网格、halo、算子、装配、线性求解与 SIMPLE
+make test                 # 几何、算子、case/field IO、Heat/标量输运/SIMPLE、通用输出
+make test-mpi             # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
 make test-mpi-heat        # 1/2 rank 热传导场比较
 make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处理
 make validate-cavity      # 收敛的 Re=100 Ghia 腔体比较
@@ -111,7 +110,7 @@ make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 非正交离散的标准入口是 `interpolation corrected`、`gradient leastSquares`、
 `diffusion corrected`；网格角度较大时可改用 `diffusion limitedCorrected`，并通过
 `nonOrthogonalCorrections` 设置压力修正右端项的显式迭代次数。串行测试还包含
-三维扭曲腔体，MPI 测试包含分区界面上的修正通用算子和两个专用 CFD 算子。
+三维扭曲腔体，MPI 测试包含分区界面上的修正通用算子和 SIMPLE 私有耦合路径。
 
 详细设计与数据结构见 [架构说明](docs/architecture.md)，新增物理模型/求解器的流程
 见 [Solver 开发指南](docs/solver-development.md)，数学表达规则见

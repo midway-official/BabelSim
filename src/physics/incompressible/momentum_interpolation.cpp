@@ -1,91 +1,45 @@
-#include "babelsim/incompressible_operators.h"
+#include "babelsim/incompressible.h"
 
-#include <stdexcept>
+#include "internal/vector_equation_control.h"
 
 namespace babelsim {
 
-void MomentumInterpolation::apply(
-    RunTime& run_time,
-    const Mesh& mesh,
-    const VectorField& velocity,
-    const ScalarField& pressure,
-    const ScalarField& mobility,
-    const VectorField& pressure_gradient,
-    ScalarField& face_flux,
-    MomentumInterpolationWorkspace& workspace)
-{
-    mesh.validate();
-    apply(
-        run_time, mesh, velocity, pressure, mobility, pressure_gradient, face_flux, workspace,
-        InterpolationMethod::Linear, GradientMethod::GreenGauss,
-        DiffusionMethod::Orthogonal);
-}
+std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
+    // UEqn：求预测速度，同时从离散主对角提取 rAU。rAU 仅属于 SIMPLE 的算法状态，
+    // 不进入通用 Field 或 fvm API。
+    m_workspace.previous_velocity.assign(m_fields.velocity);
+    m_workspace.mass_flux.assignScaled(m_fluid.density, m_fields.face_flux);
+    VectorEquationControl control;
+    control.relaxation = m_control.velocity_relaxation;
+    control.mobility = &m_workspace.mobility;
+    const std::array<SolveResult, 3> result = RunTime::current().solve(
+        fvm::div(m_workspace.mass_flux, m_fields.velocity) ==
+            -fvc::grad(m_fields.pressure) +
+            fvm::laplacian(m_fluid.dynamic_viscosity, m_fields.velocity),
+        control);
 
-void MomentumInterpolation::apply(
-    RunTime& run_time,
-    const Mesh& mesh,
-    const VectorField& velocity,
-    const ScalarField& pressure,
-    const ScalarField& mobility,
-    const VectorField& pressure_gradient,
-    ScalarField& face_flux,
-    MomentumInterpolationWorkspace& workspace,
-    InterpolationMethod interpolation_method,
-    GradientMethod gradient_method,
-    DiffusionMethod diffusion_method)
-{
-    if (&velocity.mesh() != &mesh || &pressure.mesh() != &mesh ||
-        &mobility.mesh() != &mesh || &pressure_gradient.mesh() != &mesh ||
-        &face_flux.mesh() != &mesh || &workspace.pressure_response.mesh() != &mesh ||
-        &workspace.face_pressure_response.mesh() != &mesh ||
-        &workspace.face_mobility.mesh() != &mesh ||
-        velocity.location() != FieldLocation::Cell ||
-        pressure.location() != FieldLocation::Cell ||
-        mobility.location() != FieldLocation::Cell ||
-        pressure_gradient.location() != FieldLocation::Cell ||
-        face_flux.location() != FieldLocation::Face) {
-        throw std::invalid_argument("momentum interpolation fields do not match mesh");
+    // phiHbyA：同位网格中的动量插值/Rhie-Chow 重构。这里是 SIMPLE 的私有数值
+    // 步骤；SIMPLE 主循环只把它理解为“动量方程产生预测通量”。
+    fvc::evaluate(fvc::grad(m_fields.pressure), m_workspace.pressure_gradient);
+    fvc::evaluate(fvc::flux(m_fields.velocity), m_fields.face_flux);
+    for (Index cell : m_mesh.owned_cells) {
+        m_workspace.pressure_response[cell] =
+            m_workspace.mobility[cell] * m_workspace.pressure_gradient[cell];
     }
-    velocity.validateStorage();
-    pressure.validateStorage();
-    mobility.validateStorage();
-    pressure_gradient.validateStorage();
-    face_flux.validateStorage();
-    workspace.pressure_response.validateStorage();
-    workspace.face_pressure_response.validateStorage();
-    workspace.face_mobility.validateStorage();
-    if (&run_time.mesh() != &mesh) {
-        throw std::invalid_argument("momentum interpolation mesh does not belong to run time");
+    fvc::evaluate(
+        fvc::interpolate(m_workspace.pressure_response),
+        m_workspace.face_pressure_response);
+    fvc::evaluate(
+        fvc::interpolate(m_workspace.mobility), m_workspace.interpolation_mobility);
+    for (Index face : m_mesh.owned_faces) {
+        const std::size_t index = static_cast<std::size_t>(face);
+        if (m_mesh.face_neighbour[index] == invalid_index) continue;
+        m_fields.face_flux[face] +=
+            dot(m_workspace.face_pressure_response[face], m_mesh.face_area_vectors[index]) -
+            m_workspace.interpolation_mobility[face] * fvc::integratedNormalGradient(
+                m_fields.pressure, m_workspace.pressure_gradient, face, m_methods.diffusion);
     }
-
-    // H/a 在真实面中心重构；压力响应仍保留为独立项，使直接面压力差能够抑制
-    // 同位网格的棋盘格压力。
-    if (interpolation_method != run_time.methods().interpolation ||
-        gradient_method != run_time.methods().gradient) {
-        throw std::invalid_argument("momentum interpolation methods must match the run time");
-    }
-    run_time.evaluate(fvc::flux(velocity), face_flux);
-    run_time.synchronize(const_cast<ScalarField&>(mobility));
-    run_time.synchronize(const_cast<VectorField&>(pressure_gradient));
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        workspace.pressure_response[cell] = mobility[cell] * pressure_gradient[cell];
-    }
-    run_time.evaluate(
-        fvc::interpolate(workspace.pressure_response), workspace.face_pressure_response);
-    run_time.evaluate(fvc::interpolate(mobility), workspace.face_mobility);
-
-    for (Index face : mesh.owned_faces) {
-        const auto f = static_cast<std::size_t>(face);
-        const Index neighbour = mesh.face_neighbour[f];
-        if (neighbour == invalid_index) {
-            continue;
-        }
-        face_flux[face] +=
-            dot(workspace.face_pressure_response[face], mesh.face_area_vectors[f]) -
-            workspace.face_mobility[face] * fvc::integratedNormalGradient(
-                pressure, pressure_gradient, face, diffusion_method);
-    }
-    run_time.synchronize(face_flux);
+    return result;
 }
 
 }  // babelsim 命名空间

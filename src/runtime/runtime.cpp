@@ -7,6 +7,8 @@
 #include "babelsim/mpi_support.h"
 #include "babelsim/operators.h"
 #include "babelsim/parallel.h"
+#include "internal/scalar_equation_control.h"
+#include "internal/vector_equation_control.h"
 
 #include <Eigen/Core>
 
@@ -57,6 +59,8 @@ void requireFaceField(const ScalarField& field, const Mesh& mesh, const char* na
 int residualSign(bool lhs, int term_sign) {
     return (lhs ? 1 : -1) * term_sign;
 }
+
+thread_local RunTime* active_run_time = nullptr;
 
 }  // 匿名命名空间
 
@@ -204,6 +208,10 @@ void RuntimeControl::validate() const {
 RunTime::RunTime(const Mesh& mesh, RuntimeControl control)
     : m_implementation(nullptr)
 {
+    if (active_run_time != nullptr) {
+        throw std::logic_error(
+            "only one RunTime may be active in a solver thread; destroy the previous run first");
+    }
     int initialized = 0;
     detail::checkMpi(MPI_Initialized(&initialized), "MPI_Initialized");
     ParallelContext parallel;
@@ -215,15 +223,23 @@ RunTime::RunTime(const Mesh& mesh, RuntimeControl control)
     }
     m_implementation = std::make_unique<Implementation>(mesh, std::move(control), parallel);
     m_implementation->current_time = m_implementation->control.time.start_time;
+    active_run_time = this;
 }
 
 RunTime RunTime::forMesh(const Mesh& mesh, RuntimeControl control) {
     return RunTime(mesh, std::move(control));
 }
 
-RunTime::~RunTime() = default;
-RunTime::RunTime(RunTime&&) noexcept = default;
-RunTime& RunTime::operator=(RunTime&&) noexcept = default;
+RunTime::~RunTime() {
+    if (active_run_time == this) active_run_time = nullptr;
+}
+
+RunTime& RunTime::current() {
+    if (active_run_time == nullptr) {
+        throw std::logic_error("solve/fvc/diagnostics require an active RunTime");
+    }
+    return *active_run_time;
+}
 
 const Mesh& RunTime::mesh() const { return *m_implementation->mesh; }
 const Methods& RunTime::methods() const { return m_implementation->control.methods; }
@@ -235,36 +251,6 @@ bool RunTime::primary() const { return m_implementation->parallel.rank == 0; }
 void RunTime::synchronize(ScalarField& field) { m_implementation->synchronize(field); }
 void RunTime::synchronize(VectorField& field) { m_implementation->synchronize(field); }
 void RunTime::synchronize(TensorField& field) { m_implementation->synchronize(field); }
-
-void RunTime::copy(const VectorField& source, VectorField& destination) {
-    Implementation& state = *m_implementation;
-    requireCellField(source, *state.mesh, "copy source");
-    requireCellField(destination, *state.mesh, "copy destination");
-    for (Index cell = 0; cell < state.mesh->cellCount(); ++cell) {
-        destination[cell] = source[cell];
-    }
-    state.synchronize(destination);
-}
-
-void RunTime::scale(
-    double factor,
-    const ScalarField& source,
-    ScalarField& destination)
-{
-    Implementation& state = *m_implementation;
-    if (!std::isfinite(factor)) {
-        throw std::invalid_argument("field scale factor must be finite");
-    }
-    state.requireCellOrFace(source);
-    state.requireCellOrFace(destination);
-    if (source.location() != destination.location()) {
-        throw std::invalid_argument("field scale locations do not match");
-    }
-    for (Index entity = 0; entity < static_cast<Index>(source.size()); ++entity) {
-        destination[entity] = factor * source[entity];
-    }
-    state.synchronize(destination);
-}
 
 double RunTime::relativeChange(
     const VectorField& current,
@@ -300,6 +286,25 @@ double RunTime::relativeChange(
         current_squared += current[cell] * current[cell];
     }
     const double local[2] = {difference_squared, current_squared};
+    double global[2]{};
+    state.parallel.sum(local, global, 2);
+    return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
+}
+
+double RunTime::relativeMagnitude(
+    const ScalarField& value,
+    const ScalarField& reference) const
+{
+    const Implementation& state = *m_implementation;
+    requireCellField(value, *state.mesh, "relative-magnitude value");
+    requireCellField(reference, *state.mesh, "relative-magnitude reference");
+    double value_squared = 0.0;
+    double reference_squared = 0.0;
+    for (Index cell : state.mesh->owned_cells) {
+        value_squared += value[cell] * value[cell];
+        reference_squared += reference[cell] * reference[cell];
+    }
+    const double local[2] = {value_squared, reference_squared};
     double global[2]{};
     state.parallel.sum(local, global, 2);
     return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
@@ -863,5 +868,78 @@ void RunTime::evaluate(fvc::ScalarLaplacian operation, ScalarField& result) {
     }
     state.synchronize(result);
 }
+
+SolveResult solve(const ScalarEquationDefinition& equation) {
+    return RunTime::current().solve(equation);
+}
+
+std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation) {
+    return RunTime::current().solve(equation);
+}
+
+namespace fvc {
+
+void evaluate(ScalarGradient operation, VectorField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(VectorGradient operation, TensorField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(FaceFlux operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(FaceDivergence operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(VectorDivergence operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(ScalarConvection operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(VectorConvection operation, VectorField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(ScalarInterpolation operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(VectorInterpolation operation, VectorField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(ScalarReconstruction operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(VectorReconstruction operation, VectorField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+void evaluate(ScalarLaplacian operation, ScalarField& result) {
+    RunTime::current().evaluate(operation, result);
+}
+
+}  // fvc 命名空间
+
+namespace diagnostics {
+
+double relativeChange(const VectorField& current, const VectorField& previous) {
+    return RunTime::current().relativeChange(current, previous);
+}
+
+double relativeChange(const ScalarField& current, const ScalarField& previous) {
+    return RunTime::current().relativeChange(current, previous);
+}
+
+double relativeMagnitude(const ScalarField& value, const ScalarField& reference) {
+    return RunTime::current().relativeMagnitude(value, reference);
+}
+
+FluxBalance fluxBalance(const ScalarField& face_flux) {
+    return RunTime::current().fluxBalance(face_flux);
+}
+
+bool all(bool local_condition) {
+    return RunTime::current().all(local_condition);
+}
+
+}  // diagnostics 命名空间
 
 }  // babelsim 命名空间

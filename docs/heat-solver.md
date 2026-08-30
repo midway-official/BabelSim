@@ -78,7 +78,7 @@ OpenFOAM 的 `laplacianFoam`/标量输运 Solver 之所以短，是因为网格�
 | `runTime.loop()` | `RunTime::loop()` |
 | `fvm::ddt(T)` | `fvm::ddt(..., T)` |
 | `fvm::laplacian(k,T)` | `fvm::laplacian(k, T)` |
-| `TEqn.solve()` | `solve(run_time, equation)` |
+| `TEqn.solve()` | `solve(equation)` |
 | `fvSchemes/fvSolution` | `numerics/heat.bs` |
 | decomposition/MPI/IO | RunTime、启动器、并行写出与后处理器 |
 

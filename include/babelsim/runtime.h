@@ -11,8 +11,7 @@
 
 namespace babelsim {
 
-struct MomentumInterpolation;
-struct PressureCorrection;
+class RunTime;
 
 // Solver 只提供方法、时间和线性收敛控制；MPI 通信器、halo、LDU 和后端库都由
 // RunTime 的私有实现管理。不同 Field 可在一次运行中复用同一个 RunTime。
@@ -25,16 +24,10 @@ struct RuntimeControl {
     void validate() const;
 };
 
-// 方程级控制仍保持数学含义：欠松弛和由离散主对角导出的单元 mobility。不会暴露
-// 稀疏矩阵、行号或存储格式；SIMPLE 使用 mobility 形成 rAU。
-struct VectorEquationControl {
-    double relaxation = 1.0;
-    ScalarField* mobility = nullptr;
-};
+struct VectorEquationControl;
+class SimpleSolver;
 
-struct ScalarEquationControl {
-    bool fix_reference = false;
-};
+struct ScalarEquationControl;
 
 // 面通量在每个控制体上的守恒误差。它是通用有限体积诊断量；不可压缩 SIMPLE 将
 // 它命名为连续性残差。归约由 RunTime 完成，调用者不会接触 rank 或通信器。
@@ -45,14 +38,43 @@ struct FluxBalance {
     double relative = 0.0;
 };
 
+// Runtime 之外的 Solver API：显式量属于 fvc，收敛与守恒量属于 diagnostics，
+// 隐式方程由 solve() 处理。它们自动使用当前线程唯一活动的 RunTime，因此 Solver
+// 不需要在每个数学操作中传递执行对象。
+SolveResult solve(const ScalarEquationDefinition& equation);
+std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation);
+
+namespace fvc {
+void evaluate(ScalarGradient operation, VectorField& result);
+void evaluate(VectorGradient operation, TensorField& result);
+void evaluate(FaceFlux operation, ScalarField& result);
+void evaluate(FaceDivergence operation, ScalarField& result);
+void evaluate(VectorDivergence operation, ScalarField& result);
+void evaluate(ScalarConvection operation, ScalarField& result);
+void evaluate(VectorConvection operation, VectorField& result);
+void evaluate(ScalarInterpolation operation, ScalarField& result);
+void evaluate(VectorInterpolation operation, VectorField& result);
+void evaluate(ScalarReconstruction operation, ScalarField& result);
+void evaluate(VectorReconstruction operation, VectorField& result);
+void evaluate(ScalarLaplacian operation, ScalarField& result);
+}  // fvc 命名空间
+
+namespace diagnostics {
+double relativeChange(const VectorField& current, const VectorField& previous);
+double relativeChange(const ScalarField& current, const ScalarField& previous);
+double relativeMagnitude(const ScalarField& value, const ScalarField& reference);
+FluxBalance fluxBalance(const ScalarField& face_flux);
+bool all(bool local_condition);
+}  // diagnostics 命名空间
+
 class RunTime {
 public:
     // 若进程已经进入 MPI，构造时自动绑定当前通信器；否则为不需要 MPI_Init 的串行运行。
     static RunTime forMesh(const Mesh& mesh, RuntimeControl control = {});
 
     ~RunTime();
-    RunTime(RunTime&&) noexcept;
-    RunTime& operator=(RunTime&&) noexcept;
+    RunTime(RunTime&&) = delete;
+    RunTime& operator=(RunTime&&) = delete;
     RunTime(const RunTime&) = delete;
     RunTime& operator=(const RunTime&) = delete;
 
@@ -64,27 +86,21 @@ public:
     int step() const;
     bool primary() const;
 
-    // 高层场与收敛工具：它们只表达“复制”“相对变化”“守恒”和“全部成立”，
-    // 不暴露 owned/ghost、全局归约或 MPI 生命周期。
-    void copy(const VectorField& source, VectorField& destination);
-    void scale(double factor, const ScalarField& source, ScalarField& destination);
-    double relativeChange(const VectorField& current, const VectorField& previous) const;
-    double relativeChange(const ScalarField& current, const ScalarField& previous) const;
-    FluxBalance fluxBalance(const ScalarField& face_flux) const;
-    bool all(bool local_condition) const;
+    // 仅供 fvm/fvc、诊断和内部算法桥接使用。每个线程同时只能有一个活动运行域，
+    // 使 solve(equation) 的含义明确，同时避免 Field/Mesh 反向依赖 Runtime。
+    static RunTime& current();
 
-    // 唯一的隐式方程求解入口。Equation 是轻量数学描述；这里才会同步输入、
-    // 组装离散方程、选择串行/分布式线性后端并写回解场。
+private:
+    explicit RunTime(const Mesh& mesh, RuntimeControl control);
+    void synchronize(ScalarField& field);
+    void synchronize(VectorField& field);
+    void synchronize(TensorField& field);
     SolveResult solve(const ScalarEquationDefinition& equation);
-    SolveResult solve(
-        const ScalarEquationDefinition& equation,
-        ScalarEquationControl control);
+    SolveResult solve(const ScalarEquationDefinition& equation, ScalarEquationControl control);
     std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation);
     std::array<SolveResult, 3> solve(
         const VectorEquationDefinition& equation,
         VectorEquationControl control);
-
-    // fvc 显式求值入口。调用者提供结果场，避免隐式大 Field 临时对象和重复分配。
     void evaluate(fvc::ScalarGradient operation, VectorField& result);
     void evaluate(fvc::VectorGradient operation, TensorField& result);
     void evaluate(fvc::FaceFlux operation, ScalarField& result);
@@ -97,36 +113,35 @@ public:
     void evaluate(fvc::ScalarReconstruction operation, ScalarField& result);
     void evaluate(fvc::VectorReconstruction operation, VectorField& result);
     void evaluate(fvc::ScalarLaplacian operation, ScalarField& result);
-
-private:
-    explicit RunTime(const Mesh& mesh, RuntimeControl control);
-    void synchronize(ScalarField& field);
-    void synchronize(VectorField& field);
-    void synchronize(TensorField& field);
+    double relativeChange(const VectorField& current, const VectorField& previous) const;
+    double relativeChange(const ScalarField& current, const ScalarField& previous) const;
+    double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;
+    FluxBalance fluxBalance(const ScalarField& face_flux) const;
+    bool all(bool local_condition) const;
 
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;
 
-    friend struct MomentumInterpolation;
-    friend struct PressureCorrection;
+    friend SolveResult solve(const ScalarEquationDefinition& equation);
+    friend std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation);
+    friend class SimpleSolver;
+    friend void fvc::evaluate(fvc::ScalarGradient, VectorField&);
+    friend void fvc::evaluate(fvc::VectorGradient, TensorField&);
+    friend void fvc::evaluate(fvc::FaceFlux, ScalarField&);
+    friend void fvc::evaluate(fvc::FaceDivergence, ScalarField&);
+    friend void fvc::evaluate(fvc::VectorDivergence, ScalarField&);
+    friend void fvc::evaluate(fvc::ScalarConvection, ScalarField&);
+    friend void fvc::evaluate(fvc::VectorConvection, VectorField&);
+    friend void fvc::evaluate(fvc::ScalarInterpolation, ScalarField&);
+    friend void fvc::evaluate(fvc::VectorInterpolation, VectorField&);
+    friend void fvc::evaluate(fvc::ScalarReconstruction, ScalarField&);
+    friend void fvc::evaluate(fvc::VectorReconstruction, VectorField&);
+    friend void fvc::evaluate(fvc::ScalarLaplacian, ScalarField&);
+    friend double diagnostics::relativeChange(const VectorField&, const VectorField&);
+    friend double diagnostics::relativeChange(const ScalarField&, const ScalarField&);
+    friend double diagnostics::relativeMagnitude(const ScalarField&, const ScalarField&);
+    friend FluxBalance diagnostics::fluxBalance(const ScalarField&);
+    friend bool diagnostics::all(bool);
 };
-
-inline SolveResult solve(RunTime& run_time, const ScalarEquationDefinition& equation) {
-    return run_time.solve(equation);
-}
-
-inline std::array<SolveResult, 3> solve(
-    RunTime& run_time, const VectorEquationDefinition& equation)
-{
-    return run_time.solve(equation);
-}
-
-inline std::array<SolveResult, 3> solve(
-    RunTime& run_time,
-    const VectorEquationDefinition& equation,
-    VectorEquationControl control)
-{
-    return run_time.solve(equation, control);
-}
 
 }  // babelsim 命名空间
