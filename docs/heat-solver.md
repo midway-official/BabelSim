@@ -43,14 +43,14 @@ ParaView 打开 `post/mpi4/series.pvd`。
 output.bs 的 writeInterval 是步数间隔，默认 1。例如 endTime=0.05、deltaT=0.01、
 writeInterval=2，输出 0.02、0.04、0.05，而不是仅写 final 或把 1/2/3 当作时间。
 
-## 变系数与嵌入式接口
+## 变系数与数值测试
 
 将 k 或 rhoCp 替换为从 Case 读入的 scalar Field，fvm 写法不变。
 材料模型可在每一步前更新物性场；它仍属于物理数学代码，不应操作通信或矩阵。
 
-thermal.h 的 ThermalProperties、ThermalFieldProperties、solveHeatStep 和
-solveTransientHeat 保留给内存型数值测试/嵌入式调用。它们使用同一后端，但不承担 Case 自动输出。
-新 Solver 作者优先使用上面的 Case 入口，不需要先学习这组显式 RunTime 接口。
+曾经并存的 thermal.h、solveHeatStep、solveTransientHeat 已删除，避免同一热方程和时间循环
+维护两份。内存型数值测试显式准备 RunTime 后，直接使用相同的 fvm/solve；
+Case 工作流测试则实际运行本页的生产入口。新 Solver 不需要再写专用头文件或库式求解器。
 
 ## 与 OpenFOAM 对照
 

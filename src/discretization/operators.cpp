@@ -1,7 +1,5 @@
 #include "babelsim/operators.h"
 
-#include "internal/simple_discretization.h"
-
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 
@@ -425,7 +423,7 @@ double limitNonOrthogonalCorrection(
 }
 
 template <typename T>
-void requireEquation(const Equation<T>& equation, const Mesh& mesh) {
+void requireEquation(const DiscreteEquation<T>& equation, const Mesh& mesh) {
     if (equation.mesh != &mesh) {
         throw std::invalid_argument("equation and field use different meshes");
     }
@@ -446,7 +444,7 @@ struct GradientFieldType<Vec3> {
 
 template <typename T>
 void addConvectionImpl(
-    Equation<T>& equation,
+    DiscreteEquation<T>& equation,
     const ScalarField& face_flux,
     const Field<T>& transported,
     ConvectionMethod method,
@@ -558,7 +556,7 @@ void addConvectionImpl(
 
 template <typename T>
 void addTimeDerivativeImpl(
-    Equation<T>& equation,
+    DiscreteEquation<T>& equation,
     const Field<T>& previous,
     double dt,
     double density,
@@ -600,7 +598,7 @@ void addTimeDerivativeImpl(
 
 template <typename T>
 void addFieldTimeDerivativeImpl(
-    Equation<T>& equation,
+    DiscreteEquation<T>& equation,
     const Field<T>& previous,
     double dt,
     const ScalarField& capacity,
@@ -924,36 +922,6 @@ void diffusionFlux(
     }
 }
 
-namespace detail {
-
-void applyMomentumInterpolation(
-    const ScalarField& pressure,
-    const VectorField& pressure_gradient,
-    const ScalarField& face_mobility,
-    const VectorField& face_pressure_response,
-    ScalarField& predicted_flux,
-    DiffusionMethod method)
-{
-    const Mesh& mesh = pressure.mesh();
-    requireField(pressure, mesh, FieldLocation::Cell, "pressure");
-    requireField(pressure_gradient, mesh, FieldLocation::Cell, "pressure gradient");
-    requireField(face_mobility, mesh, FieldLocation::Face, "face mobility");
-    requireField(
-        face_pressure_response, mesh, FieldLocation::Face,
-        "face pressure response");
-    requireField(predicted_flux, mesh, FieldLocation::Face, "predicted flux");
-    for (Index face : mesh.owned_faces) {
-        const std::size_t index = static_cast<std::size_t>(face);
-        if (mesh.face_neighbour[index] == invalid_index) continue;
-        predicted_flux[face] +=
-            dot(face_pressure_response[face], mesh.face_area_vectors[index]) -
-            face_mobility[face] * integratedNormalGradient(
-                pressure, pressure_gradient, face, method);
-    }
-}
-
-}  // detail 命名空间
-
 void divergence(
     const VectorField& vector,
     ScalarField& result,
@@ -1161,7 +1129,7 @@ void laplacian(
 }
 
 void addConvection(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& face_flux,
     const ScalarField& transported,
     ConvectionMethod method,
@@ -1175,7 +1143,7 @@ void addConvection(
 }
 
 void addConvection(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const ScalarField& face_flux,
     const VectorField& transported,
     ConvectionMethod method,
@@ -1200,7 +1168,7 @@ struct FaceDiffusivity {
 };
 
 void addScalarDiffusion(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     FaceDiffusivity diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method,
@@ -1273,7 +1241,7 @@ void addScalarDiffusion(
 }
 
 void addVectorDiffusion(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     FaceDiffusivity diffusivity,
     const VectorField& vector,
     GradientMethod gradient_method,
@@ -1350,7 +1318,7 @@ void addVectorDiffusion(
 }  // 匿名命名空间
 
 void addDiffusion(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     double diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method,
@@ -1367,7 +1335,7 @@ void addDiffusion(
 }
 
 void addDiffusion(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& face_diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method,
@@ -1382,7 +1350,7 @@ void addDiffusion(
 }
 
 void addDiffusion(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     double diffusivity,
     const VectorField& vector,
     GradientMethod gradient_method,
@@ -1399,7 +1367,7 @@ void addDiffusion(
 }
 
 void addDiffusion(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const ScalarField& face_diffusivity,
     const VectorField& vector,
     GradientMethod gradient_method,
@@ -1414,7 +1382,7 @@ void addDiffusion(
 }
 
 void addTimeDerivative(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& previous,
     double dt,
     double density,
@@ -1425,7 +1393,7 @@ void addTimeDerivative(
 }
 
 void addTimeDerivative(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& previous,
     double dt,
     const ScalarField& volumetric_capacity,
@@ -1437,7 +1405,7 @@ void addTimeDerivative(
 }
 
 void addTimeDerivative(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const VectorField& previous,
     double dt,
     const ScalarField& density,
@@ -1448,7 +1416,7 @@ void addTimeDerivative(
 }
 
 void addTimeDerivative(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const VectorField& previous,
     double dt,
     double density,

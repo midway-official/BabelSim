@@ -1,5 +1,5 @@
 #include "babelsim/case.h"
-#include "babelsim/solvers.h"
+#include "solver_selection.h"
 
 #include <stdexcept>
 

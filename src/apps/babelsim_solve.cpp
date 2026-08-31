@@ -1,6 +1,6 @@
 #include "babelsim/case.h"
 #include "babelsim/parallel.h"
-#include "babelsim/solvers.h"
+#include "solver_selection.h"
 
 #include <mpi.h>
 

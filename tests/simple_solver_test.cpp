@@ -1,5 +1,6 @@
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
+#include "babelsim/runtime.h"
 #include "babelsim/mesh_io.h"
 
 #include "test_util.h"
@@ -58,7 +59,10 @@ int main() {
     IncompressibleFields fields(mesh);
     configureChannelBoundaries(fields);
 
-    Methods methods;
+    RuntimeControl run_control;
+    run_control.scalar_solver.solver = LinearSolverType::ConjugateGradient;
+    run_control.scalar_solver.preconditioner = PreconditionerType::IncompleteCholesky;
+    Methods& methods = run_control.methods;
     methods.gradient = GradientMethod::GreenGauss;
     methods.convection = ConvectionMethod::Upwind;
     methods.diffusion = DiffusionMethod::Orthogonal;
@@ -68,12 +72,12 @@ int main() {
     control.pressure_relaxation = 0.3;
     control.continuity_tolerance = 1e-9;
     control.velocity_tolerance = 1e-7;
-    control.velocity_solver.absolute_tolerance = 1e-13;
-    control.velocity_solver.relative_tolerance = 1e-10;
-    control.pressure_solver.absolute_tolerance = 1e-13;
-    control.pressure_solver.relative_tolerance = 1e-10;
+    run_control.vector_solver.absolute_tolerance = 1e-13;
+    run_control.vector_solver.relative_tolerance = 1e-10;
+    run_control.scalar_solver.absolute_tolerance = 1e-13;
+    run_control.scalar_solver.relative_tolerance = 1e-10;
 
-    RunTime run_time = RunTime::forMesh(mesh, simpleRunTimeControl(methods, control));
+    RunTime run_time = RunTime::forMesh(mesh, run_control);
     // rho=2 同时验证 fvm::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
     // 黏度以维持该回归的 Reynolds 数。
     SimpleSolver solver(run_time, fields, {2.0, 0.2}, control);

@@ -2,6 +2,7 @@
 
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
+#include "internal/simple_discretization.h"
 
 namespace babelsim {
 
@@ -44,14 +45,6 @@ struct SimpleSolver::State {
               div_phiHbyA(mesh, FieldLocation::Cell, "divPhiHbyA")
         {}
 
-        void predictMomentumFlux(
-            const Methods& methods,
-            const VectorField& U,
-            const ScalarField& p,
-            const ScalarField& rAU,
-            ScalarField& phiHbyA);
-        void preparePressureEquation(const ScalarField& phiHbyA);
-
         VectorField grad_p;
         VectorField rAU_grad_p;
         VectorField rAU_grad_p_face;
@@ -65,17 +58,14 @@ struct SimpleSolver::State {
         bool linear_converged = false;
     };
 
-    void savePreviousState();
     std::array<SolveResult, 3> solveMomentum();
     PressureEquationResult solvePressure();
     void predictMomentumFlux();
     void correctVelocity();
     void correctFlux();
-    void initializeFaceFlux();
     void checkContinuityAndConvergence(
         SimpleIterationResult& result,
         const PressureEquationResult& pressure) const;
-    void initializePressureCorrectionBoundaries();
 
     AlgorithmState m_algorithm;
     NumericalWorkspace m_workspace;

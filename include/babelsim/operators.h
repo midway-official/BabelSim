@@ -1,6 +1,6 @@
 #pragma once
 
-#include "babelsim/equation.h"
+#include "babelsim/discrete_equation.h"
 #include "babelsim/field.h"
 #include "babelsim/methods.h"
 
@@ -105,7 +105,7 @@ void laplacian(
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
 
 void addConvection(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& face_flux,
     const ScalarField& transported,
     ConvectionMethod method = ConvectionMethod::Upwind,
@@ -113,7 +113,7 @@ void addConvection(
     GradientMethod gradient_method = GradientMethod::LeastSquares,
     double flux_scale = 1.0);
 void addConvection(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const ScalarField& face_flux,
     const VectorField& transported,
     ConvectionMethod method = ConvectionMethod::Upwind,
@@ -122,53 +122,53 @@ void addConvection(
     double flux_scale = 1.0);
 
 void addDiffusion(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     double diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method = GradientMethod::GreenGauss,
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
 void addDiffusion(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& face_diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method = GradientMethod::GreenGauss,
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
 void addDiffusion(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     double diffusivity,
     const VectorField& vector,
     GradientMethod gradient_method = GradientMethod::GreenGauss,
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
 void addDiffusion(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const ScalarField& face_diffusivity,
     const VectorField& vector,
     GradientMethod gradient_method = GradientMethod::GreenGauss,
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
 
 void addTimeDerivative(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& previous,
     double dt,
     double density = 1.0,
     TimeMethod method = TimeMethod::Euler,
     const ScalarField* older = nullptr);
 void addTimeDerivative(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const VectorField& previous,
     double dt,
     double density = 1.0,
     TimeMethod method = TimeMethod::Euler,
     const VectorField* older = nullptr);
 void addTimeDerivative(
-    ScalarEquation& equation,
+    ScalarDiscreteEquation& equation,
     const ScalarField& previous,
     double dt,
     const ScalarField& volumetric_capacity,
     TimeMethod method = TimeMethod::Euler,
     const ScalarField* older = nullptr);
 void addTimeDerivative(
-    VectorEquation& equation,
+    VectorDiscreteEquation& equation,
     const VectorField& previous,
     double dt,
     const ScalarField& density,

@@ -6,10 +6,10 @@
 #include <stdexcept>
 #include <vector>
 
-namespace babelsim::detail {
+namespace babelsim {
 
-// 这是 FVM 后端的 LDU 存储，不是面向 Solver 的数学 Equation。它只在 Runtime、
-// 离散和代数层之间传递，保留现有连续数组布局和分区面系数语义。
+// 框架维护接口：FVM 后端的 LDU 存储，不是 Solver 使用的数学 EquationDefinition。
+// 离散、装配、执行和分布式代数共享此唯一表示；不再保留含混的 Equation 兼容别名。
 template <typename T>
 struct DiscreteEquation {
     explicit DiscreteEquation(const Mesh& mesh_value)
@@ -49,4 +49,4 @@ struct DiscreteEquation {
 using ScalarDiscreteEquation = DiscreteEquation<double>;
 using VectorDiscreteEquation = DiscreteEquation<Vec3>;
 
-}  // babelsim::detail 命名空间
+}  // babelsim 命名空间

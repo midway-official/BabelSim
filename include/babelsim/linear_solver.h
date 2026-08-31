@@ -1,7 +1,8 @@
 #pragma once
 
-#include "babelsim/assembly.h"
 #include "babelsim/solver_control.h"
+
+#include <Eigen/Sparse>
 
 #include <memory>
 

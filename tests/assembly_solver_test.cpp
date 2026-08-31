@@ -30,7 +30,7 @@ int main() {
             BoundaryCondition<double>::symmetry());
     }
 
-    ScalarEquation equation(mesh);
+    ScalarDiscreteEquation equation(mesh);
     addDiffusion(
         equation, 1.0, phi, GradientMethod::GreenGauss,
         DiffusionMethod::Orthogonal);
@@ -69,7 +69,7 @@ int main() {
             (second - 2.0 * solution).norm() < 1e-12,
         "prepared linear solver failed to reuse a factorization");
 
-    VectorEquation vector_equation(mesh);
+    VectorDiscreteEquation vector_equation(mesh);
     vector_equation.diagonal = equation.diagonal;
     vector_equation.upper = equation.upper;
     vector_equation.lower = equation.lower;
@@ -82,7 +82,7 @@ int main() {
     require(
         (cached_assembly.matrix() - system.A).norm() < 1e-14,
         "precomputed sparse assembly differs from triplet assembly");
-    ScalarEquation rescaled_equation = equation;
+    ScalarDiscreteEquation rescaled_equation = equation;
     for (double& value : rescaled_equation.diagonal) {
         value *= 2.0;
     }
@@ -99,8 +99,8 @@ int main() {
 
     ScalarField face_diffusivity(
         mesh, FieldLocation::Face, "faceDiffusivity", 3.0);
-    ScalarEquation field_diffusion(mesh);
-    ScalarEquation constant_diffusion(mesh);
+    ScalarDiscreteEquation field_diffusion(mesh);
+    ScalarDiscreteEquation constant_diffusion(mesh);
     addDiffusion(
         field_diffusion, face_diffusivity, phi,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
@@ -114,8 +114,8 @@ int main() {
         "face-centred scalar diffusivity differs from a constant coefficient");
 
     VectorField vector(mesh, FieldLocation::Cell, "vector");
-    VectorEquation field_vector_diffusion(mesh);
-    VectorEquation constant_vector_diffusion(mesh);
+    VectorDiscreteEquation field_vector_diffusion(mesh);
+    VectorDiscreteEquation constant_vector_diffusion(mesh);
     addDiffusion(
         field_vector_diffusion, face_diffusivity, vector,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
@@ -140,7 +140,7 @@ int main() {
     scalar_neumann.setBoundary(
         static_cast<Index>(Side::XMax),
         BoundaryCondition<double>::fixedGradient(2.0));
-    ScalarEquation scalar_neumann_equation(mesh);
+    ScalarDiscreteEquation scalar_neumann_equation(mesh);
     addDiffusion(
         scalar_neumann_equation, 3.0, scalar_neumann,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
@@ -153,7 +153,7 @@ int main() {
     vector_neumann.setBoundary(
         static_cast<Index>(Side::XMax),
         BoundaryCondition<Vec3>::fixedGradient({2.0, -1.0, 0.5}));
-    VectorEquation vector_neumann_equation(mesh);
+    VectorDiscreteEquation vector_neumann_equation(mesh);
     addDiffusion(
         vector_neumann_equation, 3.0, vector_neumann,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);

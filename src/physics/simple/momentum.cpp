@@ -1,4 +1,4 @@
-#include "internal/simple_state.h"
+#include "state.h"
 
 namespace babelsim {
 
@@ -16,16 +16,18 @@ std::array<SolveResult, 3> SimpleSolver::State::solveMomentum() {
         m_control.velocity_relaxation, rAU);
 }
 
-void SimpleSolver::State::savePreviousState() {
-    m_algorithm.previous_velocity.assign(m_U);
-}
-
 void SimpleSolver::State::predictMomentumFlux() {
     // phiHbyA：同位网格中的动量插值/Rhie-Chow 重构。这里是 SIMPLE 的私有数值
     // 步骤；物理通量 phi 只在压力方程完成后更新。
-    m_workspace.predictMomentumFlux(
-        m_methods, m_U, m_p,
-        m_algorithm.rAU, m_algorithm.phiHbyA);
+    NumericalWorkspace& work = m_workspace;
+    fvc::evaluate(fvc::grad(m_p), work.grad_p);
+    fvc::evaluate(fvc::flux(m_U), m_algorithm.phiHbyA);
+    work.rAU_grad_p.assignProduct(m_algorithm.rAU, work.grad_p);
+    fvc::evaluate(fvc::interpolate(work.rAU_grad_p), work.rAU_grad_p_face);
+    fvc::evaluate(fvc::interpolate(m_algorithm.rAU), work.rAU_face);
+    detail::applyMomentumInterpolation(
+        m_p, work.grad_p, work.rAU_face, work.rAU_grad_p_face,
+        m_algorithm.phiHbyA, m_methods.diffusionFor(m_p.name()));
 }
 
 }  // babelsim 命名空间

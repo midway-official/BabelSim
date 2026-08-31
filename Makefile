@@ -8,7 +8,6 @@ CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 BUILD := build
 LIB := $(BUILD)/libbabelsim.a
 SOURCES := src/core/mesh.cpp \
-           src/apps/solver_selection.cpp \
            src/io/config.cpp \
            src/io/case_reader.cpp \
            src/io/case.cpp \
@@ -25,8 +24,6 @@ SOURCES := src/core/mesh.cpp \
            src/parallel/parallel_context.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
-           src/physics/heat/transient_heat_solver.cpp \
-           src/physics/transport/transient_scalar_transport_solver.cpp \
            src/physics/simple/simple_solver.cpp \
            src/physics/simple/create_fields.cpp \
            src/physics/simple/convergence.cpp \
@@ -76,9 +73,9 @@ $(BUILD)/%: tests/%.cpp tests/test_util.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
 
-$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp $(HEADERS) $(LIB)
+$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp src/apps/solver_selection.cpp src/apps/solver_selection.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< src/apps/solver_selection.cpp $(LIB) -o $@
 
 $(BUILD)/babelsim-post: src/apps/babelsim_post.cpp $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
@@ -92,13 +89,16 @@ $(BUILD)/parallel_cavity_3d_test: tests/parallel_cavity_3d_test.cpp tests/test_u
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
 
-test: $(TESTS)
+test-architecture:
+	python3 tests/architecture_test.py
+
+test: test-architecture $(TESTS)
 	@set -e; for test in $(TESTS); do $$test; done
 
 $(BUILD)/case_programming_test: tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(HEADERS) $(LIB)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) -o $@
 
-test-workflow: $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
+test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
 	$(BUILD)/time_history_test
 	python3 tests/solver_workflow_test.py
 
@@ -156,7 +156,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all test test-workflow test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all test test-architecture test-workflow test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d)

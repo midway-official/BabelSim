@@ -1,6 +1,6 @@
 #pragma once
 
-#include "babelsim/equation.h"
+#include "babelsim/discrete_equation.h"
 
 #include <Eigen/Sparse>
 
@@ -22,8 +22,8 @@ public:
     explicit SparseAssembly(const Mesh& mesh);
     SparseAssembly(const Mesh&&) = delete;
 
-    void update(const ScalarEquation& equation);
-    void update(const VectorEquation& equation);
+    void update(const ScalarDiscreteEquation& equation);
+    void update(const VectorDiscreteEquation& equation);
     const Eigen::SparseMatrix<double>& matrix() const { return m_matrix; }
 
 private:
@@ -41,13 +41,13 @@ private:
     std::vector<Index> m_coupled_faces;
 };
 
-Eigen::SparseMatrix<double> assembleMatrix(const ScalarEquation& equation);
-Eigen::SparseMatrix<double> assembleMatrix(const VectorEquation& equation);
-LinearSystem assemble(const ScalarEquation& equation);
-void assembleSource(const ScalarEquation& equation, Eigen::VectorXd& result);
+Eigen::SparseMatrix<double> assembleMatrix(const ScalarDiscreteEquation& equation);
+Eigen::SparseMatrix<double> assembleMatrix(const VectorDiscreteEquation& equation);
+LinearSystem assemble(const ScalarDiscreteEquation& equation);
+void assembleSource(const ScalarDiscreteEquation& equation, Eigen::VectorXd& result);
 void assembleSource(
-    const VectorEquation& equation,
+    const VectorDiscreteEquation& equation,
     std::array<Eigen::VectorXd, 3>& result);
-std::array<Eigen::VectorXd, 3> assembleSource(const VectorEquation& equation);
+std::array<Eigen::VectorXd, 3> assembleSource(const VectorDiscreteEquation& equation);
 
 }  // babelsim 命名空间

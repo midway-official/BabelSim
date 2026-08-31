@@ -1,7 +1,10 @@
 #pragma once
 
-#include "babelsim/linear_solver.h"
+#include "babelsim/discrete_equation.h"
 #include "babelsim/parallel.h"
+#include "babelsim/solver_control.h"
+
+#include <Eigen/Sparse>
 
 #include <memory>
 
@@ -27,16 +30,16 @@ public:
 
     void compute(
         const Eigen::SparseMatrix<double>& local_matrix,
-        const ScalarEquation& equation);
+        const ScalarDiscreteEquation& equation);
     void compute(
         const Eigen::SparseMatrix<double>& local_matrix,
-        const VectorEquation& equation);
+        const VectorDiscreteEquation& equation);
     void factorize(
         const Eigen::SparseMatrix<double>& local_matrix,
-        const ScalarEquation& equation);
+        const ScalarDiscreteEquation& equation);
     void factorize(
         const Eigen::SparseMatrix<double>& local_matrix,
-        const VectorEquation& equation);
+        const VectorDiscreteEquation& equation);
     SolveResult solve(const Eigen::VectorXd& b, Eigen::VectorXd& x);
 
 private:

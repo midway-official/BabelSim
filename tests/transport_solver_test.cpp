@@ -1,4 +1,4 @@
-#include "babelsim/transport.h"
+#include "babelsim/runtime.h"
 
 #include "test_util.h"
 
@@ -19,10 +19,12 @@ int main() {
     control.time = {0.0, 0.1, 0.1};
     control.scalar_solver.absolute_tolerance = 1e-14;
     RunTime run_time = RunTime::forMesh(mesh, control);
-    const ScalarTransportResult result = solveTransientScalarTransport(
-        run_time, concentration, flux, 2.0, 0.0, 6.0);
-
-    require(result.converged && result.steps == 1, "transport equation did not converge");
+    require(run_time.loop(), "transport run did not start its time step");
+    const SolveResult result = solve(
+        fvm::ddt(2.0, concentration) + fvm::div(flux, concentration) ==
+            fvm::laplacian(0.0, concentration) + fvm::source(6.0));
+    require(result.converged(), "transport equation did not converge");
+    require(!run_time.loop() && run_time.step() == 1, "transport time step count changed");
     require(near(concentration[0], 0.3, 1e-12), "transport source update is incorrect");
     std::cout << "transport_solver_test: C=" << concentration[0] << '\n';
 }

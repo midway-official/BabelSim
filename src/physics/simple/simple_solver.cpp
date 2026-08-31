@@ -1,4 +1,4 @@
-#include "internal/simple_state.h"
+#include "state.h"
 
 #include <stdexcept>
 
@@ -20,7 +20,7 @@ void SimpleSolver::solveMomentum() {
     State& state = *m_state;
     if (state.m_step == State::Step::Complete) state.m_step = State::Step::Ready;
     state.requireStep(State::Step::Ready);
-    state.savePreviousState();
+    state.m_algorithm.previous_velocity.assign(state.m_U);
     state.m_result.velocity = state.solveMomentum();
     state.m_step = State::Step::Momentum;
 }

@@ -1,13 +1,16 @@
-#include "internal/simple_state.h"
+#include "state.h"
 #include "babelsim/case.h"
+#include "babelsim/runtime.h"
 
 #include <cmath>
 #include <stdexcept>
 
 namespace babelsim {
+namespace {
 bool finitePositive(double value) {
     return value > 0.0 && std::isfinite(value);
 }
+}  // 匿名命名空间
 
 void FluidProperties::validate() const {
     if (!finitePositive(density) || !finitePositive(dynamic_viscosity)) {
@@ -23,8 +26,6 @@ void SimpleControl::validate() const {
         !finitePositive(continuity_tolerance) || !finitePositive(velocity_tolerance)) {
         throw std::invalid_argument("SIMPLE controls are invalid");
     }
-    velocity_solver.validate();
-    pressure_solver.validate();
 }
 
 SimpleSolver::State::State(
@@ -53,8 +54,8 @@ SimpleSolver::State::State(
     }
     m_fluid.validate();
     m_control.validate();
-    initializePressureCorrectionBoundaries();
-    initializeFaceFlux();
+    m_has_fixed_pressure = setHomogeneousCorrectionBoundaries(m_algorithm.p_prime, m_p);
+    fvc::evaluate(fvc::flux(m_U), m_phi);
 }
 
 SimpleSolver::SimpleSolver(RunTime& run_time, IncompressibleFields& fields,
@@ -92,7 +93,4 @@ SimpleSolver::SimpleSolver(Case& problem)
 
 SimpleSolver::~SimpleSolver() = default;
 
-void SimpleSolver::State::initializeFaceFlux() {
-    simple::initializeFaceFlux(m_U, m_phi);
-}
 }  // babelsim 命名空间

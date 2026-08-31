@@ -2,13 +2,12 @@
 
 #include "babelsim/assembly.h"
 #include "babelsim/distributed_solver.h"
-#include "babelsim/equation.h"
+#include "babelsim/discrete_equation.h"
 #include "babelsim/linear_solver.h"
 #include "babelsim/mpi_support.h"
 #include "babelsim/operators.h"
 #include "babelsim/parallel.h"
-#include "internal/scalar_equation_control.h"
-#include "internal/vector_equation_control.h"
+#include "internal/equation_control.h"
 
 #include <Eigen/Core>
 
@@ -384,7 +383,7 @@ bool RunTime::loop() {
 namespace {
 
 void addScalarSource(
-    ScalarEquation& equation, const Mesh& mesh, const ScalarFvmTerm& term, int canonical)
+    ScalarDiscreteEquation& equation, const Mesh& mesh, const ScalarFvmTerm& term, int canonical)
 {
     const double scale = -static_cast<double>(canonical) * term.coefficient;
     if (term.field == nullptr) {
@@ -402,7 +401,7 @@ void addScalarSource(
 }
 
 void addVectorSource(
-    VectorEquation& equation, const Mesh& mesh, const VectorFvmTerm& term, int canonical)
+    VectorDiscreteEquation& equation, const Mesh& mesh, const VectorFvmTerm& term, int canonical)
 {
     const double scale = -static_cast<double>(canonical);
     for (Index cell : mesh.owned_cells) {
@@ -412,10 +411,6 @@ void addVectorSource(
 }
 
 }  // 匿名命名空间
-
-SolveResult RunTime::solve(const ScalarEquationDefinition& expression) {
-    return solve(expression, {});
-}
 
 SolveResult RunTime::solve(
     const ScalarEquationDefinition& expression,
@@ -439,7 +434,7 @@ SolveResult RunTime::solve(
     }
     ScalarField& unknown = const_cast<ScalarField&>(*unknown_pointer);
     requireCellField(unknown, *state.mesh, "scalar unknown");
-    ScalarEquation equation(*state.mesh);
+    ScalarDiscreteEquation equation(*state.mesh);
 
     const auto add = [&](const std::vector<ScalarFvmTerm>& terms, bool lhs) {
         for (const ScalarFvmTerm& term : terms) {
@@ -557,10 +552,6 @@ SolveResult RunTime::solve(
     return result;
 }
 
-std::array<SolveResult, 3> RunTime::solve(const VectorEquationDefinition& expression) {
-    return solve(expression, {});
-}
-
 std::array<SolveResult, 3> RunTime::solve(
     const VectorEquationDefinition& expression,
     VectorEquationControl equation_control)
@@ -583,7 +574,7 @@ std::array<SolveResult, 3> RunTime::solve(
     }
     VectorField& unknown = const_cast<VectorField&>(*unknown_pointer);
     requireCellField(unknown, *state.mesh, "vector unknown");
-    VectorEquation equation(*state.mesh);
+    VectorDiscreteEquation equation(*state.mesh);
 
     const auto add = [&](const std::vector<VectorFvmTerm>& terms, bool lhs) {
         for (const VectorFvmTerm& term : terms) {
@@ -967,7 +958,7 @@ void RunTime::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target) 
 
 SolveResult solve(const ScalarEquationDefinition& equation) {
     RunTime& time = RunTime::current();
-    const SolveResult result = time.solve(equation);
+    const SolveResult result = time.solve(equation, {});
     if (!result.converged() && time.primary()) {
         std::cerr << "linear solve failed at time=" << time.time()
                   << " iterations=" << result.iterations
@@ -981,7 +972,7 @@ SolveResult solve(const ScalarEquationDefinition& equation) {
 
 SolveResult solve(const VectorEquationDefinition& equation) {
     RunTime& time = RunTime::current();
-    const auto components = time.solve(equation);
+    const auto components = time.solve(equation, {});
     SolveResult result;
     result.status = SolveStatus::Converged;
     for (const SolveResult& component : components) {

@@ -59,7 +59,8 @@ public:
     bool loop();
     double time() const;
     int step() const;
-    void validate() const;
+    // 检查配置已被使用，并关闭新场声明阶段；这不是只读操作。
+    void validate();
     void finish();
 
 private:

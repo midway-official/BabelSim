@@ -1,7 +1,18 @@
 #pragma once
 
-#include "babelsim/field.h"
-#include "babelsim/methods.h"
+#include "babelsim/solver.h"
+
+#include <array>
+
+namespace babelsim::simple {
+
+// SIMPLE 专用数值入口：只接受数学方程和场，不依赖 SimpleSolver 私有状态。
+std::array<SolveResult, 3> solveMomentumEquation(
+    const VectorEquationDefinition& equation, double relaxation, ScalarField& rAU);
+SolveResult solvePressureCorrectionEquation(
+    const ScalarEquationDefinition& equation, bool fix_reference);
+
+}  // babelsim::simple 命名空间
 
 namespace babelsim::detail {
 

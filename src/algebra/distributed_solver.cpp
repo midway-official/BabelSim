@@ -1,7 +1,6 @@
 #include "babelsim/distributed_solver.h"
 
 #include <Eigen/IterativeLinearSolvers>
-#include <unsupported/Eigen/IterativeSolvers>
 
 #include <algorithm>
 #include <cmath>
@@ -478,7 +477,7 @@ DistributedLinearSolver& DistributedLinearSolver::operator=(
 
 void DistributedLinearSolver::compute(
     const Eigen::SparseMatrix<double>& local_matrix,
-    const ScalarEquation& equation)
+    const ScalarDiscreteEquation& equation)
 {
     if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
     auto& state = *m_implementation;
@@ -490,7 +489,7 @@ void DistributedLinearSolver::compute(
 
 void DistributedLinearSolver::compute(
     const Eigen::SparseMatrix<double>& local_matrix,
-    const VectorEquation& equation)
+    const VectorDiscreteEquation& equation)
 {
     if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
     auto& state = *m_implementation;
@@ -502,7 +501,7 @@ void DistributedLinearSolver::compute(
 
 void DistributedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& local_matrix,
-    const ScalarEquation& equation)
+    const ScalarDiscreteEquation& equation)
 {
     if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
     auto& state = *m_implementation;
@@ -514,7 +513,7 @@ void DistributedLinearSolver::factorize(
 
 void DistributedLinearSolver::factorize(
     const Eigen::SparseMatrix<double>& local_matrix,
-    const VectorEquation& equation)
+    const VectorDiscreteEquation& equation)
 {
     if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
     auto& state = *m_implementation;

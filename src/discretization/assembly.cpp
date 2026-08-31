@@ -30,7 +30,7 @@ Eigen::Index coefficientPosition(
 }
 
 template <typename T>
-Eigen::SparseMatrix<double> assembleMatrixImpl(const Equation<T>& equation) {
+Eigen::SparseMatrix<double> assembleMatrixImpl(const DiscreteEquation<T>& equation) {
     SparseAssembly assembly(equationMesh(equation.mesh));
     assembly.update(equation);
     return assembly.matrix();
@@ -122,32 +122,32 @@ void SparseAssembly::update(
     }
 }
 
-void SparseAssembly::update(const ScalarEquation& equation) {
+void SparseAssembly::update(const ScalarDiscreteEquation& equation) {
     equation.validateStorage();
     update(equation.mesh, equation.diagonal, equation.upper, equation.lower);
 }
 
-void SparseAssembly::update(const VectorEquation& equation) {
+void SparseAssembly::update(const VectorDiscreteEquation& equation) {
     equation.validateStorage();
     update(equation.mesh, equation.diagonal, equation.upper, equation.lower);
 }
 
-Eigen::SparseMatrix<double> assembleMatrix(const ScalarEquation& equation) {
+Eigen::SparseMatrix<double> assembleMatrix(const ScalarDiscreteEquation& equation) {
     return assembleMatrixImpl(equation);
 }
 
-Eigen::SparseMatrix<double> assembleMatrix(const VectorEquation& equation) {
+Eigen::SparseMatrix<double> assembleMatrix(const VectorDiscreteEquation& equation) {
     return assembleMatrixImpl(equation);
 }
 
-LinearSystem assemble(const ScalarEquation& equation) {
+LinearSystem assemble(const ScalarDiscreteEquation& equation) {
     LinearSystem system;
     system.A = assembleMatrix(equation);
     assembleSource(equation, system.b);
     return system;
 }
 
-void assembleSource(const ScalarEquation& equation, Eigen::VectorXd& result) {
+void assembleSource(const ScalarDiscreteEquation& equation, Eigen::VectorXd& result) {
     equation.validateStorage();
     const Mesh& mesh = equationMesh(equation.mesh);
     result.resize(mesh.ownedCellCount());
@@ -158,7 +158,7 @@ void assembleSource(const ScalarEquation& equation, Eigen::VectorXd& result) {
 }
 
 void assembleSource(
-    const VectorEquation& equation,
+    const VectorDiscreteEquation& equation,
     std::array<Eigen::VectorXd, 3>& result)
 {
     equation.validateStorage();
@@ -175,7 +175,7 @@ void assembleSource(
     }
 }
 
-std::array<Eigen::VectorXd, 3> assembleSource(const VectorEquation& equation) {
+std::array<Eigen::VectorXd, 3> assembleSource(const VectorDiscreteEquation& equation) {
     std::array<Eigen::VectorXd, 3> result;
     assembleSource(equation, result);
     return result;

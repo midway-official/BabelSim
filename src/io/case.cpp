@@ -203,7 +203,7 @@ ScalarField& Case::faceFlux(const std::string& name, const VectorField& velocity
     return result;
 }
 
-void Case::validate() const {
+void Case::validate() {
     properties().requireAllUsed();
     solution().requireAllUsed();
     m_implementation->started = true;
@@ -214,7 +214,7 @@ bool Case::loop() {
     if (state.finished) return false;
     if (state.run_time.methods().time == TimeMethod::Steady)
         throw std::logic_error("steady case requires an algorithm iteration loop");
-    if (!state.started) { validate(); state.started = true; }
+    if (!state.started) validate();
     if (step() > 0) state.writeStep(false);
     if (state.run_time.loop()) return true;
     finish();

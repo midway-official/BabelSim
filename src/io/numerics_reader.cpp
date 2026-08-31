@@ -87,59 +87,16 @@ TimeMethod timeMethod(
     invalid(path, line, "unknown time method " + value);
 }
 
-void addInterpolationOverride(
+// 四种空间方法共用相同的“Field 名不能重复”规则；类型仍由各自的 enum 保证。
+template <typename Entry, typename Method>
+void addOverride(
     const std::filesystem::path& path,
     const ConfigLine& line,
-    std::vector<Methods::InterpolationOverride>& entries,
-    InterpolationMethod method)
+    std::vector<Entry>& entries,
+    Method method)
 {
     const std::string& field = line.tokens[1];
-    if (field.empty() || std::find_if(entries.begin(), entries.end(), [&](const Methods::InterpolationOverride& entry) {
-            return entry.field == field;
-        }) != entries.end()) {
-        invalid(path, line, "duplicate or empty Field method override");
-    }
-    entries.push_back({field, method});
-}
-
-void addGradientOverride(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    std::vector<Methods::GradientOverride>& entries,
-    GradientMethod method)
-{
-    const std::string& field = line.tokens[1];
-    if (field.empty() || std::find_if(entries.begin(), entries.end(), [&](const Methods::GradientOverride& entry) {
-            return entry.field == field;
-        }) != entries.end()) {
-        invalid(path, line, "duplicate or empty Field method override");
-    }
-    entries.push_back({field, method});
-}
-
-void addConvectionOverride(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    std::vector<Methods::ConvectionOverride>& entries,
-    ConvectionMethod method)
-{
-    const std::string& field = line.tokens[1];
-    if (field.empty() || std::find_if(entries.begin(), entries.end(), [&](const Methods::ConvectionOverride& entry) {
-            return entry.field == field;
-        }) != entries.end()) {
-        invalid(path, line, "duplicate or empty Field method override");
-    }
-    entries.push_back({field, method});
-}
-
-void addDiffusionOverride(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    std::vector<Methods::DiffusionOverride>& entries,
-    DiffusionMethod method)
-{
-    const std::string& field = line.tokens[1];
-    if (field.empty() || std::find_if(entries.begin(), entries.end(), [&](const Methods::DiffusionOverride& entry) {
+    if (field.empty() || std::find_if(entries.begin(), entries.end(), [&](const Entry& entry) {
             return entry.field == field;
         }) != entries.end()) {
         invalid(path, line, "duplicate or empty Field method override");
@@ -172,22 +129,22 @@ Methods readMethodsFile(const std::filesystem::path& path) {
         const std::string& value = line.tokens[override ? 2 : 1];
         if (key == "interpolation") {
             const InterpolationMethod method = interpolation(path, line, value);
-            if (override) addInterpolationOverride(path, line, result.interpolation_overrides, method);
+            if (override) addOverride(path, line, result.interpolation_overrides, method);
             else if (!has_interpolation) { result.interpolation = method; has_interpolation = true; }
             else invalid(path, line, "duplicate interpolation method");
         } else if (key == "gradient") {
             const GradientMethod method = gradient(path, line, value);
-            if (override) addGradientOverride(path, line, result.gradient_overrides, method);
+            if (override) addOverride(path, line, result.gradient_overrides, method);
             else if (!has_gradient) { result.gradient = method; has_gradient = true; }
             else invalid(path, line, "duplicate gradient method");
         } else if (key == "convection") {
             const ConvectionMethod method = convection(path, line, value);
-            if (override) addConvectionOverride(path, line, result.convection_overrides, method);
+            if (override) addOverride(path, line, result.convection_overrides, method);
             else if (!has_convection) { result.convection = method; has_convection = true; }
             else invalid(path, line, "duplicate convection method");
         } else if (key == "diffusion") {
             const DiffusionMethod method = diffusion(path, line, value);
-            if (override) addDiffusionOverride(path, line, result.diffusion_overrides, method);
+            if (override) addOverride(path, line, result.diffusion_overrides, method);
             else if (!has_diffusion) { result.diffusion = method; has_diffusion = true; }
             else invalid(path, line, "duplicate diffusion method");
         } else {

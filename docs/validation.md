@@ -6,7 +6,49 @@
 
 ## 1. 自动测试
 
-本轮 Solver 工作流验收（2026-08-31）另外确认：
+### 1.1 框架维护边界精简验收（2026-08-31）
+
+基线为 `58442b5`。本轮删除重复物理入口、统一离散方程命名、清理 SIMPLE 反向依赖、
+合并重复配置/解析以及分离应用分派后，执行：
+
+```bash
+make -j2 all test test-workflow test-mpi test-mpi-poiseuille
+```
+
+上述目标全部通过。最后一次头文件依赖收紧后再次运行相同命令，未修改数值容差、
+压力/速度线性配置、非正交修正次数或并行停止规则。
+
+| 检查 | 结果 |
+| --- | --- |
+| 生产 src/include 文件 | `64 → 58`，净减 6 个文件 |
+| 生产代码行 | `8724 → 8424`，净减 300 行；排除空行和整行注释，不包含测试/文档 |
+| 架构检查 | 全部 58 个源文件/头文件的项目包含图无环；无缺失头、底层反向包含算法状态或应用分派 |
+| 公开头自包含 | 所有 include/babelsim 头只用 `-Iinclude`（另加 Eigen 路径）独立编译，严格警告加 `-Werror` 通过 |
+| Case/方法选择 | 四种算子按 Field 覆盖值及默认值测试通过；重复配置在 2 rank 上明确失败 |
+| 单节点 SIMPLE | 通道 49、二维腔体 137、三维腔体 57、二维/三维非正交腔体 164/79 次 |
+| MPI SIMPLE | 1/2/4 rank 腔体均 137 次，Poiseuille 均 865 次；停止次数未改变 |
+| MPI 场比较 | Poiseuille 1 对 4 rank：U `6.1705172e-7`、p `1.5343525e-6`；Heat 1 对 2 rank：T `3.7990135e-11` |
+| 真实用户流程 | Heat/Transport/双标量耦合 1/2/4 rank、逐时间结果、失败路径、实际 ParaView PVD/VTU 读取通过 |
+| 定向内存检查 | 新构建的 ASan/UBSan Case 生命周期、时间历史、SIMPLE 测试通过 |
+
+场差异按相同 global ID 对齐后取所有 cell/分量的最大绝对差；不是迭代残差。
+本轮生产文件没有块注释，代码行数由非空且非整行 `//` 的行统计。
+没有增加新的框架类，也没有删除可复用工作数组以换取表面上的代码减少。
+
+ASan/UBSan 使用 `-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer`，
+运行时设 `ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1`。
+关闭泄漏检测，因此只报告这些测试未发现地址/未定义行为错误，不声称已经证明无泄漏，
+也不把单节点检查扩大为完整 MPI sanitizer 覆盖。时间历史测试中的一次
+`vector equation failed` 是刻意设置的线性不收敛用例，测试同时确认不得误报成功。
+
+静态检查和回归不能证明“所有潜在抽象泄漏不存在”；
+[architecture.md](architecture.md) 逐项记录剩余维护接口及允许依赖，尤其是 Field 的
+维护者存储 API、算法初始化/日志对 RunTime 的使用，以及 FVM 执行协调器的职责边界。
+本轮没有重新测量 HPC 加速比，也没有把相同小网格结果当作大规模并行性能证明。
+
+### 1.2 前一阶段 Solver 工作流验收（2026-08-31）
+
+Solver 工作流阶段另外确认：
 
 - SIMPLE 公开头由 187 行降到 40 行；Heat、SIMPLE、transport 主入口分别为
   20、18、21 行（含 include、空行和命名空间）。这只是可读性指标，不替代数值验收。
@@ -35,7 +77,7 @@ make validate-cavity
 make validate-poiseuille
 ```
 
-`make test` 覆盖：
+`make test` 与 `make test-workflow` 合起来覆盖：
 
 - `nz=1` 二维退化、三维六面体几何、非正交与偏斜量；
 - scalar/vector/tensor Field、FixedValue、FixedGradient、ZeroGradient、
@@ -181,8 +223,8 @@ make BUILD=build-sanitize \
   -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1' test
 ```
 
-当前已执行完整 `make test`，覆盖 Field/算子、case IO、通用结果写出、Heat、标量输运、
-SIMPLE、二维/三维与非正交回归的 ASan/UBSan 检查。性能设计重点是
+此前完整 `make test` 的 ASan/UBSan 记录覆盖 Field/算子、case IO、通用结果写出、Heat、标量输运、
+SIMPLE、二维/三维与非正交回归；它是前一版本的验证记录，本轮重新执行的范围见 1.1 节。性能设计重点是
 预计算几何与稀疏模式、复用预条件器/工作向量、避免迭代中的大对象分配，以及只在
 需要 ghost 数据的阶段通信。后续应在代表性三维网格上补充并行规模、内存带宽和
 预条件器性能剖析，而不是把小网格回归时间误作 HPC 可扩展性结论。

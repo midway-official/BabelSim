@@ -1,7 +1,6 @@
 #include "babelsim/linear_solver.h"
 
 #include <Eigen/IterativeLinearSolvers>
-#include <unsupported/Eigen/IterativeSolvers>
 
 #include <algorithm>
 #include <cmath>

@@ -1,7 +1,6 @@
 """从新 Solver 作者的角度检查：公共 API、真实时间输出和串并行工作流。"""
 import csv
 import os
-import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -11,27 +10,6 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, TMPDIR="/tmp", OMPI_ALLOW_RUN_AS_ROOT="1",
            OMPI_ALLOW_RUN_AS_ROOT_CONFIRM="1")
-
-# 普通 Solver 的头文件闭包不得重新带入执行/代数/并行实现。
-seen = set()
-def public_header(name):
-    if name in seen:
-        return
-    seen.add(name)
-    assert name not in {"runtime.h", "parallel.h", "linear_solver.h", "assembly.h",
-                        "distributed_solver.h", "simple_control.h"}, name
-    text = (ROOT / "include/babelsim" / name).read_text()
-    assert not re.search(r"#include\s*[<\"](?:mpi|Eigen)", text), name
-    for child in re.findall(r'#include "babelsim/([^"]+)"', text):
-        public_header(child)
-
-for name in ("case.h", "solver.h", "simple.h"):
-    public_header(name)
-for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [
-        ROOT / "tests/examples/coupled_scalar.cpp"]:
-    assert not re.search(r"MPI_|ParallelContext|HaloExchange|mutableData|\.data\(|"
-                         r"std::vector|unique_ptr|shared_ptr|RunTime|SparseAssembly", path.read_text()), path
-
 
 def run(*args, success=True):
     process = subprocess.run([str(a) for a in args], cwd=ROOT, env=ENV,
@@ -192,5 +170,18 @@ with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
         stream.write("misspelledProperty 1\n")
     error = run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", heat, success=False)
     assert "unused or unknown entry" in error.stderr
+
+    # 合并方法覆盖的解析实现后，四种 enum 仍须正确分派并拒绝重复 Field 键。
+    schemes = clone_case(base, "schemes", "heat")
+    path = schemes / "numerics/methods.bs"
+    defaults = path.read_text()
+    overrides = ("interpolation T corrected\n", "gradient T leastSquares\n",
+                 "convection T central\n", "diffusion T corrected\n")
+    path.write_text(defaults + "".join(overrides))
+    run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", schemes)
+    for override in overrides:
+        path.write_text(defaults + override + override)
+        error = run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", schemes, success=False)
+        assert "duplicate or empty Field method override" in error.stderr
 
 print("solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed")

@@ -46,5 +46,17 @@ int main() {
     require(near(transport_properties.number("diffusivity"), 0.01), "transport diffusivity is incorrect");
     require(methods.convectionFor("C") == ConvectionMethod::Upwind,
             "Field-specific convection method was not read");
+    const Methods overrides = readMethodsFile("tests/data/methods.bs");
+    require(overrides.interpolationFor("T") == InterpolationMethod::Corrected &&
+            overrides.gradientFor("T") == GradientMethod::LeastSquares &&
+            overrides.convectionFor("T") == ConvectionMethod::Central &&
+            overrides.diffusionFor("T") == DiffusionMethod::LimitedCorrected,
+            "method overrides were mixed between operator types");
+    require(overrides.interpolationFor("C") == InterpolationMethod::Linear &&
+            overrides.gradientFor("C") == GradientMethod::GreenGauss &&
+            overrides.convectionFor("C") == ConvectionMethod::Upwind &&
+            overrides.diffusionFor("C") == DiffusionMethod::Orthogonal &&
+            overrides.time == TimeMethod::Euler,
+            "method overrides changed the default or time method");
     std::cout << "case_io_test: SIMPLE, heat-compatible and transport dictionaries passed\n";
 }

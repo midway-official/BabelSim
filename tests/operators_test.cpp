@@ -215,7 +215,7 @@ int main() {
     flux(
         advecting_velocity, advecting_flux,
         InterpolationMethod::Corrected, GradientMethod::LeastSquares);
-    ScalarEquation warped_convection(warped);
+    ScalarDiscreteEquation warped_convection(warped);
     addConvection(
         warped_convection, advecting_flux, warped_linear,
         ConvectionMethod::Central, InterpolationMethod::Corrected,
@@ -238,7 +238,7 @@ int main() {
     require(
         near(convection_residual, exact_convection, 1e-10),
         "corrected central convection is not affine exact on a warped cell");
-    VectorEquation warped_vector_convection(warped);
+    VectorDiscreteEquation warped_vector_convection(warped);
     addConvection(
         warped_vector_convection, advecting_flux, warped_vector,
         ConvectionMethod::Central, InterpolationMethod::Corrected,
@@ -265,7 +265,7 @@ int main() {
     require(
         near(vector_convection_residual, exact_vector_convection, 1e-10),
         "corrected central vector convection is not affine exact");
-    VectorEquation vector_diffusion(skewed);
+    VectorDiscreteEquation vector_diffusion(skewed);
     addDiffusion(
         vector_diffusion, 1.0, skewed_vector,
         GradientMethod::LeastSquares, DiffusionMethod::Corrected);
@@ -305,7 +305,7 @@ int main() {
             "skew-corrected vector reconstruction is not affine exact");
     }
 
-    ScalarEquation time_equation(mesh);
+    ScalarDiscreteEquation time_equation(mesh);
     addTimeDerivative(
         time_equation, linear, 0.25, 2.0, TimeMethod::BDF2, &quadratic);
     const double coefficient = 2.0 * mesh.cell_volumes[
@@ -316,7 +316,7 @@ int main() {
         "BDF2 diagonal is incorrect");
     VectorField older_velocity(
         mesh, FieldLocation::Cell, "olderU", {0.5, -0.25, 0.75});
-    VectorEquation vector_time_equation(mesh);
+    VectorDiscreteEquation vector_time_equation(mesh);
     addTimeDerivative(
         vector_time_equation, velocity, 0.25, 2.0,
         TimeMethod::BDF2, &older_velocity);
@@ -331,7 +331,7 @@ int main() {
     ScalarField uniform_flux(mesh, FieldLocation::Face, "uniformPhi");
     flux(uniform_velocity, uniform_flux);
     ScalarField constant(mesh, FieldLocation::Cell, "constant", 2.0);
-    ScalarEquation convection(mesh);
+    ScalarDiscreteEquation convection(mesh);
     addConvection(convection, uniform_flux, constant, ConvectionMethod::Upwind);
     double maximum_constant_residual = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
@@ -352,7 +352,7 @@ int main() {
     require(
         maximum_constant_residual < 1e-11,
         "upwind convection does not preserve a constant field");
-    ScalarEquation central_convection(mesh);
+    ScalarDiscreteEquation central_convection(mesh);
     addConvection(
         central_convection, uniform_flux, constant,
         ConvectionMethod::Central);

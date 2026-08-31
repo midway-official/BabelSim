@@ -22,7 +22,7 @@ Physics   如何组合方程与算子解决具体物理问题
 MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 Runtime 自动处理。
 
 Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
-采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE、PIMPLE 和耦合算法采用
+采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE 和耦合算法采用
 **Algorithm-driven**，用多个 Equation 与 Correction 直接表达算法流程。两者共享同一套
 Field、`fvm/fvc`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
 
@@ -44,9 +44,13 @@ Field、`fvm/fvc`、离散、线性代数和 MPI Runtime，不建立两套 Frame
   rank 重复保留全局 Mesh/Field；
 - 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
 - OpenFOAM 风格的轻量 `fvm/fvc`：数学表达式只在 `solve()` 时离散，不复制大矩阵；
-- `heat` 瞬态热传导 Solver，支持常数或 Field 系数；
+- `heat` 常物性瞬态热传导入口；通用方程 API 同时支持常数或 Field 系数；
 - `transport` 瞬态对流-扩散 Solver，复用标量 Field、`fvm::ddt/div/laplacian` 与边界；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
+
+维护者以 [架构与文件边界](docs/architecture.md) 为准：数学 EquationDefinition 与
+DiscreteEquation 存储分开，SIMPLE 状态只归算法，线性控制只归运行配置。
+Heat/Transport 不再维护重复的库式入口。`make test-architecture` 自动检查项目头依赖和分层约束。
 
 ## 构建与运行
 

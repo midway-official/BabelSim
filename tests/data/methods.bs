@@ -1,0 +1,10 @@
+# 通用默认值与同一个 Field 的四种独立格式覆盖。
+interpolation linear
+gradient greenGauss
+convection upwind
+diffusion orthogonal
+time euler
+interpolation T corrected
+gradient T leastSquares
+convection T central
+diffusion T limitedCorrected

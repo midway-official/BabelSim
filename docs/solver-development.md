@@ -28,7 +28,7 @@
 `solver.h` 的包含关系不再带入 `runtime.h` 或 MPI/Eigen 头文件；自动测试检查这条边界。
 
 必要 C++ 只有普通函数、变量、引用、运算符、条件和循环。`ScalarField& T` 中的
-&` 表示使用 Case 已拥有的场；不要写成 `auto T = ...`，那会复制 Field，
+`&` 表示使用 Case 已拥有的场；不要写成 `auto T = ...`，那会复制 Field，
 后续修改不再作用于 Case 自动输出的对象。可用 `auto&`，不必使用模板或自行管理所有权。
 
 ## 2. 新增方程驱动 Solver：只新增一个源文件
@@ -55,6 +55,8 @@ int runSpecies(Case& problem) {
 ```
 
 这就是完整 Solver，不需要再写 Case reader、执行入口类、析构函数或输出代码。
+也不需要同时提供一个专用头文件和 solveTransientXXX 库函数；原来的 Heat/Transport
+重复库式入口已经删除。测试需要内存输入时直接调用同一套通用数学 API。
 `Makefile` 自动收集 `src/physics/*/main.cpp`；只在
 `src/apps/solver_selection.cpp` 增加声明和一行显式选择：
 
@@ -180,6 +182,7 @@ SIMPLE 的公开 API 是 loop、五个步骤和 converged；内部状态不属�
 读耦合双场例子 → 再读 SIMPLE 的 main/momentum/pressure。无需先通读框架实现。
 
 维护者则从 architecture.md 的所有权与执行契约开始，读 Runtime、离散、代数和并行测试。
+`make test-architecture` 独立检查头文件依赖与层次约束，且已纳入下面两个测试目标。
 每次改变接口都跑 `make test test-workflow`，涉及执行层还需
 `make test-mpi test-mpi-poiseuille`。
 

@@ -1,5 +1,6 @@
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
+#include "babelsim/runtime.h"
 
 #include "test_util.h"
 
@@ -73,7 +74,10 @@ int main() {
             static_cast<Index>(side), BoundaryCondition<double>::symmetry());
     }
 
-    Methods methods;
+    RuntimeControl run_control;
+    run_control.scalar_solver.solver = LinearSolverType::ConjugateGradient;
+    run_control.scalar_solver.preconditioner = PreconditionerType::IncompleteCholesky;
+    Methods& methods = run_control.methods;
     methods.gradient = GradientMethod::LeastSquares;
     methods.convection = ConvectionMethod::Upwind;
     methods.diffusion = DiffusionMethod::Corrected;
@@ -83,12 +87,12 @@ int main() {
     control.pressure_relaxation = 0.2;
     control.continuity_tolerance = 1e-8;
     control.velocity_tolerance = 1e-6;
-    control.velocity_solver.absolute_tolerance = 1e-15;
-    control.velocity_solver.relative_tolerance = 1e-9;
-    control.pressure_solver.absolute_tolerance = 1e-15;
-    control.pressure_solver.relative_tolerance = 1e-9;
+    run_control.vector_solver.absolute_tolerance = 1e-15;
+    run_control.vector_solver.relative_tolerance = 1e-9;
+    run_control.scalar_solver.absolute_tolerance = 1e-15;
+    run_control.scalar_solver.relative_tolerance = 1e-9;
 
-    RunTime run_time = RunTime::forMesh(mesh, simpleRunTimeControl(methods, control));
+    RunTime run_time = RunTime::forMesh(mesh, run_control);
     SimpleSolver solver(run_time, fields, {1.0, 0.01}, control);
     SimpleIterationResult result;
     int iterations = 0;

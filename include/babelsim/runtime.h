@@ -65,9 +65,7 @@ private:
     void synchronize(ScalarField& field);
     void synchronize(VectorField& field);
     void synchronize(TensorField& field);
-    SolveResult solve(const ScalarEquationDefinition& equation);
     SolveResult solve(const ScalarEquationDefinition& equation, ScalarEquationControl control);
-    std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation);
     std::array<SolveResult, 3> solve(
         const VectorEquationDefinition& equation,
         VectorEquationControl control);

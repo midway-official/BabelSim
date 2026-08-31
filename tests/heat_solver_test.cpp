@@ -1,4 +1,4 @@
-#include "babelsim/thermal.h"
+#include "babelsim/runtime.h"
 
 #include "babelsim/fvm.h"
 
@@ -25,10 +25,11 @@ int main() {
     control.scalar_solver.relative_tolerance = 1e-12;
     RunTime run_time = RunTime::forMesh(mesh, control);
 
-    const HeatResult result = solveTransientHeat(
-        run_time, temperature, {1.0, 1.0, 1.0});
-    require(result.converged, "heat equation did not converge");
-    require(result.steps == 1, "heat run used an unexpected number of time steps");
+    require(run_time.loop(), "heat run did not start its time step");
+    const SolveResult result = solve(
+        fvm::ddt(temperature) == fvm::laplacian(1.0, temperature));
+    require(result.converged(), "heat equation did not converge");
+    require(!run_time.loop(), "heat run used an unexpected number of time steps");
     require(
         near(temperature[0], 10.0 / 22.0, 1e-12),
         "implicit heat equation does not match the one-cell FVM result");
@@ -57,10 +58,11 @@ int main() {
     for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
         field_temperature.boundary(patch) = fixedValue(0.0);
     }
-    const SolveResult field_result = solveHeatStep(
-        run_time, field_temperature, {heat_capacity, conductivity, field_source});
+    const SolveResult field_result = solve(
+        fvm::ddt(heat_capacity, field_temperature) ==
+            fvm::laplacian(conductivity, field_temperature) + fvm::source(field_source));
     require(field_result.converged(), "Field-material heat step did not converge");
 
     std::cout << "heat_solver_test: T=" << temperature[0]
-              << " residual=" << result.linear.relative_residual << '\n';
+              << " residual=" << result.relative_residual << '\n';
 }

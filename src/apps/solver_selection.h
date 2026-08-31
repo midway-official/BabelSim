@@ -1,5 +1,6 @@
 #pragma once
 
+// 应用层的显式分派声明，不属于普通 Solver 或数值后端的接口。
 namespace babelsim {
 class Case;
 

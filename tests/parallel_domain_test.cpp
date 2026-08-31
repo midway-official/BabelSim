@@ -172,13 +172,13 @@ int main(int argc, char* argv[]) {
         }
         halo.exchange(previous);
         halo.exchange(older);
-        ScalarEquation time_equation(local);
+        ScalarDiscreteEquation time_equation(local);
         addTimeDerivative(time_equation, previous, 0.2, 2.0, TimeMethod::Euler);
         addTimeDerivative(
             time_equation, previous, 0.2, 2.0, TimeMethod::BDF2, &older);
-        ScalarEquation convection_equation(local);
+        ScalarDiscreteEquation convection_equation(local);
         addConvection(convection_equation, face_flux, affine, ConvectionMethod::Upwind);
-        ScalarEquation corrected_equation(local);
+        ScalarDiscreteEquation corrected_equation(local);
         addDiffusion(
             corrected_equation, 1.0, affine,
             GradientMethod::LeastSquares, DiffusionMethod::Corrected);
@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
             generic_assembly.matrix().rows() == local.ownedCellCount(),
             "generic distributed operators generated ghost matrix rows");
 
-        ScalarEquation equation(local);
+        ScalarDiscreteEquation equation(local);
         std::fill(equation.diagonal.begin(), equation.diagonal.end(), 2.0);
         SparseAssembly assembly(local);
         assembly.update(equation);
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
         diffusion.setBoundary(
             static_cast<Index>(Side::XMax),
             BoundaryCondition<double>::fixedValue(2.0));
-        ScalarEquation diffusion_equation(local);
+        ScalarDiscreteEquation diffusion_equation(local);
         addDiffusion(
             diffusion_equation, 1.0, diffusion,
             GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
@@ -331,7 +331,7 @@ int main(int argc, char* argv[]) {
         flux(
             advecting_velocity, advecting_flux,
             InterpolationMethod::Corrected, GradientMethod::LeastSquares);
-        ScalarEquation skew_convection(skew);
+        ScalarDiscreteEquation skew_convection(skew);
         addConvection(
             skew_convection, advecting_flux, skew_linear,
             ConvectionMethod::Central, InterpolationMethod::Corrected,

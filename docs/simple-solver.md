@@ -31,7 +31,7 @@ SIMPLE 算法本身仍是有状态的；复杂性没有被删掉，而是放在�
 | simple/convergence.cpp | 维护停止语义的人；全局诊断、日志 |
 | simple/simple_solver.cpp | 维护算法执行的人；步骤顺序检查和单次迭代入口 |
 | include/babelsim/simple.h | 普通调用者；简短算法接口 |
-| src/internal/simple_state.h | 框架/算法维护者；完整私有状态 |
+| src/physics/simple/state.h | 框架/算法维护者；完整私有状态，只供本算法包含 |
 | simple_discretization.cpp | 数值核维护者；动量对角、压力参考和插值执行 |
 
 此前 simple_case.cpp 混在一起的读入、外循环、日志和输出已经拆清：通用 Case 读入/输出，
@@ -112,3 +112,9 @@ BabelSim 因此保留必要的专用数值语义，但不复制 tmp<>、fvMatrix
 simple_control.h 和带 RunTime/IncompressibleFields 参数的构造入口保留给内存型测试。
 普通 Case Solver 不使用它们；公开主头不包含 runtime.h 或 simple_control.h。
 这避免让每个使用 SIMPLE 的人先学习所有内部对象，同时保持现有数值回归直接可用。
+
+SimpleControl 只保存算法控制；线性求解配置唯一保存在 RuntimeControl，旧的
+velocity_solver/pressure_solver 和 simpleRunTimeControl 已移除。内存测试直接配置
+RuntimeControl.scalar_solver/vector_solver，再创建 RunTime。
+simple_control.h 不再包含 RunTime，也不混放专用离散函数；这些声明位于
+src/internal/simple_discretization.h，专用数值实现不能反向包含 state.h。

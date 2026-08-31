@@ -1,4 +1,5 @@
-#include "internal/simple_state.h"
+#include "state.h"
+#include "babelsim/runtime.h"
 
 #include <cmath>
 #include <iomanip>
