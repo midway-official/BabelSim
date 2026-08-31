@@ -12,7 +12,6 @@ std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
     ScalarField& phi = m_fields.face_flux;
     ScalarField& rAU = m_algorithm.rAU;
 
-    m_algorithm.previous_velocity.assign(U);
     VectorEquationControl control;
     control.relaxation = m_control.velocity_relaxation;
     control.mobility = &rAU;
@@ -22,33 +21,16 @@ std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
         control);
 }
 
+void SimpleSolver::savePreviousState() {
+    m_algorithm.previous_velocity.assign(m_fields.velocity);
+}
+
 void SimpleSolver::predictMomentumFlux() {
     // phiHbyA：同位网格中的动量插值/Rhie-Chow 重构。这里是 SIMPLE 的私有数值
     // 步骤；物理通量 phi 只在压力方程完成后更新。
-    const VectorField& U = m_fields.velocity;
-    const ScalarField& p = m_fields.pressure;
-    const ScalarField& rAU = m_algorithm.rAU;
-    ScalarField& phiHbyA = m_algorithm.phiHbyA;
-
-    fvc::evaluate(fvc::grad(p), m_workspace.grad_p);
-    fvc::evaluate(fvc::flux(U), phiHbyA);
-    for (Index cell : m_mesh.owned_cells) {
-        m_workspace.rAU_grad_p[cell] =
-            rAU[cell] * m_workspace.grad_p[cell];
-    }
-    fvc::evaluate(
-        fvc::interpolate(m_workspace.rAU_grad_p),
-        m_workspace.rAU_grad_p_face);
-    fvc::evaluate(
-        fvc::interpolate(rAU), m_workspace.rAU_face);
-    for (Index face : m_mesh.owned_faces) {
-        const std::size_t index = static_cast<std::size_t>(face);
-        if (m_mesh.face_neighbour[index] == invalid_index) continue;
-        phiHbyA[face] +=
-            dot(m_workspace.rAU_grad_p_face[face], m_mesh.face_area_vectors[index]) -
-            m_workspace.rAU_face[face] * fvc::integratedNormalGradient(
-                p, m_workspace.grad_p, face, m_methods.diffusion);
-    }
+    m_workspace.predictMomentumFlux(
+        m_methods, m_fields.velocity, m_fields.pressure,
+        m_algorithm.rAU, m_algorithm.phiHbyA);
 }
 
 }  // babelsim 命名空间

@@ -1,5 +1,7 @@
 #include "babelsim/operators.h"
 
+#include "internal/incompressible_discretization.h"
+
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 
@@ -899,6 +901,58 @@ void flux(
             face_velocity, mesh.face_area_vectors[f]);
     }
 }
+
+void diffusionFlux(
+    const ScalarField& face_diffusivity,
+    const ScalarField& scalar,
+    const VectorField& scalar_gradient,
+    ScalarField& face_flux,
+    DiffusionMethod diffusion_method)
+{
+    const Mesh& mesh = scalar.mesh();
+    requireField(face_diffusivity, mesh, FieldLocation::Face, "face diffusivity");
+    requireField(scalar, mesh, FieldLocation::Cell, "diffusion field");
+    requireField(scalar_gradient, mesh, FieldLocation::Cell, "diffusion gradient");
+    requireField(face_flux, mesh, FieldLocation::Face, "diffusion flux");
+    for (Index face = 0; face < mesh.faceCount(); ++face) {
+        const double diffusivity = face_diffusivity[face];
+        if (!(diffusivity >= 0.0) || !std::isfinite(diffusivity)) {
+            throw std::invalid_argument("face diffusivity must be non-negative and finite");
+        }
+        face_flux[face] = diffusivity * integratedNormalGradient(
+            scalar, scalar_gradient, face, diffusion_method);
+    }
+}
+
+namespace detail {
+
+void applyMomentumInterpolation(
+    const ScalarField& pressure,
+    const VectorField& pressure_gradient,
+    const ScalarField& face_mobility,
+    const VectorField& face_pressure_response,
+    ScalarField& predicted_flux,
+    DiffusionMethod method)
+{
+    const Mesh& mesh = pressure.mesh();
+    requireField(pressure, mesh, FieldLocation::Cell, "pressure");
+    requireField(pressure_gradient, mesh, FieldLocation::Cell, "pressure gradient");
+    requireField(face_mobility, mesh, FieldLocation::Face, "face mobility");
+    requireField(
+        face_pressure_response, mesh, FieldLocation::Face,
+        "face pressure response");
+    requireField(predicted_flux, mesh, FieldLocation::Face, "predicted flux");
+    for (Index face : mesh.owned_faces) {
+        const std::size_t index = static_cast<std::size_t>(face);
+        if (mesh.face_neighbour[index] == invalid_index) continue;
+        predicted_flux[face] +=
+            dot(face_pressure_response[face], mesh.face_area_vectors[index]) -
+            face_mobility[face] * integratedNormalGradient(
+                pressure, pressure_gradient, face, method);
+    }
+}
+
+}  // detail 命名空间
 
 void divergence(
     const VectorField& vector,

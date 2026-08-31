@@ -58,6 +58,13 @@ void flux(
     InterpolationMethod method = InterpolationMethod::Corrected,
     GradientMethod gradient_method = GradientMethod::LeastSquares);
 
+void diffusionFlux(
+    const ScalarField& face_diffusivity,
+    const ScalarField& scalar,
+    const VectorField& scalar_gradient,
+    ScalarField& face_flux,
+    DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
+
 void divergence(
     const VectorField& vector,
     ScalarField& result,

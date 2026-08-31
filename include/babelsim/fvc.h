@@ -19,6 +19,13 @@ struct FaceFlux {
     const VectorField& velocity;
 };
 
+// 标量扩散面通量：coefficient * Sf·grad(field)。coefficient 可位于 cell 或 face，
+// Runtime 负责同步、插值和梯度工作区。
+struct ScalarDiffusionFlux {
+    const ScalarField& coefficient;
+    const ScalarField& field;
+};
+
 struct FaceDivergence {
     const ScalarField& flux;
 };
@@ -76,6 +83,12 @@ Vec3 integratedNormalGradient(
 inline ScalarGradient grad(const ScalarField& field) { return {field}; }
 inline VectorGradient grad(const VectorField& field) { return {field}; }
 inline FaceFlux flux(const VectorField& velocity) { return {velocity}; }
+inline ScalarDiffusionFlux flux(
+    const ScalarField& coefficient,
+    const ScalarField& field)
+{
+    return {coefficient, field};
+}
 inline FaceDivergence div(const ScalarField& flux) { return {flux}; }
 inline VectorDivergence div(const VectorField& field) { return {field}; }
 inline ScalarConvection div(const ScalarField& flux, const ScalarField& field) {

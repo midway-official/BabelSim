@@ -75,10 +75,16 @@ fvc::evaluate(fvc::div(phi), div_phi);
 | `fvc::interpolate(cellField)` | face scalar/vector | 面中心重构 |
 | `fvc::reconstruct(field,grad)` | face scalar/vector | 已知梯度的偏斜面重构 |
 | `fvc::laplacian(k,T)` | cell scalar | 显式扩散散度 |
+| `fvc::subtract(rAU, fvc::grad(p'), U)` | cell vector | 原位执行 \(U\leftarrow U-rAU\nabla p'\) |
+| `fvc::subtract(fvc::flux(rAU,p'), phi)` | face scalar | 原位执行 \(\phi\leftarrow\phi-rAU_fS_f\cdot\nabla p'\) |
 
 对流显式求值使用 `Methods::convection` 的 Upwind/Central 选择；Central 且选择 corrected
 插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 Runtime 自动选择当前方法，
 调用者不应自行 halo 或重构 ghost。
+
+`fvc::subtract` 是面向修正算法的原位显式操作：Runtime 复用梯度、面系数和面通量工作场，
+再同步结果。它避免 SIMPLE Solver 为 `grad(p')`、`rAU_f` 和每个 face 的扩散通量编写
+cell/face 循环；该 API 不生成隐式方程，也不暴露工作场的存储。
 
 ## 非正交与偏斜处理
 

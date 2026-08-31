@@ -114,7 +114,8 @@ struct RunTime::Implementation {
           scalar_source(Eigen::VectorXd::Zero(mesh_value.ownedCellCount())),
           scalar_solution(Eigen::VectorXd::Zero(mesh_value.ownedCellCount())),
           gradient_workspace(mesh_value, FieldLocation::Cell, "grad"),
-          face_coefficient_workspace(mesh_value, FieldLocation::Face, "faceCoefficient")
+          face_coefficient_workspace(mesh_value, FieldLocation::Face, "faceCoefficient"),
+          face_flux_workspace(mesh_value, FieldLocation::Face, "faceFlux")
     {
         mesh->validate();
         control.validate();
@@ -195,6 +196,7 @@ struct RunTime::Implementation {
     std::vector<VectorHistory> vector_histories;
     VectorField gradient_workspace;
     ScalarField face_coefficient_workspace;
+    ScalarField face_flux_workspace;
     double current_time = 0.0;
     int current_step = 0;
 };
@@ -871,6 +873,59 @@ void RunTime::evaluate(fvc::ScalarLaplacian operation, ScalarField& result) {
     state.synchronize(result);
 }
 
+void RunTime::subtract(
+    const ScalarField& coefficient,
+    fvc::ScalarGradient operation,
+    VectorField& target)
+{
+    Implementation& state = *m_implementation;
+    requireCellField(coefficient, *state.mesh, "gradient multiplier");
+    requireCellField(operation.field, *state.mesh, "gradient input");
+    requireCellField(target, *state.mesh, "gradient correction target");
+    state.synchronize(const_cast<ScalarField&>(coefficient));
+    state.synchronize(const_cast<ScalarField&>(operation.field));
+    gradient(
+        operation.field, state.gradient_workspace,
+        state.control.methods.gradient);
+    state.synchronize(state.gradient_workspace);
+    target.addProduct(-1.0, coefficient, state.gradient_workspace);
+    state.synchronize(target);
+}
+
+void RunTime::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target) {
+    Implementation& state = *m_implementation;
+    requireCellField(operation.field, *state.mesh, "diffusion-flux field");
+    requireFaceField(target, *state.mesh, "diffusion-flux target");
+    if (&operation.coefficient.mesh() != state.mesh ||
+        (operation.coefficient.location() != FieldLocation::Cell &&
+         operation.coefficient.location() != FieldLocation::Face)) {
+        throw std::invalid_argument(
+            "diffusion-flux coefficient must be a cell or face field on the run mesh");
+    }
+    state.synchronize(const_cast<ScalarField&>(operation.field));
+    state.synchronize(const_cast<ScalarField&>(operation.coefficient));
+    gradient(
+        operation.field, state.gradient_workspace,
+        state.control.methods.gradient);
+    state.synchronize(state.gradient_workspace);
+
+    const ScalarField* face_coefficient = &operation.coefficient;
+    if (operation.coefficient.location() == FieldLocation::Cell) {
+        interpolate(
+            operation.coefficient, state.face_coefficient_workspace,
+            state.control.methods.interpolation,
+            state.control.methods.gradient);
+        state.synchronize(state.face_coefficient_workspace);
+        face_coefficient = &state.face_coefficient_workspace;
+    }
+    diffusionFlux(
+        *face_coefficient, operation.field, state.gradient_workspace,
+        state.face_flux_workspace, state.control.methods.diffusion);
+    state.synchronize(state.face_flux_workspace);
+    target.addScaled(-1.0, state.face_flux_workspace);
+    state.synchronize(target);
+}
+
 SolveResult solve(const ScalarEquationDefinition& equation) {
     return RunTime::current().solve(equation);
 }
@@ -934,6 +989,18 @@ void evaluate(VectorReconstruction operation, VectorField& result) {
 }
 void evaluate(ScalarLaplacian operation, ScalarField& result) {
     RunTime::current().evaluate(operation, result);
+}
+
+void subtract(
+    const ScalarField& coefficient,
+    ScalarGradient operation,
+    VectorField& target)
+{
+    RunTime::current().subtract(coefficient, operation, target);
+}
+
+void subtract(ScalarDiffusionFlux operation, ScalarField& target) {
+    RunTime::current().subtract(operation, target);
 }
 
 }  // fvc 命名空间

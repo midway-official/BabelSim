@@ -40,6 +40,21 @@ int main() {
     require(near(boundaryFaceValue(scalar, ymax, 1.0), 2.0), "outlet failed");
     require(near(boundaryFaceValue(scalar, zmin), 2.0), "scalar symmetry failed");
 
+    ScalarField correction(mesh, FieldLocation::Cell, "phiPrime");
+    const bool has_fixed_value = setHomogeneousCorrectionBoundaries(correction, scalar);
+    require(has_fixed_value, "fixed scalar boundary was not detected");
+    require(
+        correction.boundary(static_cast<Index>(Side::XMin)).type == BoundaryType::FixedValue &&
+        near(correction.boundary(static_cast<Index>(Side::XMin)).value, 0.0),
+        "fixed correction boundary is not homogeneous");
+    require(
+        correction.boundary(static_cast<Index>(Side::ZMin)).type == BoundaryType::Symmetry,
+        "symmetry correction boundary changed type");
+    require(
+        correction.boundary(static_cast<Index>(Side::XMax)).type == BoundaryType::ZeroGradient &&
+        correction.boundary(static_cast<Index>(Side::YMax)).type == BoundaryType::ZeroGradient,
+        "non-value correction boundary is not zeroGradient");
+
     VectorField vector(mesh, FieldLocation::Cell, "U", {1.0, 2.0, 3.0});
     vector.setBoundary(
         static_cast<Index>(Side::ZMax),

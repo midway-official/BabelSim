@@ -4,19 +4,9 @@
 #include <stdexcept>
 
 namespace babelsim {
-namespace {
-
 bool finitePositive(double value) {
     return value > 0.0 && std::isfinite(value);
 }
-
-bool healthy(const SolveResult& result) {
-    return result.status != SolveStatus::NumericalFailure &&
-        std::isfinite(result.final_residual) &&
-        std::isfinite(result.relative_residual);
-}
-
-}  // 匿名命名空间
 
 void FluidProperties::validate() const {
     if (!finitePositive(density) || !finitePositive(dynamic_viscosity)) {
@@ -71,6 +61,7 @@ SimpleIterationResult SimpleSolver::iterate() {
 
     // 该顺序就是 SIMPLE：UEqn 生成 rAU/预测通量，pEqn 在非正交循环中求 pPrime，
     // 随后分别修正 U 和 phi，最后用全局连续性与速度变化判定外迭代。
+    savePreviousState();
     result.velocity = solveMomentum();
     const PressureEquationResult pressure = solvePressure();
     correctVelocity();
@@ -95,7 +86,7 @@ void SimpleSolver::checkContinuityAndConvergence(
         std::isfinite(result.continuity.relative);
     bool local_linear_converged = pressure.linear_converged;
     for (const SolveResult& velocity_result : result.velocity) {
-        local_healthy = local_healthy && healthy(velocity_result);
+        local_healthy = local_healthy && velocity_result.healthy();
         local_linear_converged =
             local_linear_converged && velocity_result.converged();
     }

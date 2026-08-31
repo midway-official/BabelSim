@@ -18,13 +18,15 @@ make validate-poiseuille
 
 - `nz=1` 二维退化、三维六面体几何、非正交与偏斜量；
 - scalar/vector/tensor Field、FixedValue、FixedGradient、ZeroGradient、
-  InletOutlet、Symmetry/Mirror；
+  InletOutlet、Symmetry/Mirror，以及压力修正齐次边界映射；
 - Green-Gauss/Least-Squares 梯度、插值、重构、通量、散度、中心/迎风对流、
   正交/非正交扩散、Laplacian、Euler/BDF2；
 - Runtime 隐藏的离散 LDU 装配、Field 系数时间/扩散项、稀疏结构复用与串行线性求解；
 - `case.bs`、物性/数值字典、花括号 `.field`、通用 scalar/vector/tensor 结果写出与
   result reader；
 - Heat、标量输运和 SIMPLE 对同一 `fvm/fvc/solve` 路径的复用检查；
+- `fvc::subtract` 的 cell 梯度修正和 face 扩散通量修正，确保 SIMPLE 不以手写 Field 索引
+  绕过 Runtime 的非正交、halo 与连续存储路径；
 - 小通道、二维腔体、三维腔体、二维扭曲和三维扭曲非正交腔体的 SIMPLE 回归。
 
 代表性回归结果：

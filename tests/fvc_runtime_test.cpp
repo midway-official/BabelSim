@@ -43,6 +43,26 @@ int main() {
             "cell explicit diffusivity was not interpolated consistently");
     }
 
+    VectorField velocity_correction(mesh, FieldLocation::Cell, "Ucorrected", {1.0, 1.0, 1.0});
+    fvc::subtract(cell_diffusivity, fvc::grad(scalar), velocity_correction);
+    for (Index cell : mesh.owned_cells) {
+        require(
+            near(
+                velocity_correction[cell],
+                Vec3{1.0, 1.0, 1.0} - 2.0 * scalar_gradient[cell]),
+            "high-level gradient correction is inconsistent");
+    }
+
+    ScalarField flux_correction(mesh, FieldLocation::Face, "pFlux", 0.0);
+    fvc::subtract(fvc::flux(cell_diffusivity, scalar), flux_correction);
+    for (Index face = 0; face < mesh.faceCount(); ++face) {
+        const double expected = -2.0 * fvc::integratedNormalGradient(
+            scalar, scalar_gradient, face, control.methods.diffusion);
+        require(
+            near(flux_correction[face], expected),
+            "high-level diffusion-flux correction is inconsistent");
+    }
+
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     TensorField velocity_gradient(mesh, FieldLocation::Cell, "gradU");
     VectorField reconstructed_velocity(mesh, FieldLocation::Face, "Urec");

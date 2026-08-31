@@ -64,6 +64,11 @@ void evaluate(VectorInterpolation operation, VectorField& result);
 void evaluate(ScalarReconstruction operation, ScalarField& result);
 void evaluate(VectorReconstruction operation, VectorField& result);
 void evaluate(ScalarLaplacian operation, ScalarField& result);
+void subtract(
+    const ScalarField& coefficient,
+    ScalarGradient operation,
+    VectorField& target);
+void subtract(ScalarDiffusionFlux operation, ScalarField& target);
 }  // fvc 命名空间
 
 namespace diagnostics {
@@ -120,6 +125,11 @@ private:
     void evaluate(fvc::ScalarReconstruction operation, ScalarField& result);
     void evaluate(fvc::VectorReconstruction operation, VectorField& result);
     void evaluate(fvc::ScalarLaplacian operation, ScalarField& result);
+    void subtract(
+        const ScalarField& coefficient,
+        fvc::ScalarGradient operation,
+        VectorField& target);
+    void subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target);
     double relativeChange(const VectorField& current, const VectorField& previous) const;
     double relativeChange(const ScalarField& current, const ScalarField& previous) const;
     double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;
@@ -147,6 +157,9 @@ private:
     friend void fvc::evaluate(fvc::ScalarReconstruction, ScalarField&);
     friend void fvc::evaluate(fvc::VectorReconstruction, VectorField&);
     friend void fvc::evaluate(fvc::ScalarLaplacian, ScalarField&);
+    friend void fvc::subtract(
+        const ScalarField&, fvc::ScalarGradient, VectorField&);
+    friend void fvc::subtract(fvc::ScalarDiffusionFlux, ScalarField&);
     friend double diagnostics::relativeChange(const VectorField&, const VectorField&);
     friend double diagnostics::relativeChange(const ScalarField&, const ScalarField&);
     friend double diagnostics::relativeMagnitude(const ScalarField&, const ScalarField&);

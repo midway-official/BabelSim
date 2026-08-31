@@ -43,7 +43,7 @@ solve(
         -fvc::grad(p) + fvm::laplacian(mu, U));
 
 solve(
-    -fvm::laplacian(rAUFace, pPrime) ==
+    -fvm::laplacian(rAU, pPrime) ==
         -fvm::source(divPhiHbyA));
 ```
 
@@ -56,7 +56,7 @@ PIMPLE、Projection Method 或多物理场耦合以后也应遵守同一原则�
 | --- | --- | --- |
 | 物理状态 | `U`、`p`、`phi` | 属于案例和最终结果 |
 | 算法状态 | `pPrime`、`rAU`、`phiHbyA`、`UPrevious` | 跨一个外迭代的方程和修正步骤 |
-| 数值工作区 | `gradP`、`gradPPrime`、`rAUGradP`、`rAUFace`、`divPhiHbyA` | 仅用于避免重复分配，不具有独立物理含义 |
+| 数值工作区 | `gradP`、`rAUGradP`、`rAUGradPFace`、`rAUFace`、`divPhiHbyA` | 仅用于避免重复分配，不具有独立物理含义 |
 | 执行状态 | halo、全局归约、矩阵、预条件器、时间历史 | 完全位于 RunTime/Parallel/Algebra 内部 |
 
 这些对象不会作为长参数表传给专用算子。`SimpleSolver` 私有实现直接复用同一套 `fvm/fvc`
@@ -76,6 +76,11 @@ Momentum Equation → rAU → phiHbyA
 `HbyA` 没有被强制保存为额外完整 Field：当前动量预测速度和 `rAU∇p` 足以形成数学等价的
 `phiHbyA`，因此保留一个额外 `HbyA` 场只会增加内存带宽。压力循环使用具名的
 `correctNonOrthogonal()` 语义，不让裸 `pass` 编号进入算法表达。
+
+预测通量所需的 `grad(p)`、`rAU∇p`、面插值和 Rhie--Chow 修正在 Discretization 内部完成；
+压力后的 \(U\) 与 \(\phi\) 修正由 `fvc::subtract` 表达。这样 `SimpleSolver` 只保留
+动量、压力、速度修正、通量修正与连续性这五个算法步骤，不保存 `grad(p')`，也不含 cell、face
+或 patch 循环。
 
 ## 共享边界与禁止依赖
 

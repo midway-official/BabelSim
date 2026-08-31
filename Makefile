@@ -16,6 +16,7 @@ SOURCES := src/core/mesh.cpp \
            src/io/mesh_reader.cpp \
            src/io/result_reader.cpp \
            src/discretization/operators.cpp \
+           src/discretization/incompressible.cpp \
            src/discretization/fvm_expression.cpp \
            src/discretization/assembly.cpp \
            src/algebra/linear_solver.cpp \

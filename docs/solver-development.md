@@ -89,6 +89,11 @@ U.boundary("symmetry") = symmetry();
 
 边界条件会在 fvm 装配和 fvc 面重构时自动参与。不应通过修改矩阵系数或面数据实现边界。
 
+压力修正等“增量 Field”可由 `setHomogeneousCorrectionBoundaries(correction, reference)`
+根据原 Field 的边界类型建立齐次条件：FixedValue 对应零增量，其余边界保持对增量正确的
+零梯度或对称语义。该规则属于 Field/Boundary 层，不应在 SIMPLE 或其他 Physics Solver 中
+遍历 patch。
+
 ## 使用显式量
 
 显式量由 `fvc` 描述，写入开发者提供的工作 Field：
@@ -175,3 +180,5 @@ Mesh、初值、物性、方法、线性控制和输出；Solver 负责方程与
 
 如果新物理确实要逐单元计算经验源项，应先考虑把它定义为可复用的 Field 计算；仅在无法用
 `fvc` 表达时，在物理模块中实现一个短且有明确名称的计算核，并避免接触 ghost、halo 和 MPI。
+对于常见的同位置 Field 代数，优先使用 `assignProduct`、`addProduct` 和 `addScaled`，让
+连续存储遍历留在 Field 层；不要在 Solver 中通过 `data()` 或索引循环实现它们。

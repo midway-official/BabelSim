@@ -118,15 +118,21 @@ private:
     struct NumericalWorkspace {
         explicit NumericalWorkspace(const Mesh& mesh)
             : grad_p(mesh, FieldLocation::Cell, "gradP"),
-              grad_p_prime(mesh, FieldLocation::Cell, "gradPPrime"),
               rAU_grad_p(mesh, FieldLocation::Cell, "rAUGradP"),
               rAU_grad_p_face(mesh, FieldLocation::Face, "rAUGradPFace"),
               rAU_face(mesh, FieldLocation::Face, "rAUFace"),
               div_phiHbyA(mesh, FieldLocation::Cell, "divPhiHbyA")
         {}
 
+        void predictMomentumFlux(
+            const Methods& methods,
+            const VectorField& U,
+            const ScalarField& p,
+            const ScalarField& rAU,
+            ScalarField& phiHbyA);
+        void preparePressureEquation(const ScalarField& phiHbyA);
+
         VectorField grad_p;
-        VectorField grad_p_prime;
         VectorField rAU_grad_p;
         VectorField rAU_grad_p_face;
         ScalarField rAU_face;
@@ -139,6 +145,7 @@ private:
         bool linear_converged = false;
     };
 
+    void savePreviousState();
     std::array<SolveResult, 3> solveMomentum();
     PressureEquationResult solvePressure();
     void predictMomentumFlux();

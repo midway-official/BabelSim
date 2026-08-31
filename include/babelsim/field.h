@@ -127,6 +127,51 @@ public:
             [factor](const T& value) { return factor * value; });
     }
 
+    void addScaled(double factor, const Field& source) {
+        if (!std::isfinite(factor)) {
+            throw std::invalid_argument("field scale factor must be finite");
+        }
+        requireCompatible(source, "field scaled addition");
+        for (std::size_t index = 0; index < m_values.size(); ++index) {
+            m_values[index] += factor * source.m_values[index];
+        }
+    }
+
+    // 通用逐点乘积。该操作覆盖 owned+ghost 的连续本地存储，使 Physics 不需要
+    // 手写 cell 循环；分布式输入同步仍由调用它的 fvc/Algorithm 步骤负责。
+    void assignProduct(const Field<double>& coefficient, const Field& source) {
+        requireCompatible(source, "field product");
+        coefficient.validateStorage();
+        if (m_mesh != &coefficient.mesh() || m_location != coefficient.location()) {
+            throw std::invalid_argument(
+                "field product requires fields on the same mesh and location");
+        }
+        for (std::size_t index = 0; index < m_values.size(); ++index) {
+            m_values[index] = coefficient[static_cast<Index>(index)] *
+                source.m_values[index];
+        }
+    }
+
+    void addProduct(
+        double factor,
+        const Field<double>& coefficient,
+        const Field& source)
+    {
+        if (!std::isfinite(factor)) {
+            throw std::invalid_argument("field product factor must be finite");
+        }
+        requireCompatible(source, "field product addition");
+        coefficient.validateStorage();
+        if (m_mesh != &coefficient.mesh() || m_location != coefficient.location()) {
+            throw std::invalid_argument(
+                "field product requires fields on the same mesh and location");
+        }
+        for (std::size_t index = 0; index < m_values.size(); ++index) {
+            m_values[index] += factor * coefficient[static_cast<Index>(index)] *
+                source.m_values[index];
+        }
+    }
+
     void setBoundary(Index patch, BoundaryCondition<T> condition) {
         requireCellBoundary(patch);
         m_boundaries[static_cast<std::size_t>(patch)] = std::move(condition);
@@ -204,6 +249,37 @@ private:
 using ScalarField = Field<double>;
 using VectorField = Field<Vec3>;
 using TensorField = Field<Tensor3>;
+
+// 根据原 Field 的边界生成增量/修正 Field 的齐次边界：固定值变为零固定值，
+// symmetry 保持 symmetry，其余边界对应零法向梯度。返回值用于判断方程是否需要参考点。
+template <typename T>
+bool setHomogeneousCorrectionBoundaries(
+    Field<T>& correction,
+    const Field<T>& reference)
+{
+    correction.validateStorage();
+    reference.validateStorage();
+    if (&correction.mesh() != &reference.mesh() ||
+        correction.location() != FieldLocation::Cell ||
+        reference.location() != FieldLocation::Cell) {
+        throw std::invalid_argument(
+            "correction boundaries require cell fields on the same mesh");
+    }
+    bool has_fixed_value = false;
+    const Mesh& mesh = reference.mesh();
+    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+        const BoundaryType type = reference.boundary(patch).type;
+        if (type == BoundaryType::FixedValue) {
+            correction.setBoundary(patch, BoundaryCondition<T>::fixedValue(T{}));
+            has_fixed_value = true;
+        } else if (type == BoundaryType::Symmetry) {
+            correction.setBoundary(patch, BoundaryCondition<T>::symmetry());
+        } else {
+            correction.setBoundary(patch, BoundaryCondition<T>::zeroGradient());
+        }
+    }
+    return has_fixed_value;
+}
 
 template <typename T>
 inline BoundaryCondition<T> fixedValue(T value) {

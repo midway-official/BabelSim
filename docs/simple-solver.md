@@ -91,7 +91,8 @@ OpenFOAM 的压力方程代码也不会把所有内容简化为一条通用 Lapl
 -\nabla\cdot(rAU\nabla p') = -\nabla\cdot\phi^*
 \]
 
-调用通用 `fvm::laplacian` 和 `fvc::div`。压力方程明确使用 `phiHbyA`、`rAUFace` 与 `pPrime`；
+调用通用 `fvm::laplacian` 和 `fvc::div`。压力方程明确使用 `phiHbyA`、cell `rAU` 与 `pPrime`；
+Runtime 在离散时内部重构所需的 `rAUFace`；
 非正交迭代通过 `correctNonOrthogonal()` 表达循环原因，而不是暴露裸 `pass` 编号。其专用
 职责仅为选择压力参考、控制非正交循环，
 并施加
@@ -111,11 +112,20 @@ Field 存储或 MPI 路径。
 | --- | --- | --- |
 | 物理状态 | `U/p/phi` | Case 初值、边界和最终输出 |
 | 算法状态 | `pPrime/rAU/phiHbyA/UPrevious` | 跨一个外迭代的方程与修正步骤 |
-| 数值工作区 | `gradP/gradPPrime/rAUGradP/rAUFace/divPhiHbyA` | 只为复用内存，不属于物理模型 |
+| 数值工作区 | `gradP/rAUGradP/rAUGradPFace/rAUFace/divPhiHbyA` | 只为复用内存，不属于物理模型 |
 
 没有额外持久化 `HbyA`：当前动量预测速度与 `rAU*grad(p)` 已足够形成数学等价的
 `phiHbyA`，省去一个完整 cell vector Field 的存储和内存带宽。算法命名仍明确保留
 `rAU → phiHbyA → pPrime → U/phi correction` 的依赖链。
+
+每次外迭代开头的 `savePreviousState()` 只保存收敛诊断所需的 \(U^n\)，因此
+`solveMomentum()` 本身只表达动量方程，不承担迭代状态保存。
+
+`gradPPrime` 不再是 SIMPLE 的持久工作场：速度修正通过
+`fvc::subtract(rAU, fvc::grad(pPrime), U)` 完成；通量修正通过
+`fvc::subtract(fvc::flux(rAU, pPrime), phi)` 完成。二者的梯度、面插值、非正交法向梯度、
+halo 同步和临时存储都属于 FVC/Runtime 层。SIMPLE 物理源码不访问 owner/neighbour、面积向量
+或 Field 索引。
 
 ## 使用与配置
 

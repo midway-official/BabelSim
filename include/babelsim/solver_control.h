@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 namespace babelsim {
 
 // 线性系统的配置和结果属于数值控制，不暴露任何稀疏矩阵或后端实现。
@@ -38,6 +40,12 @@ struct SolveResult {
     double relative_residual = 0.0;
 
     bool converged() const { return status == SolveStatus::Converged; }
+    bool healthy() const {
+        return status != SolveStatus::NumericalFailure &&
+            std::isfinite(initial_residual) &&
+            std::isfinite(final_residual) &&
+            std::isfinite(relative_residual);
+    }
 };
 
 }  // babelsim 命名空间
