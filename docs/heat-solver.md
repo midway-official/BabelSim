@@ -12,8 +12,8 @@ int runHeat(Case& problem) {
     const double Q = problem.properties().number("source");
 
     while (problem.loop()) {
-        if (!solve(fvm::ddt(rho * cp, T) ==
-                   fvm::laplacian(k, T) + fvm::source(Q)).converged()) return 2;
+        if (!solve(eqn::ddt(rho * cp, T) ==
+                   eqn::laplacian(k, T) + eqn::source(Q)).converged()) return 2;
     }
     return 0;
 }
@@ -48,11 +48,11 @@ writeInterval=2，输出 0.02、0.04、0.05，而不是仅写 final 或把 1/2/3
 
 ## 变系数与数值测试
 
-将 k 或 rhoCp 替换为从 Case 读入的 scalar Field，fvm 写法不变。
+将 k 或 rhoCp 替换为从 Case 读入的 scalar Field，eqn 写法不变。
 材料模型可在每一步前更新物性场；它仍属于物理数学代码，不应操作通信或矩阵。
 
 曾经并存的 thermal.h、solveHeatStep、solveTransientHeat 已删除，避免同一热方程和时间循环
-维护两份。内存型数值测试显式准备 RunTime 后，直接使用相同的 fvm/solve；
+维护两份。内存型数值测试显式准备 RunTime 后，直接使用相同的 eqn/solve；
 Case 工作流测试则实际运行本页的生产入口。新 Solver 不需要再写专用头文件或库式求解器。
 
 ## 与 OpenFOAM 对照

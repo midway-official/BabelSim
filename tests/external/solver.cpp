@@ -12,8 +12,8 @@ int transport(Case& problem) {
     const double D = problem.properties().nonnegative("diffusivity");
     const double Q = problem.properties().number("source");
     while (problem.loop()) {
-        if (!solve(fvm::ddt(C) + fvm::div(phi, C) ==
-                   fvm::laplacian(D, C) + Q).converged()) return 2;
+        if (!solve(eqn::ddt(C) + eqn::div(phi, C) ==
+                   eqn::laplacian(D, C) + Q).converged()) return 2;
     }
     return 0;
 }
@@ -33,8 +33,8 @@ int coupled(Case& problem) {
         for (int correction = 0; correction < 100; ++correction) {
             previousT.assign(T);
             previousC.assign(C);
-            if (!solve(fvm::ddt(T) == fvm::laplacian(D, T) + fvm::source(a, C)).converged()) return 2;
-            if (!solve(fvm::ddt(C) == fvm::laplacian(D, C) + fvm::source(a, T)).converged()) return 2;
+            if (!solve(eqn::ddt(T) == eqn::laplacian(D, T) + eqn::source(a, C)).converged()) return 2;
+            if (!solve(eqn::ddt(C) == eqn::laplacian(D, C) + eqn::source(a, T)).converged()) return 2;
             if (diagnostics::relativeChange(T, previousT) < 1e-12 &&
                 diagnostics::relativeChange(C, previousC) < 1e-12) {
                 converged = true;
@@ -67,9 +67,9 @@ int vectorResponse(Case& problem) {
     problem.output(energy);
     problem.output(stress);
     while (problem.loop()) {
-        if (!solveWithResponse(fvm::ddt(U) == fvm::source(strength, force), rAU).converged()) return 2;
-        if (!solve(-fvm::laplacian(1.0, p) == 0.0, referenceValue(3.0)).converged()) return 2;
-        fvc::subtract(rAU, fvc::grad(p), U);
+        if (!solveWithResponse(eqn::ddt(U) == eqn::source(strength, force), rAU).converged()) return 2;
+        if (!solve(-eqn::laplacian(1.0, p) == 0.0, referenceValue(3.0)).converged()) return 2;
+        math::subtract(rAU, math::grad(p), U);
         energy.evaluate(U, [](Vec3 velocity) { return 0.5*squaredNorm(velocity); });
     }
     return 0;

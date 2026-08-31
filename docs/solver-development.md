@@ -19,7 +19,7 @@
 | Case | 从算例获取命名场、物性和算法参数；时间循环 |
 | ScalarField / VectorField | 温度、浓度、速度等数学场 |
 | Boundary | 按 patch 名称定义数学边界 |
-| fvm / fvc | 隐式方程项 / 显式场运算 |
+| eqn / math | 隐式方程项 / 显式场运算 |
 | solve | 求一个离散后的方程并检查线性收敛 |
 | diagnostics | 全局数学范数、场变化、守恒误差 |
 | 算法循环 | 组织预测、求解、修正和收敛；普通函数和循环即可 |
@@ -46,8 +46,8 @@ int runSpecies(Case& problem) {
     const double S = problem.properties().number("source");
 
     while (problem.loop()) {
-        if (!solve(fvm::ddt(C) ==
-                   fvm::laplacian(D, C) + fvm::source(S)).converged()) return 2;
+        if (!solve(eqn::ddt(C) ==
+                   eqn::laplacian(D, C) + eqn::source(S)).converged()) return 2;
     }
     return 0;
 }
@@ -122,12 +122,12 @@ build/babelsim-post -case cases/species -time mpi4/all -format vtk tecplot
 VectorField& U = problem.vectorField("U");
 ScalarField& phi = problem.faceFlux("phi", U);
 // 在时间循环内：
-solve(fvm::ddt(C) + fvm::div(phi, C) ==
-      fvm::laplacian(D, C) + fvm::source(S));
+solve(eqn::ddt(C) + eqn::div(phi, C) ==
+      eqn::laplacian(D, C) + eqn::source(S));
 ```
 
 这里只省略了示例中的收敛检查，实际代码仍应检查返回值。若速度随时间更新，在更新后用
-`fvc::evaluate(fvc::flux(U), phi)` 更新通量；不要把构造时的通量误当成自动跟随 U 的表达式。
+`math::evaluate(math::flux(U), phi)` 更新通量；不要把构造时的通量误当成自动跟随 U 的表达式。
 
 标量与矢量方程的公开 `solve` 都返回一个 `SolveResult`，统一用 `.converged()` 检查。
 矢量方程必须三个分量全部收敛才成功；公开相对残差是最差分量，不能只检查 x 分量。
@@ -156,7 +156,7 @@ T.boundary("side") = zeroGradient();
 \partial_t C=D\nabla^2C+aT.
 \]
 
-两个未知量仍由同一套 `solve/fvm` 求解；不创建耦合执行器、解析器或另一套矩阵。
+两个未知量仍由同一套 `solve/eqn` 求解；不创建耦合执行器、解析器或另一套矩阵。
 
 算法需要保存某个数学状态时可写：
 
@@ -200,30 +200,30 @@ BDF2 首步自动用 Euler；当前 BDF2 只支持均匀步长，非整数步数
 只有算法确实跨多个模块复用时才建立类似 `SimpleSolver` 的算法对象。
 SIMPLE 的公开 API 是 loop、五个步骤和 converged；内部状态不属于普通调用者要学习的内容。
 如果要修改 SIMPLE 本身，其全部算法代码都在 `src/physics/simple/`，没有另一个藏在
-通用框架中的专用动量插值实现。`momentum.cpp` 用公开 fvc 组合面通量修正，
+通用框架中的专用动量插值实现。`momentum.cpp` 用公开 math 组合面通量修正，
 `pressure.cpp` 描述压力方程和速度/通量更新。模块自己的 `state.h` 只存物理场引用、
 算法量和可复用的数学中间场，不包含 `internal/` 类型。
 
 算法需要了解非正交方法时，使用只读的 `numericalMethods()`；需要输出诊断时，
 使用 `diagnostics::report("说明本次迭代的数学诊断")`，不要自己查询主进程或包含 runtime.h。
-这不要求普通方程驱动 Solver 创建更多对象，默认 solve/fvc 的方法仍来自 Case。
+这不要求普通方程驱动 Solver 创建更多对象，默认 solve/math 的方法仍来自 Case。
 
 `make test-external` 也会把整个 SIMPLE 模块复制到仓库外重新编译，并运行 1/2/4 进程算例。
 新增自己的算法时同样可以保留少量本模块私有文件，但不能包含框架或其他算法的私有头。
 
 ## 方程控制和动量响应
 
-普通标量/矢量源统一使用 `fvm::source(F)` 或 `fvm::source(a,F)`。
+普通标量/矢量源统一使用 `eqn::source(F)` 或 `eqn::source(a,F)`。
 已知矢量场源不再需要转换成手写逐分量循环。
 
 ```cpp
 SolveResult result = solveWithResponse(
-    fvm::div(phi, U) == -fvc::grad(p) + fvm::laplacian(nu, U),
+    eqn::div(phi, U) == -math::grad(p) + eqn::laplacian(nu, U),
     rAU, relaxed(0.7));
 ```
 
 rAU 是对角体积响应，不是矩阵引用。必须检查 result.converged()；
-它的缩放约定与框架 SIMPLE 一致，详见 [fvm/fvc](fvm-fvc.md)。
+它的缩放约定与框架 SIMPLE 一致，详见 [eqn/math](eqn-math.md)。
 
 对于相容的全 Neumann 标量 Poisson 方程，使用 `solve(equation, referenceValue(0.0))`
 指定零空间规范。这不是任意方程的通用点约束，不能用来代替固定值边界。

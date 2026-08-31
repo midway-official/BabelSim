@@ -24,26 +24,26 @@ public:
     std::array<SolveResult, 3> solve(
         const VectorEquationDefinition& equation,
         VectorEquationControl control);
-    void evaluate(fvc::ScalarGradient operation, VectorField& result);
-    void evaluate(fvc::NormalGradient operation, ScalarField& result);
-    void evaluate(fvc::ScalarDiffusionFlux operation, ScalarField& result);
-    void evaluate(fvc::VectorGradient operation, TensorField& result);
-    void evaluate(fvc::FaceFlux operation, ScalarField& result);
-    void evaluate(fvc::FaceDivergence operation, ScalarField& result);
-    void evaluate(fvc::VectorDivergence operation, ScalarField& result);
-    void evaluate(fvc::ScalarConvection operation, ScalarField& result);
-    void evaluate(fvc::VectorConvection operation, VectorField& result);
-    void evaluate(fvc::ScalarInterpolation operation, ScalarField& result);
-    void evaluate(fvc::VectorInterpolation operation, VectorField& result);
-    void evaluate(fvc::ScalarReconstruction operation, ScalarField& result);
-    void evaluate(fvc::VectorReconstruction operation, VectorField& result);
-    void evaluate(fvc::ScalarLaplacian operation, ScalarField& result);
+    void evaluate(math::ScalarGradient operation, VectorField& result);
+    void evaluate(math::NormalGradient operation, ScalarField& result);
+    void evaluate(math::ScalarDiffusionFlux operation, ScalarField& result);
+    void evaluate(math::VectorGradient operation, TensorField& result);
+    void evaluate(math::FaceFlux operation, ScalarField& result);
+    void evaluate(math::FaceDivergence operation, ScalarField& result);
+    void evaluate(math::VectorDivergence operation, ScalarField& result);
+    void evaluate(math::ScalarConvection operation, ScalarField& result);
+    void evaluate(math::VectorConvection operation, VectorField& result);
+    void evaluate(math::ScalarInterpolation operation, ScalarField& result);
+    void evaluate(math::VectorInterpolation operation, VectorField& result);
+    void evaluate(math::ScalarReconstruction operation, ScalarField& result);
+    void evaluate(math::VectorReconstruction operation, VectorField& result);
+    void evaluate(math::ScalarLaplacian operation, ScalarField& result);
     void subtract(
         const ScalarField& coefficient,
-        fvc::ScalarGradient operation,
+        math::ScalarGradient operation,
         VectorField& target);
-    void add(fvc::FaceFlux operation, ScalarField& target, fvc::FaceRegion region);
-    void subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target, fvc::FaceRegion region);
+    void add(math::FaceFlux operation, ScalarField& target, math::FaceRegion region);
+    void subtract(math::ScalarDiffusionFlux operation, ScalarField& target, math::FaceRegion region);
     double relativeChange(const VectorField& current, const VectorField& previous) const;
     double relativeChange(const ScalarField& current, const ScalarField& previous) const;
     double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;

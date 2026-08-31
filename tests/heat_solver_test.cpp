@@ -2,7 +2,7 @@
 #include "internal/field_access.h"
 #include "babelsim/runtime.h"
 
-#include "babelsim/fvm.h"
+#include "babelsim/eqn.h"
 
 #include "test_util.h"
 
@@ -29,7 +29,7 @@ int main() {
 
     require(run_time.loop(), "heat run did not start its time step");
     const SolveResult result = solve(
-        fvm::ddt(temperature) == fvm::laplacian(1.0, temperature));
+        eqn::ddt(temperature) == eqn::laplacian(1.0, temperature));
     require(result.converged(), "heat equation did not converge");
     require(!run_time.loop(), "heat run used an unexpected number of time steps");
     require(
@@ -46,8 +46,8 @@ int main() {
         variable_temperature.boundary(patch) = fixedValue(0.0);
     }
     const SolveResult variable_result = solve(
-        fvm::ddt(heat_capacity, variable_temperature) ==
-            fvm::laplacian(conductivity, variable_temperature));
+        eqn::ddt(heat_capacity, variable_temperature) ==
+            eqn::laplacian(conductivity, variable_temperature));
     require(variable_result.converged(), "variable-coefficient heat solve did not converge");
     require(
         near(detail::fieldData(variable_temperature)[0], 20.0 / 32.0, 1e-12),
@@ -61,8 +61,8 @@ int main() {
         field_temperature.boundary(patch) = fixedValue(0.0);
     }
     const SolveResult field_result = solve(
-        fvm::ddt(heat_capacity, field_temperature) ==
-            fvm::laplacian(conductivity, field_temperature) + fvm::source(field_source));
+        eqn::ddt(heat_capacity, field_temperature) ==
+            eqn::laplacian(conductivity, field_temperature) + eqn::source(field_source));
     require(field_result.converged(), "Field-material heat step did not converge");
 
     std::cout << "heat_solver_test: T=" << detail::fieldData(temperature)[0]

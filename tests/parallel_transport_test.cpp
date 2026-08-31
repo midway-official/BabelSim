@@ -29,8 +29,8 @@ int main(int argc, char* argv[]) {
         RunTime run_time = RunTime::forMesh(mesh, control);
         require(run_time.loop(), "parallel transport did not start its time step");
         const SolveResult result = solve(
-            fvm::ddt(2.0, concentration) + fvm::div(flux, concentration) ==
-                fvm::laplacian(0.0, concentration) + fvm::source(6.0));
+            eqn::ddt(2.0, concentration) + eqn::div(flux, concentration) ==
+                eqn::laplacian(0.0, concentration) + eqn::source(6.0));
         require(result.converged(), "parallel transport did not converge");
         require(!run_time.loop() && run_time.step() == 1, "parallel transport step count changed");
         double local_error = 0.0;

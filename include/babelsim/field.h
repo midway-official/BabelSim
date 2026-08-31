@@ -152,7 +152,7 @@ public:
     }
 
     // 通用逐点乘积。该操作覆盖 owned+ghost 的连续本地存储，使 Physics 不需要
-    // 手写 cell 循环；分布式输入同步仍由调用它的 fvc/Algorithm 步骤负责。
+    // 手写 cell 循环；分布式输入同步仍由调用它的 math/Algorithm 步骤负责。
     void assignProduct(const Field<double>& coefficient, const Field& source) {
         requireCompatible(source, "field product");
         coefficient.validateStorage();

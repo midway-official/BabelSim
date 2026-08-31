@@ -12,8 +12,8 @@ int runTransport(Case& problem) {
     const double S = problem.properties().number("source");
 
     while (problem.loop()) {
-        if (!solve(fvm::ddt(storage, C) + fvm::div(phi, C) ==
-                   fvm::laplacian(D, C) + fvm::source(S)).converged()) return 2;
+        if (!solve(eqn::ddt(storage, C) + eqn::div(phi, C) ==
+                   eqn::laplacian(D, C) + eqn::source(S)).converged()) return 2;
     }
     return 0;
 }

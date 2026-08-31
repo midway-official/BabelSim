@@ -1,7 +1,7 @@
 # 方程驱动与算法驱动：同一框架的两种组织方式
 
 两种方式不是两套架构，也不需要共同的 Solver 基类。普通作者都从 Case、命名 Field、
-fvm/fvc、solve 和数学 diagnostics 出发；RunTime、矩阵和 MPI 由框架维护者负责。
+eqn/math、solve 和数学 diagnostics 出发；RunTime、矩阵和 MPI 由框架维护者负责。
 
 ## 方程驱动
 
@@ -12,8 +12,8 @@ fvm/fvc、solve 和数学 diagnostics 出发；RunTime、矩阵和 MPI 由框架
 
 ```cpp
 while (problem.loop()) {
-    if (!solve(fvm::ddt(C) + fvm::div(phi, C) ==
-               fvm::laplacian(D, C) + fvm::source(S)).converged()) return 2;
+    if (!solve(eqn::ddt(C) + eqn::div(phi, C) ==
+               eqn::laplacian(D, C) + eqn::source(S)).converged()) return 2;
 }
 ```
 
@@ -39,7 +39,7 @@ while (simple.loop()) {
 
 1. Case 拥有物理场和命名中间场，引用在运行期间稳定。
 2. Field 的赋值、缩放和积是数学操作，不是让作者遍历存储。
-3. fvm 表达方程贡献，fvc 表达显式求值，真正执行集中在 solve/evaluate。
+3. eqn 表达方程贡献，math 表达显式求值，真正执行集中在 solve/evaluate。
 4. 时间历史按物理步推进，内迭代不会改变旧时间层。
 5. diagnostics 返回全局量；每个耦合未知量都要被正确纳入停止判据。
 6. Case 按时间步统一保存已完成结果；失败提前返回，不能写成收敛结果。

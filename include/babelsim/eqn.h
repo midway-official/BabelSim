@@ -1,7 +1,7 @@
 #pragma once
 
 #include "babelsim/field.h"
-#include "babelsim/fvc.h"
+#include "babelsim/math.h"
 
 #include <utility>
 #include <vector>
@@ -11,7 +11,7 @@ namespace detail { class FvmExecution; }
 
 // 这些轻量描述符是连续/离散数学之间的边界：它们只引用 Field 和常数，绝不分配
 // LDU、CSR、Eigen 向量或 MPI 缓冲区。真正组装只发生在 solve() 内部。
-enum class FvmTermKind {
+enum class EquationTermKind {
     TimeDerivative,
     Convection,
     Laplacian,
@@ -19,8 +19,8 @@ enum class FvmTermKind {
     Gradient,
 };
 
-struct ScalarFvmTerm {
-    FvmTermKind kind = FvmTermKind::Source;
+struct ScalarEquationTerm {
+    EquationTermKind kind = EquationTermKind::Source;
     int sign = 1;
     double coefficient = 1.0;
     const ScalarField* field = nullptr;
@@ -28,8 +28,8 @@ struct ScalarFvmTerm {
     const ScalarField* flux = nullptr;
 };
 
-struct VectorFvmTerm {
-    FvmTermKind kind = FvmTermKind::Source;
+struct VectorEquationTerm {
+    EquationTermKind kind = EquationTermKind::Source;
     int sign = 1;
     double coefficient = 1.0;
     const VectorField* vector_field = nullptr;
@@ -42,10 +42,10 @@ struct VectorFvmTerm {
 class ScalarExpression {
 public:
     ScalarExpression() = default;
-    explicit ScalarExpression(ScalarFvmTerm term);
+    explicit ScalarExpression(ScalarEquationTerm term);
 
 private:
-    std::vector<ScalarFvmTerm> m_terms;
+    std::vector<ScalarEquationTerm> m_terms;
 
     ScalarExpression& add(const ScalarExpression& other, int sign);
     ScalarExpression& negate();
@@ -62,11 +62,11 @@ private:
 class VectorExpression {
 public:
     VectorExpression() = default;
-    explicit VectorExpression(VectorFvmTerm term);
-    explicit VectorExpression(fvc::ScalarGradient gradient);
+    explicit VectorExpression(VectorEquationTerm term);
+    explicit VectorExpression(math::ScalarGradient gradient);
 
 private:
-    std::vector<VectorFvmTerm> m_terms;
+    std::vector<VectorEquationTerm> m_terms;
 
     VectorExpression& add(const VectorExpression& other, int sign);
     VectorExpression& negate();
@@ -134,10 +134,12 @@ inline VectorEquationDefinition operator==(
     return {std::move(lhs), std::move(rhs)};
 }
 
-namespace fvm {
+namespace eqn {
+
+// 构造方程贡献，不立即装配。输运项隐式进入方程，source 则是已知的显式体源。
 
 inline ScalarExpression ddt(double density, const ScalarField& field) {
-    return ScalarExpression({FvmTermKind::TimeDerivative, 1, density, &field});
+    return ScalarExpression({EquationTermKind::TimeDerivative, 1, density, &field});
 }
 
 inline ScalarExpression ddt(
@@ -145,7 +147,7 @@ inline ScalarExpression ddt(
     const ScalarField& field)
 {
     return ScalarExpression(
-        {FvmTermKind::TimeDerivative, 1, 1.0, &field, &volumetric_capacity});
+        {EquationTermKind::TimeDerivative, 1, 1.0, &field, &volumetric_capacity});
 }
 
 inline ScalarExpression ddt(const ScalarField& field) { return ddt(1.0, field); }
@@ -156,7 +158,7 @@ inline ScalarExpression div(
     const ScalarField& field)
 {
     return ScalarExpression(
-        {FvmTermKind::Convection, 1, flux_scale, &field, nullptr, &flux});
+        {EquationTermKind::Convection, 1, flux_scale, &field, nullptr, &flux});
 }
 
 inline ScalarExpression div(const ScalarField& flux, const ScalarField& field) {
@@ -164,40 +166,40 @@ inline ScalarExpression div(const ScalarField& flux, const ScalarField& field) {
 }
 
 inline ScalarExpression laplacian(double diffusivity, const ScalarField& field) {
-    return ScalarExpression({FvmTermKind::Laplacian, 1, diffusivity, &field});
+    return ScalarExpression({EquationTermKind::Laplacian, 1, diffusivity, &field});
 }
 
 inline ScalarExpression laplacian(
     const ScalarField& diffusivity, const ScalarField& field)
 {
     return ScalarExpression(
-        {FvmTermKind::Laplacian, 1, 1.0, &field, &diffusivity});
+        {EquationTermKind::Laplacian, 1, 1.0, &field, &diffusivity});
 }
 
 inline ScalarExpression source(double value) {
-    return ScalarExpression({FvmTermKind::Source, 1, value});
+    return ScalarExpression({EquationTermKind::Source, 1, value});
 }
 
 inline ScalarExpression source(const ScalarField& field) {
-    return ScalarExpression({FvmTermKind::Source, 1, 1.0, &field});
+    return ScalarExpression({EquationTermKind::Source, 1, 1.0, &field});
 }
 
 // 显式体源 a*field；直接复用源项系数，不创建缩放后的临时 Field。
 inline ScalarExpression source(double coefficient, const ScalarField& field) {
-    return ScalarExpression({FvmTermKind::Source, 1, coefficient, &field});
+    return ScalarExpression({EquationTermKind::Source, 1, coefficient, &field});
 }
 
 inline VectorExpression ddt(double density, const VectorField& field) {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::TimeDerivative;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::TimeDerivative;
     term.coefficient = density;
     term.vector_field = &field;
     return VectorExpression(term);
 }
 
 inline VectorExpression ddt(const ScalarField& density, const VectorField& field) {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::TimeDerivative;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::TimeDerivative;
     term.vector_field = &field;
     term.coefficient_field = &density;
     return VectorExpression(term);
@@ -210,8 +212,8 @@ inline VectorExpression div(
     const ScalarField& flux,
     const VectorField& field)
 {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::Convection;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::Convection;
     term.coefficient = flux_scale;
     term.vector_field = &field;
     term.flux = &flux;
@@ -223,8 +225,8 @@ inline VectorExpression div(const ScalarField& flux, const VectorField& field) {
 }
 
 inline VectorExpression laplacian(double diffusivity, const VectorField& field) {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::Laplacian;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::Laplacian;
     term.coefficient = diffusivity;
     term.vector_field = &field;
     return VectorExpression(term);
@@ -233,23 +235,23 @@ inline VectorExpression laplacian(double diffusivity, const VectorField& field) 
 inline VectorExpression laplacian(
     const ScalarField& diffusivity, const VectorField& field)
 {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::Laplacian;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::Laplacian;
     term.vector_field = &field;
     term.coefficient_field = &diffusivity;
     return VectorExpression(term);
 }
 
 inline VectorExpression source(const Vec3& value) {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::Source;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::Source;
     term.vector_source = value;
     return VectorExpression(term);
 }
 
 inline VectorExpression source(double coefficient, const VectorField& field) {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::Source;
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::Source;
     term.coefficient = coefficient;
     term.vector_field = &field;
     return VectorExpression(term);
@@ -257,30 +259,30 @@ inline VectorExpression source(double coefficient, const VectorField& field) {
 
 inline VectorExpression source(const VectorField& field) { return source(1.0, field); }
 
-}  // fvm 命名空间
+}  // eqn 命名空间
 
 inline ScalarEquationDefinition operator==(ScalarExpression lhs, double rhs) {
-    return std::move(lhs) == fvm::source(rhs);
+    return std::move(lhs) == eqn::source(rhs);
 }
 
 inline VectorEquationDefinition operator==(VectorExpression lhs, Vec3 rhs) {
-    return std::move(lhs) == fvm::source(rhs);
+    return std::move(lhs) == eqn::source(rhs);
 }
 
 // 均匀体源可以直接写成方程右端的数值；这仍表示体源项，不会创建临时 Field。
 inline ScalarExpression operator+(ScalarExpression left, double source) {
-    return left + fvm::source(source);
+    return left + eqn::source(source);
 }
 
 inline ScalarExpression operator+(double source, ScalarExpression right) {
-    return fvm::source(source) + right;
+    return eqn::source(source) + right;
 }
 
 inline ScalarExpression operator-(ScalarExpression left, double source) {
-    return left - fvm::source(source);
+    return left - eqn::source(source);
 }
 
-namespace fvc {
+namespace math {
 
 inline VectorExpression asExpression(ScalarGradient gradient) {
     return VectorExpression(gradient);
@@ -290,6 +292,6 @@ inline VectorExpression operator-(ScalarGradient gradient) {
     return -asExpression(gradient);
 }
 
-}  // fvc 命名空间
+}  // math 命名空间
 
 }  // babelsim 命名空间

@@ -208,7 +208,7 @@ TensorField& Case::faceTensorField(const std::string& name) {
 }
 ScalarField& Case::faceFlux(const std::string& name, const VectorField& velocity) {
     ScalarField& result = faceField(name);
-    fvc::evaluate(fvc::flux(velocity), result);
+    math::evaluate(math::flux(velocity), result);
     return result;
 }
 

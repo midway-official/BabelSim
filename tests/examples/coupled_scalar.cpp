@@ -20,8 +20,8 @@ int runCoupledScalar(Case& problem) {
         for (int correction = 0; correction < corrections; ++correction) {
             previous.assign(T);
             previous_C.assign(C);
-            if (!solve(fvm::ddt(T) == fvm::laplacian(D, T) + fvm::source(a, C)).converged()) return 2;
-            if (!solve(fvm::ddt(C) == fvm::laplacian(D, C) + fvm::source(a, T)).converged()) return 2;
+            if (!solve(eqn::ddt(T) == eqn::laplacian(D, T) + eqn::source(a, C)).converged()) return 2;
+            if (!solve(eqn::ddt(C) == eqn::laplacian(D, C) + eqn::source(a, T)).converged()) return 2;
             if (diagnostics::relativeChange(T, previous) <= tolerance &&
                 diagnostics::relativeChange(C, previous_C) <= tolerance) {
                 converged = true;

@@ -11,8 +11,8 @@ int runHeat(Case& problem) {
     const double Q = problem.properties().number("source");
 
     while (problem.loop()) {
-        if (!solve(fvm::ddt(rho * cp, T) ==
-                   fvm::laplacian(k, T) + fvm::source(Q)).converged()) return 2;
+        if (!solve(eqn::ddt(rho * cp, T) ==
+                   eqn::laplacian(k, T) + eqn::source(Q)).converged()) return 2;
     }
     return 0;
 }

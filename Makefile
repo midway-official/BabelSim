@@ -17,7 +17,7 @@ SOURCES := src/core/mesh.cpp \
            src/io/result_reader.cpp \
            src/io/postprocess.cpp \
            src/discretization/operators.cpp \
-           src/discretization/fvm_expression.cpp \
+           src/discretization/equation_expression.cpp \
            src/discretization/fvm_execution.cpp \
            src/discretization/assembly.cpp \
            src/algebra/linear_solver.cpp \
@@ -40,7 +40,7 @@ HEADERS := $(wildcard include/babelsim/*.h)
 TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
                 tests/operators_test.cpp \
-                tests/fvc_runtime_test.cpp \
+                tests/math_runtime_test.cpp \
                 tests/public_equation_test.cpp \
                 tests/assembly_solver_test.cpp \
                 tests/simple_solver_test.cpp \
@@ -57,7 +57,7 @@ TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/nonorthogonal_cavity_3d_test.cpp
 TESTS := $(patsubst tests/%.cpp,$(BUILD)/%,$(TEST_SOURCES))
 MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
-             $(BUILD)/parallel_fvc_test \
+             $(BUILD)/parallel_math_test \
              $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test \
              $(BUILD)/parallel_transport_test
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
@@ -112,9 +112,9 @@ test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)
 	python3 tests/solver_workflow_test.py
 
 test-mpi: $(MPI_TESTS)
-	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_fvc_test
-	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_fvc_test
-	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_fvc_test
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_math_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_math_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_domain_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
 		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output

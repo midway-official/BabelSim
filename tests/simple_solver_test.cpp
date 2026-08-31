@@ -91,7 +91,7 @@ int main() {
     try { SimpleSolver wrong_mesh(other_fields, {1.0, 0.01}, control); }
     catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "SIMPLE accepted fields from a different execution domain");
-    // rho=2 同时验证 fvm::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
+    // rho=2 同时验证 eqn::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
     // 黏度以维持该回归的 Reynolds 数。
     SimpleSolver solver(fields, {2.0, 0.2}, control);
     SimpleIterationResult result;

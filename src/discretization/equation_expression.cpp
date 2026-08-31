@@ -1,4 +1,4 @@
-#include "babelsim/fvm.h"
+#include "babelsim/eqn.h"
 
 #include <utility>
 
@@ -17,7 +17,7 @@ void append(std::vector<Term>& destination, const std::vector<Term>& source, int
 
 }  // 匿名命名空间
 
-ScalarExpression::ScalarExpression(ScalarFvmTerm term) {
+ScalarExpression::ScalarExpression(ScalarEquationTerm term) {
     m_terms.push_back(term);
 }
 
@@ -27,17 +27,17 @@ ScalarExpression& ScalarExpression::add(const ScalarExpression& other, int sign)
 }
 
 ScalarExpression& ScalarExpression::negate() {
-    for (ScalarFvmTerm& term : m_terms) term.sign = -term.sign;
+    for (ScalarEquationTerm& term : m_terms) term.sign = -term.sign;
     return *this;
 }
 
-VectorExpression::VectorExpression(VectorFvmTerm term) {
+VectorExpression::VectorExpression(VectorEquationTerm term) {
     m_terms.push_back(term);
 }
 
-VectorExpression::VectorExpression(fvc::ScalarGradient gradient) {
-    VectorFvmTerm term;
-    term.kind = FvmTermKind::Gradient;
+VectorExpression::VectorExpression(math::ScalarGradient gradient) {
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::Gradient;
     term.scalar_field = &gradient.field;
     m_terms.push_back(term);
 }
@@ -48,7 +48,7 @@ VectorExpression& VectorExpression::add(const VectorExpression& other, int sign)
 }
 
 VectorExpression& VectorExpression::negate() {
-    for (VectorFvmTerm& term : m_terms) term.sign = -term.sign;
+    for (VectorEquationTerm& term : m_terms) term.sign = -term.sign;
     return *this;
 }
 

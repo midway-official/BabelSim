@@ -15,12 +15,12 @@ thread_local RunTime* active_run_time = nullptr;
 struct RunTime::Implementation {
     Implementation(const Mesh& mesh_value, RuntimeControl settings, ParallelContext parallel_value)
         : mesh(&mesh_value), control(std::move(settings)), parallel(parallel_value),
-          fvm(mesh_value, control.methods, control.scalar_solver, control.vector_solver,
+          backend(mesh_value, control.methods, control.scalar_solver, control.vector_solver,
               parallel, control.time.delta_t) {}
     const Mesh* mesh;
     RuntimeControl control;
     ParallelContext parallel;
-    detail::FvmExecution fvm;
+    detail::FvmExecution backend;
     double current_time = 0.0;
     double current_delta_t = 0.0;
     int current_step = 0;
@@ -73,7 +73,7 @@ RunTime::~RunTime() {
 
 RunTime& RunTime::current() {
     if (active_run_time == nullptr) {
-        throw std::logic_error("solve/fvc/diagnostics require an active RunTime");
+        throw std::logic_error("solve/math/diagnostics require an active RunTime");
     }
     return *active_run_time;
 }
@@ -98,13 +98,13 @@ bool RunTime::loop() {
         static_cast<long double>(state.current_step + 1) * control.delta_t);
     state.current_delta_t = remaining < control.delta_t - tolerance ? remaining : control.delta_t;
     state.current_time = next >= control.end_time - tolerance ? control.end_time : next;
-    state.fvm.beginStep(state.current_delta_t);
+    state.backend.beginStep(state.current_delta_t);
     ++state.current_step;
     return true;
 }
 
 
 detail::FvmExecution& detail::execution() {
-    return RunTime::current().m_implementation->fvm;
+    return RunTime::current().m_implementation->backend;
 }
 }  // babelsim 命名空间

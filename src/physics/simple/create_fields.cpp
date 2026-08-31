@@ -53,7 +53,7 @@ SimpleSolver::State::State(
     m_fluid.validate();
     m_control.validate();
     m_has_fixed_pressure = setHomogeneousCorrectionBoundaries(m_algorithm.p_prime, m_p);
-    fvc::evaluate(fvc::flux(m_U), m_phi);
+    math::evaluate(math::flux(m_U), m_phi);
 }
 
 SimpleSolver::SimpleSolver(IncompressibleFields& fields,

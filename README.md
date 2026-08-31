@@ -12,7 +12,8 @@ Field     空间中存放什么数据
 Operator  数据之间进行什么数学运算
 Method    该运算采用什么离散方式
 Equation  表达要求解的数学方程
-fvm/fvc   分别表达隐式离散项与显式场运算
+eqn       构造待求解方程的项，包括隐式项与已知源项
+math      描述并计算已有场上的数学量
 Case      提供命名场、物性、时间循环与自动结果序列
 RunTime   内部时间推进、运行域与后端生命周期；普通 Solver 不构造它
 FVM       表达式执行、时间历史、离散装配与数值工作区
@@ -25,7 +26,7 @@ MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 FVM/代数/运�
 Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
 采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE 和耦合算法采用
 **Algorithm-driven**，用多个 Equation 与 Correction 直接表达算法流程。两者共享同一套
-Field、`fvm/fvc`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
+Field、`eqn/math`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
 
 当前实现使用统一的三维结构化六面体网格；二维问题是 `nz=1` 的退化三维网格，
 不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、
@@ -44,9 +45,9 @@ Field、`fvm/fvc`、离散、线性代数和 MPI Runtime，不建立两套 Frame
 - 分布式网格读取：rank 0 解析原生 `.mesh`，只发送各 rank 局部几何；不会在每个
   rank 重复保留全局 Mesh/Field；
 - 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
-- OpenFOAM 风格的轻量 `fvm/fvc`：数学表达式只在 `solve()` 时离散，不复制大矩阵；
+- 轻量 `eqn/math` 编程模型：方程表达式只在 `solve()` 时离散，场运算按需执行，不复制大矩阵；
 - `heat` 常物性瞬态热传导入口；通用方程 API 同时支持常数或 Field 系数；
-- `transport` 瞬态对流-扩散 Solver，复用标量 Field、`fvm::ddt/div/laplacian` 与边界；
+- `transport` 瞬态对流-扩散 Solver，复用标量 Field、`eqn::ddt/div/laplacian` 与边界；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
 
 维护者以 [架构与文件边界](docs/architecture.md) 为准：数学 EquationDefinition 与
@@ -141,7 +142,7 @@ Heat、transport 的完整入口各自是一个短函数；SIMPLE 主循环明�
 矢量场源、方程欠松弛、标量参考规范和动量对角响应均有公开数学入口。
 Field 原始指针/索引及 Mesh 缓存/分区修改已限制到内部维护接口；按位置定义场可用 evaluate。
 Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通过 output(field) 选择输出。
-公开 fvc 统一为整场同步契约，结果读取头和实现均不再要求 MPI。
+公开 math 统一为整场同步契约，结果读取头和实现均不再要求 MPI。
 
 默认瞬态结果按 `output.bs` 中 `writeInterval` 保存（省略时每步写出），最终时刻总会保存。
 `-time mpi4/all` 后处理命名运行的完整序列；ParaView 打开对应的 `post/mpi4/series.pvd`。
@@ -149,7 +150,7 @@ Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通
 
 详细设计与数据结构见 [架构说明](docs/architecture.md)，新增物理模型/求解器的流程
 见 [Solver 开发指南](docs/solver-development.md)，数学表达规则见
-[fvm/fvc 说明](docs/fvm-fvc.md)，两个内置 Solver 的对照说明见
+[eqn/math 说明](docs/eqn-math.md)，两个内置 Solver 的对照说明见
 [热传导](docs/heat-solver.md)、[SIMPLE](docs/simple-solver.md)，案例组织见
 [Case 结构](docs/case-structure.md)，两种 Solver 组织模式见
 [Solver Programming Model](docs/solver-programming-model.md)，数值验证结果见

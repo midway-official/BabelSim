@@ -1,6 +1,6 @@
 #pragma once
 
-#include "babelsim/fvm.h"
+#include "babelsim/eqn.h"
 #include "babelsim/methods.h"
 #include "babelsim/solver_control.h"
 
@@ -22,7 +22,7 @@ struct FluxBalance {
     double relative = 0.0;
 };
 
-// Runtime 之外的 Solver API：显式量属于 fvc，收敛与守恒量属于 diagnostics，
+// Runtime 之外的 Solver API：显式量属于 math，收敛与守恒量属于 diagnostics，
 // 隐式方程由 solve() 处理。它们自动使用当前线程唯一活动的 RunTime，因此 Solver
 // 不需要在每个数学操作中传递执行对象。
 // 方程级数值控制，不含矩阵、工作区或通信参数。referenceValue 是零空间的定值规范：

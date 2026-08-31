@@ -19,7 +19,7 @@ double difference(const Tensor3& a, const Tensor3& b) {
     return difference(a[0], b[0]) + difference(a[1], b[1]) + difference(a[2], b[2]);
 }
 
-// 测试维护接口故意破坏 ghost/重复面值，确保每个公开 fvc 操作独立履行同步契约。
+// 测试维护接口故意破坏 ghost/重复面值，确保每个公开 math 操作独立履行同步契约。
 template <typename T>
 void poison(Field<T>& field) {
     const Mesh& mesh = field.mesh();
@@ -105,40 +105,40 @@ struct Answers {
 
 void exercise(Fields& f, Answers& answers, bool record) {
     const auto check = [&](const auto& field) { answers.check(field, record); };
-    poison(f.p); fvc::evaluate(fvc::grad(f.p), f.gradP); check(f.gradP);
-    poison(f.U); fvc::evaluate(fvc::grad(f.U), f.gradU); check(f.gradU);
-    poison(f.U); fvc::evaluate(fvc::flux(f.U), f.phi); check(f.phi);
-    poison(f.phi); fvc::evaluate(fvc::div(f.phi), f.scalar); check(f.scalar);
-    poison(f.U); fvc::evaluate(fvc::div(f.U), f.scalar); check(f.scalar);
-    poison(f.p); fvc::evaluate(fvc::interpolate(f.p), f.faceScalar); check(f.faceScalar);
-    poison(f.U); fvc::evaluate(fvc::interpolate(f.U), f.faceVector); check(f.faceVector);
+    poison(f.p); math::evaluate(math::grad(f.p), f.gradP); check(f.gradP);
+    poison(f.U); math::evaluate(math::grad(f.U), f.gradU); check(f.gradU);
+    poison(f.U); math::evaluate(math::flux(f.U), f.phi); check(f.phi);
+    poison(f.phi); math::evaluate(math::div(f.phi), f.scalar); check(f.scalar);
+    poison(f.U); math::evaluate(math::div(f.U), f.scalar); check(f.scalar);
+    poison(f.p); math::evaluate(math::interpolate(f.p), f.faceScalar); check(f.faceScalar);
+    poison(f.U); math::evaluate(math::interpolate(f.U), f.faceVector); check(f.faceVector);
     poison(f.p); poison(f.gradP);
-    fvc::evaluate(fvc::reconstruct(f.p, f.gradP), f.faceScalar); check(f.faceScalar);
+    math::evaluate(math::reconstruct(f.p, f.gradP), f.faceScalar); check(f.faceScalar);
     poison(f.U); poison(f.gradU);
-    fvc::evaluate(fvc::reconstruct(f.U, f.gradU), f.faceVector); check(f.faceVector);
-    poison(f.phi); poison(f.p); fvc::evaluate(fvc::div(f.phi, f.p), f.scalar); check(f.scalar);
-    poison(f.phi); poison(f.U); fvc::evaluate(fvc::div(f.phi, f.U), f.vector); check(f.vector);
-    poison(f.p); fvc::evaluate(fvc::laplacian(f.p), f.scalar); check(f.scalar);
-    poison(f.p); poison(f.k); fvc::evaluate(fvc::laplacian(f.k, f.p), f.scalar); check(f.scalar);
-    poison(f.p); poison(f.k); fvc::evaluate(fvc::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
-    poison(f.p); fvc::evaluate(fvc::normalGradient(f.p), f.faceScalar); check(f.faceScalar);
+    math::evaluate(math::reconstruct(f.U, f.gradU), f.faceVector); check(f.faceVector);
+    poison(f.phi); poison(f.p); math::evaluate(math::div(f.phi, f.p), f.scalar); check(f.scalar);
+    poison(f.phi); poison(f.U); math::evaluate(math::div(f.phi, f.U), f.vector); check(f.vector);
+    poison(f.p); math::evaluate(math::laplacian(f.p), f.scalar); check(f.scalar);
+    poison(f.p); poison(f.k); math::evaluate(math::laplacian(f.k, f.p), f.scalar); check(f.scalar);
+    poison(f.p); poison(f.k); math::evaluate(math::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
+    poison(f.p); math::evaluate(math::normalGradient(f.p), f.faceScalar); check(f.faceScalar);
     f.vector.fill({1, 2, 3}); poison(f.k); poison(f.p);
-    fvc::subtract(f.k, fvc::grad(f.p), f.vector); check(f.vector);
+    math::subtract(f.k, math::grad(f.p), f.vector); check(f.vector);
     f.faceScalar.fill(3); poison(f.k); poison(f.p);
-    fvc::subtract(fvc::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
+    math::subtract(math::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
 
     poison(f.faceVector);
-    fvc::evaluate(fvc::flux(f.faceVector), f.phi); check(f.phi);
+    math::evaluate(math::flux(f.faceVector), f.phi); check(f.phi);
     f.phi.fill(3); poison(f.phi); poison(f.faceVector);
-    fvc::add(fvc::flux(f.faceVector), f.phi); check(f.phi);
+    math::add(math::flux(f.faceVector), f.phi); check(f.phi);
     f.phi.fill(3); poison(f.phi); poison(f.faceVector);
-    fvc::add(fvc::flux(f.faceVector), f.phi, fvc::FaceRegion::Interior); check(f.phi);
+    math::add(math::flux(f.faceVector), f.phi, math::FaceRegion::Interior); check(f.phi);
     // 给定梯度有意不等于 grad(p)，确保执行层确实使用传入的重构量。
     f.gradP.fill({0.7, -0.2, 0.4});
     f.faceScalar.evaluate([](Vec3 x) { return 1.7 + 0.1*x.x; });
     poison(f.faceScalar); poison(f.p); poison(f.gradP); poison(f.phi);
-    fvc::subtract(fvc::flux(f.faceScalar, fvc::reconstruct(f.p, f.gradP)),
-                  f.phi, fvc::FaceRegion::Interior); check(f.phi);
+    math::subtract(math::flux(f.faceScalar, math::reconstruct(f.p, f.gradP)),
+                  f.phi, math::FaceRegion::Interior); check(f.phi);
     // 与原 Rhie--Chow 逐面数学式直接对照，尤其检查分区界面与物理边界的区别。
     const Mesh& mesh = f.p.mesh();
     for (Index face : detail::meshData(mesh).owned_faces) {
@@ -150,7 +150,7 @@ void exercise(Fields& f, Answers& answers, bool record) {
         require(near(detail::fieldData(f.phi)[face], expected, 1e-12), "composed flux differs from the original face formula");
     }
     poison(f.faceScalar); poison(f.p); poison(f.gradP);
-    fvc::evaluate(fvc::flux(f.faceScalar, fvc::reconstruct(f.p, f.gradP)), f.phi); check(f.phi);
+    math::evaluate(math::flux(f.faceScalar, math::reconstruct(f.p, f.gradP)), f.phi); check(f.phi);
 }
 }  // 匿名命名空间
 
@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
         }
         double maximum = 0;
         parallel.maximum(&answers.error, &maximum, 1);
-        require(maximum < 1e-9, "public fvc synchronization differs from serial oracle");
-        if (parallel.rank == 0) std::cout << "parallel_fvc_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=" << maximum << '\n';
+        require(maximum < 1e-9, "public math synchronization differs from serial oracle");
+        if (parallel.rank == 0) std::cout << "parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=" << maximum << '\n';
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         detail::checkMpi(MPI_Abort(MPI_COMM_WORLD, 1), "MPI_Abort");

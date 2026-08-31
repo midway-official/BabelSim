@@ -28,6 +28,13 @@ def closure(path, stack=()):
 
 
 closures = {path: closure(path) for path in files}
+# 公开语义只使用 eqn/math；保留内部 FvmExecution 这个有限体积后端名称。
+for retired in ("include/babelsim/fvm.h", "include/babelsim/fvc.h",
+                "src/discretization/fvm_expression.cpp"):
+    assert not (ROOT / retired).exists(), retired
+for path, text in texts.items():
+    assert not re.search(r'\b(?:fvm|fvc)\s*::|namespace\s+(?:fvm|fvc)\b|'
+                         r'babelsim/(?:fvm|fvc)\.h|\b(?:FvmTermKind|ScalarFvmTerm|VectorFvmTerm)\b', text), path
 # 串行代数只认识 A/b/x 和求解配置；不能经装配头间接依赖 Mesh/Field/FVM。
 for path in closures[ROOT / "include/babelsim/linear_solver.h"]:
     assert path.name in {"linear_solver.h", "solver_control.h"}, path
@@ -39,7 +46,7 @@ implementation_headers = {
     "runtime.h", "parallel.h", "mpi_support.h", "linear_solver.h", "assembly.h",
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
-for name in ("case.h", "solver.h", "fvc.h", "fvm.h", "application.h", "postprocess.h",
+for name in ("case.h", "solver.h", "math.h", "eqn.h", "application.h", "postprocess.h",
              "result_reader.h", "simple.h", "simple_control.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)
@@ -60,8 +67,8 @@ for path in (ROOT / "src/apps").glob("*.cpp"):
 
 # RunTime 负责运行生命周期与时间推进；FVM 的装配/工作区不能重新回到这个文件。
 runtime = texts[ROOT / "src/runtime/runtime.cpp"]
-assert not re.search(r'Eigen::|SparseAssembly|DiscreteEquation|FvmTerm|gradient_workspace', runtime)
-assert "integratedNormalGradient" not in texts[ROOT / "include/babelsim/fvc.h"]
+assert not re.search(r'Eigen::|SparseAssembly|DiscreteEquation|EquationTerm|gradient_workspace', runtime)
+assert "integratedNormalGradient" not in texts[ROOT / "include/babelsim/math.h"]
 assert all(path.name != "runtime.h" for path in
            closures[ROOT / "src/discretization/fvm_execution.cpp"])
 

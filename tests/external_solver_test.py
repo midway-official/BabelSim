@@ -35,6 +35,26 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     # staged SDK 不含 src/、Eigen 或 MPI 头；Solver 编译阶段只需标准 C++ 编译器。
     shutil.copytree(ROOT / "include", work / "include")
     shutil.copy(ROOT / "build/libbabelsim.a", work / "libbabelsim.a")
+    # 两个新头文件分别可用；math 单独求值不需要包含方程 API。
+    (work / "math_api.cpp").write_text(
+        '#include "babelsim/math.h"\nusing namespace babelsim;\n'
+        'void gradient(const ScalarField& p, VectorField& result){ math::evaluate(math::grad(p),result); }\n')
+    (work / "eqn_api.cpp").write_text(
+        '#include "babelsim/eqn.h"\nusing namespace babelsim;\n'
+        'auto heat(ScalarField& T){ return eqn::ddt(T) == eqn::laplacian(1.0,T) + eqn::source(2.0); }\n'
+        'auto momentum(ScalarField& phi,VectorField& U,ScalarField& p){\n'
+        ' return eqn::div(phi,U) == -math::grad(p) + eqn::laplacian(0.1,U); }\n')
+    for name in ("math_api.cpp", "eqn_api.cpp"):
+        run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
+            "-fsyntax-only", name, cwd=work)
+    for name in ("fvm", "fvc"):
+        assert not (work / "include/babelsim" / (name + ".h")).exists()
+        (work / "retired_api.cpp").write_text(
+            '#include "babelsim/eqn.h"\nusing namespace babelsim;\n'
+            f'void retired(ScalarField& T){{ {name}::laplacian(1.0,T); }}\n')
+        failure = run("g++", "-std=c++17", "-Iinclude", "-fsyntax-only",
+                      "retired_api.cpp", cwd=work, success=False)
+        assert name in failure.stderr
     shutil.copy(ROOT / "tests/external/solver.cpp", work / "solver.cpp")
     run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
         "-c", "solver.cpp", "-o", "solver.o", cwd=work)
@@ -79,8 +99,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "mesh_partition": 'auto cells = mesh.ownedCellCount(); (void)cells;',
         "mesh_mutation": 'mesh.setOwnership({1,1,1}, 0, 0, 1, 0);',
         "mesh_replacement": 'mesh = Mesh::cartesian({2,1,1}, {}, {1,1,1});',
-        "equation_storage": 'auto e = fvm::ddt(field) == 0.0; e.discrete();',
-        "face_kernel": 'fvc::integratedNormalGradient(field, field, 0);',
+        "equation_storage": 'auto e = eqn::ddt(field) == 0.0; e.discrete();',
+        "face_kernel": 'math::integratedNormalGradient(field, field, 0);',
     }
     expected_diagnostics = {
         "field_data": "data", "field_index": "operator[]", "field_resize": "mutableData",
@@ -174,4 +194,4 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
             assert expected in failure.stderr
         assert not (case / "results" / name).exists(), "failed application wrote successful output"
 
-print("external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 10 negative API checks, 3 application failures, MPI-free reader passed")
+print("external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 12 negative API checks, 3 application failures, MPI-free reader passed")

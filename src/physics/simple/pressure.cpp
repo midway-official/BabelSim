@@ -3,7 +3,7 @@
 namespace babelsim {
 SimpleSolver::State::PressureEquationResult SimpleSolver::State::solvePressure() {
     // pEqn：div(phiHbyA) = div(rAU grad(pPrime))。非正交显式修正由通用
-    // fvm::laplacian 处理；这里只保留 SIMPLE 所需的语义化修正循环。
+    // eqn::laplacian 处理；这里只保留 SIMPLE 所需的语义化修正循环。
     ScalarField& p = m_p;
     ScalarField& pPrime = m_algorithm.p_prime;
     ScalarField& rAU = m_algorithm.rAU;
@@ -11,7 +11,7 @@ SimpleSolver::State::PressureEquationResult SimpleSolver::State::solvePressure()
     const ScalarField& divPhiHbyA = m_workspace.div_phiHbyA;
 
     predictMomentumFlux();
-    fvc::evaluate(fvc::div(phiHbyA), m_workspace.div_phiHbyA);
+    math::evaluate(math::div(phiHbyA), m_workspace.div_phiHbyA);
     pPrime.fill(0.0);
 
     PressureEquationResult result;
@@ -22,8 +22,8 @@ SimpleSolver::State::PressureEquationResult SimpleSolver::State::solvePressure()
         ? 1 : m_control.non_orthogonal_corrections + 1;
     for (int correction = 0; correction < pressure_solves; ++correction) {
         result.linear = solve(
-            -fvm::laplacian(rAU, pPrime) ==
-                -fvm::source(divPhiHbyA),
+            -eqn::laplacian(rAU, pPrime) ==
+                -eqn::source(divPhiHbyA),
             m_has_fixed_pressure ? EquationControl{} : referenceValue(0.0));
         result.healthy = result.healthy && result.linear.healthy();
         result.linear_converged = result.linear_converged && result.linear.converged();
@@ -37,7 +37,7 @@ void SimpleSolver::State::correctVelocity() {
     VectorField& U = m_U;
     const ScalarField& pPrime = m_algorithm.p_prime;
     const ScalarField& rAU = m_algorithm.rAU;
-    fvc::subtract(rAU, fvc::grad(pPrime), U);
+    math::subtract(rAU, math::grad(pPrime), U);
 }
 
 void SimpleSolver::State::correctFlux() {
@@ -47,7 +47,7 @@ void SimpleSolver::State::correctFlux() {
     const ScalarField& rAU = m_algorithm.rAU;
 
     phi.assign(phiHbyA);
-    fvc::subtract(fvc::flux(rAU, pPrime), phi);
+    math::subtract(math::flux(rAU, pPrime), phi);
 }
 
 }  // babelsim 命名空间

@@ -184,12 +184,12 @@ struct FvmExecution::Implementation {
     }
 
     // 通量增量作用于选定几何区域；物理边界不等于并行分区边界。
-    void addFaceIncrement(ScalarField& target, double factor, fvc::FaceRegion region) {
+    void addFaceIncrement(ScalarField& target, double factor, math::FaceRegion region) {
         requireFaceField(target, *mesh, "flux increment target");
-        if (region != fvc::FaceRegion::All && region != fvc::FaceRegion::Interior)
+        if (region != math::FaceRegion::All && region != math::FaceRegion::Interior)
             throw std::invalid_argument("unknown face region");
         for (Index face : detail::meshData(*mesh).owned_faces) {
-            if (region == fvc::FaceRegion::Interior &&
+            if (region == math::FaceRegion::Interior &&
                 detail::meshData(*mesh).face_neighbour[face] == invalid_index) continue;
             detail::fieldData(target)[face] += factor * detail::fieldData(face_flux_workspace)[face];
         }
@@ -334,7 +334,7 @@ bool FvmExecution::all(bool local_condition) const {
 namespace {
 
 void addScalarSource(
-    ScalarDiscreteEquation& equation, const Mesh& mesh, const ScalarFvmTerm& term, int canonical)
+    ScalarDiscreteEquation& equation, const Mesh& mesh, const ScalarEquationTerm& term, int canonical)
 {
     const double scale = -static_cast<double>(canonical) * term.coefficient;
     if (term.field == nullptr) {
@@ -352,7 +352,7 @@ void addScalarSource(
 }
 
 void addVectorSource(
-    VectorDiscreteEquation& equation, const Mesh& mesh, const VectorFvmTerm& term, int canonical)
+    VectorDiscreteEquation& equation, const Mesh& mesh, const VectorEquationTerm& term, int canonical)
 {
     const double scale = -static_cast<double>(canonical) * term.coefficient;
     if (term.vector_field != nullptr) requireCellField(*term.vector_field, mesh, "vector source");
@@ -374,9 +374,9 @@ SolveResult FvmExecution::solve(
         !std::isfinite(equation_control.reference_value))
         throw std::invalid_argument("invalid equation relaxation or reference value");
     const ScalarField* unknown_pointer = nullptr;
-    const auto inspect_unknown = [&unknown_pointer](const std::vector<ScalarFvmTerm>& terms) {
-        for (const ScalarFvmTerm& term : terms) {
-            if (term.kind == FvmTermKind::Source || term.field == nullptr) continue;
+    const auto inspect_unknown = [&unknown_pointer](const std::vector<ScalarEquationTerm>& terms) {
+        for (const ScalarEquationTerm& term : terms) {
+            if (term.kind == EquationTermKind::Source || term.field == nullptr) continue;
             if (unknown_pointer != nullptr && unknown_pointer != term.field) {
                 throw std::invalid_argument("a scalar equation must have one transported field");
             }
@@ -392,11 +392,11 @@ SolveResult FvmExecution::solve(
     requireCellField(unknown, *state.mesh, "scalar unknown");
     ScalarDiscreteEquation equation(*state.mesh);
 
-    const auto add = [&](const std::vector<ScalarFvmTerm>& terms, bool lhs) {
-        for (const ScalarFvmTerm& term : terms) {
+    const auto add = [&](const std::vector<ScalarEquationTerm>& terms, bool lhs) {
+        for (const ScalarEquationTerm& term : terms) {
             const int canonical = residualSign(lhs, term.sign);
             switch (term.kind) {
-                case FvmTermKind::TimeDerivative: {
+                case EquationTermKind::TimeDerivative: {
                     if (canonical != 1 || term.field != &unknown) {
                         throw std::invalid_argument("ddt must be a positive left-hand-side term");
                     }
@@ -420,7 +420,7 @@ SolveResult FvmExecution::solve(
                     }
                     break;
                 }
-                case FvmTermKind::Convection:
+                case EquationTermKind::Convection:
                     if (canonical != 1 || term.field != &unknown || term.flux == nullptr) {
                         throw std::invalid_argument("implicit convection must be a positive left-hand-side term");
                     }
@@ -434,7 +434,7 @@ SolveResult FvmExecution::solve(
                         state.methods.gradientFor(unknown.name()),
                         term.coefficient);
                     break;
-                case FvmTermKind::Laplacian:
+                case EquationTermKind::Laplacian:
                     if (canonical != -1 || term.field != &unknown) {
                         throw std::invalid_argument("laplacian must appear on the right-hand side or negated on the left");
                     }
@@ -467,10 +467,10 @@ SolveResult FvmExecution::solve(
                             state.methods.diffusionFor(unknown.name()));
                     }
                     break;
-                case FvmTermKind::Source:
+                case EquationTermKind::Source:
                     addScalarSource(equation, *state.mesh, term, canonical);
                     break;
-                case FvmTermKind::Gradient:
+                case EquationTermKind::Gradient:
                     throw std::invalid_argument("gradient is not a scalar implicit term");
             }
         }
@@ -530,14 +530,14 @@ std::array<SolveResult, 3> FvmExecution::solve(
         requireCellField(*equation_control.mobility, *state.mesh, "equation mobility");
     }
     const VectorField* unknown_pointer = nullptr;
-    const auto inspect_unknown = [&unknown_pointer, &equation_control](const std::vector<VectorFvmTerm>& terms) {
-        for (const VectorFvmTerm& term : terms) {
+    const auto inspect_unknown = [&unknown_pointer, &equation_control](const std::vector<VectorEquationTerm>& terms) {
+        for (const VectorEquationTerm& term : terms) {
             if (equation_control.mobility != nullptr &&
                 (term.scalar_field == equation_control.mobility ||
                  term.coefficient_field == equation_control.mobility ||
                  term.flux == equation_control.mobility))
                 throw std::invalid_argument("equation response must not alias an input field");
-            if (term.kind == FvmTermKind::Source || term.vector_field == nullptr) continue;
+            if (term.kind == EquationTermKind::Source || term.vector_field == nullptr) continue;
             if (unknown_pointer != nullptr && unknown_pointer != term.vector_field) {
                 throw std::invalid_argument("a vector equation must have one transported field");
             }
@@ -553,11 +553,11 @@ std::array<SolveResult, 3> FvmExecution::solve(
     requireCellField(unknown, *state.mesh, "vector unknown");
     VectorDiscreteEquation equation(*state.mesh);
 
-    const auto add = [&](const std::vector<VectorFvmTerm>& terms, bool lhs) {
-        for (const VectorFvmTerm& term : terms) {
+    const auto add = [&](const std::vector<VectorEquationTerm>& terms, bool lhs) {
+        for (const VectorEquationTerm& term : terms) {
             const int canonical = residualSign(lhs, term.sign);
             switch (term.kind) {
-                case FvmTermKind::TimeDerivative: {
+                case EquationTermKind::TimeDerivative: {
                     if (canonical != 1 || term.vector_field != &unknown) {
                         throw std::invalid_argument("ddt must be a positive left-hand-side term");
                     }
@@ -581,7 +581,7 @@ std::array<SolveResult, 3> FvmExecution::solve(
                     }
                     break;
                 }
-                case FvmTermKind::Convection:
+                case EquationTermKind::Convection:
                     if (canonical != 1 || term.vector_field != &unknown || term.flux == nullptr) {
                         throw std::invalid_argument("implicit convection must be a positive left-hand-side term");
                     }
@@ -595,7 +595,7 @@ std::array<SolveResult, 3> FvmExecution::solve(
                         state.methods.gradientFor(unknown.name()),
                         term.coefficient);
                     break;
-                case FvmTermKind::Laplacian:
+                case EquationTermKind::Laplacian:
                     if (canonical != -1 || term.vector_field != &unknown) {
                         throw std::invalid_argument("laplacian must appear on the right-hand side or negated on the left");
                     }
@@ -628,7 +628,7 @@ std::array<SolveResult, 3> FvmExecution::solve(
                             state.methods.diffusionFor(unknown.name()));
                     }
                     break;
-                case FvmTermKind::Gradient:
+                case EquationTermKind::Gradient:
                     if (term.scalar_field == nullptr) {
                         throw std::invalid_argument("gradient term has no scalar field");
                     }
@@ -645,7 +645,7 @@ std::array<SolveResult, 3> FvmExecution::solve(
                             detail::fieldData(state.gradient_workspace)[cell];
                     }
                     break;
-                case FvmTermKind::Source:
+                case EquationTermKind::Source:
                     addVectorSource(equation, *state.mesh, term, canonical);
                     break;
             }
@@ -708,7 +708,7 @@ std::array<SolveResult, 3> FvmExecution::solve(
     return results;
 }
 
-void FvmExecution::evaluate(fvc::ScalarGradient operation, VectorField& result) {
+void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
@@ -717,7 +717,7 @@ void FvmExecution::evaluate(fvc::ScalarGradient operation, VectorField& result) 
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::VectorGradient operation, TensorField& result) {
+void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
@@ -726,7 +726,7 @@ void FvmExecution::evaluate(fvc::VectorGradient operation, TensorField& result) 
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::FaceFlux operation, ScalarField& result) {
+void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
     Implementation& state = *m_implementation;
     state.requireCellOrFace(operation.velocity);
     requireFaceField(result, *state.mesh, "flux result");
@@ -737,7 +737,7 @@ void FvmExecution::evaluate(fvc::FaceFlux operation, ScalarField& result) {
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::FaceDivergence operation, ScalarField& result) {
+void FvmExecution::evaluate(math::FaceDivergence operation, ScalarField& result) {
     Implementation& state = *m_implementation;
     requireFaceField(operation.flux, *state.mesh, "divergence input");
     requireCellField(result, *state.mesh, "divergence result");
@@ -746,7 +746,7 @@ void FvmExecution::evaluate(fvc::FaceDivergence operation, ScalarField& result) 
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::VectorDivergence operation, ScalarField& result) {
+void FvmExecution::evaluate(math::VectorDivergence operation, ScalarField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "divergence input");
     requireCellField(result, *state.mesh, "divergence result");
@@ -757,7 +757,7 @@ void FvmExecution::evaluate(fvc::VectorDivergence operation, ScalarField& result
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::ScalarConvection operation, ScalarField& result) {
+void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& result) {
     requireDistinct(&operation.field, &result);
     Implementation& state = *m_implementation;
     requireFaceField(operation.flux, *state.mesh, "convection flux");
@@ -773,7 +773,7 @@ void FvmExecution::evaluate(fvc::ScalarConvection operation, ScalarField& result
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::VectorConvection operation, VectorField& result) {
+void FvmExecution::evaluate(math::VectorConvection operation, VectorField& result) {
     requireDistinct(&operation.field, &result);
     Implementation& state = *m_implementation;
     requireFaceField(operation.flux, *state.mesh, "convection flux");
@@ -789,7 +789,7 @@ void FvmExecution::evaluate(fvc::VectorConvection operation, VectorField& result
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::ScalarInterpolation operation, ScalarField& result) {
+void FvmExecution::evaluate(math::ScalarInterpolation operation, ScalarField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "interpolation input");
     requireFaceField(result, *state.mesh, "interpolation result");
@@ -800,7 +800,7 @@ void FvmExecution::evaluate(fvc::ScalarInterpolation operation, ScalarField& res
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::VectorInterpolation operation, VectorField& result) {
+void FvmExecution::evaluate(math::VectorInterpolation operation, VectorField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "interpolation input");
     if (&result.mesh() != state.mesh || result.location() != FieldLocation::Face) {
@@ -813,7 +813,7 @@ void FvmExecution::evaluate(fvc::VectorInterpolation operation, VectorField& res
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::ScalarReconstruction operation, ScalarField& result) {
+void FvmExecution::evaluate(math::ScalarReconstruction operation, ScalarField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "reconstruction input");
     requireCellField(operation.gradient, *state.mesh, "reconstruction gradient");
@@ -824,7 +824,7 @@ void FvmExecution::evaluate(fvc::ScalarReconstruction operation, ScalarField& re
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::VectorReconstruction operation, VectorField& result) {
+void FvmExecution::evaluate(math::VectorReconstruction operation, VectorField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "reconstruction input");
     requireCellField(operation.gradient, *state.mesh, "reconstruction gradient");
@@ -837,7 +837,7 @@ void FvmExecution::evaluate(fvc::VectorReconstruction operation, VectorField& re
     state.synchronize(result);
 }
 
-void FvmExecution::evaluate(fvc::ScalarLaplacian operation, ScalarField& result) {
+void FvmExecution::evaluate(math::ScalarLaplacian operation, ScalarField& result) {
     requireDistinct(&operation.field, &result);
     requireDistinct(operation.coefficient_field, &result);
     Implementation& state = *m_implementation;
@@ -879,7 +879,7 @@ void FvmExecution::evaluate(fvc::ScalarLaplacian operation, ScalarField& result)
 
 void FvmExecution::subtract(
     const ScalarField& coefficient,
-    fvc::ScalarGradient operation,
+    math::ScalarGradient operation,
     VectorField& target)
 {
     Implementation& state = *m_implementation;
@@ -896,7 +896,7 @@ void FvmExecution::subtract(
     state.synchronize(target);
 }
 
-void FvmExecution::evaluate(fvc::ScalarDiffusionFlux operation, ScalarField& target) {
+void FvmExecution::evaluate(math::ScalarDiffusionFlux operation, ScalarField& target) {
     requireDistinct(&operation.coefficient, &target);
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "diffusion-flux field");
@@ -934,7 +934,7 @@ void FvmExecution::evaluate(fvc::ScalarDiffusionFlux operation, ScalarField& tar
     state.synchronize(target);
 }
 
-void FvmExecution::add(fvc::FaceFlux operation, ScalarField& target, fvc::FaceRegion region) {
+void FvmExecution::add(math::FaceFlux operation, ScalarField& target, math::FaceRegion region) {
     requireFaceField(target, *m_implementation->mesh, "flux increment target");
     // Cell 输入的入口/出口判定使用目标中的当前通量，而不是上一次工作区残值。
     if (operation.velocity.location() == FieldLocation::Cell) {
@@ -945,15 +945,15 @@ void FvmExecution::add(fvc::FaceFlux operation, ScalarField& target, fvc::FaceRe
     m_implementation->addFaceIncrement(target, 1.0, region);
 }
 
-void FvmExecution::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target,
-                            fvc::FaceRegion region) {
+void FvmExecution::subtract(math::ScalarDiffusionFlux operation, ScalarField& target,
+                            math::FaceRegion region) {
     requireFaceField(target, *m_implementation->mesh, "flux increment target");
     requireDistinct(&operation.coefficient, &target);
     evaluate(operation, m_implementation->face_flux_workspace);
     m_implementation->addFaceIncrement(target, -1.0, region);
 }
 
-void FvmExecution::evaluate(fvc::NormalGradient operation, ScalarField& result) {
+void FvmExecution::evaluate(math::NormalGradient operation, ScalarField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "normal-gradient input");
     requireFaceField(result, *state.mesh, "normal-gradient result");

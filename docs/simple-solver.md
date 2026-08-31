@@ -50,7 +50,7 @@ main 组织循环，convergence 输出数值诊断。没有为五个步骤新增
 | --- | --- | --- |
 | 物理状态 | U、p、phi | Case 或嵌入式调用者拥有；算法借用，必须活得比算法久 |
 | SIMPLE 算法状态 | pPrime、rAU、phiHbyA、上一轮 U、步骤/迭代/收敛状态 | 本模块 `state.h`；跨算法步骤保持，不向通用 FVM 暴露 |
-| 数学中间量 | gradP、rAUGradP、面插值、预测通量散度 | 本模块预分配的 Field；由公开 fvc/Field 运算更新，不含存储/通信信息 |
+| 数学中间量 | gradP、rAUGradP、面插值、预测通量散度 | 本模块预分配的 Field；由公开 math/Field 运算更新，不含存储/通信信息 |
 | 数值执行工作区 | 梯度重构临时量、通量暂存、矩阵、求解器工作向量、同步缓冲 | 通用 FVM/代数/并行模块独占，SIMPLE 不包含或借用这些内部类型 |
 
 `NumericalWorkspace` 只是本算法几个可复用数学 Field 的分组，不是跨层共享的执行工作区。
@@ -63,8 +63,8 @@ main 组织循环，convergence 输出数值诊断。没有为五个步骤新增
 
 ```cpp
 solveWithResponse(
-    fvm::div(rho, phi, U) ==
-        -fvc::grad(p) + fvm::laplacian(mu, U),
+    eqn::div(rho, phi, U) ==
+        -math::grad(p) + eqn::laplacian(mu, U),
     rAU, relaxed(relaxation));
 ```
 
@@ -82,9 +82,9 @@ rho 是密度，mu 是动力黏度。rAU 是带欠松弛的动量对角对应的
 后两个修正项仅作用于内部面。`momentum.cpp` 通过通用数学操作组合它们：
 
 ```cpp
-fvc::add(fvc::flux(work.rAU_grad_p_face), phiHbyA, fvc::FaceRegion::Interior);
-fvc::subtract(fvc::flux(work.rAU_face, fvc::reconstruct(p, work.grad_p)),
-              phiHbyA, fvc::FaceRegion::Interior);
+math::add(math::flux(work.rAU_grad_p_face), phiHbyA, math::FaceRegion::Interior);
+math::subtract(math::flux(work.rAU_face, math::reconstruct(p, work.grad_p)),
+              phiHbyA, math::FaceRegion::Interior);
 ```
 
 `flux(faceVector)` 直接计算面积向量点积；`flux(k,reconstruct(p,gradP))` 复用已算梯度，
@@ -105,11 +105,11 @@ fvc::subtract(fvc::flux(work.rAU_face, fvc::reconstruct(p, work.grad_p)),
 
 ```cpp
 solve(
-    -fvm::laplacian(rAU, pPrime) == -fvm::source(divPhiHbyA),
+    -eqn::laplacian(rAU, pPrime) == -eqn::source(divPhiHbyA),
     fix_reference ? referenceValue(0.0) : EquationControl{});
 ```
 
-随后欠松弛更新 p、用 fvc 修正 U 和 phi。压力参考、非正交显式项与通量修正保持原有数值路径；
+随后欠松弛更新 p、用 math 修正 U 和 phi。压力参考、非正交显式项与通量修正保持原有数值路径；
 本轮没有以换一种 SIMPLE 公式来换取较短代码。
 
 动量响应和参考规范是通用公开求解能力，不再由 SIMPLE 专用转发函数提供。
@@ -145,7 +145,7 @@ loop 不偷偷执行额外外迭代；达到全局收敛或最大次数便停止
 | --- | --- |
 | createFields | Case 命名场与 create_fields.cpp |
 | SIMPLE loop | main.cpp 中五个有数值语义的步骤 |
-| UEqn | momentum.cpp 中 fvm/fvc 方程 |
+| UEqn | momentum.cpp 中 eqn/math 方程 |
 | rAU/HbyA/phiHbyA | 私有算法场、同位动量插值 |
 | 非正交压力循环 | pressure.cpp 中压力修正循环 |
 | 压力/速度/通量更新 | 明确的 correctVelocity / correctFlux |
@@ -162,7 +162,7 @@ simple_control.h 和带 IncompressibleFields 参数的构造入口保留给内�
 
 嵌入式构造从 `SimpleSolver(run_time, fields, fluid, control)` 改为
 `SimpleSolver(fields, fluid, control)`，所有仓库调用者已迁移。调用前仍须建立活动运行域，
-如同调用公开 `solve/fvc`；算法不接收这个对象，也不能独立管理它的生命周期。
+如同调用公开 `solve/math`；算法不接收这个对象，也不能独立管理它的生命周期。
 传入不同网格的场、错误位置或没有活动运行域会报错。Case 构造入口不变。
 
 SimpleControl 只保存算法控制；线性求解配置唯一保存在 RuntimeControl，旧的
@@ -187,7 +187,7 @@ RuntimeControl.scalar_solver/vector_solver，再创建 RunTime。
 | 三维腔流，216 单元，2 进程 | 57 次外迭代；同进程数新旧 U/p 最大差小于 2e-16 |
 | 三维非正交腔流，125 单元 | 保持 79 次外迭代；连续性残差约 1.86e-8，存在三维展向流动 |
 | Poiseuille，4340 单元，2 进程 | 保持 865 次外迭代；新旧 U/p 最大差约 1.49e-14 / 2.25e-14 |
-| 公开 fvc，三维倾斜网格 | 22 项操作 × 3 种扩散格式，1/2/4 进程主动污染待同步数据后仍与串行参考一致；最大误差小于 8e-14 |
+| 公开 math，三维倾斜网格 | 22 项操作 × 3 种扩散格式，1/2/4 进程主动污染待同步数据后仍与串行参考一致；最大误差小于 8e-14 |
 
 上述 U/p 差异按全局单元编号匹配、逐分量取最大绝对值，不是迭代残差，也不是与解析解的误差。
 常规单元/求解器测试、MPI 测试、外部 SDK 构建、Case/后处理工作流和架构负向测试全部通过。

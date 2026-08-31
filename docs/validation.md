@@ -6,6 +6,31 @@
 
 ## 1. 自动测试
 
+### eqn/math 命名迁移回归（2026-08-31）
+
+以 `dfc73e5` 为改名前基线，统一公开命名空间、头文件、实现文件、测试及文档。
+本次仅调整名称和注释，不改变数值公式、离散格式、容差、内存布局或通信顺序。
+
+```bash
+make -j2 all test test-mpi test-workflow test-external
+```
+
+上述目标全部通过。新增独立包含 `math.h`、`eqn.h` 的普通 g++ 编译检查，
+以及旧命名空间不可用的两项负向检查；原有十项维护接口隔离检查继续通过。
+
+| 检查 | 本次结果 |
+| --- | --- |
+| 源码边界 | 65 个生产源文件/头文件的包含图无环；公开旧名称无残留 |
+| 显式同步 | 22 项 math 运算 × 3 种扩散方法，污染 halo 后与串行对照；1/2/4 rank 最大差异为 0 / 7.42e-14 / 6.94e-14 |
+| SIMPLE 回归 | 1/2/4 rank 腔体均 137 次；2 rank Poiseuille 为 865 次；三维及非正交测试通过 |
+| 改名前后场对照 | 同进程数、同配置的腔体（1/2/4 rank）、三维腔体（2 rank）、Poiseuille（2 rank）的 U/p，以及 Heat（2 rank）的 T，与预先保存的结果最大绝对差均为 0 |
+| 外部 Solver | 只使用公开头文件重编译完整 SIMPLE；方程驱动、耦合和矢量示例均通过 1/2/4 rank 测试 |
+| 完整工作流 | Heat/transport/耦合时间序列、失败路径、ParaView PVD/VTU 实际读取通过 |
+
+场对照按 global ID 对齐，逐分量计算最大绝对差，以 `atol=rtol=1e-12` 验收；
+这里的零差异只指本次相同进程数的改名前后结果，不表示不同进程数必须逐 bit 一致。
+本次没有重做性能或 sanitizer 测试。以下各节为先前阶段的历史证据，不替代本次回归。
+
 ### 1.0 公开契约与仓库外二次开发验收（2026-08-31）
 
 本轮基线为 `be18f32`，以下是本轮新增证据；后续小节保留前几轮的历史记录，
@@ -28,16 +53,16 @@ make -B -j2 all test test-workflow test-external test-mpi test-mpi-poiseuille
 | 新 Solver | 方程驱动输运、算法驱动双标量耦合、矢量源/响应示例均在 1/2/4 进程检查解析值 |
 | Field/Case | 非均匀位置源、U→动能点值映射、张量派生输出、面矢量/张量创建、声明阶段与稳定引用 |
 | 方程公开能力 | 矢量 Field 体源、标量欠松弛、Poisson 参考规范、V/aP 响应及非法别名拒绝 |
-| 负向编译 | 原始 Field 指针/索引、Mesh 数组/分区/替换、离散矩阵入口、旧单面 fvc、内部头等十项被拒绝 |
+| 负向编译 | 原始 Field 指针/索引、Mesh 数组/分区/替换、离散矩阵入口、已移除的单面局部核、内部头等十项被拒绝 |
 | 启动失败路径 | 负返回码与其他进程的 0 不会合并为成功；空表和重复名称拒绝；失败不写成功结果 |
 | 结果读取隔离 | 普通 g++ 链接并实际读取并行结果，未链接 MPI |
-| 显式同步契约 | 故意污染 ghost/重复面值，17 项 fvc 运算对照串行；1/2/4 进程最大差异为 0 / 7.42e-14 / 6.94e-14 |
+| 显式同步契约 | 故意污染 ghost/重复面值，17 项 math 运算对照串行；1/2/4 进程最大差异为 0 / 7.42e-14 / 6.94e-14 |
 | 源码边界 | 67 个 src/include 文件的包含图无环；FVM 执行实现不包含 RunTime；Application 无 MPI/格式实现 |
 | 数值回归 | 通道/2D腔体/3D腔体/2D非正交/3D非正交迭代仍为 49/137/57/164/79 |
 | MPI SIMPLE | 腔体 1/2/4 rank 均 137 次；Poiseuille 均 865 次 |
 | MPI 场差异 | Poiseuille 1 对 4 rank：U 6.1705172e-7、p 1.5343525e-6；Heat 1 对 2 rank：T 3.7990135e-11 |
 | 后处理 | 原时间序列/VTU/Tecplot 工作流及真实 ParaView PVDReader 通过 |
-| 定向 ASan/UBSan | 新构建的公开方程、Case 生命周期及 2 rank 非正交 fvc 测试通过；后者差异 7.05e-14 |
+| 定向 ASan/UBSan | 新构建的公开方程、Case 生命周期及 2 rank 非正交 math 测试通过；后者差异 7.05e-14 |
 
 Sanitizer 使用 `-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer`，
 运行设置 `ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=halt_on_error=1 TMPDIR=/tmp`。
@@ -133,11 +158,11 @@ make validate-poiseuille
 - Runtime 隐藏的离散 LDU 装配、Field 系数时间/扩散项、稀疏结构复用与串行线性求解；
 - `case.bs`、物性/数值字典、花括号 `.field`、通用 scalar/vector/tensor 结果写出与
   result reader；
-- Heat、标量输运和 SIMPLE 对同一 `fvm/fvc/solve` 路径的复用检查；
+- Heat、标量输运和 SIMPLE 对同一 `eqn/math/solve` 路径的复用检查；
 - Case 场引用稳定性、确定析构顺序、时间历史按物理步推进，以及矢量方程全分量收敛；
 - 新双场耦合 Solver 的单文件开发路径、1/2/4 rank 一致性、多时间步写出、
   失败路径、XML VTU/PVD 和真实 ParaView 读取；
-- `fvc::subtract` 的 cell 梯度修正和 face 扩散通量修正，确保 SIMPLE 不以手写 Field 索引
+- `math::subtract` 的 cell 梯度修正和 face 扩散通量修正，确保 SIMPLE 不以手写 Field 索引
   绕过 Runtime 的非正交、halo 与连续存储路径；
 - 小通道、二维腔体、三维腔体、二维扭曲和三维扭曲非正交腔体的 SIMPLE 回归。
 
@@ -220,8 +245,8 @@ make test-mpi-poiseuille
 - 仅生成 owned 行的 SparseAssembly；
 - halo matvec、全局点积/范数的分布式 Krylov 求解；
 - 1/2/4 rank 二维腔体、2 rank 原生网格通道流、2 rank 三维腔体，以及 1/2 rank 热传导。
-- 2 rank 对流--扩散标量输运；该 Solver 与串行版本使用完全相同的 `fvm::ddt +
-  fvm::div == fvm::laplacian + source` 源码。
+- 2 rank 对流--扩散标量输运；该 Solver 与串行版本使用完全相同的 `eqn::ddt +
+  eqn::div == eqn::laplacian + source` 源码。
 
 文件型启动器还通过 `readDistributedMesh()` 验证根 rank 解析、尺寸/patch 广播、
 局部顶点点对点传输和接收端重建；`parallel_channel_test` 使用该入口，不再先在

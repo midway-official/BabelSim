@@ -31,12 +31,12 @@ int main() {
     ScalarField doubled_laplacian(mesh, FieldLocation::Cell, "lap2T");
     ScalarField cell_diffusivity(mesh, FieldLocation::Cell, "k", 2.0);
     ScalarField field_laplacian(mesh, FieldLocation::Cell, "lapkT");
-    fvc::evaluate(fvc::grad(scalar), scalar_gradient);
-    fvc::evaluate(fvc::interpolate(scalar), face_scalar);
-    fvc::evaluate(fvc::reconstruct(scalar, scalar_gradient), reconstructed_scalar);
-    fvc::evaluate(fvc::laplacian(scalar), unit_laplacian);
-    fvc::evaluate(fvc::laplacian(2.0, scalar), doubled_laplacian);
-    fvc::evaluate(fvc::laplacian(cell_diffusivity, scalar), field_laplacian);
+    math::evaluate(math::grad(scalar), scalar_gradient);
+    math::evaluate(math::interpolate(scalar), face_scalar);
+    math::evaluate(math::reconstruct(scalar, scalar_gradient), reconstructed_scalar);
+    math::evaluate(math::laplacian(scalar), unit_laplacian);
+    math::evaluate(math::laplacian(2.0, scalar), doubled_laplacian);
+    math::evaluate(math::laplacian(cell_diffusivity, scalar), field_laplacian);
     for (Index cell : detail::meshData(mesh).owned_cells) {
         require(
             near(detail::fieldData(doubled_laplacian)[cell], 2.0 * detail::fieldData(unit_laplacian)[cell]),
@@ -47,7 +47,7 @@ int main() {
     }
 
     VectorField velocity_correction(mesh, FieldLocation::Cell, "Ucorrected", {1.0, 1.0, 1.0});
-    fvc::subtract(cell_diffusivity, fvc::grad(scalar), velocity_correction);
+    math::subtract(cell_diffusivity, math::grad(scalar), velocity_correction);
     for (Index cell : detail::meshData(mesh).owned_cells) {
         require(
             near(
@@ -57,7 +57,7 @@ int main() {
     }
 
     ScalarField flux_correction(mesh, FieldLocation::Face, "pFlux", 0.0);
-    fvc::subtract(fvc::flux(cell_diffusivity, scalar), flux_correction);
+    math::subtract(math::flux(cell_diffusivity, scalar), flux_correction);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const double expected = -2.0 * integratedNormalGradient(
             scalar, scalar_gradient, face, control.methods.diffusion);
@@ -71,10 +71,10 @@ int main() {
     ScalarField face_coefficient(mesh, FieldLocation::Face, "kf", 1.7);
     ScalarField correction(mesh, FieldLocation::Face, "correction", 3.0);
     ScalarField projected(mesh, FieldLocation::Face, "projected");
-    fvc::evaluate(fvc::flux(face_response), projected);
-    fvc::add(fvc::flux(face_response), correction, fvc::FaceRegion::Interior);
-    fvc::subtract(fvc::flux(face_coefficient, fvc::reconstruct(scalar, scalar_gradient)),
-                  correction, fvc::FaceRegion::Interior);
+    math::evaluate(math::flux(face_response), projected);
+    math::add(math::flux(face_response), correction, math::FaceRegion::Interior);
+    math::subtract(math::flux(face_coefficient, math::reconstruct(scalar, scalar_gradient)),
+                  correction, math::FaceRegion::Interior);
     for (Index face : detail::meshData(mesh).owned_faces) {
         const double projection = dot(detail::fieldData(face_response)[face], mesh.faceAreaVector(face));
         require(near(detail::fieldData(projected)[face], projection), "face flux interpolated an already face-centred field");
@@ -84,7 +84,7 @@ int main() {
                 scalar, scalar_gradient, face, control.methods.diffusion);
         require(near(detail::fieldData(correction)[face], expected), "interior flux update changed the boundary or its sign");
     }
-    fvc::add(fvc::flux(face_response), projected);
+    math::add(math::flux(face_response), projected);
     for (Index face : detail::meshData(mesh).owned_faces)
         require(near(detail::fieldData(projected)[face], 2 * dot(
             detail::fieldData(face_response)[face], mesh.faceAreaVector(face))), "all-face addition omitted a boundary");
@@ -93,13 +93,13 @@ int main() {
         try { operation(); } catch (const std::invalid_argument&) { return; }
         throw std::runtime_error("invalid public flux operation was accepted");
     };
-    rejects([&] { fvc::add(fvc::flux(face_response), scalar); });
-    rejects([&] { fvc::subtract(fvc::flux(face_coefficient, scalar), face_coefficient); });
-    rejects([&] { fvc::evaluate(fvc::flux(face_coefficient, fvc::reconstruct(scalar, face_response)), projected); });
-    rejects([&] { fvc::add(fvc::flux(face_response), projected, static_cast<fvc::FaceRegion>(-1)); });
+    rejects([&] { math::add(math::flux(face_response), scalar); });
+    rejects([&] { math::subtract(math::flux(face_coefficient, scalar), face_coefficient); });
+    rejects([&] { math::evaluate(math::flux(face_coefficient, math::reconstruct(scalar, face_response)), projected); });
+    rejects([&] { math::add(math::flux(face_response), projected, static_cast<math::FaceRegion>(-1)); });
     const Mesh other_mesh = Mesh::cartesian({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     VectorField other_face(other_mesh, FieldLocation::Face);
-    rejects([&] { fvc::evaluate(fvc::flux(other_face), projected); });
+    rejects([&] { math::evaluate(math::flux(other_face), projected); });
 
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     TensorField velocity_gradient(mesh, FieldLocation::Cell, "gradU");
@@ -109,19 +109,19 @@ int main() {
     ScalarField vector_divergence(mesh, FieldLocation::Cell, "divU");
     ScalarField scalar_convection(mesh, FieldLocation::Cell, "divPhiT");
     VectorField vector_convection(mesh, FieldLocation::Cell, "divPhiU");
-    fvc::evaluate(fvc::flux(velocity), flux);
-    fvc::evaluate(fvc::grad(velocity), velocity_gradient);
-    fvc::evaluate(
-        fvc::reconstruct(velocity, velocity_gradient), reconstructed_velocity);
-    fvc::evaluate(fvc::div(flux), flux_divergence);
-    fvc::evaluate(fvc::div(velocity), vector_divergence);
-    fvc::evaluate(fvc::div(flux, scalar), scalar_convection);
-    fvc::evaluate(fvc::div(flux, velocity), vector_convection);
+    math::evaluate(math::flux(velocity), flux);
+    math::evaluate(math::grad(velocity), velocity_gradient);
+    math::evaluate(
+        math::reconstruct(velocity, velocity_gradient), reconstructed_velocity);
+    math::evaluate(math::div(flux), flux_divergence);
+    math::evaluate(math::div(velocity), vector_divergence);
+    math::evaluate(math::div(flux, scalar), scalar_convection);
+    math::evaluate(math::div(flux, velocity), vector_convection);
     for (Index cell : detail::meshData(mesh).owned_cells) {
         require(near(detail::fieldData(flux_divergence)[cell], 0.0), "zero face flux has divergence");
         require(near(detail::fieldData(vector_divergence)[cell], 0.0), "zero velocity has divergence");
         require(near(detail::fieldData(scalar_convection)[cell], 0.0), "zero flux has scalar convection");
         require(near(detail::fieldData(vector_convection)[cell], {}), "zero flux has vector convection");
     }
-    std::cout << "fvc_runtime_test: explicit Field operations passed\n";
+    std::cout << "math_runtime_test: explicit Field operations passed\n";
 }

@@ -23,8 +23,8 @@ int main() {
     RunTime run_time = RunTime::forMesh(mesh, control);
     require(run_time.loop(), "transport run did not start its time step");
     const SolveResult result = solve(
-        fvm::ddt(2.0, concentration) + fvm::div(flux, concentration) ==
-            fvm::laplacian(0.0, concentration) + fvm::source(6.0));
+        eqn::ddt(2.0, concentration) + eqn::div(flux, concentration) ==
+            eqn::laplacian(0.0, concentration) + eqn::source(6.0));
     require(result.converged(), "transport equation did not converge");
     require(!run_time.loop() && run_time.step() == 1, "transport time step count changed");
     require(near(detail::fieldData(concentration)[0], 0.3, 1e-12), "transport source update is incorrect");

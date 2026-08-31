@@ -18,8 +18,8 @@ void checkHistory(TimeMethod method) {
     while (time.loop()) {
         // 内迭代不是时间推进：重复求解同一方程，结果仍在同一个物理时间层。
         for (int correction = 0; correction < 3; ++correction) {
-            require(solve(fvm::ddt(T) == fvm::source(2.0)).converged(), "scalar solve failed");
-            require(solve(fvm::ddt(U) == fvm::source(Vec3{1, 2, 3})).converged(),
+            require(solve(eqn::ddt(T) == eqn::source(2.0)).converged(), "scalar solve failed");
+            require(solve(eqn::ddt(U) == eqn::source(Vec3{1, 2, 3})).converged(),
                     "vector solve failed");
             require(near(detail::fieldData(T)[0], 2.0 * time.time(), 1e-12), "inner solve advanced scalar history");
             require(near(detail::fieldData(U)[0], Vec3{time.time(), 2*time.time(), 3*time.time()}, 1e-12),
@@ -40,7 +40,7 @@ int main() {
         control.time = {0.0, 0.25, 0.1};
         RunTime time = RunTime::forMesh(mesh, control);
         while (time.loop()) {
-            require(solve(fvm::ddt(T) == fvm::source(1.0)).converged(), "short-step solve failed");
+            require(solve(eqn::ddt(T) == eqn::source(1.0)).converged(), "short-step solve failed");
             require(near(detail::fieldData(T)[0], time.time(), 1e-12), "short final step used wrong deltaT");
         }
         require(time.step() == 3 && near(time.time(), 0.25), "endTime was not respected");
@@ -65,7 +65,7 @@ int main() {
         control.vector_solver.relative_tolerance = 1e-25;
         RunTime time = RunTime::forMesh(mesh, control);
         const SolveResult result = solve(
-            -fvm::laplacian(0.7, U) == fvm::source(Vec3{0, 1, 0}));
+            -eqn::laplacian(0.7, U) == eqn::source(Vec3{0, 1, 0}));
         require(!result.converged(), "zero x/z components hid the unconverged y equation");
     }
     std::cout << "time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed\n";

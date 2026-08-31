@@ -2,12 +2,12 @@
 
 #include "babelsim/field.h"
 
-namespace babelsim::fvc {
+namespace babelsim::math {
 
-// fvc 描述“立即计算为场”的显式有限体积运算。描述对象只保存 Field 引用；
+// math 描述已有场上的数学量，不创建待求解方程项。描述对象只保存 Field 引用；
 // evaluate()/add()/subtract() 才执行：所有参与进程以相同顺序调用，后端同步所有输入、
 // 选择离散方法，并同步写出的结果。调用者不负责 halo；同位输入与结果不得别名。
-// 单面/单元局部核不属于公开 fvc API。
+// 单面/单元局部核不属于公开 math API。
 struct ScalarGradient {
     const ScalarField& field;
 };
@@ -152,4 +152,4 @@ void add(FaceFlux operation, ScalarField& target, FaceRegion region = FaceRegion
 void subtract(ScalarDiffusionFlux operation, ScalarField& target,
               FaceRegion region = FaceRegion::All);
 
-}  // babelsim::fvc 命名空间
+}  // babelsim::math 命名空间

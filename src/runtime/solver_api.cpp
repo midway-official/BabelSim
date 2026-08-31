@@ -56,7 +56,7 @@ SolveResult solveWithResponse(const VectorEquationDefinition& equation, ScalarFi
     return aggregate(detail::execution().solve(equation, {control.relaxation, &response}));
 }
 
-namespace fvc {
+namespace math {
 
 void evaluate(NormalGradient operation, ScalarField& result) {
     detail::execution().evaluate(operation, result);
@@ -118,7 +118,7 @@ void subtract(ScalarDiffusionFlux operation, ScalarField& target, FaceRegion reg
     detail::execution().subtract(operation, target, region);
 }
 
-}  // fvc 命名空间
+}  // math 命名空间
 
 namespace diagnostics {
 
