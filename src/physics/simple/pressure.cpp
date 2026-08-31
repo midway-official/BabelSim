@@ -1,4 +1,4 @@
-#include "babelsim/simple.h"
+#include "internal/simple_state.h"
 
 namespace babelsim {
 // 压力方程的第一次求解给出正交部分，后续求解用于显式非正交修正。调用点只表达
@@ -19,15 +19,15 @@ private:
     int m_remaining;
 };
 
-void SimpleSolver::initializePressureCorrectionBoundaries() {
+void SimpleSolver::State::initializePressureCorrectionBoundaries() {
     m_has_fixed_pressure = setHomogeneousCorrectionBoundaries(
-        m_algorithm.p_prime, m_fields.pressure);
+        m_algorithm.p_prime, m_p);
 }
 
-SimpleSolver::PressureEquationResult SimpleSolver::solvePressure() {
+SimpleSolver::State::PressureEquationResult SimpleSolver::State::solvePressure() {
     // pEqn：div(phiHbyA) = div(rAU grad(pPrime))。非正交显式修正由通用
     // fvm::laplacian 处理；这里只保留 SIMPLE 所需的语义化修正循环。
-    ScalarField& p = m_fields.pressure;
+    ScalarField& p = m_p;
     ScalarField& pPrime = m_algorithm.p_prime;
     ScalarField& rAU = m_algorithm.rAU;
     ScalarField& phiHbyA = m_algorithm.phiHbyA;
@@ -55,15 +55,15 @@ SimpleSolver::PressureEquationResult SimpleSolver::solvePressure() {
     return result;
 }
 
-void SimpleSolver::correctVelocity() {
-    VectorField& U = m_fields.velocity;
+void SimpleSolver::State::correctVelocity() {
+    VectorField& U = m_U;
     const ScalarField& pPrime = m_algorithm.p_prime;
     const ScalarField& rAU = m_algorithm.rAU;
     fvc::subtract(rAU, fvc::grad(pPrime), U);
 }
 
-void SimpleSolver::correctFlux() {
-    ScalarField& phi = m_fields.face_flux;
+void SimpleSolver::State::correctFlux() {
+    ScalarField& phi = m_phi;
     const ScalarField& phiHbyA = m_algorithm.phiHbyA;
     const ScalarField& pPrime = m_algorithm.p_prime;
     const ScalarField& rAU = m_algorithm.rAU;

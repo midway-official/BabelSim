@@ -6,8 +6,29 @@
 
 ## 1. 自动测试
 
+本轮 Solver 工作流验收（2026-08-31）另外确认：
+
+- SIMPLE 公开头由 187 行降到 40 行；Heat、SIMPLE、transport 主入口分别为
+  20、18、21 行（含 include、空行和命名空间）。这只是可读性指标，不替代数值验收。
+- 新双场耦合例子只新增一个普通函数；在 1/2/4 rank 上对每个保存时间层检查
+  隐式 Euler 的解析递推结果，不要求新 reader、执行类或矩阵实现。
+- 检查公共头文件闭包未引入 RunTime/MPI/Eigen；检查 Case scalar/vector/tensor 输入、
+  稳定引用、中间场不输出、错误配置、失败步不保存及旧分区冲突。
+- ParaView PVDReader 实际读取了 `[2, 4, 6, 8, 10]` 时间序列、32 个 cell 和温度值，
+  不仅检查文件后缀或 XML 语法。
+- 1/2/4 rank 小腔体均为 137 次，Poiseuille 均为 865 次；Poiseuille 1 对 4 rank
+  的逐 global-ID 最大绝对差为 U 约 `6.17e-7`、p 约 `1.53e-6`。
+  文件比较容差收紧为 `atol=rtol=5e-6`。Heat 1 对 2 rank 最大差约 `3.80e-11`。
+- ASan/UBSan 下的时间历史、SIMPLE 单次迭代和 Case 生命周期测试通过；
+  此项关闭了泄漏检测，不能据此宣称 MPI 库或整个程序已证明无泄漏。
+
+测试还修正了原有 BDF2 首步缺少 Euler 启动、时间步内多次 solve 推进历史、以及分布式
+Krylov 提前停止但真实残差略高于容差的边界问题。没有通过放宽线性容差或额外 SIMPLE
+外迭代来让测试通过。
+
 ```bash
 make test
+make test-workflow
 make test-mpi
 make test-mpi-poiseuille
 make validate-cavity
@@ -25,6 +46,9 @@ make validate-poiseuille
 - `case.bs`、物性/数值字典、花括号 `.field`、通用 scalar/vector/tensor 结果写出与
   result reader；
 - Heat、标量输运和 SIMPLE 对同一 `fvm/fvc/solve` 路径的复用检查；
+- Case 场引用稳定性、确定析构顺序、时间历史按物理步推进，以及矢量方程全分量收敛；
+- 新双场耦合 Solver 的单文件开发路径、1/2/4 rank 一致性、多时间步写出、
+  失败路径、XML VTU/PVD 和真实 ParaView 读取；
 - `fvc::subtract` 的 cell 梯度修正和 face 扩散通量修正，确保 SIMPLE 不以手写 Field 索引
   绕过 Runtime 的非正交、halo 与连续存储路径；
 - 小通道、二维腔体、三维腔体、二维扭曲和三维扭曲非正交腔体的 SIMPLE 回归。

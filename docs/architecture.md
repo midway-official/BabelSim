@@ -1,195 +1,135 @@
-# BabelSim 架构
+# BabelSim 架构：作者与维护者的两条入口
 
-## 目标与边界
+## 本轮修正了什么
 
-BabelSim 是面向有限体积法（FVM）的轻量 CFD/PDE 框架。它借鉴 OpenFOAM 的一个核心
-思想：求解器源码应首先表达物理方程和数值算法，而不是 MPI 通信、稀疏矩阵或内存布局。
-它不复制 OpenFOAM 的运行时注册表、复杂模板层级和历史兼容结构。
+旧代码的主要问题不是数学表达式不够漂亮，而是每个新 Solver 还要重复编写
+Case reader、Field/RunTime 构造、并行输出和日志；SIMPLE 的公开头还列出了全部算法场和工作区。
+这使阅读一个 PDE 之前必须先理解许多实现对象。
 
-当前框架以三维结构化六面体网格为唯一网格模型；二维是 `nz=1` 的退化情形。所有几何、
-Field、算子和并行路径均复用同一实现。
+本轮把重复执行工作收回框架：
 
-```text
-Case / 应用
-    │  读取案例、选择求解器、并行结果写出
-    ▼
-Solver / Algorithm
-    │  Heat：时间循环与热方程
-    │  SIMPLE：UEqn、面动量插值、pEqn、修正、连续性
-    ▼
-Public Solver API
-    │  Mesh、Field、Boundary、RunTime、fvm、fvc、solve
-    ▼
-FVM Backend（内部）
-    │  离散方程、非正交修正、装配、线性后端
-    ▼
-Runtime（内部实现）
-    │  FieldHistory、halo、全局归约、串行/分布式选择
-    ▼
-MPI / 内存 / I/O 基础设施
-```
+- `Case` 统一命名配置、读场、对象生存期和结果工作流；
+- `solver.h` 只提供 solve、fvc 和 diagnostics，不包含 RunTime/MPI/代数实现头；
+- SIMPLE 公开头只声明算法操作，状态在 `src/internal/simple_state.h`；
+- 删除三个专用 Case reader 和三个 Case 运行适配器；
+- 新 Solver 一个 `src/physics/<name>/main.cpp` 加显式选择表的一项；
+- 时间步自动输出；PVD 使用真实物理时间并引用 XML VTU；
+- 时间历史与 solve 次数解耦，允许一个时间步内进行耦合迭代。
 
-依赖方向只能向下。特别地：Physics/Solver 不依赖 `ParallelContext`、`HaloExchange`、
-`SparseAssembly`、LDU、Eigen 或 MPI；代数与运行时不知道温度、压力、速度或 SIMPLE。
+没有引入 Solver 基类、Factory、Registry 或通用算法引擎。只有 Case 和 Parameters 两个新的
+职责对象：前者是输入/运行结果的所有者，后者是带诊断的命名配置，不是数学或物理管理器。
 
-## OpenFOAM 设计考察
-
-本次重构先对 OpenFOAM 的 `laplacianFoam`、`scalarTransportFoam` 和 `simpleFoam` 做了源码级
-对照。标量输运 Solver 用 `runTime.loop()`、`fvm::ddt/div/laplacian` 和 `solve` 表达方程，
-把网格、Field、边界、离散格式和线性控制留给 Case/框架；`simpleFoam` 则把
-`createFields`、`UEqn.H`、`pEqn.H` 和 SIMPLE 外循环分开，压力方程中显式保留 `rAU`、
-预测通量、非正交修正和速度/通量修正。OpenFOAM 的核心经验是“代码顺序对应数学顺序”，
-而不是必须复制它的模板和对象注册机制。
-
-BabelSim 采用相同的层次和表达习惯：`fvm` 是隐式方程贡献，`fvc` 是显式场计算；通用 FVM
-提供基础算子，SIMPLE 仅在其私有实现中保留动量插值和压力修正两个有独立数值语义的步骤。
-相关对照和原始资料见 [fvm/fvc 说明](fvm-fvc.md)、[热传导 Solver](heat-solver.md)
-和 [SIMPLE Solver](simple-solver.md)。
-
-## 当前模块审计
-
-下表按真实 `#include`、构造调用和数据流整理，而不是按目录名称推断。依赖箭头均指向更底层
-模块；Physics 只应使用 Public 列中的头文件。
-
-| 模块 | 实际职责与层级 | 主要依赖 | 对外接口 | 内部接口/问题与动作 |
-| --- | --- | --- | --- | --- |
-| `src/apps` | 案例启动器、MPI 生命周期、结果输出（应用层） | `case`、IO、Physics、并行 | `babelsim-solve`、`babelsim-post` | 可以知道执行细节；不把这些细节传入 Physics |
-| `src/io`、`case.h` | 案例字典、网格/Field/物性读取（案例层） | Mesh、Field、配置解析 | `readCase`、读取器 | 不参与离散；新增 Solver 增加小型读取器，不建 Manager |
-| `src/physics`、`thermal.h`、`simple.h` | 热传导和 SIMPLE 物理/算法（物理层） | Mesh、Field、`fvm/fvc`、RunTime | `solveTransientHeat`、`SimpleSolver` | 不得依赖代数、并行或存储入口；已移除旧泄漏 |
-| `fvm.h`、`fvc.h`、`methods.h` | 轻量数学表达和 FVM 方法（离散接口层） | Field、网格几何 | `fvm::*`、`fvc::*`、Methods | 不创建 LDU/通信；只保存描述符，求解时解释 |
-| `src/discretization` | 梯度、插值、扩散、对流和方程装配（离散实现层） | Mesh、Field、内部离散方程 | Runtime 调用的算子核 | 可使用连续数组和非正交缓存，不应知道具体 Physics |
-| `src/runtime`、`runtime.h` | 方程解释、Field 同步、时间历史、全局判据（执行数学层） | 离散、代数、Parallel | `RunTime::loop`、`solve`、`fvc::evaluate`、`diagnostics` | PImpl 隐藏后端；统一管理对象生命周期和 MPI 选择 |
-| `src/algebra`、`assembly.h`、`linear_solver.h` | LDU/稀疏装配、Krylov 和预条件器（线性代数层） | Eigen、DiscreteEquation、Parallel | 仅框架级旧/内部接口 | 不知道温度、速度或 SIMPLE；不作为 Physics API |
-| `src/parallel`、`parallel.h` | owned/ghost 映射、Halo、全局归约、并行写出（运行时基础设施） | MPI、Mesh、Field | 仅启动器/Runtime 使用 | 校验 MPI 生命周期和返回码；不向 Physics 暴露 |
-| `src/core`、`mesh.h`、`field.h` | 三维结构化 Mesh/Field 数据和不变量（核心对象层） | 标量/向量值类型 | Mesh、Field、Boundary | 连续存储和容量由构造决定；内部受控修改，禁止任意 resize |
-
-这一审计也解释了为什么没有新增 `PhysicsManager`、`EquationManager` 或 `SolverFactory`：当前
-启动器只有明确的 Solver 分支，足以满足案例选择，同时避免无数学语义的注册层和循环依赖。
-
-## 重构前后的关键变化
-
-此前公开的 `Equation<T>` 实际是 LDU 系数容器，`SimpleSolver` 还公开保存了并行上下文、
-halo、装配器、Eigen 向量和线性求解器。这使“方程”同时表示数学对象、离散对象和执行对象，
-也迫使物理代码理解底层生命周期。
-
-当前采用两个明确层次：
-
-| 层次 | 代表对象 | 含义 | 不应知道的内容 |
-| --- | --- | --- | --- |
-| 数学表达 | `ScalarExpression`、`VectorExpression`、`ScalarEquationDefinition` | `lhs == rhs` 的轻量描述 | LDU、CSR、MPI、矩阵大小 |
-| 离散方程 | Runtime 内部 `DiscreteEquation`/LDU | 某个 FVM 方法产生的局部代数系统 | 压力、温度、SIMPLE |
-
-表达式只保存常数和 Field 引用；`operator+`、`operator-`、`operator==` 不创建大型 Field、
-LDU 或 MPI 缓冲。仅在 `solve(...)` 时才同步必要 halo、执行非正交修正、装配并调用线性后端。
-
-## Public Solver API
-
-新的 PDE/Solver 开发者应主要使用下面的头文件和概念：
+## 1. 面向 Solver 作者的架构
 
 ```text
-babelsim/mesh.h          Mesh、patch、几何和拓扑
-babelsim/field.h         ScalarField、VectorField、TensorField、边界条件
-babelsim/fvc.h           显式场运算描述
-babelsim/fvm.h           隐式方程项与 EquationDefinition
-babelsim/runtime.h       RunTime、solve()、时间循环与收敛诊断
-babelsim/thermal.h       热传导物性和最小 Solver
-babelsim/simple.h          不可压缩物性、场和 SIMPLE 算法
+Case：命名场、物性、方法/时间/输出设置
+  └── 普通 Solver 函数或已有 Algorithm
+        ├── Field / Boundary / 物性
+        ├── fvm / fvc / Equation / solve
+        └── 数学收敛与守恒 diagnostics
 ```
 
-典型隐式方程为：
+作者描述求解什么、方程如何耦合、何时收敛。普通源码只需要 case.h、solver.h；
+使用现成 SIMPLE 再包含 simple.h。无需知道运行对象、分区、消息、矩阵和内部存储。
 
-```cpp
-solve(
-    fvm::ddt(rhoCp, T)
-        == fvm::laplacian(k, T) + fvm::source(Q));
-```
+学习流程和可复制示例见 [solver-development.md](solver-development.md)。
+可见 Field 仍是统一的数学/存储类型，而不是另一套包装对象；底层数据接口尚未由 C++ 访问控制
+完全隔离，但它们不是 Solver 编程契约。源码和头文件闭包测试防止主 Solver 重新引入实现依赖。
 
-其中 `rhoCp` 与 `k` 可以是常数，也可以是 cell Field；Runtime 会为离散所需的面系数
-完成同步和插值。`solve` 不要求调用者持有矩阵或线性求解器。
-
-边界条件属于 Field：
-
-```cpp
-T.boundary("hot") = fixedValue(500.0);
-T.boundary("wall") = zeroGradient();
-U.boundary("side") = symmetry();
-```
-
-## 两种 Solver 组织模式
-
-BabelSim 不建立通用 `BaseSolver`。现有 Solver 通过实际源码正式确立两种互补模式：
-
-| 模式 | 适用问题 | 顶层职责 | 当前黄金模板 |
-| --- | --- | --- | --- |
-| Equation-driven | Heat、Poisson、Diffusion、Advection-Diffusion、Species | 直接表达并求解 PDE | `solveTransientHeat`、标量输运 |
-| Algorithm-driven | SIMPLE、PIMPLE、Projection、耦合迭代 | 组织多个 Equation、Correction 与 Convergence | `SimpleSolver` |
-
-Algorithm-driven 位于 Equation-driven 之上：SIMPLE 的动量方程和压力方程仍由相同
-`fvm/fvc/solve` 路径离散；只有 `phiHbyA`、压力/速度/通量修正与外层收敛属于算法层。
-两者的完整边界见 [solver-programming-model.md](solver-programming-model.md)。
-
-## 内部框架 API
-
-下列对象属于 FVM、代数或运行时实现，不能成为 Physics Solver 的日常接口：
+## 2. 面向框架维护者的实际依赖
 
 ```text
-Equation/LDU、SparseAssembly、PreparedLinearSolver、DistributedLinearSolver
-ParallelContext、HaloExchange、MPI 通信器、owned/ghost 映射、Eigen 向量
+应用：参数 / MPI 生命周期 / 显式 solver_selection
+  └── Case（IO 与对象所有权） ────────┐
+        └── Physics / Algorithm       │
+              └── solver.h / fvm / fvc│
+                    └── RunTime ◀─────┘
+                          ├── 离散 / 装配 / DiscreteEquation
+                          ├── 线性代数
+                          └── Parallel / Halo / 全局归约
+Mesh / Field / Boundary 为上述层共享的基础数学对象，不反向依赖物理或 MPI。
 ```
 
-它们仍然存在，因为需要提供高效分布式执行：局部 Mesh 仅保存 owned+ghost 单元，Field
-连续存储于对应局部实体上；Runtime 在算子和矩阵向量乘前选择正确的 halo 同步宽度，在线性
-残差、范数和 SIMPLE 外迭代判据处执行全局归约。它们不会向 Heat 或 SIMPLE 主算法泄漏。
+这是组合依赖，不是 Manager 调用链。Case 不计算梯度，不组装方程，不判断 SIMPLE 收敛；
+RunTime 不读热物性，不认识 heat/simple/transport；代数不认识具体物理变量。
 
-`Field` 的容量仅由 `(Mesh, FieldLocation)` 构造时确定，外部不能 `resize`。Framework 内部
-保留连续数据访问入口以服务 halo/计算热点；新 Solver 不应使用 `data()`、`mutableData()`、
-`values()` 或 cell 循环实现 PDE。
+| 模块 | 可以知道 | 不应该知道 |
+| --- | --- | --- |
+| apps/solver_selection | Solver 函数名称 | 方程、Field 数据、工作区 |
+| Case / IO | 路径、命名配置、Field 生命周期、时间输出 | SIMPLE 内迭代和离散系数 |
+| Physics / Algorithm | PDE、物性、边界、数学修正和收敛 | MPI、CSR/LDU、Eigen、原始场存储 |
+| fvm/fvc 描述 | 运算种类、常数、Field 引用、数学正负号 | 具体矩阵分配或通信 |
+| RunTime | 当前时间、历史场、方法、数学操作的执行 | 物理模型或 Solver 名称 |
+| 通用离散 | Mesh、Field、BC、Method、离散方程 | SIMPLE/热模型 |
+| SIMPLE 专用离散 | rAU、压力参考、动量插值 | Case 路径、输出策略 |
+| Algebra | 数值矩阵、向量、范数、预条件器 | 温度/压力的物理含义 |
+| Parallel | 局部分布、halo、collective、MPI 生命周期 | PDE 或外迭代停止规则 |
 
-## Mesh、Field 与边界
+`simple_discretization.cpp` 是明确的领域专用数值实现，不应被理解为通用
+梯度/扩散核。它复用通用场、离散和线性后端，并没有第二套通信结构。
 
-`Mesh` 描述空间的位置和连通性，而不携带物理含义。它预计算并连续保存：
+## 3. 所有权和初始化契约
 
-```text
-cell/face/vertex，owner/neighbour，cell-face/邻居关系，patch
-cell/face 中心，体积及逆体积，面积向量及单位法向
-正交系数、非正交向量、偏斜量、owner 插值权重
-局部 owned/ghost 与 global-ID 映射
-```
+Case 的私有实现依次拥有配置、并行绑定、局部 Mesh、命名 Field 和 RunTime。
+析构顺序反向：RunTime/历史/后端先释放，源 Field 再释放，Mesh 最后释放。
+Field 实体地址稳定，容器扩展不会移动已返回的 Field。命名中间场也由同一个 Case 拥有。
 
-`Field<T>` 描述“空间中有什么”。`ScalarField`、`VectorField`、`TensorField` 通过同一连续
-存储实现，位置由 `FieldLocation::Cell/Face/Vertex` 指定。压力 `p`、温度 `T`、速度 `U`
-不是不同 Field 类型。
+Solver 的引用不得逃出 Case 的生存期。所有物理/中间场应在循环开始前声明；同名同类型再次读取
+返回已有对象，错误地重用类型/位置会被拒绝。程序正常运行时一个线程只能有一个活动 RunTime；
+当前不支持多个同时活动的 Case，多区域需另行设计，不能用全局切换偷偷模拟。
 
-cell Field 绑定 patch 边界条件。已实现 `fixedValue/Dirichlet`、
-`fixedGradient/Neumann`、`zeroGradient`、`inletOutlet`、`symmetry/Mirror`；`Wall`、`Inlet`
-和 `Outlet` 是 Mesh patch 的物理角色，具体数学条件仍由 Field 指定。
+低层内存型数值测试仍可显式构造 Mesh、Field、RunTime，并用
+`simple_control.h` 的控制与 iterate API。这个入口服务框架维护和嵌入，
+不是新 Solver 必须学习的编程模型。调用者此时负责让源场覆盖整个时间积分生命周期。
 
-## fvm 与 fvc
+SIMPLE 保留一个固定分配的私有 State：
 
-`fvm` 表示**隐式进入待求解方程的项**，例如 `fvm::ddt`、`fvm::div`、
-`fvm::laplacian`、`fvm::source`。`fvc` 表示**直接计算为 Field 的显式量**，例如
-`fvc::grad`、`fvc::div`、`fvc::flux`、`fvc::interpolate`、`fvc::laplacian`。
+| 状态 | 内容 | 所属职责 |
+| --- | --- | --- |
+| 物理场引用 | U、p、phi | Case/物理对象 |
+| 算法场 | pPrime、rAU、phiHbyA、UPrevious | 压力速度耦合 |
+| 数值工作场 | gradP、rAUGradP、面插值、散度 | 避免每次外迭代分配大数组 |
+| 小型控制状态 | 当前步骤、迭代次数、各类收敛结果 | 防止漏步/错序；不含 MPI 状态 |
 
-这个分离对应 OpenFOAM 的设计思路，但 BabelSim 的表达式描述是简单的引用列表而不是
-模板化矩阵系统。详细规则见 [fvm-fvc.md](fvm-fvc.md)。
+公开 SimpleSolver 只持有一个内部所有权句柄。新增此句柄的成本是构造时一次分配；
+外迭代仍复用全部工作场。隐藏状态不是删除状态，更不是每步重新构造状态。
 
-## SIMPLE 的位置
+## 4. 数学表达与离散方程
 
-SIMPLE 不是通用 FVM 的一部分。通用层只定义梯度、散度、对流、扩散、插值、通量与时间项。
-不可压缩算法层保留两个具有独立数值语义的私有步骤：
+`lhs == rhs` 形成轻量描述符列表；不会在加减表达式时复制 LDU 或大型 Field。
+只有 solve 才解释这些项，选择 Method、处理边界并生成局部 owned 行。
+ScalarEquation/VectorEquation 是内部离散系数表示，不是作者看到的数学 Equation。
 
-- 动量插值：同位网格的 Rhie--Chow 风格面动量插值；
-- 压力修正：由 `rAU`、预测通量与连续性形成压力修正，并一致修正 `p/U/phi`。
+fvm::source 是显式已知体源的方程贡献，不是对源 Field 的隐式线性化。
+fvm::source(a,C) 直接复用描述符的系数；不用创建 a*C 的中间大场。
+详见 [fvm-fvc.md](fvm-fvc.md)。
 
-二者内部使用同一个 `RunTime`、`fvm/fvc` 与 Mesh/Field，不创建第二套矩阵、通信或数据布局。
-其工作场在 SIMPLE 创建一次并跨外迭代复用，避免重复完整 Field 分配。
+底层已有稀疏结构、线性工作区和几何缓存继续复用。表达式列表仍有小型容器成本，
+不能声称零分配；本轮没有新增每次 solve 的大场复制。历史场复制从每次 solve
+降为每个时间步一次，多次内迭代尤其受益。
 
-## 当前扩展边界
+## 5. 时间与并行契约
 
-当前离散后端是 FVM。未来 FDM/FEM 可在“数学表达 → 离散方程”边界新增后端：复用 Mesh、
-Field、Boundary、Expression、RunTime 的高层语义，并以各自的离散系统实现内部 assembly/solve。
-在该能力真正实现前，BabelSim 不声称已经支持 FDM/FEM。
+- RunTime 负责时间推进；Case 只调用它并安排写出，不另建 TimeStepper。
+- 同一物理时间步重复 solve 不改变旧时间层；进入下一步才推进历史。
+- Euler 可缩短末步精确到 endTime；BDF2 首步 Euler，随后等步长 BDF2。
+- 当前不支持非均匀步长 BDF2，配置时拒绝非整数步数区间。
+- MPI 由应用初始化/结束；Case 和 RunTime 检查 initialized/finalized 后绑定。
+- 所有线性残差、场变化和守恒诊断按全局值控制行为。
+- Krylov 若在有限精度下提前停止但真实残差未达标，可在原总迭代预算内用真实残差重启。
+  不放宽容差，也不通过增加 SIMPLE 外迭代来补偿。
+- Case 写出复用 owned-only 并行 writer；独立后处理才聚集全局结果。
 
-新增热传导、对流扩散或标量输运通常只需要新建一个物理源文件和 Case 字典，不需要改 MPI、
-LDU、halo 或并行 I/O。新增压力速度耦合算法则应位于 `physics/simple`，并仅在具有
-稳定独立数值意义时增加专用组件。
+## 6. 数据结构与扩展边界
+
+Mesh 仍是三维结构化六面体：二维取 nz=1，整数索引描述 owner/neighbour、cell-face、
+patch、owned/ghost/global-ID；连续数组缓存几何与非正交量。Field<T> 共用连续数组，
+支持 scalar/vector/tensor，容量由 Mesh/位置确定，不允许任意 resize。
+
+这些实现足以让新方程复用现有 FVM，不等于已经支持任意 PDE、非结构网格、FDM/FEM、
+自动单位检查、restart、一般材料模型或隐式块耦合。未来新增后端应在数学描述到离散系统之间扩展，
+不要让 Solver 自己选择 LDU、halo 或矩阵类型。
+
+维护者修改后至少运行：make test、make test-workflow、make test-mpi 和
+make test-mpi-poiseuille。二次开发测试不仅看代码长度，还检查公共头文件依赖、
+新双场算法、多个时间层、失败路径和真实 ParaView 读取。

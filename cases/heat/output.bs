@@ -1,2 +1,3 @@
 directory results
 timeName final
+writeInterval 1

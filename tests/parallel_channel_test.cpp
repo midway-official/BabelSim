@@ -1,4 +1,5 @@
 #include "babelsim/simple.h"
+#include "babelsim/simple_control.h"
 #include "babelsim/mesh_io.h"
 #include "babelsim/parallel.h"
 #include "babelsim/parallel_writer.h"

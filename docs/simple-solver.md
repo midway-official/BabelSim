@@ -1,184 +1,114 @@
-# 层流不可压缩 SIMPLE Solver
+# 层流不可压缩 SIMPLE：算法驱动入口
 
-`SimpleSolver` 实现稳态、常密度、层流不可压缩 Navier--Stokes 的压力速度耦合。它不是
-通用 FVM 的一部分；通用层提供 `grad/div/flux/interpolate/laplacian`，SIMPLE 层只组织
-这些运算与必要的 CFD 专用数值步骤。
-
-## 方程与算法
-
-\[
-\nabla\cdot U = 0,
-\qquad
-\nabla\cdot(\rho\phi U) = -\nabla p + \nabla\cdot(\mu\nabla U),
-\qquad \phi=U_f\cdot S_f.
-\]
-
-一次 BabelSim 外迭代的结构为：
-
-```text
-UEqn
-  solve div(rho*phi,U) == -grad(p) + laplacian(mu,U)
-  得到 U 和 rAU = V/aP
-        ↓
-动量插值
-  用 U、p、rAU 与 grad(p) 构造抗棋盘格的预测面通量 phiHbyA
-        ↓
-pEqn / 压力修正
-  interpolate(rAU) 与 div(phiHbyA) 形成压力修正方程
-  非正交网格执行指定次数的显式修正循环
-        ↓
-correct p, U, phi
-        ↓
-FluxBalance
-  全局连续性残差与速度变化量决定所有 rank 的共同停止时刻
-```
-
-这与 OpenFOAM `simpleFoam` 的 `UEqn.H → pEqn.H → SIMPLE loop` 思路相同。详细的
-数据结构和矩阵操作被 Runtime 隐藏，但算法顺序没有被抽象掉。
-
-`SimpleSolver` 是 Algorithm-driven 黄金模板。`iterate()` 的主逻辑保持为以下五个步骤；
-私有算法状态、工作区和具体非正交实现不进入
-这里：
+BabelSim 的选择名称为 `simple`。它解决稳态、常密度牛顿流体的不可压缩方程，
+并未实现湍流模型或瞬态压力速度耦合。核心用户入口是 `src/physics/simple/main.cpp`：
 
 ```cpp
-result.velocity = solveMomentum();
-const PressureEquationResult pressure = solvePressure();
-correctVelocity();
-correctFlux();
-checkContinuityAndConvergence();
+int runSimple(Case& problem) {
+    SimpleSolver simple(problem);
+    while (simple.loop()) {
+        simple.solveMomentum();
+        simple.solvePressure();
+        simple.correctVelocity();
+        simple.correctFlux();
+        simple.checkContinuity();
+    }
+    return simple.converged() ? 0 : 2;
+}
 ```
 
-## 代码中的动量方程
+调用者不列出 pPrime、梯度、rAU、面系数、历史速度或工作区，也不操作 RunTime。
+SIMPLE 算法本身仍是有状态的；复杂性没有被删掉，而是放在需要理解它的实现边界。
 
-`src/physics/simple/momentum_interpolation.cpp` 中的动量预测器写为：
+## 文件按阅读目的划分
+
+| 文件 | 谁应该阅读、为什么 |
+| --- | --- |
+| simple/main.cpp | 使用/组织 SIMPLE 的作者；完整算法主循环 |
+| simple/momentum.cpp | 修改动量物理的人；动量 PDE 与预测通量步骤 |
+| simple/pressure.cpp | 修改压力耦合的人；压力方程、非正交循环、速度和通量修正 |
+| simple/create_fields.cpp | 维护初始化的人；Case 配置、场引用和固定工作区构造 |
+| simple/convergence.cpp | 维护停止语义的人；全局诊断、日志 |
+| simple/simple_solver.cpp | 维护算法执行的人；步骤顺序检查和单次迭代入口 |
+| include/babelsim/simple.h | 普通调用者；简短算法接口 |
+| src/internal/simple_state.h | 框架/算法维护者；完整私有状态 |
+| simple_discretization.cpp | 数值核维护者；动量对角、压力参考和插值执行 |
+
+此前 simple_case.cpp 混在一起的读入、外循环、日志和输出已经拆清：通用 Case 读入/输出，
+main 组织循环，convergence 输出数值诊断。没有为五个步骤新增五个 Manager 或接口基类。
+
+这不是所有新算法必须采用的目录模板。一个短耦合算法完全可以只写一个函数；
+见 [双场测试例子](../tests/examples/coupled_scalar.cpp)。
+
+## 动量与压力的数学边界
+
+动量代码仍直接表达：
 
 ```cpp
 simple::solveMomentumEquation(
     fvm::div(rho, phi, U) ==
         -fvc::grad(p) + fvm::laplacian(mu, U),
-    velocity_relaxation, rAU);
+    relaxation, rAU);
 ```
 
-常密度直接作为轻量 `fvm::div` 系数进入方程，不再为 \(\rho\phi\) 长期保存完整面场。
-`simple::solveMomentumEquation` 是 SIMPLE 的专用数值入口：它在离散层传入速度欠松弛并从
-对角中计算 \(rAU=V/a_P\)。普通 Solver 不会看到 `VectorEquationControl`、裸指针或
-`detail::solve`。
+rho 是密度，mu 是动力黏度。rAU 是带欠松弛的动量对角对应的体积/对角系数，
+供同位压力速度耦合使用；其提取不让 Solver 接触离散矩阵。
 
-该 Solver 源码不出现 MPI、通信器、rank、halo、矩阵、LDU、CSR、Eigen 或线性求解器。
-
-## SIMPLE 私有数值步骤
-
-OpenFOAM 的压力方程代码也不会把所有内容简化为一条通用 Laplacian：它明确计算 `rAU`、
-`HbyA`、预测通量和压力修正。BabelSim 只保留两个相同层级、具稳定数值意义的组件：
-
-### 动量预测通量
-
-同位网格上，简单插值得到的面通量可能产生压力棋盘格。该组件以
+预测通量 phiHbyA 由动量预测速度、rAU∇p 与 Rhie–Chow 风格的压力法向重构形成。
+压力修正满足
 
 \[
-\phi_f = U_f\cdot S_f
-+ (rAU\nabla p)_f\cdot S_f
-- rAU_f\,S_f\cdot\nabla p
+\nabla\cdot(rAU\nabla p')=\nabla\cdot\phi_{H/A}.
 \]
 
-构造 Rhie--Chow 风格的预测通量。内部使用 `fvc::flux`、`fvc::interpolate` 与统一的
-非正交 `integratedNormalGradient`；其工作场持久复用，不在每次外迭代分配完整 Field。
-
-### 压力方程与修正
-
-它通过
-
-\[
--\nabla\cdot(rAU\nabla p') = -\nabla\cdot\phi^*
-\]
-
-调用通用 `fvm::laplacian` 和 `fvc::div`。压力方程明确使用 `phiHbyA`、cell `rAU` 与 `pPrime`；
-Runtime 在离散时内部重构所需的 `rAUFace`；
-非正交迭代通过 `correctNonOrthogonal()` 表达循环原因，而不是暴露裸 `pass` 编号。其专用
-职责仅为选择压力参考、控制非正交循环，
-并施加
-
-\[
-p\leftarrow p+\alpha_p p',\qquad
-U\leftarrow U-rAU\nabla p',\qquad
-\phi\leftarrow\phi-rAU_fS_f\cdot\nabla p'.
-\]
-
-这些步骤是 `SimpleSolver` 的私有实现，不向其他 PDE Solver 暴露长参数表，也没有独立的矩阵、
-Field 存储或 MPI 路径。
-
-## 状态与工作区
-
-| 类别 | Field | 说明 |
-| --- | --- | --- |
-| 物理状态 | `U/p/phi` | Case 初值、边界和最终输出 |
-| 算法状态 | `pPrime/rAU/phiHbyA/UPrevious` | 跨一个外迭代的方程与修正步骤 |
-| 数值工作区 | `gradP/rAUGradP/rAUGradPFace/rAUFace/divPhiHbyA` | 只为复用内存，不属于物理模型 |
-
-没有额外持久化 `HbyA`：当前动量预测速度与 `rAU*grad(p)` 已足够形成数学等价的
-`phiHbyA`，省去一个完整 cell vector Field 的存储和内存带宽。算法命名仍明确保留
-`rAU → phiHbyA → pPrime → U/phi correction` 的依赖链。
-
-每次外迭代开头的 `savePreviousState()` 只保存收敛诊断所需的 \(U^n\)，因此
-`solveMomentum()` 本身只表达动量方程，不承担迭代状态保存。
-
-`gradPPrime` 不再是 SIMPLE 的持久工作场：速度修正通过
-`fvc::subtract(rAU, fvc::grad(pPrime), U)` 完成；通量修正通过
-`fvc::subtract(fvc::flux(rAU, pPrime), phi)` 完成。二者的梯度、面插值、非正交法向梯度、
-halo 同步和临时存储都属于 FVC/Runtime 层。SIMPLE 物理源码不访问 owner/neighbour、面积向量
-或 Field 索引。
-
-## 使用与配置
-
-应用入口将 `physics/simple.bs` 读为 `FluidProperties`，并将配置分成：
-
-```text
-methods.bs：interpolation、gradient、convection、diffusion、time
-solution.bs：maxIterations、nonOrthogonalCorrections、速度/压力欠松弛、外层容差、velocitySolver、pressureSolver
-control.bs：稳态案例的时间占位控制
-```
-
-`SimpleSolver` 只接受 `RunTime`、`IncompressibleFields`、`FluidProperties` 与
-`SimpleControl`。RunTime 的 MPI 绑定会自动根据进程是否已经初始化 MPI 决定串行或分布式
-路径；SIMPLE 本身不接收 `ParallelContext`。
+代码采用等价的正对角符号：
 
 ```cpp
-RunTime run_time = RunTime::forMesh(
-    mesh, simpleRunTimeControl(methods, control));
-SimpleSolver simple(run_time, fields, fluid, control);
-
-for (int i = 0; i < control.max_iterations; ++i) {
-    const SimpleIterationResult result = simple.iterate();
-    if (!result.healthy || result.converged) break;
-}
+simple::solvePressureCorrectionEquation(
+    -fvm::laplacian(rAU, pPrime) == -fvm::source(divPhiHbyA),
+    fix_reference);
 ```
 
-应用代码可显示上述循环；`iterate()` 内部固定保留可读的 SIMPLE 步骤，避免把每个步骤拆为
-缺乏数学意义的 Manager/Factory。
+随后欠松弛更新 p、用 fvc 修正 U 和 phi。压力参考、非正交显式项与通量修正保持原有数值路径；
+本轮没有以换一种 SIMPLE 公式来换取较短代码。
 
-## 收敛状态的含义
+pPrime/rAU/phiHbyA/UPrevious 是算法状态；梯度、面系数和散度是预分配数值工作场。
+不额外保存可由已有速度与压力梯度形成的 HbyA，避免无必要的整场存储。
 
-`SimpleIterationResult` 刻意区分三件事：`healthy` 表示所有线性结果有限且没有数值失败；
-`linear_converged` 要求三个动量分量和全部非正交压力修正线性求解都满足各自容差；
-`converged` 则额外要求全局连续性和相对速度变化同时满足 SIMPLE 外迭代容差。因此不会出现
-“外迭代 `converged=true`、但某个内部线性方程未收敛”的情况。`relative_pressure_correction`
-仅是 \(\lVert p'\rVert/\max(\lVert p\rVert,\epsilon)\) 的诊断量，不参与停止判据。
+## 循环和收敛
 
-## 与 OpenFOAM simpleFoam 的对照
+调用顺序必须是动量 → 压力 → 速度 → 通量 → 连续性；错序或漏步会报错。
+loop 不偷偷执行额外外迭代；达到全局收敛或最大次数便停止。
 
-| OpenFOAM 的组织 | BabelSim 的组织 |
+三个状态严格分离：
+
+- healthy：数值有限，没有线性数值失败；
+- linear_converged：三个动量分量与每次压力修正线性求解全部满足各自容差；
+- converged：前两者成立，且全局连续性、速度变化同时满足外迭代条件。
+
+压力修正相对幅值仅是诊断量，不是默认停止准则。出现线性未收敛不能报告外迭代成功。
+所有范数和停止依据都是全局量，不在各 rank 上自行决定是否继续。
+
+## 与 OpenFOAM 的对照
+
+对照 [OpenFOAM-8 simpleFoam 主循环](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/incompressible/simpleFoam/simpleFoam.C)
+及 [pEqn.H](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/incompressible/simpleFoam/pEqn.H)：
+
+| OpenFOAM 思路 | BabelSim |
 | --- | --- |
-| `createFields.H` | Case 读取后构造 `IncompressibleFields` |
-| `simple.loop()` | 应用外层迭代与 `SimpleIterationResult` |
-| `UEqn.H` | `fvm::div == -fvc::grad + fvm::laplacian` |
-| `rAU/HbyA/phiHbyA` | `rAU/phiHbyA` 私有算法状态；等价 HbyA 不额外存场 |
-| `pEqn.H` | `solvePressure()`、`correctVelocity()`、`correctFlux()` |
-| `correctNonOrthogonal()` | 私有 `NonOrthogonalCorrections::correctNonOrthogonal()` |
-| 全局 continuity check | `diagnostics::fluxBalance` 与 `diagnostics::all` |
+| createFields | Case 命名场与 create_fields.cpp |
+| SIMPLE loop | main.cpp 中五个有数值语义的步骤 |
+| UEqn | momentum.cpp 中 fvm/fvc 方程 |
+| rAU/HbyA/phiHbyA | 私有算法场、同位动量插值 |
+| 非正交压力循环 | pressure.cpp 中压力修正循环 |
+| 压力/速度/通量更新 | 明确的 correctVelocity / correctFlux |
+| 写出由框架提供 | Case::finish，独立后处理 |
 
-OpenFOAM 把 Rhie--Chow 和压力修正组织在 `pEqn.H` 的算法段，而不是完全变成通用
-`fvm::laplacian`。BabelSim 同样保留算法语义，但将两个步骤收敛在 `SimpleSolver` 私有实现中，
-并让其内部复用统一 FVM/Runtime 基础设施。
+OpenFOAM 的压力步骤并不只是一条普通 laplacian：它还需要约束、参考值、预测通量与修正。
+BabelSim 因此保留必要的专用数值语义，但不复制 tmp<>、fvMatrix、MRF 或湍流模型体系。
 
-参考 [OpenFOAM simpleFoam 源码](https://github.com/OpenFOAM/OpenFOAM-6/blob/master/applications/solvers/incompressible/simpleFoam/simpleFoam.C)
-和其压力修正组织示例 [pEqn.H](https://github.com/OpenFOAM/OpenFOAM-7/blob/master/applications/solvers/multiphase/interFoam/pEqn.H)。
+## 维护与兼容
+
+simple_control.h 和带 RunTime/IncompressibleFields 参数的构造入口保留给内存型测试。
+普通 Case Solver 不使用它们；公开主头不包含 runtime.h 或 simple_control.h。
+这避免让每个使用 SIMPLE 的人先学习所有内部对象，同时保持现有数值回归直接可用。

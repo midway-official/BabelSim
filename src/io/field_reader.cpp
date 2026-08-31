@@ -96,6 +96,16 @@ Vec3 readValue<Vec3>(Reader& input) {
     return result;
 }
 
+template <>
+Tensor3 readValue<Tensor3>(Reader& input) {
+    input.take("(");
+    Tensor3 result;
+    for (int row = 0; row < 3; ++row)
+        for (int column = 0; column < 3; ++column) result[row][column] = input.number();
+    input.take(")");
+    return result;
+}
+
 template <typename T>
 void read(const std::filesystem::path& path, Field<T>& field, const char* type_name) {
     if (field.location() != FieldLocation::Cell) {
@@ -177,6 +187,10 @@ void readFieldFile(const std::filesystem::path& path, ScalarField& field) {
 
 void readFieldFile(const std::filesystem::path& path, VectorField& field) {
     read(path, field, "vector");
+}
+
+void readFieldFile(const std::filesystem::path& path, TensorField& field) {
+    read(path, field, "tensor");
 }
 
 }  // babelsim 命名空间

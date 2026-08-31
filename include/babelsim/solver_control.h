@@ -33,6 +33,8 @@ struct LinearSolverConfig {
 };
 
 struct SolveResult {
+    // 矢量方程的公开结果：各分量必须全部收敛；迭代数求和，绝对残差合成 L2，
+    // 相对残差取最差分量。SIMPLE 内部仍可取得各分量结果用于详细诊断。
     SolveStatus status = SolveStatus::NumericalFailure;
     int iterations = 0;
     double initial_residual = 0.0;

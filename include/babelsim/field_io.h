@@ -10,5 +10,6 @@ namespace babelsim {
 // 普通连续数组。
 void readFieldFile(const std::filesystem::path& path, ScalarField& field);
 void readFieldFile(const std::filesystem::path& path, VectorField& field);
+void readFieldFile(const std::filesystem::path& path, TensorField& field);
 
 }  // babelsim 命名空间

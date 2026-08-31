@@ -1,4 +1,5 @@
 #include "babelsim/simple.h"
+#include "babelsim/simple_control.h"
 
 #include "test_util.h"
 

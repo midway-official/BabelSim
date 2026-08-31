@@ -1,90 +1,72 @@
-# 瞬态热传导 Solver
+# 瞬态热传导：最小方程驱动 Solver
 
-`heatFoam` 是 BabelSim 的 Equation-driven 黄金模板。它验证 Field、边界、时间、方程表达、
-FVM 装配、线性求解和 MPI 都可以在不向物理代码暴露底层细节的情况下组合。
-
-## 控制方程
-
-\[
-\rho c_p\frac{\partial T}{\partial t}
-= \nabla\cdot(k\nabla T) + Q.
-\]
-
-当前 `ThermalProperties` 支持常数 \(\rho,c_p,k\) 与常数体源 \(Q\)。`ThermalFieldProperties`
-则以 `volumetric_heat_capacity`、`conductivity`、`volumetric_source` 三个 cell Field 表示
-非均匀材料；`solveHeatStep()` 允许材料模型在每个时间步前更新导热率，而无需改变 Runtime、
-代数或 MPI 层。
-
-## 核心源码
-
-实际实现位于 `src/physics/heat/transient_heat_solver.cpp`。核心循环是：
+BabelSim 的求解器名称是 `heat`，不是 heatFoam。完整用户入口只有
+`src/physics/heat/main.cpp` 一个函数：
 
 ```cpp
-while (run_time.loop()) {
-    result.linear = solve(
-        fvm::ddt(material.volumetricHeatCapacity(), temperature) ==
-            fvm::laplacian(material.conductivity, temperature) +
-            fvm::source(volumetric_source));
+int runHeat(Case& problem) {
+    ScalarField& T = problem.scalarField("T");
+    const double rho = problem.properties().positive("density");
+    const double cp = problem.properties().positive("heatCapacity");
+    const double k = problem.properties().nonnegative("conductivity");
+    const double Q = problem.properties().number("source");
+
+    while (problem.loop()) {
+        if (!solve(fvm::ddt(rho * cp, T) ==
+                   fvm::laplacian(k, T) + fvm::source(Q)).converged()) return 2;
+    }
+    return 0;
 }
 ```
 
-它直接对应控制方程：左端是蓄热项，右端是扩散与体源。此文件没有 MPI、rank、ghost、
-buffer、稀疏矩阵、LDU、Eigen、`mutableData()` 或手写 cell/face 循环。
+直接对应
+\[
+\rho c_p\partial_tT=\nabla\cdot(k\nabla T)+Q.
+\]
 
-如果系数是 Field，写法保持不变：
+作者无需写 Case reader、构造 RunTime、配置线性对象、维护历史或编写输出。
+Case 在下一次 loop 前写出已完成时间步，正常退出保证最终时刻保存。
+不收敛立即返回，不把失败步伪装成有效最终结果。
 
-```cpp
-solve(
-    fvm::ddt(rho_cp, T)
-        == fvm::laplacian(conductivity, T) + fvm::source(source));
-```
-
-其中 `rho_cp` 和 `conductivity` 是 cell scalar Field。Runtime 会同步它们并为扩散自动
-产生所需面系数。
-
-## 案例
-
-内置例子位于 `cases/heat`：
+## 工作流
 
 ```bash
-make -j
-build/babelsim-solve -case cases/heat -time serial
-mpirun -np 2 build/babelsim-solve -case cases/heat -time mpi2
-python3 tools/compare_parallel_results.py \
-  cases/heat/results/serial cases/heat/results/mpi2 \
-  --atol 1e-9 --rtol 1e-9
+make -j4
+mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
+build/babelsim-post -case cases/heat -time mpi4/all -format vtk tecplot
 ```
 
-案例字典含义：
+数据在 `results/mpi4/<物理时间>/rank-*/`，
+ParaView 打开 `post/mpi4/series.pvd`。
+默认不指定 -time 时，序列直接在 results/<物理时间>。
 
-```text
-case.bs                 选择 heatFoam 与各资源路径
-mesh/heat.mesh          3D 结构化网格；例子是 nz=1 的二维退化网格
-fields/initial/T.field  温度初值与 hot/cold/symmetry 边界
-physics/thermal.bs      density、heatCapacity、conductivity、source
-numerics/methods.bs     算子方法
-numerics/solution.bs    scalarSolver
-control.bs              时间区间与步长
-output.bs               结果目录与默认时刻名
-```
+output.bs 的 writeInterval 是步数间隔，默认 1。例如 endTime=0.05、deltaT=0.01、
+writeInterval=2，输出 0.02、0.04、0.05，而不是仅写 final 或把 1/2/3 当作时间。
 
-## 与 OpenFOAM laplacianFoam 的对照
+## 变系数与嵌入式接口
 
-OpenFOAM 的 `laplacianFoam`/标量输运 Solver 之所以短，是因为网格、Field、边界、离散格式、
-线性求解和并行控制都由框架管理；Solver 只保留 `fvm::ddt`、`fvm::laplacian`、`solve` 和
-时间循环。BabelSim 的热 Solver 采用同样的职责划分：
+将 k 或 rhoCp 替换为从 Case 读入的 scalar Field，fvm 写法不变。
+材料模型可在每一步前更新物性场；它仍属于物理数学代码，不应操作通信或矩阵。
 
-| OpenFOAM 思想 | BabelSim 对应 |
+thermal.h 的 ThermalProperties、ThermalFieldProperties、solveHeatStep 和
+solveTransientHeat 保留给内存型数值测试/嵌入式调用。它们使用同一后端，但不承担 Case 自动输出。
+新 Solver 作者优先使用上面的 Case 入口，不需要先学习这组显式 RunTime 接口。
+
+## 与 OpenFOAM 对照
+
+OpenFOAM-8 的 laplacianFoam 在主循环中构造 ddt/laplacian 方程，并包含非正交修正及写出步骤；
+它短小是因为创建网格/场、边界离散、方法选择和执行工作已由框架提供。
+BabelSim 学习这个职责分离，而不复制其头文件片段包含方式、fvMatrix、IOobject 或注册机制。
+参见 [OpenFOAM-8 laplacianFoam 官方源码](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/basic/laplacianFoam/laplacianFoam.C)。
+
+| 对照点 | BabelSim |
 | --- | --- |
-| `runTime.loop()` | `RunTime::loop()` |
-| `fvm::ddt(T)` | `fvm::ddt(..., T)` |
-| `fvm::laplacian(k,T)` | `fvm::laplacian(k, T)` |
-| `TEqn.solve()` | `solve(equation)` |
-| `fvSchemes/fvSolution` | `numerics/methods.bs`、`numerics/solution.bs`、`control.bs` |
-| decomposition/MPI/IO | RunTime、启动器、并行写出与后处理器 |
+| Field 从 Case 创建 | problem.scalarField("T") |
+| 方程与数学同形 | solve(ddt == laplacian + source) |
+| 数值格式来自 Case | methods.bs / solution.bs |
+| 时间、历史和输出下沉 | Case::loop 调用内部 RunTime |
+| 普通作者新增代码 | 一个普通函数 + 一项显式选择 |
 
-不同点是 BabelSim 不使用 `GeometricField`、`fvMatrix`、`tmp<>`、`IOobject` 或运行时对象
-注册表。表达式只描述方程，实际 LDU 与分布式线性系统始终留在 Runtime 内部。
-
-可参考 OpenFOAM 的 [scalarTransportFoam 源码](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/basic/scalarTransportFoam/scalarTransportFoam.C)
-与 [laplacianFoam 文档](https://doc.openfoam.com/2306/tools/processing/solvers/rtm/basic/laplacianFoam/)。
+不同点：当前 heat 的每步只求一次方程；强非线性物性或需要多次显式非正交修正时，应像
+双场例子一样在该时间步内组织收敛迭代。框架已保证重复 solve 不推进历史，
+但不会替物理作者猜测非线性收敛准则。

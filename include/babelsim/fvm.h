@@ -181,6 +181,11 @@ inline ScalarExpression source(const ScalarField& field) {
     return ScalarExpression({FvmTermKind::Source, 1, 1.0, &field});
 }
 
+// 显式体源 a*field；直接复用源项系数，不创建缩放后的临时 Field。
+inline ScalarExpression source(double coefficient, const ScalarField& field) {
+    return ScalarExpression({FvmTermKind::Source, 1, coefficient, &field});
+}
+
 inline VectorExpression ddt(double density, const VectorField& field) {
     VectorFvmTerm term;
     term.kind = FvmTermKind::TimeDerivative;

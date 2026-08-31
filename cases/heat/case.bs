@@ -1,4 +1,4 @@
-solver heatFoam
+solver heat
 mesh mesh/heat.mesh
 fields fields/initial
 physics physics/thermal.bs

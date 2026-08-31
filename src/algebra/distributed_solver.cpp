@@ -259,7 +259,8 @@ struct DistributedLinearSolver::Implementation {
         Eigen::VectorXd& x,
         double initial_residual,
         double target,
-        double scale)
+        double scale,
+        int iteration_limit)
     {
         const bool local_precondition_success =
             precondition(residual, preconditioned_direction);
@@ -274,7 +275,7 @@ struct DistributedLinearSolver::Implementation {
         direction = preconditioned_direction;
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
-        for (int iteration = 1; iteration <= config.max_iterations; ++iteration) {
+        for (int iteration = 1; iteration <= iteration_limit; ++iteration) {
             apply(direction, direction_product);
             const double denominator = dotGlobal(direction, direction_product);
             if (invalid(denominator) || invalid(residual_preconditioned)) {
@@ -328,7 +329,8 @@ struct DistributedLinearSolver::Implementation {
         Eigen::VectorXd& x,
         double initial_residual,
         double target,
-        double scale)
+        double scale,
+        int iteration_limit)
     {
         shadow = residual;
         direction.setZero();
@@ -338,7 +340,7 @@ struct DistributedLinearSolver::Implementation {
         double omega = 1.0;
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
-        for (int iteration = 1; iteration <= config.max_iterations; ++iteration) {
+        for (int iteration = 1; iteration <= iteration_limit; ++iteration) {
             const double rho = dotGlobal(shadow, residual);
             if (invalid(rho) || invalid(omega)) {
                 status = SolveStatus::NumericalFailure;
@@ -559,10 +561,27 @@ SolveResult DistributedLinearSolver::solve(
             initial_residual, initial_residual / scale,
         };
     }
-    if (state.config.solver == LinearSolverType::ConjugateGradient) {
-        return state.solvePcg(b, x, initial_residual, target, scale);
+    // 有限精度下可能提前停在近似 breakdown，或递推残差与真实残差不一致。
+    // 有进展且预算尚有剩余时，以真实残差重启 Krylov；不增加外迭代，不放宽容差。
+    // 所有判据均来自全局范数，所有 rank 的分支及剩余预算完全一致。
+    SolveResult result;
+    int completed = 0;
+    double previous_residual = initial_residual;
+    while (completed < state.config.max_iterations) {
+        const int remaining = state.config.max_iterations - completed;
+        result = state.config.solver == LinearSolverType::ConjugateGradient
+            ? state.solvePcg(b, x, initial_residual, target, scale, remaining)
+            : state.solveBicgstab(b, x, initial_residual, target, scale, remaining);
+        const int used = result.iterations;
+        completed += used;
+        result.iterations = completed;
+        if (result.converged() || !result.healthy() || used == 0 ||
+            result.final_residual >= previous_residual * (1.0 - 1e-8)) break;
+        // finish() 已计算 A*x，因此不需要为重启再做一次 halo matvec。
+        state.residual = b - state.matrix_product;
+        previous_residual = result.final_residual;
     }
-    return state.solveBicgstab(b, x, initial_residual, target, scale);
+    return result;
 }
 
 }  // babelsim 命名空间

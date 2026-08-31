@@ -1,0 +1,98 @@
+#include "internal/simple_state.h"
+#include "babelsim/case.h"
+
+#include <cmath>
+#include <stdexcept>
+
+namespace babelsim {
+bool finitePositive(double value) {
+    return value > 0.0 && std::isfinite(value);
+}
+
+void FluidProperties::validate() const {
+    if (!finitePositive(density) || !finitePositive(dynamic_viscosity)) {
+        throw std::invalid_argument("density and dynamic viscosity must be positive");
+    }
+}
+
+void SimpleControl::validate() const {
+    if (max_iterations <= 0 || non_orthogonal_corrections < 0 ||
+        non_orthogonal_corrections > 20 ||
+        !(velocity_relaxation > 0.0 && velocity_relaxation <= 1.0) ||
+        !(pressure_relaxation > 0.0 && pressure_relaxation <= 1.0) ||
+        !finitePositive(continuity_tolerance) || !finitePositive(velocity_tolerance)) {
+        throw std::invalid_argument("SIMPLE controls are invalid");
+    }
+    velocity_solver.validate();
+    pressure_solver.validate();
+}
+
+SimpleSolver::State::State(
+    RunTime& run_time,
+    VectorField& U, ScalarField& p, ScalarField& phi,
+    FluidProperties fluid,
+    SimpleControl control)
+    : m_U(U), m_p(p), m_phi(phi),
+      m_mesh(U.mesh()),
+      m_fluid(fluid),
+      m_control(control),
+      m_methods(run_time.methods()),
+      m_algorithm(m_mesh),
+      m_workspace(m_mesh)
+{
+    if (&run_time.mesh() != &m_mesh || &m_p.mesh() != &m_mesh ||
+        &m_phi.mesh() != &m_mesh ||
+        m_U.location() != FieldLocation::Cell ||
+        m_p.location() != FieldLocation::Cell ||
+        m_phi.location() != FieldLocation::Face) {
+        throw std::invalid_argument("incompressible fields do not match the run time mesh");
+    }
+    if (m_methods.time != TimeMethod::Steady) {
+        throw std::invalid_argument(
+            "SimpleSolver is steady; use a transient pressure-velocity algorithm for non-steady time methods");
+    }
+    m_fluid.validate();
+    m_control.validate();
+    initializePressureCorrectionBoundaries();
+    initializeFaceFlux();
+}
+
+SimpleSolver::SimpleSolver(RunTime& run_time, IncompressibleFields& fields,
+                           FluidProperties fluid, SimpleControl control)
+    : m_state(std::make_unique<State>(run_time, fields.velocity, fields.pressure,
+                                     fields.face_flux, fluid, control))
+{}
+
+namespace {
+SimpleControl simpleControl(const Parameters& settings) {
+    SimpleControl result;
+    result.max_iterations = settings.integer("maxIterations", result.max_iterations);
+    result.non_orthogonal_corrections = settings.integer(
+        "nonOrthogonalCorrections", result.non_orthogonal_corrections);
+    result.velocity_relaxation = settings.number("velocityRelaxation", result.velocity_relaxation);
+    result.pressure_relaxation = settings.number("pressureRelaxation", result.pressure_relaxation);
+    result.continuity_tolerance = settings.number("continuityTolerance", result.continuity_tolerance);
+    result.velocity_tolerance = settings.number("velocityTolerance", result.velocity_tolerance);
+    result.validate();
+    return result;
+}
+}  // 匿名命名空间
+
+SimpleSolver::SimpleSolver(Case& problem)
+    : m_state(std::make_unique<State>(
+          RunTime::current(), problem.vectorField("U"), problem.scalarField("p"),
+          problem.faceField("phi"),
+          FluidProperties{problem.properties().positive("density"),
+                          problem.properties().positive("dynamicViscosity")},
+          simpleControl(problem.solution())))
+{
+    problem.validate();
+    m_state->m_log = true;
+}
+
+SimpleSolver::~SimpleSolver() = default;
+
+void SimpleSolver::State::initializeFaceFlux() {
+    simple::initializeFaceFlux(m_U, m_phi);
+}
+}  // babelsim 命名空间

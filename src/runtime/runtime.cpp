@@ -14,6 +14,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -198,11 +200,20 @@ struct RunTime::Implementation {
     ScalarField face_coefficient_workspace;
     ScalarField face_flux_workspace;
     double current_time = 0.0;
+    double current_delta_t = 0.0;
     int current_step = 0;
 };
 
 void RuntimeControl::validate() const {
     time.validate();
+    const double steps = (time.end_time - time.start_time) / time.delta_t;
+    if (!std::isfinite(steps) || steps > std::numeric_limits<int>::max())
+        throw std::invalid_argument("time interval contains too many steps");
+    // 当前 BDF2 是等步长离散，不能把缩短的末步冒充等步长 BDF2。
+    if (methods.time == TimeMethod::BDF2 &&
+        std::abs(steps - std::round(steps)) >
+            64.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, steps))
+        throw std::invalid_argument("BDF2 requires an integral number of uniform time steps");
     scalar_solver.validate();
     vector_solver.validate();
 }
@@ -225,6 +236,7 @@ RunTime::RunTime(const Mesh& mesh, RuntimeControl control)
     }
     m_implementation = std::make_unique<Implementation>(mesh, std::move(control), parallel);
     m_implementation->current_time = m_implementation->control.time.start_time;
+    m_implementation->current_delta_t = m_implementation->control.time.delta_t;
     active_run_time = this;
 }
 
@@ -246,7 +258,7 @@ RunTime& RunTime::current() {
 const Mesh& RunTime::mesh() const { return *m_implementation->mesh; }
 const Methods& RunTime::methods() const { return m_implementation->control.methods; }
 double RunTime::time() const { return m_implementation->current_time; }
-double RunTime::deltaT() const { return m_implementation->control.time.delta_t; }
+double RunTime::deltaT() const { return m_implementation->current_delta_t; }
 int RunTime::step() const { return m_implementation->current_step; }
 bool RunTime::primary() const { return m_implementation->parallel.rank == 0; }
 
@@ -349,12 +361,22 @@ bool RunTime::all(bool local_condition) const {
 
 bool RunTime::loop() {
     Implementation& state = *m_implementation;
-    const double next_time = state.current_time + state.control.time.delta_t;
-    if (next_time > state.control.time.end_time +
-                        0.5 * state.control.time.delta_t) {
-        return false;
+    const TimeControl& control = state.control.time;
+    const double tolerance = 32.0 * std::numeric_limits<double>::epsilon() *
+        std::max({std::abs(control.start_time), std::abs(control.end_time), control.delta_t});
+    const double remaining = control.end_time - state.current_time;
+    if (remaining <= tolerance) return false;
+
+    // 历史按物理时间而不是 solve() 次数推进。同一时间步的非线性/耦合迭代始终
+    // 使用同一个旧时间层；工作场原位复用，不增加每次求解的分配。
+    if (state.current_step > 0) {
+        for (auto& history : state.scalar_histories) history.advance(*history.source);
+        for (auto& history : state.vector_histories) history.advance(*history.source);
     }
-    state.current_time = next_time;
+    const double next = static_cast<double>(static_cast<long double>(control.start_time) +
+        static_cast<long double>(state.current_step + 1) * control.delta_t);
+    state.current_delta_t = remaining < control.delta_t - tolerance ? remaining : control.delta_t;
+    state.current_time = next >= control.end_time - tolerance ? control.end_time : next;
     ++state.current_step;
     return true;
 }
@@ -418,7 +440,6 @@ SolveResult RunTime::solve(
     ScalarField& unknown = const_cast<ScalarField&>(*unknown_pointer);
     requireCellField(unknown, *state.mesh, "scalar unknown");
     ScalarEquation equation(*state.mesh);
-    bool has_time_derivative = false;
 
     const auto add = [&](const std::vector<ScalarFvmTerm>& terms, bool lhs) {
         for (const ScalarFvmTerm& term : terms) {
@@ -429,19 +450,21 @@ SolveResult RunTime::solve(
                         throw std::invalid_argument("ddt must be a positive left-hand-side term");
                     }
                     Implementation::ScalarHistory& history = state.history(unknown);
-                    has_time_derivative = true;
+                    // BDF2 首步还没有两个历史层，用 Euler 启动。
+                    const TimeMethod method = state.control.methods.time == TimeMethod::BDF2 &&
+                        !history.has_older ? TimeMethod::Euler : state.control.methods.time;
                     if (term.coefficient_field != nullptr) {
                         requireCellField(
                             *term.coefficient_field, *state.mesh, "time coefficient");
                         state.synchronize(const_cast<ScalarField&>(*term.coefficient_field));
                         addTimeDerivative(
                             equation, history.previous, deltaT(), *term.coefficient_field,
-                            state.control.methods.time,
+                            method,
                             history.has_older ? &history.older : nullptr);
                     } else {
                         addTimeDerivative(
                             equation, history.previous, deltaT(), term.coefficient,
-                            state.control.methods.time,
+                            method,
                             history.has_older ? &history.older : nullptr);
                     }
                     break;
@@ -531,7 +554,6 @@ SolveResult RunTime::solve(
         unknown[cell] = state.scalar_solution[state.mesh->ownedIndex(cell)];
     }
     state.synchronize(unknown);
-    if (has_time_derivative) state.history(unknown).advance(unknown);
     return result;
 }
 
@@ -562,7 +584,6 @@ std::array<SolveResult, 3> RunTime::solve(
     VectorField& unknown = const_cast<VectorField&>(*unknown_pointer);
     requireCellField(unknown, *state.mesh, "vector unknown");
     VectorEquation equation(*state.mesh);
-    bool has_time_derivative = false;
 
     const auto add = [&](const std::vector<VectorFvmTerm>& terms, bool lhs) {
         for (const VectorFvmTerm& term : terms) {
@@ -573,19 +594,21 @@ std::array<SolveResult, 3> RunTime::solve(
                         throw std::invalid_argument("ddt must be a positive left-hand-side term");
                     }
                     Implementation::VectorHistory& history = state.history(unknown);
-                    has_time_derivative = true;
+                    // BDF2 首步还没有两个历史层，用 Euler 启动。
+                    const TimeMethod method = state.control.methods.time == TimeMethod::BDF2 &&
+                        !history.has_older ? TimeMethod::Euler : state.control.methods.time;
                     if (term.coefficient_field != nullptr) {
                         requireCellField(
                             *term.coefficient_field, *state.mesh, "time coefficient");
                         state.synchronize(const_cast<ScalarField&>(*term.coefficient_field));
                         addTimeDerivative(
                             equation, history.previous, deltaT(), *term.coefficient_field,
-                            state.control.methods.time,
+                            method,
                             history.has_older ? &history.older : nullptr);
                     } else {
                         addTimeDerivative(
                             equation, history.previous, deltaT(), term.coefficient,
-                            state.control.methods.time,
+                            method,
                             history.has_older ? &history.older : nullptr);
                     }
                     break;
@@ -721,7 +744,6 @@ std::array<SolveResult, 3> RunTime::solve(
         }
     }
     state.synchronize(unknown);
-    if (has_time_derivative) state.history(unknown).advance(unknown);
     return results;
 }
 
@@ -944,11 +966,37 @@ void RunTime::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target) 
 }
 
 SolveResult solve(const ScalarEquationDefinition& equation) {
-    return RunTime::current().solve(equation);
+    RunTime& time = RunTime::current();
+    const SolveResult result = time.solve(equation);
+    if (!result.converged() && time.primary()) {
+        std::cerr << "linear solve failed at time=" << time.time()
+                  << " iterations=" << result.iterations
+                  << " initial=" << result.initial_residual
+                  << " final=" << result.final_residual
+                  << " relative=" << result.relative_residual
+                  << " healthy=" << result.healthy() << '\n';
+    }
+    return result;
 }
 
-std::array<SolveResult, 3> solve(const VectorEquationDefinition& equation) {
-    return RunTime::current().solve(equation);
+SolveResult solve(const VectorEquationDefinition& equation) {
+    RunTime& time = RunTime::current();
+    const auto components = time.solve(equation);
+    SolveResult result;
+    result.status = SolveStatus::Converged;
+    for (const SolveResult& component : components) {
+        if (!component.healthy()) result.status = SolveStatus::NumericalFailure;
+        else if (!component.converged() && result.status != SolveStatus::NumericalFailure)
+            result.status = SolveStatus::MaxIterations;
+        result.iterations += component.iterations;
+        result.initial_residual = std::hypot(result.initial_residual, component.initial_residual);
+        result.final_residual = std::hypot(result.final_residual, component.final_residual);
+        result.relative_residual = std::max(result.relative_residual, component.relative_residual);
+    }
+    if (!result.converged() && time.primary())
+        std::cerr << "vector equation failed at time=" << time.time()
+                  << " worst relative residual=" << result.relative_residual << '\n';
+    return result;
 }
 
 namespace detail {

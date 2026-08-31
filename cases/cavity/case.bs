@@ -1,6 +1,6 @@
 # The solver entry is intentionally small; numerical and physical controls live
 # in their own dictionaries so another solver can reuse this case layout.
-solver simpleFoam
+solver simple
 mesh mesh/cavity.mesh
 fields fields/initial
 physics physics/simple.bs

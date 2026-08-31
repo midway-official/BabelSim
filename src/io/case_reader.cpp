@@ -81,6 +81,7 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
     OutputControl result;
     bool has_directory = false;
     bool has_time = false;
+    bool has_interval = false;
     for (const ConfigLine& line : readConfigLines(definition.output_file)) {
         const std::string& key = line.tokens.front();
         if (line.tokens.size() != 2) {
@@ -96,6 +97,14 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
             }
             result.time_name = line.tokens[1];
             has_time = true;
+        } else if (key == "writeInterval") {
+            if (has_interval) invalid(definition.output_file, line, "duplicate writeInterval");
+            std::size_t consumed = 0;
+            try { result.write_interval = std::stoi(line.tokens[1], &consumed); }
+            catch (const std::exception&) { invalid(definition.output_file, line, "invalid writeInterval"); }
+            if (consumed != line.tokens[1].size() || result.write_interval <= 0)
+                invalid(definition.output_file, line, "writeInterval must be a positive integer");
+            has_interval = true;
         } else {
             invalid(definition.output_file, line, "unknown entry " + key);
         }
@@ -104,15 +113,6 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
         throw std::runtime_error("output directory must be relative to the case directory");
     }
     return result;
-}
-
-std::filesystem::path outputTimeDirectory(
-    const CaseDefinition& definition,
-    const std::string& requested_time)
-{
-    OutputControl output = readOutputControl(definition);
-    if (!requested_time.empty()) output.time_name = requested_time;
-    return definition.root / output.directory / output.time_name;
 }
 
 }  // babelsim 命名空间

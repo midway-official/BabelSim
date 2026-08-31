@@ -1,6 +1,6 @@
 #include "babelsim/case.h"
 #include "babelsim/parallel.h"
-#include "internal/case_runner.h"
+#include "babelsim/solvers.h"
 
 #include <mpi.h>
 
@@ -35,18 +35,11 @@ Arguments parseArguments(int argc, char* argv[]) {
     return result;
 }
 
-int run(const Arguments& arguments, const ParallelContext& parallel) {
-    const CaseDefinition definition = readCase(arguments.case_directory);
-    if (definition.solver == "heatFoam") {
-        return runHeatCase(definition, parallel, arguments.time_name);
-    }
-    if (definition.solver == "simpleFoam") {
-        return runSimpleCase(definition, parallel, arguments.time_name);
-    }
-    if (definition.solver == "transportFoam") {
-        return runTransportCase(definition, parallel, arguments.time_name);
-    }
-    throw std::runtime_error("unknown BabelSim solver: " + definition.solver);
+int run(const Arguments& arguments) {
+    Case problem(arguments.case_directory, arguments.time_name);
+    const int status = runSolver(problem);
+    if (status == 0) problem.finish();
+    return status;
 }
 
 }  // 匿名命名空间
@@ -60,8 +53,7 @@ int main(int argc, char* argv[]) {
     }
     int status = 1;
     try {
-        const babelsim::ParallelContext parallel = babelsim::ParallelContext::world();
-        status = babelsim::run(babelsim::parseArguments(argc, argv), parallel);
+        status = babelsim::run(babelsim::parseArguments(argc, argv));
     } catch (const std::exception& error) {
         int rank = 0;
         const int rank_status = MPI_Comm_rank(MPI_COMM_WORLD, &rank);

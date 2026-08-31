@@ -1,4 +1,4 @@
-#include "babelsim/simple.h"
+#include "internal/simple_state.h"
 
 #include "internal/scalar_equation_control.h"
 #include "internal/simple_discretization.h"
@@ -34,7 +34,7 @@ SolveResult solvePressureCorrectionEquation(
 
 }  // simple 命名空间
 
-void SimpleSolver::NumericalWorkspace::predictMomentumFlux(
+void SimpleSolver::State::NumericalWorkspace::predictMomentumFlux(
     const Methods& methods,
     const VectorField& U,
     const ScalarField& p,
@@ -51,7 +51,7 @@ void SimpleSolver::NumericalWorkspace::predictMomentumFlux(
         methods.diffusionFor(p.name()));
 }
 
-void SimpleSolver::NumericalWorkspace::preparePressureEquation(
+void SimpleSolver::State::NumericalWorkspace::preparePressureEquation(
     const ScalarField& phiHbyA)
 {
     fvc::evaluate(fvc::div(phiHbyA), div_phiHbyA);

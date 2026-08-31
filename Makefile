@@ -8,13 +8,12 @@ CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 BUILD := build
 LIB := $(BUILD)/libbabelsim.a
 SOURCES := src/core/mesh.cpp \
+           src/apps/solver_selection.cpp \
            src/io/config.cpp \
            src/io/case_reader.cpp \
+           src/io/case.cpp \
            src/io/field_reader.cpp \
            src/io/numerics_reader.cpp \
-           src/io/simple_case_reader.cpp \
-           src/io/thermal_case_reader.cpp \
-           src/io/transport_case_reader.cpp \
            src/io/mesh_reader.cpp \
            src/io/result_reader.cpp \
            src/discretization/operators.cpp \
@@ -27,13 +26,13 @@ SOURCES := src/core/mesh.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
            src/physics/heat/transient_heat_solver.cpp \
-           src/physics/heat/heat_case.cpp \
            src/physics/transport/transient_scalar_transport_solver.cpp \
-           src/physics/transport/transport_case.cpp \
            src/physics/simple/simple_solver.cpp \
-           src/physics/simple/simple_case.cpp \
-           src/physics/simple/momentum_interpolation.cpp \
-           src/physics/simple/pressure_correction.cpp
+           src/physics/simple/create_fields.cpp \
+           src/physics/simple/convergence.cpp \
+           src/physics/simple/momentum.cpp \
+           src/physics/simple/pressure.cpp \
+           $(wildcard src/physics/*/main.cpp)
 OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
 
@@ -44,9 +43,11 @@ TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/assembly_solver_test.cpp \
                 tests/simple_solver_test.cpp \
                 tests/mesh_file_test.cpp \
+                tests/case_lifecycle_test.cpp \
                 tests/case_io_test.cpp \
                 tests/field_writer_test.cpp \
                 tests/heat_solver_test.cpp \
+                tests/time_history_test.cpp \
                 tests/transport_solver_test.cpp \
                 tests/cavity_regression_test.cpp \
                 tests/cavity_3d_test.cpp \
@@ -94,6 +95,13 @@ $(BUILD)/parallel_cavity_3d_test: tests/parallel_cavity_3d_test.cpp tests/test_u
 test: $(TESTS)
 	@set -e; for test in $(TESTS); do $$test; done
 
+$(BUILD)/case_programming_test: tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(HEADERS) $(LIB)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) -o $@
+
+test-workflow: $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
+	$(BUILD)/time_history_test
+	python3 tests/solver_workflow_test.py
+
 test-mpi: $(MPI_TESTS)
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_domain_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
@@ -126,7 +134,7 @@ test-mpi-poiseuille: $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 		--atol 5e-6 --rtol 5e-6
 	python3 tools/compare_parallel_results.py \
 		cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np4 \
-		--atol 1e-3 --rtol 1e-3
+		--atol 5e-6 --rtol 5e-6
 	$(BUILD)/babelsim-post -case cases/poiseuille -time mpi-np4 -format vtk tecplot
 
 validate-cavity: $(BUILD)/babelsim-solve
@@ -148,7 +156,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all test test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all test test-workflow test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d)

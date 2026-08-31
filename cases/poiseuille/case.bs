@@ -1,4 +1,4 @@
-solver simpleFoam
+solver simple
 mesh mesh/poiseuille.mesh
 fields fields/initial
 physics physics/simple.bs

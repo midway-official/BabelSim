@@ -1,114 +1,72 @@
-# BabelSim Case 结构与启动器
+# Case：问题配置、运行与结果
 
-## 设计原则
-
-一个 Case 描述“要计算的问题”；一个 Solver 描述“如何用物理方程与算法求解”。两者不能
-互相硬编码。BabelSim 借鉴 OpenFOAM 的 Case/solver 分离和 `fvSchemes`/`fvSolution`
-职责分离，但只保留适合当前规模的七个文件入口。
+Case 描述“问题是什么”，Solver 描述“方程和算法是什么”。BabelSim 保留初值、物性、
+数值控制分离的思想，不照搬 OpenFOAM 的全部字典结构。
 
 ```text
-cases/<case-name>/
+cases/heat/
 ├── case.bs
-├── mesh/<name>.mesh
-├── fields/initial/<field>.field
-├── physics/<model>.bs
+├── mesh/heat.mesh
+├── fields/initial/T.field
+├── physics/thermal.bs
 ├── numerics/methods.bs
 ├── numerics/solution.bs
 ├── control.bs
 └── output.bs
 ```
 
-运行后生成、且不进入 Git 的内容为：
+## 入口与名称
 
 ```text
-results/<time>/rank-0000/...   每个 rank 的 owned 数据
-post/<time>.vtk                ParaView 文件
-post/<time>.dat                Tecplot 文件
-```
-
-## case.bs
-
-`case.bs` 是通用启动器读取的唯一固定入口：
-
-```text
-solver simpleFoam
-mesh mesh/cavity.mesh
+solver heat
+mesh mesh/heat.mesh
 fields fields/initial
-physics physics/simple.bs
+physics physics/thermal.bs
 methods numerics/methods.bs
 solution numerics/solution.bs
 control control.bs
 output output.bs
 ```
 
-启动命令始终相同：
+现有选择是 heat（热传导）、simple（稳态层流 SIMPLE）、transport（对流扩散）。
+不再接受 BabelSim 旧的 heatFoam/simpleFoam/transportFoam 名称。
+它们不代表 OpenFOAM 程序或输入格式。
 
-```bash
-build/babelsim-solve -case cases/cavity
-mpirun -np 4 build/babelsim-solve -case cases/cavity -time mpi4
-```
+普通 Solver 由 Case 取得命名场、物性和算法参数；不用实现自己的 reader。
+启动器只初始化运行、构造 Case、调用显式选择表并处理成功/失败。
 
-启动器读取 `solver` 后选择对应的 Case 运行入口。启动器只负责参数和 MPI 生命周期；每个
-Physics 目录中的运行入口负责其 Case→Field→RunTime→输出流程，因此通用应用不需要知道
-`T/U/p/C` 等具体 Field。Physics Solver 本身不需要知道进程数或通信器。
+## 网格和场
 
-当前内置选择为：
+网格仍使用 BABELSIM_MESH 1，存尺寸、笛卡尔边界或显式顶点、patch。
+统一三维结构化六面体，二维是 nz=1。各 patch 名必须唯一。
 
-| `solver` | 物理/算法 | 必需初值 |
-| --- | --- | --- |
-| `heatFoam` | 瞬态热传导 | `T.field` |
-| `simpleFoam` | 稳态层流不可压缩 SIMPLE | `U.field`、`p.field` |
-| `transportFoam` | 瞬态标量对流-扩散 | `C.field`、`U.field` |
-
-新增 Solver 只需在启动器增加一个明确分支及其 Case 读取器；不要建立无边界的通用注册表或
-Factory 层。
-
-## 原生网格文件
-
-原生 `.mesh` 文件描述结构化三维六面体网格、范围或显式顶点以及 patch：
+实际可读取的场语法是花括号形式，不是旧文档中的简写：
 
 ```text
-BABELSIM_MESH 1
-dimensions 32 1 1
-geometry cartesian
-bounds 0 0 0 1 1 1
-patch xmin hot wall
-patch xmax cold wall
-patch ymin side symmetry
-patch ymax side symmetry
-patch zmin front symmetry
-patch zmax back symmetry
-end
+field T
+{
+    type scalar
+    location cell
+    internal uniform (0)
+    boundary
+    {
+        hot   { type fixedValue value (1) }
+        cold  { type fixedValue value (0) }
+        lower { type symmetry }
+        upper { type symmetry }
+        front { type symmetry }
+        back  { type symmetry }
+    }
+}
 ```
 
-`dimensions nx ny nz` 永远是三维尺寸。`nz=1` 不是单独二维网格，而是退化三维网格。
-对于非正交结构化网格可使用显式顶点模式；Mesh 构造时从顶点生成 cell/face、面积向量、
-体积、正交系数、非正交修正和偏斜量。
+每个物理 patch 都必须配置。标量值也写括号；vector 是三个分量，tensor 是行优先九个分量。
+目前读取支持 cell 场和 uniform 初值；面通量由数学算子生成，不读取 face 初值文件。
+支持 fixedValue、fixedGradient、zeroGradient、inletOutlet、symmetry/mirror。
 
-并行时只有 rank 0 解析完整文件，随后按 x 方向生成局部 owned+ghost Mesh 并发送所需几何。
-其他 rank 不保存完整全局 Mesh；Field 也只保存相同局部实体上的连续数据。
+## 物理与数值分开
 
-## 初值和边界 Field
-
-`fields/initial/T.field`、`U.field`、`p.field` 等文件指定初值及各 patch 的数学边界。
-示意：
-
-```text
-field T cell scalar
-internal uniform 300
-boundary hot fixedValue 500
-boundary cold fixedValue 300
-boundary side symmetry
-end
-```
-
-可用的数学边界包括 `fixedValue`、`fixedGradient`、`zeroGradient`、`inletOutlet`、
-`symmetry`/`mirror`。patch 的 `wall/inlet/outlet/symmetry` 角色来自网格；Field 文件决定
-该物理量在该 patch 上的具体数学约束。
-
-## physics、methods、solution 与 control
-
-`physics` 只放物性和物理源项。例如热传导：
+`physics/thermal.bs`：
 
 ```text
 density 1
@@ -117,7 +75,7 @@ conductivity 0.1
 source 0
 ```
 
-`methods.bs` 只放离散格式。例如：
+`numerics/methods.bs`：
 
 ```text
 interpolation linear
@@ -128,10 +86,21 @@ time euler
 convection C upwind
 ```
 
-每行既可写默认格式（两个 token），也可写“算子类别、Field 名、格式”（三个 token）。例如
-`convection C upwind` 仅覆盖 `div(phi,C)`，`convection U central` 可独立覆盖动量方程。
+三列条目覆盖某个 Field 的默认方法。非正交问题使用 corrected 插值/扩散、适当梯度；
+Solver 不手写几何修正。
 
-`control.bs` 只放时间区间和步长：
+`numerics/solution.bs`：
+
+```text
+scalarSolver bicgstab ilut 1e-14 1e-10 1000
+```
+
+依次是方法、预条件器、绝对容差、相对容差、最大迭代数。
+vectorSolver 配置矢量方程；未给出时使用 RuntimeControl 默认值。
+SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySolver/pressureSolver
+需改为这两个通用键。SIMPLE 自身的松弛、最大外迭代和容差仍在此文件，由算法读取。
+
+`control.bs`：
 
 ```text
 startTime 0
@@ -139,38 +108,63 @@ endTime 0.05
 deltaT 0.01
 ```
 
-`solution.bs` 放线性求解器和算法收敛控制：
+Euler 的最后一步可缩短到 endTime，不越过终点。BDF2 首步 Euler、后续等步长；
+不支持以非整数步数终止的 BDF2。稳态 simple 使用算法外循环，不把迭代次数冒充物理时间。
+
+## 自动输出
 
 ```text
-scalarSolver bicgstab ilut 1e-14 1e-10 1000
+directory results
+timeName final
+writeInterval 2
 ```
 
-`simpleFoam` 的 `solution.bs` 还包括 `maxIterations`、`nonOrthogonalCorrections`、速度/压力
-欠松弛、连续性/速度容差以及 `velocitySolver`/`pressureSolver`。物性与数值方式分开，
-所以改变黏度不需要改线性求解控制，改变非正交扩散也不需要改 Solver 源码。
+writeInterval 是正整数步数，省略时为 1。上例时间设置输出 0.02、0.04、0.05，
+末时刻不因未落在间隔上而丢失。timeName 只是最终结果别名，不是伪造的物理时间。
 
-## 并行输出与后处理
+```text
+results/
+├── 0.02/rank-0000/T.csv + metadata.bs
+├── 0.04/rank-0000/...
+├── 0.05/rank-0000/...
+└── final/rank-0000/...      最终状态的兼容入口
+```
 
-每个 rank 只写 owned cell/face，对应全局 ID；ghost 数据不会写出。metadata 记录网格和
-Field 类型。独立程序合并这些分区文件：
+每个 rank 只写 owned cell。输入场自动输出，中间数学场和面通量不自动输出。
+metadata 的 time 记录真实物理时间。当前不支持 checkpoint/restart 或计算中动态改变输出场集合。
+
+为独立实验指定名称：
 
 ```bash
-build/babelsim-post -case cases/poiseuille -time mpi4 -format vtk tecplot
-
-# 自动发现可兼容的 results/<time>，生成 post/series.pvd
-build/babelsim-post -case cases/poiseuille -time all -format vtk
+mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
 ```
 
-它会检查分区全局 ID 的完整性，并产生 VTK `UNSTRUCTURED_GRID`（ParaView）与 Tecplot
-`FEBRICK`。`all` 会跳过与当前网格不兼容的旧结果并报告原因，并在 VTK 输出时写出 `.pvd`
-索引。因此求解器不包含串行聚集、可视化格式或 MPI I/O 细节。
+此时序列放在 results/mpi4/<物理时间>/，最终状态仍可从 results/mpi4/rank-*/ 读取。
+不同进程数、网格和参数的实验请使用不同名称或 output.directory，避免旧时间目录混入新实验；
+当前不会自动清理已有结果，也不保证同一路径并发写入安全。
+不同 rank 数量的旧结果会在写入前被拒绝；请换一个标签。标签和 timeName 不可为数字、all 或 latest，
+以免覆盖物理时间目录或与后处理选择冲突。-time 是运行标签，不是重启时刻。
 
-## 与 OpenFOAM 的关系
+## 独立后处理
 
-OpenFOAM 常把初值放在 `0/`、物性放在 `constant/`、离散/线性控制放在 `system/`。
-BabelSim 保留“初值、物性、数值控制分离”的思想，但用 `fields/`、`physics/`、`numerics/`
-与单个 `case.bs` 保持小规模、明确且易于新用户理解。
+```bash
+# 默认序列
+build/babelsim-post -case cases/heat -time all -format vtk tecplot
+# 命名运行的序列
+build/babelsim-post -case cases/heat -time mpi4/all -format vtk tecplot
+# 最晚物理时间，按数值而不是字典序选择
+build/babelsim-post -case cases/heat -time mpi4/latest -format vtk
+# 只处理最终别名
+build/babelsim-post -case cases/heat -time mpi4 -format vtk tecplot
+```
 
-相关背景可见 OpenFOAM 的 [Case 文件结构说明](https://www.openfoam.com/documentation/user-guide/2-openfoam-cases/2.1-file-structure-of-openfoam-cases)、
-[数值格式说明](https://www.openfoam.com/documentation/user-guide/6-solving/6.2-numerical-schemes) 与
-[求解/算法控制说明](https://www.openfoam.com/documentation/user-guide/6-solving/6.3-solution-and-algorithm-control)。
+-format vtk 现在生成 XML UnstructuredGrid 的 .vtu，PVD 引用 .vtu；不再用 legacy .vtk
+作为时间集合的子文件。ParaView 打开 post/series.pvd 或 post/mpi4/series.pvd。
+Tecplot 仍输出 FEBRICK .dat，每个时刻独立文件。
+
+all/latest 只扫描数值目录，忽略 final 和实验标签；all 遇到缺 rank、缺全局 ID、
+网格不匹配或元数据时间不一致会报错，不能静默跳过坏时间步并生成看似完整的动画。
+旧手工保存的非数值标签仍可用 -time <标签> 单独处理。
+
+这条工作流由 make test-workflow 验证，包括 1/2/4 进程、时间间隔、短末步、
+数值排序和可用时的真实 ParaView PVDReader。

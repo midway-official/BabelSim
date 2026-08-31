@@ -3,6 +3,7 @@
 #include "babelsim/result_reader.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -42,97 +43,117 @@ Arguments parseArguments(int argc, char* argv[]) {
     return result;
 }
 
-std::vector<std::filesystem::path> resolveTimeDirectories(
-    const CaseDefinition& definition,
-    const OutputControl& output,
-    const std::string& requested)
-{
-    const auto result_root = definition.root / output.directory;
-    if (requested.empty()) return {result_root / output.time_name};
-    if (requested != "latest" && requested != "all") return {result_root / requested};
-    std::vector<std::filesystem::path> times;
-    for (const auto& entry : std::filesystem::directory_iterator(result_root)) {
-        if (entry.is_directory()) times.push_back(entry.path());
+bool numericalTime(const std::string& name, double& time) {
+    try {
+        std::size_t consumed = 0;
+        time = std::stod(name, &consumed);
+        return consumed == name.size() && std::isfinite(time);
+    } catch (const std::exception&) {
+        return false;
     }
-    std::sort(times.begin(), times.end());
-    if (times.empty()) throw std::runtime_error("case has no saved result times");
-    if (requested == "latest") return {times.back()};
+}
+
+std::vector<std::filesystem::path> resolveTimeDirectories(
+    const CaseDefinition& definition, const OutputControl& output, const std::string& requested)
+{
+    const std::filesystem::path selection = requested.empty() ? output.time_name : requested;
+    if (selection.is_absolute()) throw std::invalid_argument("result selection must be relative");
+    for (const auto& part : selection) {
+        if (part == ".." || part == ".") throw std::invalid_argument("invalid result selection");
+    }
+    const auto root = definition.root / output.directory;
+    const std::string mode = selection.filename().string();
+    if (mode != "latest" && mode != "all") return {root / selection};
+    std::vector<std::pair<double, std::filesystem::path>> sorted;
+    for (const auto& entry : std::filesystem::directory_iterator(root / selection.parent_path())) {
+        double time;
+        if (entry.is_directory() && numericalTime(entry.path().filename().string(), time))
+            sorted.emplace_back(time, entry.path());
+    }
+    std::sort(sorted.begin(), sorted.end());
+    if (sorted.empty()) throw std::runtime_error("case has no numerical result times");
+    std::vector<std::filesystem::path> times;
+    for (std::size_t i = 0; i < sorted.size(); ++i) {
+        if (i > 0 && sorted[i].first == sorted[i - 1].first)
+            throw std::runtime_error("duplicate physical time in results");
+        times.push_back(sorted[i].second);
+    }
+    if (mode == "latest") return {times.back()};
     return times;
 }
 
-double pvdTime(const std::string& name, int index) {
-    try {
-        std::size_t consumed = 0;
-        const double value = std::stod(name, &consumed);
-        if (consumed == name.size()) return value;
-    } catch (const std::exception&) {
+std::string xml(const std::string& text) {
+    std::string result;
+    for (char c : text) {
+        if (c == '&') result += "&amp;";
+        else if (c == '<') result += "&lt;";
+        else if (c == '>') result += "&gt;";
+        else if (c == '"') result += "&quot;";
+        else result += c;
     }
-    return static_cast<double>(index);
+    return result;
 }
 
-void writePvd(const std::filesystem::path& path, const std::vector<std::string>& time_names) {
+void writePvd(const std::filesystem::path& path, const std::vector<std::string>& times) {
     std::ofstream output(path);
     if (!output) throw std::runtime_error("cannot create PVD index: " + path.string());
     output << "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\" "
               "byte_order=\"LittleEndian\">\n<Collection>\n";
-    for (std::size_t index = 0; index < time_names.size(); ++index) {
-        const std::string& name = time_names[index];
-        output << "  <DataSet timestep=\"" << std::setprecision(17) << pvdTime(name, index)
-               << "\" group=\"\" part=\"0\" file=\"" << name << ".vtk\"/>\n";
+    for (const std::string& name : times) {
+        double time;
+        if (!numericalTime(name, time)) throw std::runtime_error("PVD needs physical times");
+        output << "  <DataSet timestep=\"" << std::setprecision(17) << time
+               << "\" group=\"\" part=\"0\" file=\"" << xml(name) << ".vtu\"/>\n";
     }
     output << "</Collection>\n</VTKFile>\n";
+    output.close();
+    if (!output) throw std::runtime_error("cannot flush PVD index");
 }
 
 std::string componentName(const ResultField& field, int component) {
     if (field.components == 1) return field.info.name;
-    static constexpr const char* suffix[] = {"x", "y", "z", "xx", "xy", "xz", "yx", "yy", "yz"};
-    return field.info.name + "_" + suffix[component];
+    static constexpr const char* vector_suffix[] = {"x", "y", "z"};
+    static constexpr const char* tensor_suffix[] = {"xx", "xy", "xz", "yx", "yy", "yz", "zx", "zy", "zz"};
+    return field.info.name + "_" +
+        (field.components == 3 ? vector_suffix[component] : tensor_suffix[component]);
 }
 
 void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultData& data) {
     std::ofstream output(path);
-    if (!output) throw std::runtime_error("cannot create VTK output: " + path.string());
-    output << "# vtk DataFile Version 3.0\nBabelSim " << data.time_name
-           << "\nASCII\nDATASET UNSTRUCTURED_GRID\nPOINTS " << mesh.vertexCount()
-           << " double\n" << std::setprecision(17);
+    if (!output) throw std::runtime_error("cannot create VTU output: " + path.string());
+    output << "<?xml version=\"1.0\"?>\n"
+              "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n"
+              "<UnstructuredGrid><Piece NumberOfPoints=\"" << mesh.vertexCount()
+           << "\" NumberOfCells=\"" << mesh.cellCount() << "\">\n"
+              "<Points><DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">\n"
+           << std::setprecision(17);
     for (const Vec3& point : mesh.vertices) output << point.x << ' ' << point.y << ' ' << point.z << '\n';
-    output << "CELLS " << mesh.cellCount() << ' ' << mesh.cellCount() * 9 << '\n';
+    output << "</DataArray></Points>\n<Cells>\n"
+              "<DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
     for (Index k = 0; k < mesh.dimensions[2]; ++k) {
         for (Index j = 0; j < mesh.dimensions[1]; ++j) {
             for (Index i = 0; i < mesh.dimensions[0]; ++i) {
-                output << "8 " << mesh.vertexId(i, j, k) << ' ' << mesh.vertexId(i + 1, j, k) << ' '
+                output << mesh.vertexId(i, j, k) << ' ' << mesh.vertexId(i + 1, j, k) << ' '
                        << mesh.vertexId(i + 1, j + 1, k) << ' ' << mesh.vertexId(i, j + 1, k) << ' '
                        << mesh.vertexId(i, j, k + 1) << ' ' << mesh.vertexId(i + 1, j, k + 1) << ' '
                        << mesh.vertexId(i + 1, j + 1, k + 1) << ' ' << mesh.vertexId(i, j + 1, k + 1) << '\n';
             }
         }
     }
-    output << "CELL_TYPES " << mesh.cellCount() << '\n';
+    output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
+    for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << 8LL * (cell + 1) << '\n';
+    output << "</DataArray>\n<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n";
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << "12\n";
-    output << "CELL_DATA " << mesh.cellCount() << '\n';
+    output << "</DataArray></Cells>\n<CellData>\n";
     for (const ResultField& field : data.fields) {
-        if (field.components == 1) {
-            output << "SCALARS " << field.info.name << " double 1\nLOOKUP_TABLE default\n";
-            for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << field.values[cell] << '\n';
-        } else if (field.components == 3) {
-            output << "VECTORS " << field.info.name << " double\n";
-            for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-                const std::size_t begin = static_cast<std::size_t>(cell) * 3;
-                output << field.values[begin] << ' ' << field.values[begin + 1] << ' '
-                       << field.values[begin + 2] << '\n';
-            }
-        } else {
-            output << "TENSORS " << field.info.name << " double\n";
-            for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-                const std::size_t begin = static_cast<std::size_t>(cell) * 9;
-                for (int row = 0; row < 3; ++row) {
-                    output << field.values[begin + 3 * row] << ' '
-                           << field.values[begin + 3 * row + 1] << ' '
-                           << field.values[begin + 3 * row + 2] << '\n';
-                }
-            }
-        }
+        output << "<DataArray type=\"Float64\" Name=\"" << xml(field.info.name)
+               << "\" NumberOfComponents=\"" << field.components << "\" format=\"ascii\">\n";
+        for (double value : field.values) output << value << '\n';
+        output << "</DataArray>\n";
     }
+    output << "</CellData>\n</Piece></UnstructuredGrid>\n</VTKFile>\n";
+    output.close();
+    if (!output) throw std::runtime_error("cannot flush VTU output");
 }
 
 void writeTecplot(const std::filesystem::path& path, const Mesh& mesh, const ResultData& data) {
@@ -169,48 +190,46 @@ void writeTecplot(const std::filesystem::path& path, const Mesh& mesh, const Res
             }
         }
     }
+    output.close();
+    if (!output) throw std::runtime_error("cannot flush Tecplot output");
 }
 
 int run(const Arguments& arguments) {
+    for (const std::string& format : arguments.formats) {
+        if (format != "vtk" && format != "tecplot")
+            throw std::invalid_argument("unknown output format " + format);
+    }
     const CaseDefinition definition = readCase(arguments.case_directory);
     const OutputControl output = readOutputControl(definition);
     const Mesh mesh = readMeshFile(definition.mesh_file);
-    const auto post_directory = definition.root / "post";
-    std::filesystem::create_directories(post_directory);
     const auto time_directories = resolveTimeDirectories(definition, output, arguments.time_name);
-    std::vector<std::string> pvd_times;
+    const auto selection = std::filesystem::path(arguments.time_name);
+    const auto post_directory = definition.root / "post" / selection.parent_path();
+    std::filesystem::create_directories(post_directory);
+    const bool all = selection.filename() == "all";
+    std::vector<std::string> times;
     bool writes_vtk = false;
-    int processed = 0;
-    for (const auto& time_directory : time_directories) {
-        ResultData results;
-        try {
-            results = readParallelResults(time_directory, mesh.cellCount());
-            if (results.global_dimensions != mesh.dimensions) {
-                throw std::runtime_error("result global dimensions do not match the case mesh");
-            }
-        } catch (const std::exception& error) {
-            if (arguments.time_name != "all") throw;
-            std::cerr << "babelsim-post: skip incompatible result " << time_directory
-                      << ": " << error.what() << '\n';
-            continue;
-        }
+    for (const auto& directory : time_directories) {
+        const ResultData results = readParallelResults(directory, mesh.cellCount());
+        if (results.global_dimensions != mesh.dimensions)
+            throw std::runtime_error("result global dimensions do not match the case mesh");
+        const std::string name = directory.filename().string();
+        double actual, expected;
+        if (all && (!numericalTime(results.time_name, actual) || !numericalTime(name, expected) ||
+                    actual != expected))
+            throw std::runtime_error("result metadata time does not match its directory");
         for (const std::string& format : arguments.formats) {
             if (format == "vtk") {
-                writeVtk(post_directory / (results.time_name + ".vtk"), mesh, results);
+                writeVtk(post_directory / (name + ".vtu"), mesh, results);
                 writes_vtk = true;
-            } else if (format == "tecplot") {
-                writeTecplot(post_directory / (results.time_name + ".dat"), mesh, results);
             } else {
-                throw std::invalid_argument("unknown output format " + format);
+                writeTecplot(post_directory / (name + ".dat"), mesh, results);
             }
         }
-        pvd_times.push_back(results.time_name);
-        ++processed;
+        times.push_back(name);
     }
-    if (arguments.time_name == "all" && writes_vtk) {
-        writePvd(post_directory / "series.pvd", pvd_times);
-    }
-    std::cout << "BabelSim postprocessed " << processed
+    if (all && writes_vtk) writePvd(post_directory / "series.pvd", times);
+    std::cout << "BabelSim postprocessed " << times.size()
               << " time set(s) into " << post_directory << '\n';
     return 0;
 }

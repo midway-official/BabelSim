@@ -18,9 +18,9 @@ fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 →
 两类描述都只保存 Field 引用和常数。不会在表达式构造、`+`、`-` 或 `==` 时复制大型场，
 不会分配 LDU/CSR，也不会执行 MPI。
 
-## 隐式 fvm 项
+## fvm 方程贡献
 
-当前可组合的隐式项如下。
+除显式体源外，以下输运项隐式离散到未知量方程。
 
 | API | 数学意义 | 未知量位置 |
 | --- | --- | --- |
@@ -30,7 +30,8 @@ fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 →
 | `fvm::div(phi, T/U)` | \(\nabla\cdot(\phi T/U)\) | face scalar 通量、cell 场 |
 | `fvm::div(rho,phi,U)` | \(\nabla\cdot(\rho\phi U)\) | 常数缩放的 face 通量、cell vector 场 |
 | `fvm::laplacian(k, T/U)` | \(\nabla\cdot(k\nabla T/U)\) | 常数、cell 或 face 系数 |
-| `fvm::source(Q)` | 体源 \(Q\) | 常数或 cell scalar Field |
+| `fvm::source(Q)` | 已知体源 \(Q\) | 常数或 cell scalar Field |
+| `fvm::source(a,C)` | 已知体源 \(aC\) | 常数系数与 cell scalar Field；不生成临时场 |
 
 例如瞬态对流扩散方程可写为：
 
@@ -53,9 +54,9 @@ solve(
 `fvc` 不组装方程。调用者提供结果 Field，因此可以复用工作场，避免隐藏的大临时量：
 
 ```cpp
-VectorField grad_p(mesh, FieldLocation::Cell, "grad(p)");
-ScalarField phi(mesh, FieldLocation::Face, "phi");
-ScalarField div_phi(mesh, FieldLocation::Cell, "div(phi)");
+VectorField& grad_p = problem.vectorField("gradP", Vec3{});
+ScalarField& phi = problem.faceField("phi");
+ScalarField& div_phi = problem.scalarField("divPhi", 0.0);
 
 fvc::evaluate(fvc::grad(p), grad_p);
 fvc::evaluate(fvc::flux(U), phi);
@@ -101,6 +102,15 @@ S_f\cdot\nabla\phi
 interpolation/Green--Gauss reconstruction 处理。梯度可选择 Green--Gauss 或 Least-Squares。
 
 所有这些细节属于 Method/FVM/Runtime 层。Solver 只在 Case 的 `numerics` 文件选择方法。
+
+## 时间层与内迭代
+
+同一时间步可以重复求解一个 Field，而不推进旧时间层。RunTime 只在下一次时间推进时更新历史，
+因此非线性修正和双场耦合复用同一个 `solve()`。BDF2 在无第二个历史层时以 Euler 启动；
+后续仍使用均匀步长公式。当前不支持自适应 BDF2。
+
+普通 Solver 通过 `Case::loop()` 取得这套时间语义和自动输出，不构造 RunTime。
+`case.h`、`solver.h` 的公开头文件闭包不包含 MPI、Eigen 或内部运行类。
 
 ## 求解时发生的事情
 
