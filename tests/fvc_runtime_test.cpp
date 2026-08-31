@@ -1,4 +1,7 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/runtime.h"
+#include "babelsim/operators.h"
 
 #include "test_util.h"
 
@@ -16,9 +19,9 @@ int main() {
     RunTime run_time = RunTime::forMesh(mesh, control);
 
     ScalarField scalar(mesh, FieldLocation::Cell, "T");
-    scalar[mesh.cellId(0, 0, 0)] = 1.0;
-    scalar[mesh.cellId(1, 0, 0)] = 3.0;
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    detail::fieldData(scalar)[mesh.cellId(0, 0, 0)] = 1.0;
+    detail::fieldData(scalar)[mesh.cellId(1, 0, 0)] = 3.0;
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         scalar.boundary(patch) = zeroGradient();
     }
     VectorField scalar_gradient(mesh, FieldLocation::Cell, "gradT");
@@ -34,32 +37,32 @@ int main() {
     fvc::evaluate(fvc::laplacian(scalar), unit_laplacian);
     fvc::evaluate(fvc::laplacian(2.0, scalar), doubled_laplacian);
     fvc::evaluate(fvc::laplacian(cell_diffusivity, scalar), field_laplacian);
-    for (Index cell : mesh.owned_cells) {
+    for (Index cell : detail::meshData(mesh).owned_cells) {
         require(
-            near(doubled_laplacian[cell], 2.0 * unit_laplacian[cell]),
+            near(detail::fieldData(doubled_laplacian)[cell], 2.0 * detail::fieldData(unit_laplacian)[cell]),
             "constant explicit diffusivity is inconsistent");
         require(
-            near(field_laplacian[cell], doubled_laplacian[cell]),
+            near(detail::fieldData(field_laplacian)[cell], detail::fieldData(doubled_laplacian)[cell]),
             "cell explicit diffusivity was not interpolated consistently");
     }
 
     VectorField velocity_correction(mesh, FieldLocation::Cell, "Ucorrected", {1.0, 1.0, 1.0});
     fvc::subtract(cell_diffusivity, fvc::grad(scalar), velocity_correction);
-    for (Index cell : mesh.owned_cells) {
+    for (Index cell : detail::meshData(mesh).owned_cells) {
         require(
             near(
-                velocity_correction[cell],
-                Vec3{1.0, 1.0, 1.0} - 2.0 * scalar_gradient[cell]),
+                detail::fieldData(velocity_correction)[cell],
+                Vec3{1.0, 1.0, 1.0} - 2.0 * detail::fieldData(scalar_gradient)[cell]),
             "high-level gradient correction is inconsistent");
     }
 
     ScalarField flux_correction(mesh, FieldLocation::Face, "pFlux", 0.0);
     fvc::subtract(fvc::flux(cell_diffusivity, scalar), flux_correction);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
-        const double expected = -2.0 * fvc::integratedNormalGradient(
+        const double expected = -2.0 * integratedNormalGradient(
             scalar, scalar_gradient, face, control.methods.diffusion);
         require(
-            near(flux_correction[face], expected),
+            near(detail::fieldData(flux_correction)[face], expected),
             "high-level diffusion-flux correction is inconsistent");
     }
 
@@ -79,11 +82,11 @@ int main() {
     fvc::evaluate(fvc::div(velocity), vector_divergence);
     fvc::evaluate(fvc::div(flux, scalar), scalar_convection);
     fvc::evaluate(fvc::div(flux, velocity), vector_convection);
-    for (Index cell : mesh.owned_cells) {
-        require(near(flux_divergence[cell], 0.0), "zero face flux has divergence");
-        require(near(vector_divergence[cell], 0.0), "zero velocity has divergence");
-        require(near(scalar_convection[cell], 0.0), "zero flux has scalar convection");
-        require(near(vector_convection[cell], {}), "zero flux has vector convection");
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        require(near(detail::fieldData(flux_divergence)[cell], 0.0), "zero face flux has divergence");
+        require(near(detail::fieldData(vector_divergence)[cell], 0.0), "zero velocity has divergence");
+        require(near(detail::fieldData(scalar_convection)[cell], 0.0), "zero flux has scalar convection");
+        require(near(detail::fieldData(vector_convection)[cell], {}), "zero flux has vector convection");
     }
     std::cout << "fvc_runtime_test: explicit Field operations passed\n";
 }

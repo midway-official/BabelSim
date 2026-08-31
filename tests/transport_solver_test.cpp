@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/runtime.h"
 
 #include "test_util.h"
@@ -10,7 +12,7 @@ int main() {
     const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
     ScalarField concentration(mesh, FieldLocation::Cell, "C", 0.0);
     ScalarField flux(mesh, FieldLocation::Face, "phi", 0.0);
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         concentration.boundary(patch) = zeroGradient();
     }
 
@@ -25,6 +27,6 @@ int main() {
             fvm::laplacian(0.0, concentration) + fvm::source(6.0));
     require(result.converged(), "transport equation did not converge");
     require(!run_time.loop() && run_time.step() == 1, "transport time step count changed");
-    require(near(concentration[0], 0.3, 1e-12), "transport source update is incorrect");
-    std::cout << "transport_solver_test: C=" << concentration[0] << '\n';
+    require(near(detail::fieldData(concentration)[0], 0.3, 1e-12), "transport source update is incorrect");
+    std::cout << "transport_solver_test: C=" << detail::fieldData(concentration)[0] << '\n';
 }

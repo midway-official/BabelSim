@@ -1,3 +1,4 @@
+#include "internal/mesh_access.h"
 #include "babelsim/assembly.h"
 
 #include <stdexcept>
@@ -40,59 +41,59 @@ Eigen::SparseMatrix<double> assembleMatrixImpl(const DiscreteEquation<T>& equati
 
 SparseAssembly::SparseAssembly(const Mesh& mesh)
     : m_mesh(&mesh),
-      m_matrix(mesh.ownedCellCount(), mesh.ownedCellCount()),
+      m_matrix(detail::ownedCellCount(mesh), detail::ownedCellCount(mesh)),
       m_diagonal_positions(
-          static_cast<std::size_t>(mesh.ownedCellCount()), Eigen::Index{-1}),
+          static_cast<std::size_t>(detail::ownedCellCount(mesh)), Eigen::Index{-1}),
       m_upper_positions(
           static_cast<std::size_t>(mesh.faceCount()), Eigen::Index{-1}),
       m_lower_positions(
           static_cast<std::size_t>(mesh.faceCount()), Eigen::Index{-1})
 {
     mesh.validate();
-    m_coupled_faces.reserve(mesh.owned_faces.size());
+    m_coupled_faces.reserve(detail::meshData(mesh).owned_faces.size());
     std::vector<Eigen::Triplet<double>> entries;
     entries.reserve(
-        static_cast<std::size_t>(mesh.ownedCellCount()) +
-        2U * mesh.owned_faces.size());
-    for (Index cell : mesh.owned_cells) {
-        const Index row = mesh.ownedIndex(cell);
+        static_cast<std::size_t>(detail::ownedCellCount(mesh)) +
+        2U * detail::meshData(mesh).owned_faces.size());
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        const Index row = detail::ownedIndex(mesh, cell);
         entries.emplace_back(row, row, 1.0);
     }
-    for (Index face : mesh.owned_faces) {
+    for (Index face : detail::meshData(mesh).owned_faces) {
         const auto f = static_cast<std::size_t>(face);
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         if (neighbour == invalid_index) {
             continue;
         }
-        const Index owner = mesh.face_owner[f];
-        if (mesh.isOwned(owner) && mesh.isOwned(neighbour)) {
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        if (detail::isOwned(mesh, owner) && detail::isOwned(mesh, neighbour)) {
             m_coupled_faces.push_back(face);
             entries.emplace_back(
-                mesh.ownedIndex(owner), mesh.ownedIndex(neighbour), 1.0);
+                detail::ownedIndex(mesh, owner), detail::ownedIndex(mesh, neighbour), 1.0);
             entries.emplace_back(
-                mesh.ownedIndex(neighbour), mesh.ownedIndex(owner), 1.0);
+                detail::ownedIndex(mesh, neighbour), detail::ownedIndex(mesh, owner), 1.0);
         }
     }
 
     m_matrix.setFromTriplets(entries.begin(), entries.end());
     m_matrix.makeCompressed();
-    for (Index cell : mesh.owned_cells) {
-        const Index row = mesh.ownedIndex(cell);
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        const Index row = detail::ownedIndex(mesh, cell);
         m_diagonal_positions[static_cast<std::size_t>(row)] =
             coefficientPosition(m_matrix, row, row);
     }
     for (Index face : m_coupled_faces) {
         const auto f = static_cast<std::size_t>(face);
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         if (neighbour == invalid_index) {
             continue;
         }
-        const Index owner = mesh.face_owner[f];
-        if (mesh.isOwned(owner) && mesh.isOwned(neighbour)) {
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        if (detail::isOwned(mesh, owner) && detail::isOwned(mesh, neighbour)) {
             m_upper_positions[f] = coefficientPosition(
-                m_matrix, mesh.ownedIndex(owner), mesh.ownedIndex(neighbour));
+                m_matrix, detail::ownedIndex(mesh, owner), detail::ownedIndex(mesh, neighbour));
             m_lower_positions[f] = coefficientPosition(
-                m_matrix, mesh.ownedIndex(neighbour), mesh.ownedIndex(owner));
+                m_matrix, detail::ownedIndex(mesh, neighbour), detail::ownedIndex(mesh, owner));
         }
     }
 }
@@ -110,9 +111,9 @@ void SparseAssembly::update(
         throw std::invalid_argument("equation coefficients do not match assembly mesh");
     }
     double* values = m_matrix.valuePtr();
-    for (Index cell : m_mesh->owned_cells) {
+    for (Index cell : detail::meshData(*m_mesh).owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
-        const auto row = static_cast<std::size_t>(m_mesh->ownedIndex(cell));
+        const auto row = static_cast<std::size_t>(detail::ownedIndex(*m_mesh, cell));
         values[m_diagonal_positions[row]] = diagonal[c];
     }
     for (Index face_index : m_coupled_faces) {
@@ -150,9 +151,9 @@ LinearSystem assemble(const ScalarDiscreteEquation& equation) {
 void assembleSource(const ScalarDiscreteEquation& equation, Eigen::VectorXd& result) {
     equation.validateStorage();
     const Mesh& mesh = equationMesh(equation.mesh);
-    result.resize(mesh.ownedCellCount());
-    for (Index cell : mesh.owned_cells) {
-        result[mesh.ownedIndex(cell)] =
+    result.resize(detail::ownedCellCount(mesh));
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        result[detail::ownedIndex(mesh, cell)] =
             equation.source[static_cast<std::size_t>(cell)];
     }
 }
@@ -164,11 +165,11 @@ void assembleSource(
     equation.validateStorage();
     const Mesh& mesh = equationMesh(equation.mesh);
     for (auto& component : result) {
-        component.resize(mesh.ownedCellCount());
+        component.resize(detail::ownedCellCount(mesh));
     }
-    for (Index cell : mesh.owned_cells) {
+    for (Index cell : detail::meshData(mesh).owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
-        const Index row = mesh.ownedIndex(cell);
+        const Index row = detail::ownedIndex(mesh, cell);
         result[0][row] = equation.source[c].x;
         result[1][row] = equation.source[c].y;
         result[2][row] = equation.source[c].z;

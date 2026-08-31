@@ -51,9 +51,11 @@ while (simple.loop()) {
 这些是数学与数值算法，框架不应该替作者猜测。
 被移除的是反复编写 reader、创建执行对象、维护历史/通信/矩阵和组织并行输出的负担。
 
-新增一个普通求解器的流程只有：一个函数 → 选择表一项 → 一个 Case → 串行验证 → MPI 对比。
+新增独立求解器的流程只有：自己的函数和 runApplication 入口 → 一个 Case →
+链接已构建框架 → 串行验证 → MPI 对比。不再要求修改内置应用的选择表。
 完整可执行步骤见 [开发指南](solver-development.md)；维护者的责任边界见
-[架构](architecture.md)。头文件闭包和新求解器工作流都由 make test-workflow 检查。
+[架构](architecture.md)。make test-external 将真实 Solver 复制到仓库外构建，
+覆盖方程驱动、双场算法驱动和矢量响应；同时确认底层存储访问不能编译。
 
 这遵循 OpenFOAM 的场、方程、算法与 Case 分离思想，而不是复制其类型体系。
 [官方 simpleFoam 主程序](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/incompressible/simpleFoam/simpleFoam.C)

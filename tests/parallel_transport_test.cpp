@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/parallel.h"
 #include "babelsim/runtime.h"
 
@@ -17,7 +19,7 @@ int main(int argc, char* argv[]) {
         const Mesh mesh = decompose(global, parallel);
         ScalarField concentration(mesh, FieldLocation::Cell, "C", 0.0);
         ScalarField flux(mesh, FieldLocation::Face, "phi", 0.0);
-        for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+        for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
             concentration.boundary(patch) = zeroGradient();
         }
         RuntimeControl control;
@@ -32,8 +34,8 @@ int main(int argc, char* argv[]) {
         require(result.converged(), "parallel transport did not converge");
         require(!run_time.loop() && run_time.step() == 1, "parallel transport step count changed");
         double local_error = 0.0;
-        for (Index cell : mesh.owned_cells) {
-            local_error = std::max(local_error, std::abs(concentration[cell] - 0.3));
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            local_error = std::max(local_error, std::abs(detail::fieldData(concentration)[cell] - 0.3));
         }
         double global_error = 0.0;
         parallel.maximum(&local_error, &global_error, 1);

@@ -21,11 +21,8 @@ void SimpleSolver::State::checkContinuityAndConvergence(
         std::isfinite(result.relative_velocity_change) &&
         std::isfinite(result.continuity.relative);
     bool local_linear_converged = pressure.linear_converged;
-    for (const SolveResult& velocity_result : result.velocity) {
-        local_healthy = local_healthy && velocity_result.healthy();
-        local_linear_converged =
-            local_linear_converged && velocity_result.converged();
-    }
+    local_healthy = local_healthy && result.velocity.healthy();
+    local_linear_converged = local_linear_converged && result.velocity.converged();
     result.healthy = diagnostics::all(local_healthy);
     result.linear_converged = diagnostics::all(local_linear_converged);
     result.converged = result.healthy && result.linear_converged && diagnostics::all(

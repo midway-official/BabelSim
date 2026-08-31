@@ -21,10 +21,10 @@ SimpleSolver::State::PressureEquationResult SimpleSolver::State::solvePressure()
     const int pressure_solves = m_methods.diffusionFor(pPrime.name()) == DiffusionMethod::Orthogonal
         ? 1 : m_control.non_orthogonal_corrections + 1;
     for (int correction = 0; correction < pressure_solves; ++correction) {
-        result.linear = simple::solvePressureCorrectionEquation(
+        result.linear = solve(
             -fvm::laplacian(rAU, pPrime) ==
                 -fvm::source(divPhiHbyA),
-            !m_has_fixed_pressure);
+            m_has_fixed_pressure ? EquationControl{} : referenceValue(0.0));
         result.healthy = result.healthy && result.linear.healthy();
         result.linear_converged = result.linear_converged && result.linear.converged();
     }

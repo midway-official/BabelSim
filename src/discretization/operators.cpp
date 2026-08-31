@@ -1,4 +1,7 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/operators.h"
+#include "internal/boundary_evaluation.h"
 
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
@@ -26,17 +29,17 @@ void requireField(
 
 double ownerWeight(const Mesh& mesh, Index face) {
     const auto f = static_cast<std::size_t>(face);
-    return mesh.face_owner_weights[f];
+    return detail::meshData(mesh).face_owner_weights[f];
 }
 
 template <typename T>
 T internalFaceValue(const Field<T>& field, Index face) {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const Index neighbour = mesh.face_neighbour[f];
+    const Index owner = detail::meshData(mesh).face_owner[f];
+    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
     const double weight = ownerWeight(mesh, face);
-    return weight * field[owner] + (1.0 - weight) * field[neighbour];
+    return weight * detail::fieldData(field)[owner] + (1.0 - weight) * detail::fieldData(field)[neighbour];
 }
 
 double correctedInternalFaceValue(
@@ -46,14 +49,14 @@ double correctedInternalFaceValue(
 {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const Index neighbour = mesh.face_neighbour[f];
+    const Index owner = detail::meshData(mesh).face_owner[f];
+    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
     const double weight = ownerWeight(mesh, face);
     const Vec3 face_gradient =
-        weight * field_gradient[owner] +
-        (1.0 - weight) * field_gradient[neighbour];
+        weight * detail::fieldData(field_gradient)[owner] +
+        (1.0 - weight) * detail::fieldData(field_gradient)[neighbour];
     return internalFaceValue(field, face) +
-        dot(mesh.face_skewness[f], face_gradient);
+        dot(detail::meshData(mesh).face_skewness[f], face_gradient);
 }
 
 Vec3 correctedInternalFaceValue(
@@ -63,15 +66,15 @@ Vec3 correctedInternalFaceValue(
 {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const Index neighbour = mesh.face_neighbour[f];
+    const Index owner = detail::meshData(mesh).face_owner[f];
+    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
     const double weight = ownerWeight(mesh, face);
     Vec3 value = internalFaceValue(field, face);
     for (std::size_t component = 0; component < 3; ++component) {
         const Vec3 face_gradient =
-            weight * field_gradient[owner][component] +
-            (1.0 - weight) * field_gradient[neighbour][component];
-        value[component] += dot(mesh.face_skewness[f], face_gradient);
+            weight * detail::fieldData(field_gradient)[owner][component] +
+            (1.0 - weight) * detail::fieldData(field_gradient)[neighbour][component];
+        value[component] += dot(detail::meshData(mesh).face_skewness[f], face_gradient);
     }
     return value;
 }
@@ -84,8 +87,8 @@ double reconstructedBoundaryValue(
 {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const auto& condition = field.boundary(mesh.face_patch[f]);
+    const Index owner = detail::meshData(mesh).face_owner[f];
+    const auto& condition = field.boundary(detail::meshData(mesh).face_patch[f]);
     if (condition.type == BoundaryType::FixedValue ||
         (condition.type == BoundaryType::InletOutlet && outward_flux < 0.0)) {
         return condition.value;
@@ -93,11 +96,11 @@ double reconstructedBoundaryValue(
     const Vec3 normal = mesh.faceNormal(face);
     const double prescribed_normal_gradient =
         condition.type == BoundaryType::FixedGradient ? condition.value : 0.0;
-    const Vec3 constrained_gradient = field_gradient[owner] +
-        (prescribed_normal_gradient - dot(field_gradient[owner], normal)) * normal;
-    return field[owner] + dot(
+    const Vec3 constrained_gradient = detail::fieldData(field_gradient)[owner] +
+        (prescribed_normal_gradient - dot(detail::fieldData(field_gradient)[owner], normal)) * normal;
+    return detail::fieldData(field)[owner] + dot(
         constrained_gradient,
-        mesh.face_centres[f] - mesh.cell_centres[static_cast<std::size_t>(owner)]);
+        detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[static_cast<std::size_t>(owner)]);
 }
 
 Vec3 reconstructedBoundaryValue(
@@ -108,23 +111,23 @@ Vec3 reconstructedBoundaryValue(
 {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const auto& condition = field.boundary(mesh.face_patch[f]);
+    const Index owner = detail::meshData(mesh).face_owner[f];
+    const auto& condition = field.boundary(detail::meshData(mesh).face_patch[f]);
     if (condition.type == BoundaryType::FixedValue ||
         (condition.type == BoundaryType::InletOutlet && outward_flux < 0.0)) {
         return condition.value;
     }
     const Vec3 normal = mesh.faceNormal(face);
     const Vec3 offset =
-        mesh.face_centres[f] - mesh.cell_centres[static_cast<std::size_t>(owner)];
-    Vec3 value = field[owner];
+        detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[static_cast<std::size_t>(owner)];
+    Vec3 value = detail::fieldData(field)[owner];
     for (std::size_t component = 0; component < 3; ++component) {
         const double prescribed_normal_gradient =
             condition.type == BoundaryType::FixedGradient
             ? condition.value[component] : 0.0;
-        const Vec3 constrained_gradient = field_gradient[owner][component] +
+        const Vec3 constrained_gradient = detail::fieldData(field_gradient)[owner][component] +
             (prescribed_normal_gradient -
-             dot(field_gradient[owner][component], normal)) * normal;
+             dot(detail::fieldData(field_gradient)[owner][component], normal)) * normal;
         value[component] += dot(constrained_gradient, offset);
     }
     if (condition.type == BoundaryType::Symmetry) {
@@ -176,7 +179,7 @@ void interpolateImpl(
         throw std::invalid_argument("unsupported interpolation method");
     }
     for (Index f = 0; f < mesh.faceCount(); ++f) {
-        face[f] = interpolatedFaceValue(cell, f);
+        detail::fieldData(face)[f] = interpolatedFaceValue(cell, f);
     }
 }
 
@@ -193,15 +196,15 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
     result.fill({});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const double value = interpolatedFaceValue(scalar, face);
-        const Vec3 contribution = value * mesh.face_area_vectors[f];
-        result[owner] += contribution *
-            mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
+        const Vec3 contribution = value * detail::meshData(mesh).face_area_vectors[f];
+        detail::fieldData(result)[owner] += contribution *
+            detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
         if (neighbour != invalid_index) {
-            result[neighbour] -= contribution *
-                mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+            detail::fieldData(result)[neighbour] -= contribution *
+                detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
         }
     }
 
@@ -214,15 +217,15 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
     result.fill({});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const double value = correctedFaceValue(scalar, initial_gradient, face);
-        const Vec3 contribution = value * mesh.face_area_vectors[f];
-        result[owner] += contribution *
-            mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
+        const Vec3 contribution = value * detail::meshData(mesh).face_area_vectors[f];
+        detail::fieldData(result)[owner] += contribution *
+            detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
         if (neighbour != invalid_index) {
-            result[neighbour] -= contribution *
-                mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+            detail::fieldData(result)[neighbour] -= contribution *
+                detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
         }
     }
 }
@@ -233,25 +236,25 @@ void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
         Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
         Eigen::Vector3d rhs = Eigen::Vector3d::Zero();
         const auto c = static_cast<std::size_t>(cell);
-        for (Index face : mesh.cell_faces[c]) {
+        for (Index face : detail::meshData(mesh).cell_faces[c]) {
             const auto f = static_cast<std::size_t>(face);
-            const Index owner = mesh.face_owner[f];
-            const Index neighbour = mesh.face_neighbour[f];
+            const Index owner = detail::meshData(mesh).face_owner[f];
+            const Index neighbour = detail::meshData(mesh).face_neighbour[f];
             Vec3 delta{};
             double difference = 0.0;
             if (neighbour != invalid_index) {
                 const Index other = owner == cell ? neighbour : owner;
-                delta = mesh.cell_centres[static_cast<std::size_t>(other)] -
-                    mesh.cell_centres[c];
-                difference = scalar[other] - scalar[cell];
+                delta = detail::meshData(mesh).cell_centres[static_cast<std::size_t>(other)] -
+                    detail::meshData(mesh).cell_centres[c];
+                difference = detail::fieldData(scalar)[other] - detail::fieldData(scalar)[cell];
             } else {
-                const auto type = scalar.boundary(mesh.face_patch[f]).type;
-                const Vec3 offset = mesh.face_centres[f] - mesh.cell_centres[c];
+                const auto type = scalar.boundary(detail::meshData(mesh).face_patch[f]).type;
+                const Vec3 offset = detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[c];
                 delta = type == BoundaryType::FixedValue
                     ? 2.0 * offset
                     : 2.0 * boundaryNormalDistance(mesh, face) *
                         mesh.faceNormal(face);
-                difference = 2.0 * (boundaryFaceValue(scalar, face) - scalar[cell]);
+                difference = 2.0 * (boundaryFaceValue(scalar, face) - detail::fieldData(scalar)[cell]);
             }
             const double distance_squared = squaredNorm(delta);
             if (!(distance_squared > 0.0)) {
@@ -270,7 +273,7 @@ void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
         if (decomposition.info() != Eigen::Success || !value.allFinite()) {
             throw std::runtime_error("least-squares gradient solve failed");
         }
-        result[cell] = toVec3(value);
+        detail::fieldData(result)[cell] = toVec3(value);
     }
 }
 
@@ -279,16 +282,16 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
     result.fill({});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const Vec3 value = interpolatedFaceValue(vector, face);
         for (std::size_t component = 0; component < 3; ++component) {
-            const Vec3 contribution = value[component] * mesh.face_area_vectors[f];
-            result[owner][component] += contribution *
-                mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
+            const Vec3 contribution = value[component] * detail::meshData(mesh).face_area_vectors[f];
+            detail::fieldData(result)[owner][component] += contribution *
+                detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
             if (neighbour != invalid_index) {
-                result[neighbour][component] -= contribution *
-                    mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+                detail::fieldData(result)[neighbour][component] -= contribution *
+                    detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
             }
         }
     }
@@ -299,16 +302,16 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
     result.fill({});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const Vec3 value = correctedFaceValue(vector, initial_gradient, face);
         for (std::size_t component = 0; component < 3; ++component) {
-            const Vec3 contribution = value[component] * mesh.face_area_vectors[f];
-            result[owner][component] += contribution *
-                mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
+            const Vec3 contribution = value[component] * detail::meshData(mesh).face_area_vectors[f];
+            detail::fieldData(result)[owner][component] += contribution *
+                detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
             if (neighbour != invalid_index) {
-                result[neighbour][component] -= contribution *
-                    mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+                detail::fieldData(result)[neighbour][component] -= contribution *
+                    detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
             }
         }
     }
@@ -320,25 +323,25 @@ void leastSquaresGradient(const VectorField& vector, TensorField& result) {
         Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
         Eigen::Matrix3d rhs = Eigen::Matrix3d::Zero();
         const auto c = static_cast<std::size_t>(cell);
-        for (Index face : mesh.cell_faces[c]) {
+        for (Index face : detail::meshData(mesh).cell_faces[c]) {
             const auto f = static_cast<std::size_t>(face);
-            const Index owner = mesh.face_owner[f];
-            const Index neighbour = mesh.face_neighbour[f];
+            const Index owner = detail::meshData(mesh).face_owner[f];
+            const Index neighbour = detail::meshData(mesh).face_neighbour[f];
             Vec3 delta{};
             Vec3 difference{};
             if (neighbour != invalid_index) {
                 const Index other = owner == cell ? neighbour : owner;
-                delta = mesh.cell_centres[static_cast<std::size_t>(other)] -
-                    mesh.cell_centres[c];
-                difference = vector[other] - vector[cell];
+                delta = detail::meshData(mesh).cell_centres[static_cast<std::size_t>(other)] -
+                    detail::meshData(mesh).cell_centres[c];
+                difference = detail::fieldData(vector)[other] - detail::fieldData(vector)[cell];
             } else {
-                const auto type = vector.boundary(mesh.face_patch[f]).type;
-                const Vec3 offset = mesh.face_centres[f] - mesh.cell_centres[c];
+                const auto type = vector.boundary(detail::meshData(mesh).face_patch[f]).type;
+                const Vec3 offset = detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[c];
                 delta = type == BoundaryType::FixedValue
                     ? 2.0 * offset
                     : 2.0 * boundaryNormalDistance(mesh, face) *
                         mesh.faceNormal(face);
-                difference = 2.0 * (boundaryFaceValue(vector, face) - vector[cell]);
+                difference = 2.0 * (boundaryFaceValue(vector, face) - detail::fieldData(vector)[cell]);
             }
             const double distance_squared = squaredNorm(delta);
             if (!(distance_squared > 0.0)) {
@@ -361,7 +364,7 @@ void leastSquaresGradient(const VectorField& vector, TensorField& result) {
             throw std::runtime_error("least-squares vector-gradient solve failed");
         }
         for (std::size_t component = 0; component < 3; ++component) {
-            result[cell][component] = toVec3(
+            detail::fieldData(result)[cell][component] = toVec3(
                 value.col(static_cast<Eigen::Index>(component)));
         }
     }
@@ -374,13 +377,13 @@ void addFaceDivergence(
     ScalarField& result)
 {
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const Index neighbour = mesh.face_neighbour[f];
-    result[owner] += integrated_flux *
-        mesh.cell_inverse_volumes[static_cast<std::size_t>(owner)];
+    const Index owner = detail::meshData(mesh).face_owner[f];
+    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
+    detail::fieldData(result)[owner] += integrated_flux *
+        detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
     if (neighbour != invalid_index) {
-        result[neighbour] -= integrated_flux *
-            mesh.cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+        detail::fieldData(result)[neighbour] -= integrated_flux *
+            detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
     }
 }
 
@@ -391,12 +394,12 @@ void addFaceDivergence(
     VectorField& result)
 {
     const std::size_t index = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[index];
-    const Index neighbour = mesh.face_neighbour[index];
-    result[owner] += integrated_flux * mesh.cell_inverse_volumes[
+    const Index owner = detail::meshData(mesh).face_owner[index];
+    const Index neighbour = detail::meshData(mesh).face_neighbour[index];
+    detail::fieldData(result)[owner] += integrated_flux * detail::meshData(mesh).cell_inverse_volumes[
         static_cast<std::size_t>(owner)];
     if (neighbour != invalid_index) {
-        result[neighbour] -= integrated_flux * mesh.cell_inverse_volumes[
+        detail::fieldData(result)[neighbour] -= integrated_flux * detail::meshData(mesh).cell_inverse_volumes[
             static_cast<std::size_t>(neighbour)];
     }
 }
@@ -473,11 +476,11 @@ void addConvectionImpl(
         gradient(transported, *transported_gradient, gradient_method);
     }
 
-    for (Index face : mesh.owned_faces) {
+    for (Index face : detail::meshData(mesh).owned_faces) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
-        const double F = flux_scale * face_flux[face];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
+        const double F = flux_scale * detail::fieldData(face_flux)[face];
         if (neighbour != invalid_index) {
             if (method == ConvectionMethod::Upwind) {
                 equation.diagonal[static_cast<std::size_t>(owner)] += std::max(F, 0.0);
@@ -506,7 +509,7 @@ void addConvectionImpl(
             continue;
         }
 
-        const auto& condition = transported.boundary(mesh.face_patch[f]);
+        const auto& condition = transported.boundary(detail::meshData(mesh).face_patch[f]);
         if (method == ConvectionMethod::Upwind) {
             if (F >= 0.0) {
                 equation.diagonal[static_cast<std::size_t>(owner)] += F;
@@ -582,16 +585,16 @@ void addTimeDerivativeImpl(
         throw std::invalid_argument("unsupported time method");
     }
 
-    for (Index cell : mesh.owned_cells) {
+    for (Index cell : detail::meshData(mesh).owned_cells) {
         const auto c = static_cast<std::size_t>(cell);
-        const double coefficient = density * mesh.cell_volumes[c] / dt;
+        const double coefficient = density * detail::meshData(mesh).cell_volumes[c] / dt;
         if (method == TimeMethod::Euler) {
             equation.diagonal[c] += coefficient;
-            equation.source[c] += coefficient * previous[cell];
+            equation.source[c] += coefficient * detail::fieldData(previous)[cell];
         } else {
             equation.diagonal[c] += 1.5 * coefficient;
             equation.source[c] += coefficient *
-                (2.0 * previous[cell] - 0.5 * (*older)[cell]);
+                (2.0 * detail::fieldData(previous)[cell] - 0.5 * detail::fieldData((*older))[cell]);
         }
     }
 }
@@ -619,19 +622,19 @@ void addFieldTimeDerivativeImpl(
     } else if (method != TimeMethod::Euler) {
         throw std::invalid_argument("unsupported time method");
     }
-    for (Index cell : mesh.owned_cells) {
+    for (Index cell : detail::meshData(mesh).owned_cells) {
         const std::size_t index = static_cast<std::size_t>(cell);
-        if (!(capacity[cell] > 0.0) || !std::isfinite(capacity[cell])) {
+        if (!(detail::fieldData(capacity)[cell] > 0.0) || !std::isfinite(detail::fieldData(capacity)[cell])) {
             throw std::invalid_argument("time coefficient must be positive and finite");
         }
-        const double coefficient = capacity[cell] * mesh.cell_volumes[index] / dt;
+        const double coefficient = detail::fieldData(capacity)[cell] * detail::meshData(mesh).cell_volumes[index] / dt;
         if (method == TimeMethod::Euler) {
             equation.diagonal[index] += coefficient;
-            equation.source[index] += coefficient * previous[cell];
+            equation.source[index] += coefficient * detail::fieldData(previous)[cell];
         } else {
             equation.diagonal[index] += 1.5 * coefficient;
             equation.source[index] += coefficient *
-                (2.0 * previous[cell] - 0.5 * (*older)[cell]);
+                (2.0 * detail::fieldData(previous)[cell] - 0.5 * detail::fieldData((*older))[cell]);
         }
     }
 }
@@ -656,7 +659,7 @@ void interpolate(
     VectorField cell_gradient(mesh, FieldLocation::Cell, "grad(" + cell.name() + ')');
     gradient(cell, cell_gradient, gradient_method);
     for (Index index = 0; index < mesh.faceCount(); ++index) {
-        face[index] = correctedFaceValue(cell, cell_gradient, index);
+        detail::fieldData(face)[index] = correctedFaceValue(cell, cell_gradient, index);
     }
 }
 
@@ -678,7 +681,7 @@ void interpolate(
     TensorField cell_gradient(mesh, FieldLocation::Cell, "grad(" + cell.name() + ')');
     gradient(cell, cell_gradient, gradient_method);
     for (Index index = 0; index < mesh.faceCount(); ++index) {
-        face[index] = correctedFaceValue(cell, cell_gradient, index);
+        detail::fieldData(face)[index] = correctedFaceValue(cell, cell_gradient, index);
     }
 }
 
@@ -692,7 +695,7 @@ void reconstruct(
     requireField(cell_gradient, mesh, FieldLocation::Cell, "gradient");
     requireField(face, mesh, FieldLocation::Face, "reconstruction");
     for (Index index = 0; index < mesh.faceCount(); ++index) {
-        face[index] = correctedFaceValue(cell, cell_gradient, index);
+        detail::fieldData(face)[index] = correctedFaceValue(cell, cell_gradient, index);
     }
 }
 
@@ -706,7 +709,7 @@ void reconstruct(
     requireField(cell_gradient, mesh, FieldLocation::Cell, "gradient");
     requireField(face, mesh, FieldLocation::Face, "reconstruction");
     for (Index index = 0; index < mesh.faceCount(); ++index) {
-        face[index] = correctedFaceValue(cell, cell_gradient, index);
+        detail::fieldData(face)[index] = correctedFaceValue(cell, cell_gradient, index);
     }
 }
 
@@ -758,34 +761,34 @@ double integratedNormalGradient(
     requireField(scalar, mesh, FieldLocation::Cell, "scalar");
     requireField(scalar_gradient, mesh, FieldLocation::Cell, "scalar gradient");
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner.at(f);
-    const Index neighbour = mesh.face_neighbour[f];
+    const Index owner = detail::meshData(mesh).face_owner.at(f);
+    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
     if (neighbour != invalid_index) {
-        const double orthogonal = mesh.face_orthogonal_coefficients[f] *
-            (scalar[neighbour] - scalar[owner]);
+        const double orthogonal = detail::meshData(mesh).face_orthogonal_coefficients[f] *
+            (detail::fieldData(scalar)[neighbour] - detail::fieldData(scalar)[owner]);
         if (!correctedDiffusion(method)) return orthogonal;
         const double weight = ownerWeight(mesh, face);
         const Vec3 face_gradient =
-            weight * scalar_gradient[owner] +
-            (1.0 - weight) * scalar_gradient[neighbour];
+            weight * detail::fieldData(scalar_gradient)[owner] +
+            (1.0 - weight) * detail::fieldData(scalar_gradient)[neighbour];
         return orthogonal + limitNonOrthogonalCorrection(
             orthogonal,
-            dot(mesh.face_non_orthogonal[f], face_gradient), method);
+            dot(detail::meshData(mesh).face_non_orthogonal[f], face_gradient), method);
     }
 
-    const auto& condition = scalar.boundary(mesh.face_patch[f]);
+    const auto& condition = scalar.boundary(detail::meshData(mesh).face_patch[f]);
     if (condition.type == BoundaryType::FixedGradient) {
-        return condition.value * mesh.face_areas[f];
+        return condition.value * detail::meshData(mesh).face_areas[f];
     }
     if (condition.type != BoundaryType::FixedValue) {
         return 0.0;
     }
-    const double orthogonal = mesh.face_orthogonal_coefficients[f] *
-        (condition.value - scalar[owner]);
+    const double orthogonal = detail::meshData(mesh).face_orthogonal_coefficients[f] *
+        (condition.value - detail::fieldData(scalar)[owner]);
     return correctedDiffusion(method)
         ? orthogonal + limitNonOrthogonalCorrection(
               orthogonal,
-              dot(mesh.face_non_orthogonal[f], scalar_gradient[owner]), method)
+              dot(detail::meshData(mesh).face_non_orthogonal[f], detail::fieldData(scalar_gradient)[owner]), method)
         : orthogonal;
 }
 
@@ -799,30 +802,30 @@ Vec3 integratedNormalGradient(
     requireField(vector, mesh, FieldLocation::Cell, "vector");
     requireField(vector_gradient, mesh, FieldLocation::Cell, "vector gradient");
     const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner.at(f);
-    const Index neighbour = mesh.face_neighbour[f];
+    const Index owner = detail::meshData(mesh).face_owner.at(f);
+    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
     Vec3 result{};
     if (neighbour != invalid_index) {
         const double weight = ownerWeight(mesh, face);
         for (std::size_t component = 0; component < 3; ++component) {
-            const double orthogonal = mesh.face_orthogonal_coefficients[f] *
-                (vector[neighbour][component] - vector[owner][component]);
+            const double orthogonal = detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                (detail::fieldData(vector)[neighbour][component] - detail::fieldData(vector)[owner][component]);
             result[component] = orthogonal;
             if (correctedDiffusion(method)) {
                 const Vec3 face_gradient =
-                    weight * vector_gradient[owner][component] +
-                    (1.0 - weight) * vector_gradient[neighbour][component];
+                    weight * detail::fieldData(vector_gradient)[owner][component] +
+                    (1.0 - weight) * detail::fieldData(vector_gradient)[neighbour][component];
                 result[component] += limitNonOrthogonalCorrection(
                     orthogonal,
-                    dot(mesh.face_non_orthogonal[f], face_gradient), method);
+                    dot(detail::meshData(mesh).face_non_orthogonal[f], face_gradient), method);
             }
         }
         return result;
     }
 
-    const auto& condition = vector.boundary(mesh.face_patch[f]);
+    const auto& condition = vector.boundary(detail::meshData(mesh).face_patch[f]);
     if (condition.type == BoundaryType::FixedGradient) {
-        return mesh.face_areas[f] * condition.value;
+        return detail::meshData(mesh).face_areas[f] * condition.value;
     }
     if (condition.type != BoundaryType::FixedValue &&
         condition.type != BoundaryType::Symmetry) {
@@ -831,43 +834,22 @@ Vec3 integratedNormalGradient(
     const Vec3 boundary_value = boundaryFaceValue(vector, face);
     const Vec3 normal = mesh.faceNormal(face);
     for (std::size_t component = 0; component < 3; ++component) {
-        const double orthogonal = mesh.face_orthogonal_coefficients[f] *
-            (boundary_value[component] - vector[owner][component]);
+        const double orthogonal = detail::meshData(mesh).face_orthogonal_coefficients[f] *
+            (boundary_value[component] - detail::fieldData(vector)[owner][component]);
         result[component] = orthogonal;
         if (correctedDiffusion(method)) {
-            Vec3 boundary_gradient = vector_gradient[owner][component];
+            Vec3 boundary_gradient = detail::fieldData(vector_gradient)[owner][component];
             if (condition.type == BoundaryType::Symmetry) {
                 boundary_gradient -= dot(boundary_gradient, normal) * normal;
             }
             result[component] += limitNonOrthogonalCorrection(
                 orthogonal,
-                dot(mesh.face_non_orthogonal[f], boundary_gradient), method);
+                dot(detail::meshData(mesh).face_non_orthogonal[f], boundary_gradient), method);
         }
     }
     return result;
 }
 
-namespace fvc {
-
-double integratedNormalGradient(
-    const ScalarField& field,
-    const VectorField& gradient,
-    Index face,
-    DiffusionMethod method)
-{
-    return ::babelsim::integratedNormalGradient(field, gradient, face, method);
-}
-
-Vec3 integratedNormalGradient(
-    const VectorField& field,
-    const TensorField& gradient,
-    Index face,
-    DiffusionMethod method)
-{
-    return ::babelsim::integratedNormalGradient(field, gradient, face, method);
-}
-
-}  // fvc 命名空间
 
 void flux(
     const VectorField& velocity,
@@ -890,13 +872,13 @@ void flux(
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         // 入口出口边界需要上一轮面通量判定流向；普通边界会忽略该参数。
-        const double previous_flux = face_flux[face];
+        const double previous_flux = detail::fieldData(face_flux)[face];
         const Vec3 face_velocity = velocity_gradient
             ? correctedFaceValue(
                   velocity, *velocity_gradient, face, previous_flux)
             : interpolatedFaceValue(velocity, face, previous_flux);
-        face_flux[face] = dot(
-            face_velocity, mesh.face_area_vectors[f]);
+        detail::fieldData(face_flux)[face] = dot(
+            face_velocity, detail::meshData(mesh).face_area_vectors[f]);
     }
 }
 
@@ -913,11 +895,11 @@ void diffusionFlux(
     requireField(scalar_gradient, mesh, FieldLocation::Cell, "diffusion gradient");
     requireField(face_flux, mesh, FieldLocation::Face, "diffusion flux");
     for (Index face = 0; face < mesh.faceCount(); ++face) {
-        const double diffusivity = face_diffusivity[face];
+        const double diffusivity = detail::fieldData(face_diffusivity)[face];
         if (!(diffusivity >= 0.0) || !std::isfinite(diffusivity)) {
             throw std::invalid_argument("face diffusivity must be non-negative and finite");
         }
-        face_flux[face] = diffusivity * integratedNormalGradient(
+        detail::fieldData(face_flux)[face] = diffusivity * integratedNormalGradient(
             scalar, scalar_gradient, face, diffusion_method);
     }
 }
@@ -946,7 +928,7 @@ void divergence(
         const Vec3 face_value = vector_gradient
             ? correctedFaceValue(vector, *vector_gradient, face)
             : interpolatedFaceValue(vector, face);
-        const double integrated_flux = dot(face_value, mesh.face_area_vectors[f]);
+        const double integrated_flux = dot(face_value, detail::meshData(mesh).face_area_vectors[f]);
         addFaceDivergence(mesh, face, integrated_flux, result);
     }
 }
@@ -957,7 +939,7 @@ void divergence(const ScalarField& face_flux, ScalarField& result) {
     requireField(result, mesh, FieldLocation::Cell, "divergence");
     result.fill(0.0);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
-        addFaceDivergence(mesh, face, face_flux[face], result);
+        addFaceDivergence(mesh, face, detail::fieldData(face_flux)[face], result);
     }
 }
 
@@ -992,16 +974,16 @@ void convectionImpl(
     result.fill(T{});
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const std::size_t index = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[index];
-        const Index neighbour = mesh.face_neighbour[index];
-        const double flux_value = face_flux[face];
+        const Index owner = detail::meshData(mesh).face_owner[index];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[index];
+        const double flux_value = detail::fieldData(face_flux)[face];
         T face_value{};
         if (method == ConvectionMethod::Upwind) {
             if (neighbour != invalid_index) {
-                face_value = flux_value >= 0.0 ? transported[owner] : transported[neighbour];
+                face_value = flux_value >= 0.0 ? detail::fieldData(transported)[owner] : detail::fieldData(transported)[neighbour];
             } else {
                 face_value = flux_value >= 0.0
-                    ? transported[owner] : boundaryFaceValue(transported, face, flux_value);
+                    ? detail::fieldData(transported)[owner] : boundaryFaceValue(transported, face, flux_value);
             }
         } else if (transported_gradient) {
             face_value = correctedFaceValue(
@@ -1066,31 +1048,31 @@ void laplacianImpl(
     result.fill(0.0);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         double integrated_flux = 0.0;
         if (neighbour != invalid_index) {
-            integrated_flux = mesh.face_orthogonal_coefficients[f] *
-                (scalar[neighbour] - scalar[owner]);
+            integrated_flux = detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                (detail::fieldData(scalar)[neighbour] - detail::fieldData(scalar)[owner]);
             if (correctedDiffusion(diffusion_method)) {
                 integrated_flux = integratedNormalGradient(
                     scalar, *cell_gradient, face, diffusion_method);
             }
         } else {
-            const auto& condition = scalar.boundary(mesh.face_patch[f]);
+            const auto& condition = scalar.boundary(detail::meshData(mesh).face_patch[f]);
             if (condition.type == BoundaryType::FixedValue) {
-                integrated_flux = mesh.face_orthogonal_coefficients[f] *
-                    (boundaryFaceValue(scalar, face, -1.0) - scalar[owner]);
+                integrated_flux = detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                    (boundaryFaceValue(scalar, face, -1.0) - detail::fieldData(scalar)[owner]);
                 if (correctedDiffusion(diffusion_method)) {
                     integrated_flux = integratedNormalGradient(
                         scalar, *cell_gradient, face, diffusion_method);
                 }
             } else if (condition.type == BoundaryType::FixedGradient) {
-                integrated_flux = condition.value * mesh.face_areas[f];
+                integrated_flux = condition.value * detail::meshData(mesh).face_areas[f];
             }
         }
         const double diffusivity = face_diffusivity == nullptr
-            ? constant_diffusivity : (*face_diffusivity)[face];
+            ? constant_diffusivity : detail::fieldData((*face_diffusivity))[face];
         if (!(diffusivity >= 0.0) || !std::isfinite(diffusivity)) {
             throw std::invalid_argument("face diffusivity must be non-negative and finite");
         }
@@ -1163,7 +1145,7 @@ struct FaceDiffusivity {
     const ScalarField* field = nullptr;
 
     double operator[](Index face) const {
-        return field == nullptr ? constant : (*field)[face];
+        return field == nullptr ? constant : detail::fieldData((*field))[face];
     }
 };
 
@@ -1187,10 +1169,10 @@ void addScalarDiffusion(
         throw std::invalid_argument("unsupported diffusion method");
     }
 
-    for (Index face : mesh.owned_faces) {
+    for (Index face : detail::meshData(mesh).owned_faces) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const double gamma = diffusivity[face];
         if (gamma < 0.0 || !std::isfinite(gamma)) {
             throw std::invalid_argument("face diffusivity must be non-negative and finite");
@@ -1199,7 +1181,7 @@ void addScalarDiffusion(
             continue;
         }
         const double coefficient =
-            gamma * mesh.face_orthogonal_coefficients[f];
+            gamma * detail::meshData(mesh).face_orthogonal_coefficients[f];
         if (neighbour != invalid_index) {
             equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
             equation.diagonal[static_cast<std::size_t>(neighbour)] += coefficient;
@@ -1207,8 +1189,8 @@ void addScalarDiffusion(
             equation.lower[f] -= coefficient;
             if (correctedDiffusion(diffusion_method)) {
                 const double orthogonal =
-                    mesh.face_orthogonal_coefficients[f] *
-                    (scalar[neighbour] - scalar[owner]);
+                    detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                    (detail::fieldData(scalar)[neighbour] - detail::fieldData(scalar)[owner]);
                 const double correction = gamma *
                     (integratedNormalGradient(
                          scalar, *cell_gradient, face, diffusion_method) -
@@ -1219,15 +1201,15 @@ void addScalarDiffusion(
             continue;
         }
 
-        const auto& condition = scalar.boundary(mesh.face_patch[f]);
+        const auto& condition = scalar.boundary(detail::meshData(mesh).face_patch[f]);
         if (condition.type == BoundaryType::FixedValue) {
             equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
             equation.source[static_cast<std::size_t>(owner)] +=
                 coefficient * condition.value;
             if (correctedDiffusion(diffusion_method)) {
                 const double orthogonal =
-                    mesh.face_orthogonal_coefficients[f] *
-                    (condition.value - scalar[owner]);
+                    detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                    (condition.value - detail::fieldData(scalar)[owner]);
                 equation.source[static_cast<std::size_t>(owner)] += gamma *
                     (integratedNormalGradient(
                          scalar, *cell_gradient, face, diffusion_method) -
@@ -1235,7 +1217,7 @@ void addScalarDiffusion(
             }
         } else if (condition.type == BoundaryType::FixedGradient) {
             equation.source[static_cast<std::size_t>(owner)] +=
-                gamma * condition.value * mesh.face_areas[f];
+                gamma * condition.value * detail::meshData(mesh).face_areas[f];
         }
     }
 }
@@ -1259,10 +1241,10 @@ void addVectorDiffusion(
         throw std::invalid_argument("unsupported vector diffusion method");
     }
 
-    for (Index face : mesh.owned_faces) {
+    for (Index face : detail::meshData(mesh).owned_faces) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = mesh.face_owner[f];
-        const Index neighbour = mesh.face_neighbour[f];
+        const Index owner = detail::meshData(mesh).face_owner[f];
+        const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const double gamma = diffusivity[face];
         if (gamma < 0.0 || !std::isfinite(gamma)) {
             throw std::invalid_argument("face diffusivity must be non-negative and finite");
@@ -1271,7 +1253,7 @@ void addVectorDiffusion(
             continue;
         }
         const double coefficient =
-            gamma * mesh.face_orthogonal_coefficients[f];
+            gamma * detail::meshData(mesh).face_orthogonal_coefficients[f];
         if (neighbour != invalid_index) {
             equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
             equation.diagonal[static_cast<std::size_t>(neighbour)] += coefficient;
@@ -1279,8 +1261,8 @@ void addVectorDiffusion(
             equation.lower[f] -= coefficient;
             if (correctedDiffusion(diffusion_method)) {
                 const Vec3 orthogonal =
-                    mesh.face_orthogonal_coefficients[f] *
-                    (vector[neighbour] - vector[owner]);
+                    detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                    (detail::fieldData(vector)[neighbour] - detail::fieldData(vector)[owner]);
                 const Vec3 correction = gamma *
                     (integratedNormalGradient(
                          vector, *cell_gradient, face, diffusion_method) -
@@ -1291,7 +1273,7 @@ void addVectorDiffusion(
             continue;
         }
 
-        const auto& condition = vector.boundary(mesh.face_patch[f]);
+        const auto& condition = vector.boundary(detail::meshData(mesh).face_patch[f]);
         if (condition.type == BoundaryType::FixedValue ||
             condition.type == BoundaryType::Symmetry) {
             const Vec3 boundary_value = boundaryFaceValue(vector, face, -1.0);
@@ -1300,8 +1282,8 @@ void addVectorDiffusion(
                 coefficient * boundary_value;
             if (correctedDiffusion(diffusion_method)) {
                 const Vec3 orthogonal =
-                    mesh.face_orthogonal_coefficients[f] *
-                    (boundary_value - vector[owner]);
+                    detail::meshData(mesh).face_orthogonal_coefficients[f] *
+                    (boundary_value - detail::fieldData(vector)[owner]);
                 const Vec3 correction = gamma *
                     (integratedNormalGradient(
                          vector, *cell_gradient, face, diffusion_method) -
@@ -1310,7 +1292,7 @@ void addVectorDiffusion(
             }
         } else if (condition.type == BoundaryType::FixedGradient) {
             equation.source[static_cast<std::size_t>(owner)] +=
-                gamma * mesh.face_areas[f] * condition.value;
+                gamma * detail::meshData(mesh).face_areas[f] * condition.value;
         }
     }
 }

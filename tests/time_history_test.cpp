@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/runtime.h"
 #include "test_util.h"
 
@@ -19,8 +21,8 @@ void checkHistory(TimeMethod method) {
             require(solve(fvm::ddt(T) == fvm::source(2.0)).converged(), "scalar solve failed");
             require(solve(fvm::ddt(U) == fvm::source(Vec3{1, 2, 3})).converged(),
                     "vector solve failed");
-            require(near(T[0], 2.0 * time.time(), 1e-12), "inner solve advanced scalar history");
-            require(near(U[0], Vec3{time.time(), 2*time.time(), 3*time.time()}, 1e-12),
+            require(near(detail::fieldData(T)[0], 2.0 * time.time(), 1e-12), "inner solve advanced scalar history");
+            require(near(detail::fieldData(U)[0], Vec3{time.time(), 2*time.time(), 3*time.time()}, 1e-12),
                     "inner solve advanced vector history");
         }
     }
@@ -39,7 +41,7 @@ int main() {
         RunTime time = RunTime::forMesh(mesh, control);
         while (time.loop()) {
             require(solve(fvm::ddt(T) == fvm::source(1.0)).converged(), "short-step solve failed");
-            require(near(T[0], time.time(), 1e-12), "short final step used wrong deltaT");
+            require(near(detail::fieldData(T)[0], time.time(), 1e-12), "short final step used wrong deltaT");
         }
         require(time.step() == 3 && near(time.time(), 0.25), "endTime was not respected");
         require(near(time.deltaT(), 0.05), "incorrect last deltaT");
@@ -55,7 +57,7 @@ int main() {
     {
         const Mesh mesh = Mesh::cartesian({6, 5, 1}, {0, 0, 0}, {1, 1, 1});
         VectorField U(mesh, FieldLocation::Cell, "U");
-        for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch)
+        for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch)
             U.boundary(patch) = fixedValue(Vec3{});
         RuntimeControl control;
         control.vector_solver.max_iterations = 1;

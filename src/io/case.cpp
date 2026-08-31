@@ -194,8 +194,17 @@ VectorField& Case::vectorField(const std::string& name, Vec3 initial) {
 TensorField& Case::tensorField(const std::string& name) {
     return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell);
 }
+TensorField& Case::tensorField(const std::string& name, Tensor3 initial) {
+    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell, false, initial);
+}
 ScalarField& Case::faceField(const std::string& name) {
     return m_implementation->field(m_implementation->scalars, name, FieldLocation::Face);
+}
+VectorField& Case::faceVectorField(const std::string& name) {
+    return m_implementation->field(m_implementation->vectors, name, FieldLocation::Face);
+}
+TensorField& Case::faceTensorField(const std::string& name) {
+    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Face);
 }
 ScalarField& Case::faceFlux(const std::string& name, const VectorField& velocity) {
     ScalarField& result = faceField(name);
@@ -203,9 +212,31 @@ ScalarField& Case::faceFlux(const std::string& name, const VectorField& velocity
     return result;
 }
 
-void Case::validate() {
+void Case::selectOutput(const std::string& name, const void* field, bool enabled) {
+    Implementation& state = *m_implementation;
+    bool owned_cell_field = false;
+    const auto check = [&](const auto& fields) {
+        for (const auto& value : fields)
+            if (value.get() == field && value->location() == FieldLocation::Cell)
+                owned_cell_field = true;
+    };
+    check(state.scalars);
+    check(state.vectors);
+    check(state.tensors);
+    if (!owned_cell_field) throw std::invalid_argument("output selection requires a Case-owned cell field");
+    auto found = std::find(state.output_names.begin(), state.output_names.end(), name);
+    if (enabled && found == state.output_names.end()) state.output_names.push_back(name);
+    if (!enabled && found != state.output_names.end()) state.output_names.erase(found);
+}
+
+void Case::validate() const {
     properties().requireAllUsed();
     solution().requireAllUsed();
+}
+
+void Case::start() {
+    if (m_implementation->started) return;
+    validate();
     m_implementation->started = true;
 }
 
@@ -214,7 +245,7 @@ bool Case::loop() {
     if (state.finished) return false;
     if (state.run_time.methods().time == TimeMethod::Steady)
         throw std::logic_error("steady case requires an algorithm iteration loop");
-    if (!state.started) validate();
+    start();
     if (step() > 0) state.writeStep(false);
     if (state.run_time.loop()) return true;
     finish();
@@ -224,7 +255,7 @@ bool Case::loop() {
 void Case::finish() {
     Implementation& state = *m_implementation;
     if (state.finished) return;
-    validate();
+    start();
     state.writeStep(true);
     if (state.final_directory != state.series_directory / timeName(time()))
         state.write(state.final_directory);

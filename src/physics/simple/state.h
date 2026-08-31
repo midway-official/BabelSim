@@ -58,7 +58,7 @@ struct SimpleSolver::State {
         bool linear_converged = false;
     };
 
-    std::array<SolveResult, 3> solveMomentum();
+    SolveResult solveMomentum();
     PressureEquationResult solvePressure();
     void predictMomentumFlux();
     void correctVelocity();

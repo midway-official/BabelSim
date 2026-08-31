@@ -11,6 +11,7 @@
 #include <vector>
 
 namespace babelsim {
+namespace detail { struct FieldAccess; }
 
 enum class FieldLocation {
     Cell,
@@ -66,7 +67,7 @@ public:
           m_values(entityCount(mesh, location), std::move(initial))
     {
         if (location == FieldLocation::Cell) {
-            m_boundaries.resize(mesh.patches.size());
+            m_boundaries.resize(mesh.patchCount());
         }
     }
 
@@ -77,29 +78,16 @@ public:
     const std::string& name() const { return m_name; }
     std::size_t size() const { return m_values.size(); }
 
-    // 计算热路径只暴露连续的只读视图；需要原地交换 halo 时使用明确命名的
-    // mutableData()，避免调用者绕过存储不变量替换底层容器。
-    T* mutableData() { return m_values.data(); }
-    // 保留旧 API 的元素级写入兼容性；容量仍只能由构造函数决定。
-    T* data() { return mutableData(); }
-    const T* data() const { return m_values.data(); }
-    T& operator[](Index index) { return m_values[static_cast<std::size_t>(index)]; }
-    const T& operator[](Index index) const {
-        return m_values[static_cast<std::size_t>(index)];
-    }
-    const std::vector<T>& values() const { return m_values; }
-    T& at(Index index) {
-        return m_values.at(checkedIndex(index));
-    }
-    const T& at(Index index) const {
-        return m_values.at(checkedIndex(index));
-    }
+private:
+    friend struct detail::FieldAccess;
+    template <typename> friend class Field;
+public:
     // Field 的长度由 (Mesh, FieldLocation) 唯一决定，禁止外部 resize。
     // 该检查在 MPI halo、算子和输出入口调用，尽早捕获生命周期/越界错误。
     void validateStorage() const {
         if (m_mesh == nullptr || m_values.size() != entityCount(*m_mesh, m_location) ||
             (m_location == FieldLocation::Cell &&
-             m_boundaries.size() != m_mesh->patches.size())) {
+             m_boundaries.size() != static_cast<std::size_t>(m_mesh->patchCount()))) {
             throw std::logic_error("field storage invariant is violated");
         }
     }
@@ -109,6 +97,32 @@ public:
     Field& operator=(const Field&) = delete;
     Field& operator=(Field&&) = delete;
     void fill(const T& value) { std::fill(m_values.begin(), m_values.end(), value); }
+
+    // 按空间位置定义已知场（初值、物性或源）。函数应只依赖位置和捕获的物理参数，
+    // 不依赖调用次数或分区；框架遍历正确的数据位置，Solver 不接触本地索引。
+    template <typename Function>
+    void evaluate(Function function) {
+        validateStorage();
+        for (Index index = 0; index < static_cast<Index>(m_values.size()); ++index) {
+            const Vec3& position = m_location == FieldLocation::Cell
+                ? m_mesh->cellCentre(index)
+                : m_location == FieldLocation::Face ? m_mesh->faceCentre(index)
+                                                   : m_mesh->vertex(index);
+            m_values[static_cast<std::size_t>(index)] = function(position);
+        }
+    }
+
+    // 点值物性/源关系，例如 k(T) 或动能(U)。输入输出可有不同值类型，布局必须相同；
+    // 不创建临时 Field，且不把数据指针传给用户函数。
+    template <typename U, typename Function>
+    void evaluate(const Field<U>& source, Function function) {
+        validateStorage();
+        source.validateStorage();
+        if (m_mesh != source.m_mesh || m_location != source.m_location)
+            throw std::invalid_argument("field evaluation requires the same mesh and location");
+        for (std::size_t index = 0; index < m_values.size(); ++index)
+            m_values[index] = function(source.m_values[index]);
+    }
 
     // 显式场赋值保留 Mesh、位置、名称和边界定义，只复制数值。它用于算法历史场和
     // 已知物性变换，避免 Solver 接触底层连续存储或重新分配容器。
@@ -147,7 +161,7 @@ public:
                 "field product requires fields on the same mesh and location");
         }
         for (std::size_t index = 0; index < m_values.size(); ++index) {
-            m_values[index] = coefficient[static_cast<Index>(index)] *
+            m_values[index] = coefficient.m_values[index] *
                 source.m_values[index];
         }
     }
@@ -167,7 +181,7 @@ public:
                 "field product requires fields on the same mesh and location");
         }
         for (std::size_t index = 0; index < m_values.size(); ++index) {
-            m_values[index] += factor * coefficient[static_cast<Index>(index)] *
+            m_values[index] += factor * coefficient.m_values[index] *
                 source.m_values[index];
         }
     }
@@ -192,13 +206,6 @@ public:
     }
 
 private:
-    std::size_t checkedIndex(Index index) const {
-        if (index < 0 || static_cast<std::size_t>(index) >= m_values.size()) {
-            throw std::out_of_range("field index is outside storage");
-        }
-        return static_cast<std::size_t>(index);
-    }
-
     void requireCompatible(const Field& source, const char* operation) const {
         validateStorage();
         source.validateStorage();
@@ -231,8 +238,8 @@ private:
         if (m_location != FieldLocation::Cell) {
             throw std::logic_error("only cell fields have boundary conditions");
         }
-        for (Index patch = 0; patch < static_cast<Index>(m_mesh->patches.size()); ++patch) {
-            if (m_mesh->patches[static_cast<std::size_t>(patch)].name == patch_name) {
+        for (Index patch = 0; patch < static_cast<Index>(m_mesh->patchCount()); ++patch) {
+            if (m_mesh->patchName(patch) == patch_name) {
                 return patch;
             }
         }
@@ -267,7 +274,7 @@ bool setHomogeneousCorrectionBoundaries(
     }
     bool has_fixed_value = false;
     const Mesh& mesh = reference.mesh();
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    for (Index patch = 0; patch < static_cast<Index>(mesh.patchCount()); ++patch) {
         const BoundaryType type = reference.boundary(patch).type;
         if (type == BoundaryType::FixedValue) {
             correction.setBoundary(patch, BoundaryCondition<T>::fixedValue(T{}));
@@ -307,68 +314,5 @@ struct SymmetryBoundary {
 
 inline ZeroGradientBoundary zeroGradient() { return {}; }
 inline SymmetryBoundary symmetry() { return {}; }
-
-inline double boundaryNormalDistance(const Mesh& mesh, Index face) {
-    const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    return dot(
-        mesh.face_centres[f] - mesh.cell_centres[static_cast<std::size_t>(owner)],
-        mesh.faceNormal(face));
-}
-
-inline double boundaryFaceValue(
-    const ScalarField& field,
-    Index face,
-    double outward_flux = 0.0)
-{
-    const Mesh& mesh = field.mesh();
-    const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const Index patch = mesh.face_patch[f];
-    const auto& condition = field.boundary(patch);
-    const double owner_value = field[owner];
-    const double distance = boundaryNormalDistance(mesh, face);
-    switch (condition.type) {
-        case BoundaryType::FixedValue:
-            return condition.value;
-        case BoundaryType::FixedGradient:
-            return owner_value + condition.value * distance;
-        case BoundaryType::ZeroGradient:
-        case BoundaryType::Symmetry:
-            return owner_value;
-        case BoundaryType::InletOutlet:
-            return outward_flux >= 0.0 ? owner_value : condition.value;
-    }
-    throw std::invalid_argument("unknown scalar boundary condition");
-}
-
-inline Vec3 boundaryFaceValue(
-    const VectorField& field,
-    Index face,
-    double outward_flux = 0.0)
-{
-    const Mesh& mesh = field.mesh();
-    const auto f = static_cast<std::size_t>(face);
-    const Index owner = mesh.face_owner[f];
-    const Index patch = mesh.face_patch[f];
-    const auto& condition = field.boundary(patch);
-    const Vec3 owner_value = field[owner];
-    const double distance = boundaryNormalDistance(mesh, face);
-    switch (condition.type) {
-        case BoundaryType::FixedValue:
-            return condition.value;
-        case BoundaryType::FixedGradient:
-            return owner_value + condition.value * distance;
-        case BoundaryType::ZeroGradient:
-            return owner_value;
-        case BoundaryType::InletOutlet:
-            return outward_flux >= 0.0 ? owner_value : condition.value;
-        case BoundaryType::Symmetry: {
-            const Vec3 normal = mesh.faceNormal(face);
-            return owner_value - dot(owner_value, normal) * normal;
-        }
-    }
-    throw std::invalid_argument("unknown vector boundary condition");
-}
 
 }  // babelsim 命名空间

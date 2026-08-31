@@ -1,4 +1,7 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/field.h"
+#include "internal/boundary_evaluation.h"
 
 #include "test_util.h"
 
@@ -11,7 +14,7 @@ using namespace babelsim;
 int main() {
     const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
     ScalarField scalar(mesh, FieldLocation::Cell, "phi", 2.0);
-    require(scalar.size() == 1 && scalar.data() != nullptr, "cell field is not contiguous");
+    require(scalar.size() == 1 && detail::fieldData(scalar) != nullptr, "cell field is not contiguous");
     scalar.setBoundary(
         static_cast<Index>(Side::XMin),
         BoundaryCondition<double>::fixedValue(5.0));
@@ -28,11 +31,11 @@ int main() {
         static_cast<Index>(Side::ZMin),
         BoundaryCondition<double>::symmetry());
 
-    const Index xmin = mesh.patches[static_cast<std::size_t>(Side::XMin)].faces.front();
-    const Index xmax = mesh.patches[static_cast<std::size_t>(Side::XMax)].faces.front();
-    const Index ymin = mesh.patches[static_cast<std::size_t>(Side::YMin)].faces.front();
-    const Index ymax = mesh.patches[static_cast<std::size_t>(Side::YMax)].faces.front();
-    const Index zmin = mesh.patches[static_cast<std::size_t>(Side::ZMin)].faces.front();
+    const Index xmin = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::XMin)].faces.front();
+    const Index xmax = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::XMax)].faces.front();
+    const Index ymin = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::YMin)].faces.front();
+    const Index ymax = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::YMax)].faces.front();
+    const Index zmin = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::ZMin)].faces.front();
     require(near(boundaryFaceValue(scalar, xmin), 5.0), "fixedValue failed");
     require(near(boundaryFaceValue(scalar, xmax), 3.5), "fixedGradient failed");
     require(near(boundaryFaceValue(scalar, ymin), 2.0), "zeroGradient failed");
@@ -59,7 +62,7 @@ int main() {
     vector.setBoundary(
         static_cast<Index>(Side::ZMax),
         BoundaryCondition<Vec3>::symmetry());
-    const Index zmax = mesh.patches[static_cast<std::size_t>(Side::ZMax)].faces.front();
+    const Index zmax = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::ZMax)].faces.front();
     require(
         near(boundaryFaceValue(vector, zmax), {1.0, 2.0, 0.0}),
         "vector symmetry did not remove the normal component");
@@ -89,7 +92,7 @@ int main() {
         static_cast<Index>(Side::XMax),
         BoundaryCondition<double>::fixedGradient(3.0));
     const Index skewed_xmax =
-        skewed.patches[static_cast<std::size_t>(Side::XMax)].faces.front();
+        detail::meshData(skewed).patches[static_cast<std::size_t>(Side::XMax)].faces.front();
     const double normal_distance = boundaryNormalDistance(skewed, skewed_xmax);
     require(
         near(

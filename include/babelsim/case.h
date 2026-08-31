@@ -51,19 +51,31 @@ public:
     ScalarField& scalarField(const std::string& name, double initial);
     VectorField& vectorField(const std::string& name, Vec3 initial);
     TensorField& tensorField(const std::string& name);
+    TensorField& tensorField(const std::string& name, Tensor3 initial);
     ScalarField& faceField(const std::string& name);
+    VectorField& faceVectorField(const std::string& name);
+    TensorField& faceTensorField(const std::string& name);
     ScalarField& faceFlux(const std::string& name, const VectorField& velocity);
+
+    // 选择自动输出的 Case 自有单元场；可以输出派生量或关闭某个输入场的输出。
+    // 只改变后续写出选择，不立即写文件。当前结果格式只保存单元场。
+    template <typename T>
+    void output(const Field<T>& field, bool enabled = true) {
+        selectOutput(field.name(), &field, enabled);
+    }
 
     // 下一次 loop() 前保存已完成时间步；自然退出时保证最终时刻写出。
     // 若求解失败，请提前返回，不调用 finish()，以免把失败步标成完整结果。
     bool loop();
     double time() const;
     int step() const;
-    // 检查配置已被使用，并关闭新场声明阶段；这不是只读操作。
-    void validate();
+    // validate 只校验；只有最外层 start/loop 关闭声明阶段，算法构造不改变 Case 状态。
+    void validate() const;
+    void start();
     void finish();
 
 private:
+    void selectOutput(const std::string& name, const void* field, bool enabled);
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;
 };

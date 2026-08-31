@@ -2,18 +2,18 @@
 
 namespace babelsim {
 
-std::array<SolveResult, 3> SimpleSolver::State::solveMomentum() {
-    // UEqn：求预测速度，同时从离散主对角提取 rAU。rAU 仅属于 SIMPLE 的算法状态，
-    // 不进入通用 Field 或 fvm API。
+SolveResult SimpleSolver::State::solveMomentum() {
+    // UEqn：求预测速度及对角体积响应。rAU 是当前算法的数学场，
+    // 其计算复用公开 solveWithResponse，不让算法接触离散矩阵。
     VectorField& U = m_U;
     ScalarField& p = m_p;
     ScalarField& phi = m_phi;
     ScalarField& rAU = m_algorithm.rAU;
 
-    return simple::solveMomentumEquation(
+    return solveWithResponse(
         fvm::div(m_fluid.density, phi, U) ==
             -fvc::grad(p) + fvm::laplacian(m_fluid.dynamic_viscosity, U),
-        m_control.velocity_relaxation, rAU);
+        rAU, relaxed(m_control.velocity_relaxation));
 }
 
 void SimpleSolver::State::predictMomentumFlux() {

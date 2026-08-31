@@ -11,8 +11,8 @@
 OpenFOAM 相同的**语义分离**，但不复制它复杂的矩阵模板体系。
 
 ```text
-fvm::operator  轻量方程项 → solve → Runtime 内部离散方程 → 线性系统
-fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 → 已计算的 Field
+fvm::operator  轻量方程项 → solve → FVM 后端离散方程 → 线性系统
+fvc::operator  轻量求值描述 → fvc::evaluate → FVM 后端计算 → 已计算的 Field
 ```
 
 两类描述都只保存 Field 引用和常数。不会在表达式构造、`+`、`-` 或 `==` 时复制大型场，
@@ -30,8 +30,8 @@ fvc::operator  轻量求值描述 → fvc::evaluate → Runtime 内部计算 →
 | `fvm::div(phi, T/U)` | \(\nabla\cdot(\phi T/U)\) | face scalar 通量、cell 场 |
 | `fvm::div(rho,phi,U)` | \(\nabla\cdot(\rho\phi U)\) | 常数缩放的 face 通量、cell vector 场 |
 | `fvm::laplacian(k, T/U)` | \(\nabla\cdot(k\nabla T/U)\) | 常数、cell 或 face 系数 |
-| `fvm::source(Q)` | 已知体源 \(Q\) | 常数或 cell scalar Field |
-| `fvm::source(a,C)` | 已知体源 \(aC\) | 常数系数与 cell scalar Field；不生成临时场 |
+| `fvm::source(Q)` | 已知体源 \(Q\) | scalar/Vec3 常数或 cell scalar/vector Field |
+| `fvm::source(a,F)` | 已知体源 \(aF\) | 常数系数与 cell scalar/vector Field；不生成临时场 |
 
 例如瞬态对流扩散方程可写为：
 
@@ -47,7 +47,7 @@ solve(
 将 cell 扩散系数插值到 face，并根据 `Methods` 选择对流、梯度和非正交扩散处理。
 
 `fvm::laplacian` 在表达式中位于右端时对应正扩散项。等价地可以将其取负放在左端；不支持
-把正 Laplacian 直接放左端，因为这通常与正定扩散矩阵的符号约定相反，Runtime 会报出清晰错误。
+把正 Laplacian 直接放左端，因为这通常与正定扩散矩阵的符号约定相反，FVM 后端会报出清晰错误。
 
 ## 显式 fvc 量
 
@@ -69,6 +69,8 @@ fvc::evaluate(fvc::div(phi), div_phi);
 | --- | --- | --- |
 | `fvc::grad(T)` | cell vector | \(\nabla T\) |
 | `fvc::grad(U)` | cell tensor | \(\nabla U\) |
+| `fvc::normalGradient(T)` | face scalar | 当前扩散格式下的法向梯度（不是面积积分值） |
+| `fvc::flux(k,T)` | face scalar | 扩散面通量；k 可为 cell 或 face scalar |
 | `fvc::flux(U)` | face scalar | \(U_f\cdot S_f\) |
 | `fvc::div(phi)` | cell scalar | \(\nabla\cdot\phi\) |
 | `fvc::div(U)` | cell scalar | \(\nabla\cdot U\) |
@@ -80,12 +82,41 @@ fvc::evaluate(fvc::div(phi), div_phi);
 | `fvc::subtract(fvc::flux(rAU,p'), phi)` | face scalar | 原位执行 \(\phi\leftarrow\phi-rAU_fS_f\cdot\nabla p'\) |
 
 对流显式求值使用 `Methods::convection` 的 Upwind/Central 选择；Central 且选择 corrected
-插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 Runtime 自动选择当前方法，
+插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 FVM 后端自动选择当前方法，
 调用者不应自行 halo 或重构 ghost。
 
-`fvc::subtract` 是面向修正算法的原位显式操作：Runtime 复用梯度、面系数和面通量工作场，
+`fvc::subtract` 是面向修正算法的原位显式操作：FVM 后端复用梯度、面系数和面通量工作场，
 再同步结果。它避免 SIMPLE Solver 为 `grad(p')`、`rAU_f` 和每个 face 的扩散通量编写
 cell/face 循环；该 API 不生成隐式方程，也不暴露工作场的存储。
+
+## 公开同步契约
+
+只包含 fvc.h 即可调用上述 evaluate/subtract。
+所有参与进程必须按同样顺序调用；框架同步每个输入，计算，再同步输出。
+调用后 cell 结果的 ghost 和分区共享面值已可被后续算子使用。返回并不表示每个 rank 持有全局 Field。
+
+旧公开 fvc::integratedNormalGradient(T,grad,face) 被移除，因为逐面局部核无法
+独立保证整场通信顺序。需要法向导数时声明一个 faceField，再调用
+`fvc::evaluate(fvc::normalGradient(T), normal)`。
+面积积分通量应使用 `fvc::evaluate(fvc::flux(k,T), flux)`，不要遗漏面积因子。
+
+evaluate 不支持同位输入和结果使用同一 Field；例如 laplacian(T,T)、div(phi,U,U)
+会拒绝。修正算法使用明确的 subtract 原位接口。
+Field::assign/fill/evaluate 等点运算本身不通信，下一个 fvm/fvc 入口负责所需同步。
+
+## 方程控制和响应
+
+`solve(eq, relaxed(alpha))` 使用方程级欠松弛，alpha 在 (0,1]。
+标量形式增加对角及对应旧值源项；矢量形式沿用 SIMPLE 的整体行缩放表示。
+`solveWithResponse(eq,rAU,relaxed(alpha))` 额外输出当前缩放表示下的 V/aP，
+没有返回矩阵或指针。注意它不是对原始未缩放物理源的导数：
+矢量欠松弛已经把原始源乘 alpha；若按原始物理源解释增量，需计入该系数。
+该约定保持现有 SIMPLE 的数学路径，不声称与其他软件的 rAU 缩放约定逐项相同。
+
+`solve(eq, referenceValue(c))` 给具有常数零空间、满足相容条件的标量方程设参考值，
+锚定固定全局单元，与进程数无关。它不是一般区域约束或边界条件替代；
+矢量方程不能使用标量规范。公开 solve 返回统一 SolveResult，
+三个矢量分量必须全部收敛，健康失败不能被合并成成功。
 
 ## 非正交与偏斜处理
 
@@ -101,11 +132,11 @@ S_f\cdot\nabla\phi
 `Orthogonal` 只使用第一项。真实面中心不在 cell-centre 连线上的偏斜由 corrected
 interpolation/Green--Gauss reconstruction 处理。梯度可选择 Green--Gauss 或 Least-Squares。
 
-所有这些细节属于 Method/FVM/Runtime 层。Solver 只在 Case 的 `numerics` 文件选择方法。
+所有这些细节属于 Method/FVM 层。Solver 只在 Case 的 `numerics` 文件选择方法。
 
 ## 时间层与内迭代
 
-同一时间步可以重复求解一个 Field，而不推进旧时间层。RunTime 只在下一次时间推进时更新历史，
+同一时间步可以重复求解一个 Field，而不推进旧时间层。RunTime 在下一次时间推进时通知 FVM 执行层更新历史，
 因此非线性修正和双场耦合复用同一个 `solve()`。BDF2 在无第二个历史层时以 Euler 启动；
 后续仍使用均匀步长公式。当前不支持自适应 BDF2。
 

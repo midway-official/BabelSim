@@ -1,3 +1,4 @@
+#include "internal/mesh_access.h"
 #include "babelsim/mesh.h"
 
 #include "test_util.h"
@@ -16,7 +17,7 @@ int main() {
     const std::array<std::size_t, 6> patch_sizes{{3, 3, 2, 2, 6, 6}};
     for (std::size_t patch = 0; patch < patch_sizes.size(); ++patch) {
         require(
-            planar.patches[patch].faces.size() == patch_sizes[patch],
+            detail::meshData(planar).patches[patch].faces.size() == patch_sizes[patch],
             "structured patch face count is incorrect");
     }
 
@@ -26,16 +27,16 @@ int main() {
         if (!planar.boundaryFace(face)) {
             ++internal_faces;
         }
-        require(near(planar.face_areas[f], 1.0), "Cartesian face area is incorrect");
+        require(near(detail::meshData(planar).face_areas[f], 1.0), "Cartesian face area is incorrect");
         require(
-            norm(planar.face_non_orthogonal[f]) < 1e-12,
+            norm(detail::meshData(planar).face_non_orthogonal[f]) < 1e-12,
             "Cartesian face has a non-orthogonal correction");
         require(
-            norm(planar.face_skewness[f]) < 1e-12,
+            norm(detail::meshData(planar).face_skewness[f]) < 1e-12,
             "Cartesian face has skewness");
     }
     require(internal_faces == 7, "structured internal-face count is incorrect");
-    for (double volume : planar.cell_volumes) {
+    for (double volume : detail::meshData(planar).cell_volumes) {
         require(near(volume, 1.0), "Cartesian cell volume is incorrect");
     }
 
@@ -60,12 +61,12 @@ int main() {
     for (Index face = 0; face < skewed.faceCount(); ++face) {
         maximum_non_orthogonal = std::max(
             maximum_non_orthogonal,
-            norm(skewed.face_non_orthogonal[static_cast<std::size_t>(face)]));
+            norm(detail::meshData(skewed).face_non_orthogonal[static_cast<std::size_t>(face)]));
         maximum_skewness = std::max(
             maximum_skewness,
-            norm(skewed.face_skewness[static_cast<std::size_t>(face)]));
+            norm(detail::meshData(skewed).face_skewness[static_cast<std::size_t>(face)]));
     }
-    for (double volume : skewed.cell_volumes) {
+    for (double volume : detail::meshData(skewed).cell_volumes) {
         require(volume > 0.0, "skewed cell volume is not positive");
         total_volume += volume;
     }

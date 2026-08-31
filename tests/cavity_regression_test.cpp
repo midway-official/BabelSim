@@ -1,3 +1,4 @@
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -70,16 +71,16 @@ int main() {
     }
     require(result.converged, "closed-cavity SIMPLE did not converge");
     const Index centre = mesh.cellId(n / 2 - 1, n / 2 - 1, 0);
-    require(fields.velocity[centre].x < -0.05, "cavity primary vortex is missing");
+    require(detail::fieldData(fields.velocity)[centre].x < -0.05, "cavity primary vortex is missing");
 
-    const Vec3 upper_left = fields.velocity[mesh.cellId(0, n - 3, 0)];
-    const Vec3 upper_right = fields.velocity[mesh.cellId(n - 1, n - 3, 0)];
+    const Vec3 upper_left = detail::fieldData(fields.velocity)[mesh.cellId(0, n - 3, 0)];
+    const Vec3 upper_right = detail::fieldData(fields.velocity)[mesh.cellId(n - 1, n - 3, 0)];
     require(
         upper_left.y > 0.0 && upper_right.y < 0.0,
         "cavity circulation direction is incorrect");
     std::cout << "cavity_regression_test: iterations=" << iterations
               << " mass=" << result.continuity.relative
               << " dU=" << result.relative_velocity_change
-              << " centreU=" << fields.velocity[centre].x
+              << " centreU=" << detail::fieldData(fields.velocity)[centre].x
               << " pLin=" << result.pressure.relative_residual << '\n';
 }

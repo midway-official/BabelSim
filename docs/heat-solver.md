@@ -25,6 +25,9 @@ int runHeat(Case& problem) {
 \]
 
 作者无需写 Case reader、构造 RunTime、配置线性对象、维护历史或编写输出。
+独立开发时用自己的 main 调用 runApplication 即可，不必修改 BabelSim 的启动表。
+原始存储不属于公开 Field API；非均匀源可通过 Field::evaluate(位置函数) 定义。
+中间或派生单元场需保存时使用 problem.output(field)。
 Case 在下一次 loop 前写出已完成时间步，正常退出保证最终时刻保存。
 不收敛立即返回，不把失败步伪装成有效最终结果。
 

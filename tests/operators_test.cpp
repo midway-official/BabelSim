@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/operators.h"
 
 #include "test_util.h"
@@ -72,10 +74,10 @@ int main() {
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     ScalarField quadratic(mesh, FieldLocation::Cell, "quadratic");
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        const Vec3& centre = mesh.cell_centres[static_cast<std::size_t>(cell)];
-        linear[cell] = linearValue(centre);
-        velocity[cell] = centre;
-        quadratic[cell] = squaredNorm(centre);
+        const Vec3& centre = detail::meshData(mesh).cell_centres[static_cast<std::size_t>(cell)];
+        detail::fieldData(linear)[cell] = linearValue(centre);
+        detail::fieldData(velocity)[cell] = centre;
+        detail::fieldData(quadratic)[cell] = squaredNorm(centre);
     }
 
     const Index centre_cell = mesh.cellId(1, 1, 1);
@@ -83,48 +85,48 @@ int main() {
     VectorField ls(mesh, FieldLocation::Cell, "gradLS");
     gradient(linear, gg, GradientMethod::GreenGauss);
     gradient(linear, ls, GradientMethod::LeastSquares);
-    require(near(gg[centre_cell], {2.0, -3.0, 0.5}), "Green-Gauss gradient failed");
-    require(near(ls[centre_cell], {2.0, -3.0, 0.5}), "least-squares gradient failed");
+    require(near(detail::fieldData(gg)[centre_cell], {2.0, -3.0, 0.5}), "Green-Gauss gradient failed");
+    require(near(detail::fieldData(ls)[centre_cell], {2.0, -3.0, 0.5}), "least-squares gradient failed");
 
     ScalarField div(mesh, FieldLocation::Cell, "divU");
     divergence(velocity, div);
-    require(near(div[centre_cell], 3.0), "vector divergence failed");
+    require(near(detail::fieldData(div)[centre_cell], 3.0), "vector divergence failed");
     ScalarField face_flux(mesh, FieldLocation::Face, "phi");
     ScalarField div_flux(mesh, FieldLocation::Cell, "divPhi");
     flux(velocity, face_flux);
     divergence(face_flux, div_flux);
-    require(near(div_flux[centre_cell], 3.0), "flux divergence failed");
+    require(near(detail::fieldData(div_flux)[centre_cell], 3.0), "flux divergence failed");
 
     ScalarField lap(mesh, FieldLocation::Cell, "laplacian");
     laplacian(
         quadratic, lap, GradientMethod::GreenGauss,
         DiffusionMethod::Orthogonal);
-    require(near(lap[centre_cell], 6.0), "orthogonal Laplacian failed");
+    require(near(detail::fieldData(lap)[centre_cell], 6.0), "orthogonal Laplacian failed");
 
     const Mesh skewed = affineSkewedMesh();
     ScalarField skewed_linear(skewed, FieldLocation::Cell, "linear");
     for (Index cell = 0; cell < skewed.cellCount(); ++cell) {
-        skewed_linear[cell] = linearValue(
-            skewed.cell_centres[static_cast<std::size_t>(cell)]);
+        detail::fieldData(skewed_linear)[cell] = linearValue(
+            detail::meshData(skewed).cell_centres[static_cast<std::size_t>(cell)]);
     }
     const Index skewed_centre = skewed.cellId(2, 2, 2);
     VectorField skewed_gradient(skewed, FieldLocation::Cell, "grad");
     gradient(skewed_linear, skewed_gradient, GradientMethod::LeastSquares);
     require(
-        near(skewed_gradient[skewed_centre], {2.0, -3.0, 0.5}, 1e-10),
+        near(detail::fieldData(skewed_gradient)[skewed_centre], {2.0, -3.0, 0.5}, 1e-10),
         "least-squares gradient is not exact on an affine skew mesh");
     ScalarField corrected(skewed, FieldLocation::Cell, "correctedLap");
     laplacian(
         skewed_linear, corrected, GradientMethod::LeastSquares,
         DiffusionMethod::Corrected);
     require(
-        std::abs(corrected[skewed_centre]) < 1e-10,
+        std::abs(detail::fieldData(corrected)[skewed_centre]) < 1e-10,
         "non-orthogonal correction does not preserve a linear field");
     ScalarField skewed_quadratic(skewed, FieldLocation::Cell, "quadratic");
     for (Index cell = 0; cell < skewed.cellCount(); ++cell) {
         const Vec3& point =
-            skewed.cell_centres[static_cast<std::size_t>(cell)];
-        skewed_quadratic[cell] = point.x * point.y;
+            detail::meshData(skewed).cell_centres[static_cast<std::size_t>(cell)];
+        detail::fieldData(skewed_quadratic)[cell] = point.x * point.y;
     }
     ScalarField orthogonal_quadratic(
         skewed, FieldLocation::Cell, "orthogonalQuadraticLap");
@@ -137,23 +139,23 @@ int main() {
         skewed_quadratic, corrected_quadratic,
         GradientMethod::LeastSquares, DiffusionMethod::Corrected);
     require(
-        near(corrected_quadratic[skewed_centre], 0.0, 1e-10),
+        near(detail::fieldData(corrected_quadratic)[skewed_centre], 0.0, 1e-10),
         "corrected skew-mesh Laplacian failed the quadratic manufactured solution");
     require(
-        std::abs(orthogonal_quadratic[skewed_centre]) > 1e-3,
+        std::abs(detail::fieldData(orthogonal_quadratic)[skewed_centre]) > 1e-3,
         "manufactured solution does not exercise non-orthogonal correction");
 
     VectorField skewed_vector(skewed, FieldLocation::Cell, "linearVector");
     for (Index cell = 0; cell < skewed.cellCount(); ++cell) {
-        skewed_vector[cell] = linearVectorValue(
-            skewed.cell_centres[static_cast<std::size_t>(cell)]);
+        detail::fieldData(skewed_vector)[cell] = linearVectorValue(
+            detail::meshData(skewed).cell_centres[static_cast<std::size_t>(cell)]);
     }
     TensorField skewed_tensor(skewed, FieldLocation::Cell, "gradVector");
     gradient(skewed_vector, skewed_tensor, GradientMethod::LeastSquares);
     require(
-        near(skewed_tensor[skewed_centre][0], {1.0, 2.0, -0.5}, 1e-10) &&
-            near(skewed_tensor[skewed_centre][1], {-1.0, 0.0, 3.0}, 1e-10) &&
-            near(skewed_tensor[skewed_centre][2], {0.25, -1.0, 2.0}, 1e-10),
+        near(detail::fieldData(skewed_tensor)[skewed_centre][0], {1.0, 2.0, -0.5}, 1e-10) &&
+            near(detail::fieldData(skewed_tensor)[skewed_centre][1], {-1.0, 0.0, 3.0}, 1e-10) &&
+            near(detail::fieldData(skewed_tensor)[skewed_centre][2], {0.25, -1.0, 2.0}, 1e-10),
         "least-squares vector gradient is not exact on an affine skew mesh");
 
     const Mesh warped = warpedThreeDimensionalMesh();
@@ -161,19 +163,19 @@ int main() {
     ScalarField warped_linear(warped, FieldLocation::Cell, "warpedLinear");
     VectorField warped_vector(warped, FieldLocation::Cell, "warpedVector");
     for (Index cell = 0; cell < warped.cellCount(); ++cell) {
-        const Vec3& point = warped.cell_centres[static_cast<std::size_t>(cell)];
-        warped_linear[cell] = linearValue(point);
-        warped_vector[cell] = linearVectorValue(point);
+        const Vec3& point = detail::meshData(warped).cell_centres[static_cast<std::size_t>(cell)];
+        detail::fieldData(warped_linear)[cell] = linearValue(point);
+        detail::fieldData(warped_vector)[cell] = linearVectorValue(point);
     }
     VectorField warped_ls(warped, FieldLocation::Cell, "warpedLS");
     VectorField warped_gg(warped, FieldLocation::Cell, "warpedGG");
     gradient(warped_linear, warped_ls, GradientMethod::LeastSquares);
     gradient(warped_linear, warped_gg, GradientMethod::GreenGauss);
     require(
-        near(warped_ls[warped_centre], {2.0, -3.0, 0.5}, 1e-10),
+        near(detail::fieldData(warped_ls)[warped_centre], {2.0, -3.0, 0.5}, 1e-10),
         "three-dimensional warped-mesh least-squares gradient is not affine exact");
     require(
-        near(warped_gg[warped_centre], {2.0, -3.0, 0.5}, 2e-2),
+        near(detail::fieldData(warped_gg)[warped_centre], {2.0, -3.0, 0.5}, 2e-2),
         "corrected Green-Gauss gradient is inaccurate on a warped mesh");
 
     ScalarField warped_faces(warped, FieldLocation::Face, "warpedFaces");
@@ -187,16 +189,16 @@ int main() {
     flux(
         warped_vector, warped_flux,
         InterpolationMethod::Corrected, GradientMethod::LeastSquares);
-    for (Index face : warped.cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
         const auto f = static_cast<std::size_t>(face);
         require(
-            near(warped_faces[face], linearValue(warped.face_centres[f]), 1e-10),
+            near(detail::fieldData(warped_faces)[face], linearValue(detail::meshData(warped).face_centres[f]), 1e-10),
             "corrected interpolation missed the physical face centre");
         require(
             near(
-                warped_flux[face],
-                dot(linearVectorValue(warped.face_centres[f]),
-                    warped.face_area_vectors[f]),
+                detail::fieldData(warped_flux)[face],
+                dot(linearVectorValue(detail::meshData(warped).face_centres[f]),
+                    detail::meshData(warped).face_area_vectors[f]),
                 1e-10),
             "corrected flux is not affine exact on a warped face");
     }
@@ -206,7 +208,7 @@ int main() {
         warped_vector, warped_divergence,
         InterpolationMethod::Corrected, GradientMethod::LeastSquares);
     require(
-        near(warped_divergence[warped_centre], 3.0, 1e-10),
+        near(detail::fieldData(warped_divergence)[warped_centre], 3.0, 1e-10),
         "corrected divergence is not affine exact on a warped cell");
 
     VectorField advecting_velocity(
@@ -222,18 +224,18 @@ int main() {
         GradientMethod::LeastSquares);
     double convection_residual =
         warped_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
-            warped_linear[warped_centre] -
+            detail::fieldData(warped_linear)[warped_centre] -
         warped_convection.source[static_cast<std::size_t>(warped_centre)];
-    for (Index face : warped.cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = warped.face_owner[f];
-        const Index neighbour = warped.face_neighbour[f];
+        const Index owner = detail::meshData(warped).face_owner[f];
+        const Index neighbour = detail::meshData(warped).face_neighbour[f];
         convection_residual += owner == warped_centre
-            ? warped_convection.upper[f] * warped_linear[neighbour]
-            : warped_convection.lower[f] * warped_linear[owner];
+            ? warped_convection.upper[f] * detail::fieldData(warped_linear)[neighbour]
+            : warped_convection.lower[f] * detail::fieldData(warped_linear)[owner];
     }
     const double exact_convection =
-        warped.cell_volumes[static_cast<std::size_t>(warped_centre)] *
+        detail::meshData(warped).cell_volumes[static_cast<std::size_t>(warped_centre)] *
         dot(Vec3{0.7, -0.2, 0.4}, Vec3{2.0, -3.0, 0.5});
     require(
         near(convection_residual, exact_convection, 1e-10),
@@ -245,23 +247,23 @@ int main() {
         GradientMethod::LeastSquares);
     Vec3 vector_convection_residual =
         warped_vector_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
-            warped_vector[warped_centre] -
+            detail::fieldData(warped_vector)[warped_centre] -
         warped_vector_convection.source[static_cast<std::size_t>(warped_centre)];
-    for (Index face : warped.cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = warped.face_owner[f];
-        const Index neighbour = warped.face_neighbour[f];
+        const Index owner = detail::meshData(warped).face_owner[f];
+        const Index neighbour = detail::meshData(warped).face_neighbour[f];
         if (neighbour == invalid_index) {
             continue;
         }
         vector_convection_residual += owner == warped_centre
-            ? warped_vector_convection.upper[f] * warped_vector[neighbour]
-            : warped_vector_convection.lower[f] * warped_vector[owner];
+            ? warped_vector_convection.upper[f] * detail::fieldData(warped_vector)[neighbour]
+            : warped_vector_convection.lower[f] * detail::fieldData(warped_vector)[owner];
     }
     const Vec3 exact_vector_convection{
-        0.1 * warped.cell_volumes[static_cast<std::size_t>(warped_centre)],
-        0.5 * warped.cell_volumes[static_cast<std::size_t>(warped_centre)],
-        1.175 * warped.cell_volumes[static_cast<std::size_t>(warped_centre)]};
+        0.1 * detail::meshData(warped).cell_volumes[static_cast<std::size_t>(warped_centre)],
+        0.5 * detail::meshData(warped).cell_volumes[static_cast<std::size_t>(warped_centre)],
+        1.175 * detail::meshData(warped).cell_volumes[static_cast<std::size_t>(warped_centre)]};
     require(
         near(vector_convection_residual, exact_vector_convection, 1e-10),
         "corrected central vector convection is not affine exact");
@@ -271,18 +273,18 @@ int main() {
         GradientMethod::LeastSquares, DiffusionMethod::Corrected);
     Vec3 vector_residual =
         vector_diffusion.diagonal[static_cast<std::size_t>(skewed_centre)] *
-            skewed_vector[skewed_centre] -
+            detail::fieldData(skewed_vector)[skewed_centre] -
         vector_diffusion.source[static_cast<std::size_t>(skewed_centre)];
-    for (Index face : skewed.cell_faces[static_cast<std::size_t>(skewed_centre)]) {
+    for (Index face : detail::meshData(skewed).cell_faces[static_cast<std::size_t>(skewed_centre)]) {
         const auto f = static_cast<std::size_t>(face);
-        const Index owner = skewed.face_owner[f];
-        const Index neighbour = skewed.face_neighbour[f];
+        const Index owner = detail::meshData(skewed).face_owner[f];
+        const Index neighbour = detail::meshData(skewed).face_neighbour[f];
         if (neighbour == invalid_index) {
             continue;
         }
         vector_residual += owner == skewed_centre
-            ? vector_diffusion.upper[f] * skewed_vector[neighbour]
-            : vector_diffusion.lower[f] * skewed_vector[owner];
+            ? vector_diffusion.upper[f] * detail::fieldData(skewed_vector)[neighbour]
+            : vector_diffusion.lower[f] * detail::fieldData(skewed_vector)[owner];
     }
     require(
         norm(vector_residual) < 1e-10,
@@ -292,23 +294,23 @@ int main() {
     VectorField reconstructed_vector(skewed, FieldLocation::Face, "vectorFace");
     reconstruct(skewed_linear, skewed_gradient, reconstructed_scalar);
     reconstruct(skewed_vector, skewed_tensor, reconstructed_vector);
-    for (Index face : skewed.cell_faces[static_cast<std::size_t>(skewed_centre)]) {
+    for (Index face : detail::meshData(skewed).cell_faces[static_cast<std::size_t>(skewed_centre)]) {
         const auto f = static_cast<std::size_t>(face);
-        if (skewed.face_neighbour[f] == invalid_index) {
+        if (detail::meshData(skewed).face_neighbour[f] == invalid_index) {
             continue;
         }
         require(
-            near(reconstructed_scalar[face], linearValue(skewed.face_centres[f]), 1e-10),
+            near(detail::fieldData(reconstructed_scalar)[face], linearValue(detail::meshData(skewed).face_centres[f]), 1e-10),
             "skew-corrected scalar reconstruction is not affine exact");
         require(
-            near(reconstructed_vector[face], linearVectorValue(skewed.face_centres[f]), 1e-10),
+            near(detail::fieldData(reconstructed_vector)[face], linearVectorValue(detail::meshData(skewed).face_centres[f]), 1e-10),
             "skew-corrected vector reconstruction is not affine exact");
     }
 
     ScalarDiscreteEquation time_equation(mesh);
     addTimeDerivative(
         time_equation, linear, 0.25, 2.0, TimeMethod::BDF2, &quadratic);
-    const double coefficient = 2.0 * mesh.cell_volumes[
+    const double coefficient = 2.0 * detail::meshData(mesh).cell_volumes[
         static_cast<std::size_t>(centre_cell)] / 0.25;
     require(
         near(time_equation.diagonal[static_cast<std::size_t>(centre_cell)],
@@ -324,7 +326,7 @@ int main() {
         near(
             vector_time_equation.source[static_cast<std::size_t>(centre_cell)],
             coefficient *
-                (2.0 * velocity[centre_cell] - 0.5 * older_velocity[centre_cell])),
+                (2.0 * detail::fieldData(velocity)[centre_cell] - 0.5 * detail::fieldData(older_velocity)[centre_cell])),
         "vector BDF2 source is incorrect");
 
     VectorField uniform_velocity(mesh, FieldLocation::Cell, "uniformU", {1.0, 0.0, 0.0});
@@ -336,12 +338,12 @@ int main() {
     double maximum_constant_residual = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         double row_value = convection.diagonal[static_cast<std::size_t>(cell)] * 2.0;
-        for (Index face : mesh.cell_faces[static_cast<std::size_t>(cell)]) {
+        for (Index face : detail::meshData(mesh).cell_faces[static_cast<std::size_t>(cell)]) {
             const auto f = static_cast<std::size_t>(face);
-            if (mesh.face_neighbour[f] == invalid_index) {
+            if (detail::meshData(mesh).face_neighbour[f] == invalid_index) {
                 continue;
             }
-            row_value += (mesh.face_owner[f] == cell
+            row_value += (detail::meshData(mesh).face_owner[f] == cell
                 ? convection.upper[f]
                 : convection.lower[f]) * 2.0;
         }
@@ -360,12 +362,12 @@ int main() {
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         double row_value =
             central_convection.diagonal[static_cast<std::size_t>(cell)] * 2.0;
-        for (Index face : mesh.cell_faces[static_cast<std::size_t>(cell)]) {
+        for (Index face : detail::meshData(mesh).cell_faces[static_cast<std::size_t>(cell)]) {
             const auto f = static_cast<std::size_t>(face);
-            if (mesh.face_neighbour[f] == invalid_index) {
+            if (detail::meshData(mesh).face_neighbour[f] == invalid_index) {
                 continue;
             }
-            row_value += (mesh.face_owner[f] == cell
+            row_value += (detail::meshData(mesh).face_owner[f] == cell
                 ? central_convection.upper[f]
                 : central_convection.lower[f]) * 2.0;
         }

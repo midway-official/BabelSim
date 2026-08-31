@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/parallel_writer.h"
 
 #include <fstream>
@@ -58,10 +60,10 @@ void writeField(
         output << ",value" << component;
     }
     output << '\n' << std::setprecision(17);
-    for (Index cell : mesh.owned_cells) {
+    for (Index cell : detail::meshData(mesh).owned_cells) {
         const Vec3& centre = mesh.cellCentre(cell);
-        output << mesh.globalCellId(cell) << ',' << centre.x << ',' << centre.y << ',' << centre.z;
-        write_value(output, field[cell]);
+        output << detail::globalCellId(mesh, cell) << ',' << centre.x << ',' << centre.y << ',' << centre.z;
+        write_value(output, detail::fieldData(field)[cell]);
         output << '\n';
     }
     output.close();
@@ -132,9 +134,9 @@ void writeOwnedResultMetadata(
            << "time " << time_name << '\n'
            << "rank " << parallel.rank << '\n'
            << "ranks " << parallel.size << '\n'
-           << "global_dimensions " << mesh.global_dimensions[0] << ' '
-           << mesh.global_dimensions[1] << ' ' << mesh.global_dimensions[2] << '\n'
-           << "owned_cells " << mesh.ownedCellCount() << '\n';
+           << "global_dimensions " << detail::meshData(mesh).global_dimensions[0] << ' '
+           << detail::meshData(mesh).global_dimensions[1] << ' ' << detail::meshData(mesh).global_dimensions[2] << '\n'
+           << "owned_cells " << detail::ownedCellCount(mesh) << '\n';
     for (const FieldOutputInfo& field : fields) {
         if (field.name.empty() || field.type.empty()) {
             throw std::invalid_argument("result metadata field is incomplete");

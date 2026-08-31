@@ -34,6 +34,7 @@ output output.bs
 
 普通 Solver 由 Case 取得命名场、物性和算法参数；不用实现自己的 reader。
 启动器只初始化运行、构造 Case、调用显式选择表并处理成功/失败。
+外部程序可用 runApplication 和自己的 SolverEntry 表选择任意新名称；不修改这里的 reader。
 
 ## 网格和场
 
@@ -131,7 +132,14 @@ results/
 ```
 
 每个 rank 只写 owned cell。输入场自动输出，中间数学场和面通量不自动输出。
-metadata 的 time 记录真实物理时间。当前不支持 checkpoint/restart 或计算中动态改变输出场集合。
+metadata 的 time 记录真实物理时间。当前不支持 checkpoint/restart。
+可用 problem.output(derived) 选择派生 cell 场输出，或 output(input,false) 关闭输入场输出；
+场必须属于当前 Case，face 场暂不支持保存。各进程必须以相同逻辑修改输出选择，建议在声明阶段完成。
+
+Case::validate() 只校验参数；start() 和首次 loop() 才关闭声明阶段。
+SIMPLE 构造不再隐式关闭声明，便于组合热/流体等算法。输入和中间场都在开始计算前创建，
+scalar/vector/tensor 中间场可指定初值；面场支持 scalar/vector/tensor 三种值类型。
+非均匀初值可在 Solver 中用 Field::evaluate(位置函数) 定义，但文件 reader 仍只接受 uniform。
 
 为独立实验指定名称：
 

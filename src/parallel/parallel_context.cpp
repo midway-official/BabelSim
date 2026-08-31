@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/parallel.h"
 
 #include "babelsim/mesh_io.h"
@@ -69,7 +71,7 @@ void assignPartitionPatches(
     for (Index face = 0; face < local.faceCount(); ++face) {
         if (!local.boundaryFace(face)) continue;
         const auto f = static_cast<std::size_t>(face);
-        const Side side = static_cast<Side>(local.face_patch[f]);
+        const Side side = static_cast<Side>(detail::meshData(local).face_patch[f]);
         Index patch = static_cast<Index>(side);
         if (side == Side::XMin && left_processor_patch != invalid_index) {
             patch = left_processor_patch;
@@ -79,13 +81,13 @@ void assignPartitionPatches(
         if (patch < 0 || static_cast<std::size_t>(patch) >= patches.size()) {
             throw std::logic_error("decomposed boundary face has no patch");
         }
-        local.face_patch[f] = patch;
+        detail::meshData(local).face_patch[f] = patch;
     }
-    local.setPatches(std::move(patches));
+    detail::MeshAccess::setPatches(local, std::move(patches));
     for (Index face = 0; face < local.faceCount(); ++face) {
         if (local.boundaryFace(face)) {
-            const Index patch = local.face_patch[static_cast<std::size_t>(face)];
-            local.addPatchFace(patch, face);
+            const Index patch = detail::meshData(local).face_patch[static_cast<std::size_t>(face)];
+            detail::MeshAccess::addPatchFace(local, patch, face);
         }
     }
 }
@@ -94,11 +96,11 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
     if (size <= 0 || rank < 0 || rank >= size || ghost_layers < 1) {
         throw std::invalid_argument("mesh partition rank, size, or halo width is invalid");
     }
-    if (global.ownedCellCount() != global.cellCount()) {
+    if (detail::ownedCellCount(global) != global.cellCount()) {
         throw std::invalid_argument("domain decomposition requires a global mesh");
     }
     if (size == 1) return global;
-    const Index global_nx = global.dimensions[0];
+    const Index global_nx = detail::meshData(global).dimensions[0];
     if (static_cast<std::int64_t>(global_nx) <
         static_cast<std::int64_t>(ghost_layers) * size) {
         throw std::invalid_argument("each MPI partition needs at least ghost_layers owned x cells");
@@ -127,29 +129,29 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
     std::vector<Vec3> points;
     points.reserve(
         static_cast<std::size_t>(local_nx + 1) *
-        static_cast<std::size_t>(global.dimensions[1] + 1) *
-        static_cast<std::size_t>(global.dimensions[2] + 1));
-    for (Index k = 0; k <= global.dimensions[2]; ++k) {
-        for (Index j = 0; j <= global.dimensions[1]; ++j) {
+        static_cast<std::size_t>(detail::meshData(global).dimensions[1] + 1) *
+        static_cast<std::size_t>(detail::meshData(global).dimensions[2] + 1));
+    for (Index k = 0; k <= detail::meshData(global).dimensions[2]; ++k) {
+        for (Index j = 0; j <= detail::meshData(global).dimensions[1]; ++j) {
             for (Index i = 0; i <= local_nx; ++i) {
-                points.push_back(global.vertices[static_cast<std::size_t>(
+                points.push_back(detail::meshData(global).vertices[static_cast<std::size_t>(
                     global.vertexId(global_offset + i, j, k))]);
             }
         }
     }
     std::array<PatchSpec, 6> specifications{};
-    if (global.patches.size() != specifications.size()) {
+    if (detail::meshData(global).patches.size() != specifications.size()) {
         throw std::invalid_argument("global structured mesh must have six logical patches");
     }
     for (std::size_t side = 0; side < specifications.size(); ++side) {
         specifications[side] = {
-            global.patches[side].name, global.patches[side].kind};
+            detail::meshData(global).patches[side].name, detail::meshData(global).patches[side].kind};
     }
     Mesh local = Mesh::structured(
-        {local_nx, global.dimensions[1], global.dimensions[2]},
+        {local_nx, detail::meshData(global).dimensions[1], detail::meshData(global).dimensions[2]},
         std::move(points), temporaryPatches());
-    local.setOwnership(
-        global.dimensions, global_offset, left_ghost,
+    detail::MeshAccess::setOwnership(local,
+        detail::meshData(global).dimensions, global_offset, left_ghost,
         left_ghost + owned_width, ghost_layers);
     assignPartitionPatches(local, specifications, rank, size);
     local.validate();
@@ -185,14 +187,14 @@ void broadcastPatchSpecifications(
 
 void sendPartition(const Mesh& local, int destination, MPI_Comm communicator) {
     const int metadata[5] = {
-        local.dimensions[0], local.global_i_offset, local.owned_i_begin,
-        local.owned_i_end, local.ghost_layers};
+        detail::meshData(local).dimensions[0], detail::meshData(local).global_i_offset, detail::meshData(local).owned_i_begin,
+        detail::meshData(local).owned_i_end, detail::meshData(local).ghost_layers};
     detail::checkMpi(
         MPI_Send(metadata, 5, MPI_INT, destination, 710, communicator),
         "MPI_Send(mesh metadata)");
     std::vector<double> coordinates;
-    coordinates.reserve(local.vertices.size() * 3U);
-    for (const Vec3& point : local.vertices) {
+    coordinates.reserve(detail::meshData(local).vertices.size() * 3U);
+    for (const Vec3& point : detail::meshData(local).vertices) {
         coordinates.push_back(point.x);
         coordinates.push_back(point.y);
         coordinates.push_back(point.z);
@@ -245,7 +247,7 @@ Mesh receivePartition(
     Mesh local = Mesh::structured(
         {local_nx, global_dimensions[1], global_dimensions[2]},
         std::move(points), temporaryPatches());
-    local.setOwnership(
+    detail::MeshAccess::setOwnership(local,
         global_dimensions, global_offset, owned_begin, owned_end, ghost_layers);
     assignPartitionPatches(local, specifications, parallel.rank, parallel.size);
     local.validate();
@@ -397,12 +399,12 @@ Mesh readDistributedMesh(
     int ok = 1;
     if (parallel.rank == 0) {
         try {
-            global = readMeshFile(path);
+            detail::MeshAccess::replace(global, readMeshFile(path));
             global.validate();
-            if (global.patches.size() != 6) {
+            if (detail::meshData(global).patches.size() != 6) {
                 throw std::invalid_argument("distributed mesh requires six logical patches");
             }
-            for (const BoundaryPatch& patch : global.patches) {
+            for (const BoundaryPatch& patch : detail::meshData(global).patches) {
                 if (patch.name.empty() || patch.name.size() > 4096) {
                     throw std::invalid_argument("distributed mesh patch name is too long");
                 }
@@ -435,10 +437,10 @@ Mesh readDistributedMesh(
     std::array<Index, 3> dimensions{};
     std::array<PatchSpec, 6> specifications{};
     if (parallel.rank == 0) {
-        dimensions = global.dimensions;
+        dimensions = detail::meshData(global).dimensions;
         for (std::size_t side = 0; side < specifications.size(); ++side) {
             specifications[side] = {
-                global.patches[side].name, global.patches[side].kind};
+                detail::meshData(global).patches[side].name, detail::meshData(global).patches[side].kind};
         }
     }
     detail::checkMpi(
@@ -448,14 +450,14 @@ Mesh readDistributedMesh(
 
     Mesh local;
     if (parallel.rank == 0) {
-        local = partitionMesh(global, 0, parallel.size, ghost_layers);
+        detail::MeshAccess::replace(local, partitionMesh(global, 0, parallel.size, ghost_layers));
         for (int destination = 1; destination < parallel.size; ++destination) {
             sendPartition(
                 partitionMesh(global, destination, parallel.size, ghost_layers),
                 destination, parallel.communicator);
         }
     } else {
-        local = receivePartition(dimensions, specifications, 0, parallel);
+        detail::MeshAccess::replace(local, receivePartition(dimensions, specifications, 0, parallel));
     }
     local.validate();
     return local;
@@ -469,62 +471,62 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
     if (!m_parallel.distributed()) {
         return;
     }
-    if (mesh.ghost_layers < 1 ||
-        mesh.owned_i_begin < (m_parallel.rank == 0 ? 0 : mesh.ghost_layers) ||
-        mesh.dimensions[0] - mesh.owned_i_end <
-            (m_parallel.rank + 1 == m_parallel.size ? 0 : mesh.ghost_layers)) {
+    if (detail::meshData(mesh).ghost_layers < 1 ||
+        detail::meshData(mesh).owned_i_begin < (m_parallel.rank == 0 ? 0 : detail::meshData(mesh).ghost_layers) ||
+        detail::meshData(mesh).dimensions[0] - detail::meshData(mesh).owned_i_end <
+            (m_parallel.rank + 1 == m_parallel.size ? 0 : detail::meshData(mesh).ghost_layers)) {
         throw std::invalid_argument("mesh halo layout does not match MPI partition");
     }
     m_left = m_parallel.rank == 0 ? MPI_PROC_NULL : m_parallel.rank - 1;
     m_right = m_parallel.rank + 1 == m_parallel.size
         ? MPI_PROC_NULL : m_parallel.rank + 1;
     const auto appendPlane = [&](std::vector<Index>& indices, Index begin) {
-        for (Index k = 0; k < mesh.dimensions[2]; ++k) {
-            for (Index j = 0; j < mesh.dimensions[1]; ++j) {
-                for (Index layer = 0; layer < mesh.ghost_layers; ++layer) {
+        for (Index k = 0; k < detail::meshData(mesh).dimensions[2]; ++k) {
+            for (Index j = 0; j < detail::meshData(mesh).dimensions[1]; ++j) {
+                for (Index layer = 0; layer < detail::meshData(mesh).ghost_layers; ++layer) {
                     indices.push_back(mesh.cellId(begin + layer, j, k));
                 }
             }
         }
     };
     if (m_left != MPI_PROC_NULL) {
-        appendPlane(m_send_left, mesh.owned_i_begin);
-        appendPlane(m_receive_left, mesh.owned_i_begin - mesh.ghost_layers);
+        appendPlane(m_send_left, detail::meshData(mesh).owned_i_begin);
+        appendPlane(m_receive_left, detail::meshData(mesh).owned_i_begin - detail::meshData(mesh).ghost_layers);
     }
     if (m_right != MPI_PROC_NULL) {
-        appendPlane(m_send_right, mesh.owned_i_end - mesh.ghost_layers);
-        appendPlane(m_receive_right, mesh.owned_i_end);
+        appendPlane(m_send_right, detail::meshData(mesh).owned_i_end - detail::meshData(mesh).ghost_layers);
+        appendPlane(m_receive_right, detail::meshData(mesh).owned_i_end);
     }
     const auto appendFirstPlane = [&](std::vector<Index>& indices, Index begin) {
-        for (Index k = 0; k < mesh.dimensions[2]; ++k) {
-            for (Index j = 0; j < mesh.dimensions[1]; ++j) {
+        for (Index k = 0; k < detail::meshData(mesh).dimensions[2]; ++k) {
+            for (Index j = 0; j < detail::meshData(mesh).dimensions[1]; ++j) {
                 indices.push_back(mesh.cellId(begin, j, k));
             }
         }
     };
     if (m_left != MPI_PROC_NULL) {
-        appendFirstPlane(m_send_left_first, mesh.owned_i_begin);
-        appendFirstPlane(m_receive_left_first, mesh.owned_i_begin - 1);
+        appendFirstPlane(m_send_left_first, detail::meshData(mesh).owned_i_begin);
+        appendFirstPlane(m_receive_left_first, detail::meshData(mesh).owned_i_begin - 1);
     }
     if (m_right != MPI_PROC_NULL) {
-        appendFirstPlane(m_send_right_first, mesh.owned_i_end - 1);
-        appendFirstPlane(m_receive_right_first, mesh.owned_i_end);
+        appendFirstPlane(m_send_right_first, detail::meshData(mesh).owned_i_end - 1);
+        appendFirstPlane(m_receive_right_first, detail::meshData(mesh).owned_i_end);
     }
     const auto appendInterface = [&](std::vector<Index>& indices, Index cell_i, Side side) {
-        for (Index k = 0; k < mesh.dimensions[2]; ++k) {
-            for (Index j = 0; j < mesh.dimensions[1]; ++j) {
+        for (Index k = 0; k < detail::meshData(mesh).dimensions[2]; ++k) {
+            for (Index j = 0; j < detail::meshData(mesh).dimensions[1]; ++j) {
                 const Index cell = mesh.cellId(cell_i, j, k);
-                indices.push_back(mesh.cell_faces[static_cast<std::size_t>(cell)]
+                indices.push_back(detail::meshData(mesh).cell_faces[static_cast<std::size_t>(cell)]
                     [static_cast<std::size_t>(side)]);
             }
         }
     };
     if (m_left != MPI_PROC_NULL) {
         // 分区界面由较小 rank（左侧 owned cell）作为唯一发布者。
-        appendInterface(m_receive_face_left, mesh.owned_i_begin, Side::XMin);
+        appendInterface(m_receive_face_left, detail::meshData(mesh).owned_i_begin, Side::XMin);
     }
     if (m_right != MPI_PROC_NULL) {
-        appendInterface(m_send_face_right, mesh.owned_i_end - 1, Side::XMax);
+        appendInterface(m_send_face_right, detail::meshData(mesh).owned_i_end - 1, Side::XMax);
     }
     // 常用场最多包含 9 个 double（Tensor3）。预留一次后，后续时间步/外迭代
     // 的打包和接收不会再次触发堆分配。
@@ -668,9 +670,9 @@ void HaloExchange::exchange(ScalarField& field) {
     }
     field.validateStorage();
     if (field.location() == FieldLocation::Cell) {
-        exchange(field.mutableData(), 1);
+        exchange(detail::fieldData(field), 1);
     } else if (field.location() == FieldLocation::Face) {
-        exchangeFaces(field.mutableData(), 1);
+        exchangeFaces(detail::fieldData(field), 1);
     } else {
         throw std::invalid_argument("vertex scalar halo exchange is not supported");
     }
@@ -682,9 +684,9 @@ void HaloExchange::exchange(VectorField& field) {
     }
     field.validateStorage();
     if (field.location() == FieldLocation::Cell) {
-        exchange(&field.mutableData()->x, 3);
+        exchange(&detail::fieldData(field)->x, 3);
     } else if (field.location() == FieldLocation::Face) {
-        exchangeFaces(&field.mutableData()->x, 3);
+        exchangeFaces(&detail::fieldData(field)->x, 3);
     } else {
         throw std::invalid_argument("vertex vector halo exchange is not supported");
     }
@@ -696,9 +698,9 @@ void HaloExchange::exchange(TensorField& field) {
     }
     field.validateStorage();
     if (field.location() == FieldLocation::Cell) {
-        exchange(&field.mutableData()->rows[0].x, 9);
+        exchange(&detail::fieldData(field)->rows[0].x, 9);
     } else if (field.location() == FieldLocation::Face) {
-        exchangeFaces(&field.mutableData()->rows[0].x, 9);
+        exchangeFaces(&detail::fieldData(field)->rows[0].x, 9);
     } else {
         throw std::invalid_argument("vertex tensor halo exchange is not supported");
     }

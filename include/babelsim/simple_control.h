@@ -38,7 +38,7 @@ struct IncompressibleFields {
 };
 
 struct SimpleIterationResult {
-    std::array<SolveResult, 3> velocity;
+    SolveResult velocity;
     SolveResult pressure;
     FluxBalance continuity;
     double relative_velocity_change = 0.0;

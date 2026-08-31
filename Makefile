@@ -15,28 +15,34 @@ SOURCES := src/core/mesh.cpp \
            src/io/numerics_reader.cpp \
            src/io/mesh_reader.cpp \
            src/io/result_reader.cpp \
+           src/io/postprocess.cpp \
            src/discretization/operators.cpp \
            src/discretization/simple_discretization.cpp \
            src/discretization/fvm_expression.cpp \
+           src/discretization/fvm_execution.cpp \
            src/discretization/assembly.cpp \
            src/algebra/linear_solver.cpp \
            src/algebra/distributed_solver.cpp \
            src/parallel/parallel_context.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
+           src/runtime/solver_api.cpp \
+           src/runtime/application.cpp \
            src/physics/simple/simple_solver.cpp \
            src/physics/simple/create_fields.cpp \
            src/physics/simple/convergence.cpp \
            src/physics/simple/momentum.cpp \
-           src/physics/simple/pressure.cpp \
-           $(wildcard src/physics/*/main.cpp)
+           src/physics/simple/pressure.cpp
 OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOURCES))
+SOLVER_SOURCES := $(wildcard src/physics/*/main.cpp)
+SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
 
 TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
                 tests/operators_test.cpp \
                 tests/fvc_runtime_test.cpp \
+                tests/public_equation_test.cpp \
                 tests/assembly_solver_test.cpp \
                 tests/simple_solver_test.cpp \
                 tests/mesh_file_test.cpp \
@@ -52,6 +58,7 @@ TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/nonorthogonal_cavity_3d_test.cpp
 TESTS := $(patsubst tests/%.cpp,$(BUILD)/%,$(TEST_SOURCES))
 MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
+             $(BUILD)/parallel_fvc_test \
              $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test \
              $(BUILD)/parallel_transport_test
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
@@ -73,9 +80,9 @@ $(BUILD)/%: tests/%.cpp tests/test_util.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
 
-$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp src/apps/solver_selection.cpp src/apps/solver_selection.h $(HEADERS) $(LIB)
+$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp $(HEADERS) $(SOLVER_OBJECTS) $(LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< src/apps/solver_selection.cpp $(LIB) -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(SOLVER_OBJECTS) $(LIB) -o $@
 
 $(BUILD)/babelsim-post: src/apps/babelsim_post.cpp $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
@@ -92,6 +99,9 @@ $(BUILD)/parallel_cavity_3d_test: tests/parallel_cavity_3d_test.cpp tests/test_u
 test-architecture:
 	python3 tests/architecture_test.py
 
+test-external: $(LIB)
+	python3 tests/external_solver_test.py
+
 test: test-architecture $(TESTS)
 	@set -e; for test in $(TESTS); do $$test; done
 
@@ -103,6 +113,9 @@ test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)
 	python3 tests/solver_workflow_test.py
 
 test-mpi: $(MPI_TESTS)
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_fvc_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_fvc_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_fvc_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_domain_test $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
 		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output
@@ -156,7 +169,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all test test-architecture test-workflow test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all test test-architecture test-external test-workflow test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
--include $(OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

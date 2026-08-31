@@ -5,6 +5,7 @@ namespace babelsim {
 
 int runSimple(Case& problem) {
     SimpleSolver simple(problem);
+    problem.start();
     while (simple.loop()) {
         simple.solveMomentum();
         simple.solvePressure();

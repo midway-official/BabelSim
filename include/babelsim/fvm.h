@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace babelsim {
+namespace detail { class FvmExecution; }
 
 // 这些轻量描述符是连续/离散数学之间的边界：它们只引用 Field 和常数，绝不分配
 // LDU、CSR、Eigen 向量或 MPI 缓冲区。真正组装只发生在 solve() 内部。
@@ -54,7 +55,7 @@ private:
     friend ScalarExpression operator-(
         ScalarExpression left, const ScalarExpression& right);
     friend ScalarExpression operator-(ScalarExpression expression);
-    friend class RunTime;
+    friend class detail::FvmExecution;
     friend struct ScalarEquationDefinition;
 };
 
@@ -75,7 +76,7 @@ private:
     friend VectorExpression operator-(
         VectorExpression left, const VectorExpression& right);
     friend VectorExpression operator-(VectorExpression expression);
-    friend class RunTime;
+    friend class detail::FvmExecution;
     friend struct VectorEquationDefinition;
 };
 
@@ -246,7 +247,25 @@ inline VectorExpression source(const Vec3& value) {
     return VectorExpression(term);
 }
 
+inline VectorExpression source(double coefficient, const VectorField& field) {
+    VectorFvmTerm term;
+    term.kind = FvmTermKind::Source;
+    term.coefficient = coefficient;
+    term.vector_field = &field;
+    return VectorExpression(term);
+}
+
+inline VectorExpression source(const VectorField& field) { return source(1.0, field); }
+
 }  // fvm 命名空间
+
+inline ScalarEquationDefinition operator==(ScalarExpression lhs, double rhs) {
+    return std::move(lhs) == fvm::source(rhs);
+}
+
+inline VectorEquationDefinition operator==(VectorExpression lhs, Vec3 rhs) {
+    return std::move(lhs) == fvm::source(rhs);
+}
 
 // 均匀体源可以直接写成方程右端的数值；这仍表示体源项，不会创建临时 Field。
 inline ScalarExpression operator+(ScalarExpression left, double source) {

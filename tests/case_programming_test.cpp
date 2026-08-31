@@ -1,3 +1,4 @@
+#include "internal/field_access.h"
 #include "babelsim/case.h"
 #include "babelsim/mpi_support.h"
 #include "test_util.h"
@@ -17,7 +18,7 @@ int main(int argc, char** argv) {
             problem.vectorField("scratch" + std::to_string(i), babelsim::Vec3{});
         require(&first == &problem.scalarField("T"), "Case invalidated a Field reference");
         const babelsim::TensorField& stress = problem.tensorField("stress");
-        require(near(stress[0][2][2], 9.0), "tensor input order is incorrect");
+        require(near(babelsim::detail::fieldData(stress)[0][2][2], 9.0), "tensor input order is incorrect");
         bool rejected = false;
         try { problem.vectorField("T", babelsim::Vec3{}); }
         catch (const std::invalid_argument&) { rejected = true; }

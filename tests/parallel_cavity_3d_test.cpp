@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -31,7 +33,7 @@ int main(int argc, char* argv[]) {
         const Mesh mesh = decompose(global, parallel);
         IncompressibleFields fields(mesh);
         for (Index patch = 0;
-             patch < static_cast<Index>(global.patches.size()); ++patch) {
+             patch < static_cast<Index>(detail::meshData(global).patches.size()); ++patch) {
             fields.velocity.setBoundary(
                 patch, BoundaryCondition<Vec3>::fixedValue({}));
         }
@@ -76,16 +78,16 @@ int main(int argc, char* argv[]) {
         Vec3 lower{};
         Vec3 upper{};
         double local_maximum_z = 0.0;
-        for (Index cell : mesh.owned_cells) {
-            const Index id = mesh.globalCellId(cell);
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            const Index id = detail::globalCellId(mesh, cell);
             if (id == lower_global) {
-                lower = fields.velocity[cell];
+                lower = detail::fieldData(fields.velocity)[cell];
             }
             if (id == upper_global) {
-                upper = fields.velocity[cell];
+                upper = detail::fieldData(fields.velocity)[cell];
             }
             local_maximum_z = std::max(
-                local_maximum_z, std::abs(fields.velocity[cell].z));
+                local_maximum_z, std::abs(detail::fieldData(fields.velocity)[cell].z));
         }
         const double local_centres[6] = {
             lower.x, lower.y, lower.z, upper.x, upper.y, upper.z};

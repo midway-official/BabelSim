@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -94,12 +96,12 @@ int main(int argc, char* argv[]) {
         const Index centre_global = global.cellId(n / 2 - 1, n / 2 - 1, 0);
         double local_centre_u = 0.0;
         double local_maximum_z = 0.0;
-        for (Index cell : mesh.owned_cells) {
-            if (mesh.globalCellId(cell) == centre_global) {
-                local_centre_u = fields.velocity[cell].x;
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            if (detail::globalCellId(mesh, cell) == centre_global) {
+                local_centre_u = detail::fieldData(fields.velocity)[cell].x;
             }
             local_maximum_z = std::max(
-                local_maximum_z, std::abs(fields.velocity[cell].z));
+                local_maximum_z, std::abs(detail::fieldData(fields.velocity)[cell].z));
         }
         double centre_u = 0.0;
         double maximum_z = 0.0;

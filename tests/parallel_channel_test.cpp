@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -22,8 +24,8 @@ namespace {
 
 void configureChannelBoundaries(IncompressibleFields& fields) {
     const Mesh& mesh = fields.velocity.mesh();
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
-        switch (mesh.patches[static_cast<std::size_t>(patch)].kind) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
+        switch (detail::meshData(mesh).patches[static_cast<std::size_t>(patch)].kind) {
             case PatchKind::Inlet:
                 fields.velocity.setBoundary(
                     patch, BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
@@ -113,9 +115,9 @@ int main(int argc, char* argv[]) {
 
         Vec3 local_sum{};
         double local_max = 0.0;
-        for (Index cell : mesh.owned_cells) {
-            local_sum += fields.velocity[cell];
-            local_max = std::max(local_max, norm(fields.velocity[cell]));
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            local_sum += detail::fieldData(fields.velocity)[cell];
+            local_max = std::max(local_max, norm(detail::fieldData(fields.velocity)[cell]));
         }
         const double local_sum_values[3] = {
             local_sum.x, local_sum.y, local_sum.z};

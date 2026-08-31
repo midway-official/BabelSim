@@ -1,18 +1,13 @@
 #pragma once
 
 #include "babelsim/parallel.h"
+#include "babelsim/result.h"
 
 #include <filesystem>
 #include <string>
 #include <vector>
 
 namespace babelsim {
-
-struct FieldOutputInfo {
-    std::string name;
-    std::string type;
-    FieldLocation location = FieldLocation::Cell;
-};
 
 // 每个进程仅在 <time>/rank-0000/ 下写出自己拥有的实体；独立后处理器按全局 ID
 // 合并这些文件。

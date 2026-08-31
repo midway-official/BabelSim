@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -19,7 +21,7 @@ int main() {
     const Mesh mesh = Mesh::cartesian(
         {n, n, n}, {0, 0, 0}, {1, 1, 1}, patches);
     IncompressibleFields fields(mesh);
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         fields.velocity.setBoundary(
             patch, BoundaryCondition<Vec3>::fixedValue({}));
     }
@@ -61,8 +63,8 @@ int main() {
 
     const Index lower_centre = mesh.cellId(n / 2 - 1, n / 2 - 1, n / 2 - 1);
     const Index upper_centre = mesh.cellId(n / 2 - 1, n / 2 - 1, n / 2);
-    const Vec3 lower = fields.velocity[lower_centre];
-    const Vec3 upper = fields.velocity[upper_centre];
+    const Vec3 lower = detail::fieldData(fields.velocity)[lower_centre];
+    const Vec3 upper = detail::fieldData(fields.velocity)[upper_centre];
     require(
         0.5 * (lower.x + upper.x) < -0.02,
         "3D cavity primary vortex is missing");
@@ -74,7 +76,7 @@ int main() {
     double maximum_spanwise_velocity = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         maximum_spanwise_velocity = std::max(
-            maximum_spanwise_velocity, std::abs(fields.velocity[cell].z));
+            maximum_spanwise_velocity, std::abs(detail::fieldData(fields.velocity)[cell].z));
     }
     require(
         maximum_spanwise_velocity > 1e-4,

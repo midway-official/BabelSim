@@ -1,3 +1,4 @@
+#include "internal/mesh_access.h"
 #include "babelsim/distributed_solver.h"
 
 #include <Eigen/IterativeLinearSolvers>
@@ -42,25 +43,25 @@ struct DistributedLinearSolver::Implementation {
         mesh.validate();
         config.validate();
         if (!parallel.distributed() ||
-            mesh.ownedCellCount() >= mesh.cellCount()) {
+            detail::ownedCellCount(mesh) >= mesh.cellCount()) {
             throw std::invalid_argument(
                 "distributed solver requires a decomposed multi-rank mesh");
         }
         for (Index face = 0; face < mesh.faceCount(); ++face) {
             const auto f = static_cast<std::size_t>(face);
-            const Index owner = mesh.face_owner[f];
-            const Index neighbour = mesh.face_neighbour[f];
+            const Index owner = detail::meshData(mesh).face_owner[f];
+            const Index neighbour = detail::meshData(mesh).face_neighbour[f];
             if (neighbour == invalid_index ||
-                mesh.isOwned(owner) == mesh.isOwned(neighbour)) {
+                detail::isOwned(mesh, owner) == detail::isOwned(mesh, neighbour)) {
                 continue;
             }
-            if (mesh.isOwned(owner)) {
-                remote.push_back({mesh.ownedIndex(owner), neighbour, face, true});
+            if (detail::isOwned(mesh, owner)) {
+                remote.push_back({detail::ownedIndex(mesh, owner), neighbour, face, true});
             } else {
-                remote.push_back({mesh.ownedIndex(neighbour), owner, face, false});
+                remote.push_back({detail::ownedIndex(mesh, neighbour), owner, face, false});
             }
         }
-        const Eigen::Index rows = mesh.ownedCellCount();
+        const Eigen::Index rows = detail::ownedCellCount(mesh);
         residual.resize(rows);
         matrix_product.resize(rows);
         shadow.resize(rows);
@@ -97,8 +98,8 @@ struct DistributedLinearSolver::Implementation {
     }
 
     void setMatrix(const Eigen::SparseMatrix<double>& value) {
-        if (value.rows() != mesh.ownedCellCount() ||
-            value.cols() != mesh.ownedCellCount()) {
+        if (value.rows() != detail::ownedCellCount(mesh) ||
+            value.cols() != detail::ownedCellCount(mesh)) {
             throw std::invalid_argument("distributed local matrix size is invalid");
         }
         matrix = value;
@@ -191,8 +192,8 @@ struct DistributedLinearSolver::Implementation {
 
     void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
         output.noalias() = matrix * input;
-        for (std::size_t owned = 0; owned < mesh.owned_cells.size(); ++owned) {
-            const Index cell = mesh.owned_cells[owned];
+        for (std::size_t owned = 0; owned < detail::meshData(mesh).owned_cells.size(); ++owned) {
+            const Index cell = detail::meshData(mesh).owned_cells[owned];
             local_values[static_cast<std::size_t>(cell)] = input[
                 static_cast<Eigen::Index>(owned)];
         }
@@ -530,7 +531,7 @@ SolveResult DistributedLinearSolver::solve(
     if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
     auto& state = *m_implementation;
     if (!state.pattern_ready || !state.equation_ready || state.matrix.rows() == 0 ||
-        b.size() != state.mesh.ownedCellCount()) {
+        b.size() != detail::ownedCellCount(state.mesh)) {
         throw std::invalid_argument("distributed linear system is not prepared");
     }
     if (!state.config.warm_start || x.size() != b.size()) {

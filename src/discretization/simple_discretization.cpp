@@ -1,33 +1,10 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "internal/simple_discretization.h"
-#include "internal/equation_control.h"
 #include "babelsim/operators.h"
-#include "babelsim/runtime.h"
 
 namespace babelsim {
 
-namespace simple {
-
-std::array<SolveResult, 3> solveMomentumEquation(
-    const VectorEquationDefinition& equation,
-    double relaxation,
-    ScalarField& rAU)
-{
-    VectorEquationControl control;
-    control.relaxation = relaxation;
-    control.mobility = &rAU;
-    return detail::solve(equation, control);
-}
-
-SolveResult solvePressureCorrectionEquation(
-    const ScalarEquationDefinition& equation,
-    bool fix_reference)
-{
-    ScalarEquationControl control;
-    control.fix_reference = fix_reference;
-    return detail::solve(equation, control);
-}
-
-}  // simple 命名空间
 
 namespace detail {
 
@@ -51,12 +28,12 @@ void applyMomentumInterpolation(
     require_field(face_mobility, FieldLocation::Face);
     require_field(face_pressure_response, FieldLocation::Face);
     require_field(predicted_flux, FieldLocation::Face);
-    for (Index face : mesh.owned_faces) {
+    for (Index face : detail::meshData(mesh).owned_faces) {
         const std::size_t index = static_cast<std::size_t>(face);
-        if (mesh.face_neighbour[index] == invalid_index) continue;
-        predicted_flux[face] +=
-            dot(face_pressure_response[face], mesh.face_area_vectors[index]) -
-            face_mobility[face] * integratedNormalGradient(
+        if (detail::meshData(mesh).face_neighbour[index] == invalid_index) continue;
+        detail::fieldData(predicted_flux)[face] +=
+            dot(detail::fieldData(face_pressure_response)[face], detail::meshData(mesh).face_area_vectors[index]) -
+            detail::fieldData(face_mobility)[face] * integratedNormalGradient(
                 pressure, pressure_gradient, face, method);
     }
 }

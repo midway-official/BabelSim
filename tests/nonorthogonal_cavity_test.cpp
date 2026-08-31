@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -52,7 +54,7 @@ int main() {
         const auto f = static_cast<std::size_t>(face);
         maximum_nonorthogonal_ratio = std::max(
             maximum_nonorthogonal_ratio,
-            norm(mesh.face_non_orthogonal[f]) / mesh.face_areas[f]);
+            norm(detail::meshData(mesh).face_non_orthogonal[f]) / detail::meshData(mesh).face_areas[f]);
     }
     require(
         maximum_nonorthogonal_ratio > 0.05,
@@ -107,7 +109,7 @@ int main() {
     require(result.converged, "non-orthogonal cavity SIMPLE did not converge");
     const Index centre = mesh.cellId(n / 2 - 1, n / 2 - 1, 0);
     require(
-        fields.velocity[centre].x < -0.04,
+        detail::fieldData(fields.velocity)[centre].x < -0.04,
         "non-orthogonal cavity primary vortex is missing");
     require(
         result.continuity.relative <= control.continuity_tolerance,
@@ -116,6 +118,6 @@ int main() {
     std::cout << "nonorthogonal_cavity_test: cells=" << mesh.cellCount()
               << " iterations=" << iterations
               << " mass=" << result.continuity.relative
-              << " centreU=" << fields.velocity[centre].x
+              << " centreU=" << detail::fieldData(fields.velocity)[centre].x
               << " maxKbySf=" << maximum_nonorthogonal_ratio << '\n';
 }

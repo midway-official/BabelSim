@@ -1,13 +1,19 @@
 #pragma once
 
 #include "babelsim/field.h"
-#include "babelsim/methods.h"
 
 namespace babelsim::fvc {
 
 // fvc 描述“立即计算为场”的显式有限体积运算。描述对象只保存 Field 引用；
-// RunTime::evaluate() 才会选择方法、同步 halo 并写入调用者提供的结果场。
+// evaluate()/subtract() 才执行：所有参与进程以相同顺序调用，后端同步所有输入、
+// 选择离散方法，并同步写出的结果。调用者不负责 halo；同位输入与结果不得别名。
+// 单面/单元局部核不属于公开 fvc API。
 struct ScalarGradient {
+    const ScalarField& field;
+};
+
+// 每个面的外法向梯度；执行时自动重构单元梯度、同步输入并修正非正交性。
+struct NormalGradient {
     const ScalarField& field;
 };
 
@@ -20,7 +26,7 @@ struct FaceFlux {
 };
 
 // 标量扩散面通量：coefficient * Sf·grad(field)。coefficient 可位于 cell 或 face，
-// Runtime 负责同步、插值和梯度工作区。
+// FVM 执行层负责同步、插值和梯度工作区。
 struct ScalarDiffusionFlux {
     const ScalarField& coefficient;
     const ScalarField& field;
@@ -68,19 +74,8 @@ struct ScalarLaplacian {
     const ScalarField* coefficient_field = nullptr;
 };
 
-// 面法向梯度的面积积分，是扩散和压力修正共享的显式面量。
-double integratedNormalGradient(
-    const ScalarField& field,
-    const VectorField& gradient,
-    Index face,
-    DiffusionMethod method = DiffusionMethod::Corrected);
-Vec3 integratedNormalGradient(
-    const VectorField& field,
-    const TensorField& gradient,
-    Index face,
-    DiffusionMethod method = DiffusionMethod::Corrected);
-
 inline ScalarGradient grad(const ScalarField& field) { return {field}; }
+inline NormalGradient normalGradient(const ScalarField& field) { return {field}; }
 inline VectorGradient grad(const VectorField& field) { return {field}; }
 inline FaceFlux flux(const VectorField& velocity) { return {velocity}; }
 inline ScalarDiffusionFlux flux(
@@ -121,5 +116,25 @@ inline ScalarLaplacian laplacian(
 {
     return {field, 1.0, &diffusivity};
 }
+
+void evaluate(ScalarGradient operation, VectorField& result);
+void evaluate(NormalGradient operation, ScalarField& result);
+void evaluate(ScalarDiffusionFlux operation, ScalarField& result);
+void evaluate(VectorGradient operation, TensorField& result);
+void evaluate(FaceFlux operation, ScalarField& result);
+void evaluate(FaceDivergence operation, ScalarField& result);
+void evaluate(VectorDivergence operation, ScalarField& result);
+void evaluate(ScalarConvection operation, ScalarField& result);
+void evaluate(VectorConvection operation, VectorField& result);
+void evaluate(ScalarInterpolation operation, ScalarField& result);
+void evaluate(VectorInterpolation operation, VectorField& result);
+void evaluate(ScalarReconstruction operation, ScalarField& result);
+void evaluate(VectorReconstruction operation, VectorField& result);
+void evaluate(ScalarLaplacian operation, ScalarField& result);
+void subtract(
+    const ScalarField& coefficient,
+    ScalarGradient operation,
+    VectorField& target);
+void subtract(ScalarDiffusionFlux operation, ScalarField& target);
 
 }  // babelsim::fvc 命名空间

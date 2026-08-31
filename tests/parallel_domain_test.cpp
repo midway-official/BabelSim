@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/parallel.h"
 #include "babelsim/assembly.h"
 #include "babelsim/distributed_solver.h"
@@ -27,44 +29,44 @@ int main(int argc, char* argv[]) {
             {8, 3, 2}, {0, 0, 0}, {2, 1, 0.5});
         const Mesh local = decompose(global, parallel);
         require(
-            parallel.sum(local.ownedCellCount()) == global.cellCount(),
+            parallel.sum(detail::ownedCellCount(local)) == global.cellCount(),
             "owned cell counts do not cover the global mesh");
         require(
-            local.ownedCellCount() == 24 && local.ghost_layers == 2,
+            detail::ownedCellCount(local) == 24 && detail::meshData(local).ghost_layers == 2,
             "unexpected local ownership or halo width");
 
         HaloExchange halo(local, parallel);
         ScalarField scalar(local, FieldLocation::Cell, "scalar", -1.0);
         VectorField vector(local, FieldLocation::Cell, "vector", {-1, -1, -1});
-        for (Index cell : local.owned_cells) {
-            const double id = local.globalCellId(cell);
-            scalar[cell] = id + 0.25;
-            vector[cell] = {id, 2.0 * id, -id};
+        for (Index cell : detail::meshData(local).owned_cells) {
+            const double id = detail::globalCellId(local, cell);
+            detail::fieldData(scalar)[cell] = id + 0.25;
+            detail::fieldData(vector)[cell] = {id, 2.0 * id, -id};
         }
         halo.exchange(scalar);
         halo.exchange(vector);
         for (Index cell = 0; cell < local.cellCount(); ++cell) {
-            const double id = local.globalCellId(cell);
+            const double id = detail::globalCellId(local, cell);
             require(
-                near(scalar[cell], id + 0.25) &&
-                near(vector[cell], {id, 2.0 * id, -id}),
+                near(detail::fieldData(scalar)[cell], id + 0.25) &&
+                near(detail::fieldData(vector)[cell], {id, 2.0 * id, -id}),
                 "halo exchange did not reconstruct global cell values");
         }
 
         TensorField tensor(local, FieldLocation::Cell, "tensor");
-        for (Index cell : local.owned_cells) {
-            const double id = local.globalCellId(cell);
-            tensor[cell].rows[0] = {id, id + 1.0, id + 2.0};
-            tensor[cell].rows[1] = {id + 3.0, id + 4.0, id + 5.0};
-            tensor[cell].rows[2] = {id + 6.0, id + 7.0, id + 8.0};
+        for (Index cell : detail::meshData(local).owned_cells) {
+            const double id = detail::globalCellId(local, cell);
+            detail::fieldData(tensor)[cell].rows[0] = {id, id + 1.0, id + 2.0};
+            detail::fieldData(tensor)[cell].rows[1] = {id + 3.0, id + 4.0, id + 5.0};
+            detail::fieldData(tensor)[cell].rows[2] = {id + 6.0, id + 7.0, id + 8.0};
         }
         halo.exchange(tensor);
         for (Index cell = 0; cell < local.cellCount(); ++cell) {
-            const double id = local.globalCellId(cell);
+            const double id = detail::globalCellId(local, cell);
             for (std::size_t row = 0; row < 3; ++row) {
                 for (std::size_t column = 0; column < 3; ++column) {
                     require(
-                        near(tensor[cell].rows[row][column],
+                        near(detail::fieldData(tensor)[cell].rows[row][column],
                              id + 3.0 * row + column),
                         "tensor cell halo exchange did not reconstruct values");
                 }
@@ -80,26 +82,26 @@ int main(int argc, char* argv[]) {
             static_cast<double>(parallel.rank + 10),
             static_cast<double>(parallel.rank + 20)});
         halo.exchange(face_vector);
-        for (Index cell : local.owned_cells) {
-            const Index i = cell % local.dimensions[0];
-            if (i == local.owned_i_begin && parallel.rank > 0) {
-                const Index face = local.cell_faces[static_cast<std::size_t>(cell)]
+        for (Index cell : detail::meshData(local).owned_cells) {
+            const Index i = cell % detail::meshData(local).dimensions[0];
+            if (i == detail::meshData(local).owned_i_begin && parallel.rank > 0) {
+                const Index face = detail::meshData(local).cell_faces[static_cast<std::size_t>(cell)]
                     [static_cast<std::size_t>(Side::XMin)];
                 require(
-                    near(face_field[face], 0.0),
+                    near(detail::fieldData(face_field)[face], 0.0),
                     "face-centred halo exchange failed on the left interface");
                 require(
-                    near(face_vector[face], {0.0, 10.0, 20.0}),
+                    near(detail::fieldData(face_vector)[face], {0.0, 10.0, 20.0}),
                     "vector face halo exchange failed on the left interface");
             }
-            if (i == local.owned_i_end - 1 && parallel.rank + 1 < parallel.size) {
-                const Index face = local.cell_faces[static_cast<std::size_t>(cell)]
+            if (i == detail::meshData(local).owned_i_end - 1 && parallel.rank + 1 < parallel.size) {
+                const Index face = detail::meshData(local).cell_faces[static_cast<std::size_t>(cell)]
                     [static_cast<std::size_t>(Side::XMax)];
                 require(
-                    near(face_field[face], 0.0),
+                    near(detail::fieldData(face_field)[face], 0.0),
                     "face-centred owner-authoritative exchange changed the owner");
                 require(
-                    near(face_vector[face], {0.0, 10.0, 20.0}),
+                    near(detail::fieldData(face_vector)[face], {0.0, 10.0, 20.0}),
                     "vector face owner-authoritative exchange changed the owner");
             }
         }
@@ -111,9 +113,9 @@ int main(int argc, char* argv[]) {
         affine.setBoundary(
             static_cast<Index>(Side::XMax),
             BoundaryCondition<double>::fixedValue(5.0));
-        for (Index cell : local.owned_cells) {
-            affine[cell] = 2.0 *
-                local.cell_centres[static_cast<std::size_t>(cell)].x + 1.0;
+        for (Index cell : detail::meshData(local).owned_cells) {
+            detail::fieldData(affine)[cell] = 2.0 *
+                detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x + 1.0;
         }
         halo.exchange(affine);
         VectorField affine_gradient(
@@ -122,22 +124,22 @@ int main(int argc, char* argv[]) {
         ScalarField affine_faces(
             local, FieldLocation::Face, "affineFaces");
         interpolate(affine, affine_faces);
-        for (Index cell : local.owned_cells) {
+        for (Index cell : detail::meshData(local).owned_cells) {
             require(
-                near(affine_gradient[cell], {2.0, 0.0, 0.0}, 1e-10),
+                near(detail::fieldData(affine_gradient)[cell], {2.0, 0.0, 0.0}, 1e-10),
                 "distributed Green-Gauss gradient is incorrect");
         }
         for (Index face = 0; face < local.faceCount(); ++face) {
             const auto f = static_cast<std::size_t>(face);
-            if (!local.isOwned(local.face_owner[f]) &&
-                (local.face_neighbour[f] == invalid_index ||
-                 !local.isOwned(local.face_neighbour[f]))) {
+            if (!detail::isOwned(local, detail::meshData(local).face_owner[f]) &&
+                (detail::meshData(local).face_neighbour[f] == invalid_index ||
+                 !detail::isOwned(local, detail::meshData(local).face_neighbour[f]))) {
                 continue;
             }
             require(
                 near(
-                    affine_faces[face],
-                    2.0 * local.face_centres[f].x + 1.0,
+                    detail::fieldData(affine_faces)[face],
+                    2.0 * detail::meshData(local).face_centres[f].x + 1.0,
                     1e-10),
                 "distributed interpolation is incorrect");
         }
@@ -145,7 +147,7 @@ int main(int argc, char* argv[]) {
         VectorField constant_velocity(
             local, FieldLocation::Cell, "constantVelocity", {1.0, 0.2, -0.1});
         for (Index patch = 0;
-             patch < static_cast<Index>(global.patches.size()); ++patch) {
+             patch < static_cast<Index>(detail::meshData(global).patches.size()); ++patch) {
             constant_velocity.setBoundary(
                 patch,
                 BoundaryCondition<Vec3>::fixedValue({1.0, 0.2, -0.1}));
@@ -156,9 +158,9 @@ int main(int argc, char* argv[]) {
             local, FieldLocation::Cell, "divVelocity");
         flux(constant_velocity, face_flux);
         divergence(face_flux, velocity_divergence);
-        for (Index cell : local.owned_cells) {
+        for (Index cell : detail::meshData(local).owned_cells) {
             require(
-                std::abs(velocity_divergence[cell]) < 1e-11,
+                std::abs(detail::fieldData(velocity_divergence)[cell]) < 1e-11,
                 "distributed constant-field divergence is not zero");
         }
 
@@ -166,9 +168,9 @@ int main(int argc, char* argv[]) {
         // 不依赖 SIMPLE。
         ScalarField previous(local, FieldLocation::Cell, "previous", 0.0);
         ScalarField older(local, FieldLocation::Cell, "older", 0.0);
-        for (Index cell : local.owned_cells) {
-            previous[cell] = 1.0 + local.cell_centres[static_cast<std::size_t>(cell)].x;
-            older[cell] = previous[cell] - 0.1;
+        for (Index cell : detail::meshData(local).owned_cells) {
+            detail::fieldData(previous)[cell] = 1.0 + detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x;
+            detail::fieldData(older)[cell] = detail::fieldData(previous)[cell] - 0.1;
         }
         halo.exchange(previous);
         halo.exchange(older);
@@ -187,7 +189,7 @@ int main(int argc, char* argv[]) {
         generic_assembly.update(convection_equation);
         generic_assembly.update(corrected_equation);
         require(
-            generic_assembly.matrix().rows() == local.ownedCellCount(),
+            generic_assembly.matrix().rows() == detail::ownedCellCount(local),
             "generic distributed operators generated ghost matrix rows");
 
         ScalarDiscreteEquation equation(local);
@@ -195,18 +197,18 @@ int main(int argc, char* argv[]) {
         SparseAssembly assembly(local);
         assembly.update(equation);
         require(
-            assembly.matrix().rows() == local.ownedCellCount() &&
-            assembly.matrix().cols() == local.ownedCellCount(),
+            assembly.matrix().rows() == detail::ownedCellCount(local) &&
+            assembly.matrix().cols() == detail::ownedCellCount(local),
             "distributed sparse assembly contains ghost rows");
         Eigen::VectorXd source;
         for (Index cell = 0; cell < local.cellCount(); ++cell) {
             equation.source[static_cast<std::size_t>(cell)] =
-                local.globalCellId(cell);
+                detail::globalCellId(local, cell);
         }
         assembleSource(equation, source);
-        for (Index cell : local.owned_cells) {
+        for (Index cell : detail::meshData(local).owned_cells) {
             require(
-                near(source[local.ownedIndex(cell)], local.globalCellId(cell)),
+                near(source[detail::ownedIndex(local, cell)], detail::globalCellId(local, cell)),
                 "distributed source assembly changed owned ordering");
         }
 
@@ -238,12 +240,12 @@ int main(int argc, char* argv[]) {
             diffusion_source, diffusion_solution);
         require(solve_result.converged(), "distributed PCG diffusion solve failed");
         double local_error = 0.0;
-        for (Index cell : local.owned_cells) {
+        for (Index cell : detail::meshData(local).owned_cells) {
             local_error = std::max(
                 local_error,
                 std::abs(
-                    diffusion_solution[local.ownedIndex(cell)] -
-                    local.cell_centres[static_cast<std::size_t>(cell)].x));
+                    diffusion_solution[detail::ownedIndex(local, cell)] -
+                    detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x));
         }
         double global_error = 0.0;
         parallel.maximum(&local_error, &global_error, 1);
@@ -267,10 +269,10 @@ int main(int argc, char* argv[]) {
         const Mesh skew = decompose(skew_global, parallel);
         HaloExchange skew_halo(skew, parallel);
         ScalarField skew_linear(skew, FieldLocation::Cell, "skewLinear");
-        for (Index cell : skew.owned_cells) {
+        for (Index cell : detail::meshData(skew).owned_cells) {
             const Vec3& point =
-                skew.cell_centres[static_cast<std::size_t>(cell)];
-            skew_linear[cell] =
+                detail::meshData(skew).cell_centres[static_cast<std::size_t>(cell)];
+            detail::fieldData(skew_linear)[cell] =
                 2.0 * point.x - 3.0 * point.y + 0.5 * point.z + 1.0;
         }
         skew_halo.exchange(skew_linear);
@@ -280,8 +282,8 @@ int main(int argc, char* argv[]) {
         laplacian(
             skew_linear, skew_laplacian,
             GradientMethod::LeastSquares, DiffusionMethod::Corrected);
-        for (Index cell : skew.owned_cells) {
-            const Index global_id = skew.globalCellId(cell);
+        for (Index cell : detail::meshData(skew).owned_cells) {
+            const Index global_id = detail::globalCellId(skew, cell);
             const Index global_i = global_id % skew_dimensions[0];
             const Index global_j =
                 (global_id / skew_dimensions[0]) % skew_dimensions[1];
@@ -290,10 +292,10 @@ int main(int argc, char* argv[]) {
             if ((global_i == 3 || global_i == 4) &&
                 global_j == 2 && global_k == 2) {
                 require(
-                    near(skew_gradient[cell], {2.0, -3.0, 0.5}, 1e-10),
+                    near(detail::fieldData(skew_gradient)[cell], {2.0, -3.0, 0.5}, 1e-10),
                     "MPI least-squares gradient failed at a partition face");
                 require(
-                    std::abs(skew_laplacian[cell]) < 1e-10,
+                    std::abs(detail::fieldData(skew_laplacian)[cell]) < 1e-10,
                     "MPI corrected Laplacian failed at a partition face");
             }
         }
@@ -305,10 +307,10 @@ int main(int argc, char* argv[]) {
             skew_linear, skew_faces,
             InterpolationMethod::Corrected, GradientMethod::LeastSquares);
         VectorField skew_velocity(skew, FieldLocation::Cell, "skewVelocity");
-        for (Index cell : skew.owned_cells) {
+        for (Index cell : detail::meshData(skew).owned_cells) {
             const Vec3& point =
-                skew.cell_centres[static_cast<std::size_t>(cell)];
-            skew_velocity[cell] = {
+                detail::meshData(skew).cell_centres[static_cast<std::size_t>(cell)];
+            detail::fieldData(skew_velocity)[cell] = {
                 point.x + 2.0 * point.y - 0.5 * point.z,
                 -point.x + 3.0 * point.z,
                 0.25 * point.x - point.y + 2.0 * point.z,
@@ -338,8 +340,8 @@ int main(int argc, char* argv[]) {
             GradientMethod::LeastSquares);
 
         double local_operator_error = 0.0;
-        for (Index cell : skew.owned_cells) {
-            const Index global_id = skew.globalCellId(cell);
+        for (Index cell : detail::meshData(skew).owned_cells) {
+            const Index global_id = detail::globalCellId(skew, cell);
             const Index global_i = global_id % skew_dimensions[0];
             const Index global_j =
                 (global_id / skew_dimensions[0]) % skew_dimensions[1];
@@ -351,14 +353,14 @@ int main(int argc, char* argv[]) {
             }
             local_operator_error = std::max(
                 local_operator_error,
-                std::abs(skew_divergence[cell] - 3.0));
-            for (Index face : skew.cell_faces[static_cast<std::size_t>(cell)]) {
+                std::abs(detail::fieldData(skew_divergence)[cell] - 3.0));
+            for (Index face : detail::meshData(skew).cell_faces[static_cast<std::size_t>(cell)]) {
                 const auto f = static_cast<std::size_t>(face);
-                const Vec3& point = skew.face_centres[f];
+                const Vec3& point = detail::meshData(skew).face_centres[f];
                 local_operator_error = std::max(
                     local_operator_error,
                     std::abs(
-                        skew_faces[face] -
+                        detail::fieldData(skew_faces)[face] -
                         (2.0 * point.x - 3.0 * point.y +
                          0.5 * point.z + 1.0)));
                 const Vec3 exact_velocity{
@@ -369,23 +371,23 @@ int main(int argc, char* argv[]) {
                 local_operator_error = std::max(
                     local_operator_error,
                     std::abs(
-                        skew_flux[face] -
-                        dot(exact_velocity, skew.face_area_vectors[f])));
+                        detail::fieldData(skew_flux)[face] -
+                        dot(exact_velocity, detail::meshData(skew).face_area_vectors[f])));
             }
             double row =
                 skew_convection.diagonal[static_cast<std::size_t>(cell)] *
-                    skew_linear[cell] -
+                    detail::fieldData(skew_linear)[cell] -
                 skew_convection.source[static_cast<std::size_t>(cell)];
-            for (Index face : skew.cell_faces[static_cast<std::size_t>(cell)]) {
+            for (Index face : detail::meshData(skew).cell_faces[static_cast<std::size_t>(cell)]) {
                 const auto f = static_cast<std::size_t>(face);
-                const Index owner = skew.face_owner[f];
-                const Index neighbour = skew.face_neighbour[f];
+                const Index owner = detail::meshData(skew).face_owner[f];
+                const Index neighbour = detail::meshData(skew).face_neighbour[f];
                 row += owner == cell
-                    ? skew_convection.upper[f] * skew_linear[neighbour]
-                    : skew_convection.lower[f] * skew_linear[owner];
+                    ? skew_convection.upper[f] * detail::fieldData(skew_linear)[neighbour]
+                    : skew_convection.lower[f] * detail::fieldData(skew_linear)[owner];
             }
             const double expected =
-                skew.cell_volumes[static_cast<std::size_t>(cell)] * 2.2;
+                detail::meshData(skew).cell_volumes[static_cast<std::size_t>(cell)] * 2.2;
             local_operator_error = std::max(
                 local_operator_error, std::abs(row - expected));
         }
@@ -416,13 +418,13 @@ int main(int argc, char* argv[]) {
             ++lines;
         }
         require(
-            lines == local.ownedCellCount() + 1,
+            lines == detail::ownedCellCount(local) + 1,
             "parallel output contains ghost cells or misses owned cells");
 
         if (parallel.rank == 0) {
             std::cout << "parallel_domain_test: global_cells="
                       << global.cellCount() << " ranks=" << parallel.size
-                      << " ghost_layers=" << local.ghost_layers
+                      << " ghost_layers=" << detail::meshData(local).ghost_layers
                       << " pcg_iterations=" << solve_result.iterations << '\n';
         }
     } catch (const std::exception& error) {

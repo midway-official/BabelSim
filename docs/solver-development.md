@@ -31,9 +31,9 @@
 `&` 表示使用 Case 已拥有的场；不要写成 `auto T = ...`，那会复制 Field，
 后续修改不再作用于 Case 自动输出的对象。可用 `auto&`，不必使用模板或自行管理所有权。
 
-## 2. 新增方程驱动 Solver：只新增一个源文件
+## 2. 仓库外新增 Solver：一个源文件，不修改框架
 
-例如开发扩散带体源的浓度方程。在 `src/physics/species/main.cpp` 写：
+例如开发扩散带体源的浓度方程。在自己的项目里创建 `species.cpp`：
 
 ```cpp
 #include "babelsim/case.h"
@@ -57,18 +57,35 @@ int runSpecies(Case& problem) {
 这就是完整 Solver，不需要再写 Case reader、执行入口类、析构函数或输出代码。
 也不需要同时提供一个专用头文件和 solveTransientXXX 库函数；原来的 Heat/Transport
 重复库式入口已经删除。测试需要内存输入时直接调用同一套通用数学 API。
-`Makefile` 自动收集 `src/physics/*/main.cpp`；只在
-`src/apps/solver_selection.cpp` 增加声明和一行显式选择：
+在同一文件加上启动入口：
 
 ```cpp
-int runSpecies(Case& problem);
-// 在 runSolver 内添加：
-if (problem.solver() == "species") return runSpecies(problem);
+#include "babelsim/application.h"
+
+int main(int argc, char* argv[]) {
+    return babelsim::runApplication(argc, argv, {"species", babelsim::runSpecies});
+}
 ```
 
-因此，最小开发量是**新增一个 Solver 文件，修改一个选择表文件**。不需要新增头文件、
-修改通用启动器、编写注册宏、继承基类或修改 MPI/代数层。复杂算法可按数学步骤拆文件，
-但不要把 SIMPLE 的多文件规模当作所有 PDE 的必需模板。
+编译自己的文件，再链接已构建的框架库：
+
+```bash
+g++ -std=c++17 -I/home/midway/BabelSim/include -c species.cpp -o species.o
+mpic++ species.o /home/midway/BabelSim/build/libbabelsim.a -o species
+./species -case ./case -time serial
+TMPDIR=/tmp mpirun -np 4 ./species -case ./case -time mpi4
+```
+
+Solver 编译不需要 MPI/Eigen 头或 `-Isrc`；最终用 MPI 链接器解决框架的并行依赖。
+这不是动态插件：每个可执行程序有一个简单的名称/函数表，可以注册多个 Solver。
+不修改 Framework、Case reader、Runtime、线性代数或内置应用，也不创建注册宏和基类。
+
+如果希望加入仓库内置命令，则将函数放入 `src/physics/species/main.cpp`，
+Makefile 自动收集该文件；在 `src/apps/babelsim_solve.cpp` 添加函数声明和
+`{"species", runSpecies}` 表项。这是选择内置分发方式的可选步骤，不是独立二次开发的前提。
+
+`tests/external/solver.cpp` 给出方程、双场耦合及矢量响应三个实际例子；
+`make test-external` 会将文件复制到临时目录，仅使用公开头和预编译库完成构建与 1/2/4 进程运行。
 
 `return 0` 表示计算成功，启动器保证最终输出；`return 2` 表示没有收敛。
 不得忽略求解失败后继续推进时间。配置和文件错误由框架给出路径/行号，并停止整个并行作业。
@@ -95,7 +112,7 @@ build/babelsim-post -case cases/species -time mpi4/all -format vtk tecplot
 ```
 
 打开 `post/mpi4/series.pvd` 即可查看时间序列。Solver 不关心进程数。
-不要自行写一个没有初始化 MPI 的 main，再用 mpirun 复制启动；应使用通用启动器。
+自定义 main 只调用 runApplication；不要自行处理 MPI 初始化、异常退出或最终输出。
 
 ## 4. 添加对流、变系数和边界
 
@@ -152,6 +169,27 @@ const double change = diagnostics::relativeChange(T, previous);
 带初值的重载创建不读取文件、也不自动输出的中间场；Case 拥有它，算法不管理分配或析构。
 这是数学上的赋值和变化范数，不是存储访问。初始边界是零梯度；需要别的数学条件时显式设置。
 
+所有场在 start/首次 loop 之前创建。validate() 只做校验，SimpleSolver 的构造不会
+抢先结束声明阶段；算法驱动主程序完成声明后调用 problem.start()。
+已有命名场在开始计算后仍能查找，但新名称会报错。Case 返回的引用必须保留 `&`，
+也不能超出 Case 生命周期。
+
+按坐标定义非均匀源或物性，不需要本地索引：
+
+```cpp
+VectorField& force = problem.vectorField("force", Vec3{});
+force.evaluate([](Vec3 x) { return Vec3{1.0 + x.y, 0.0, 0.0}; });
+problem.output(force);        // 派生 cell 场加入自动输出
+problem.output(force, false); // 取消输出
+```
+
+位置函数必须只依赖坐标和捕获的物理参数，不依赖进程数或调用次数。
+已知场的点值物性可写 k.evaluate(T, [](double temperature) { return 1.0 + 0.01*temperature; })；
+跨值类型也可用 energy.evaluate(U, [](Vec3 velocity) { return 0.5*squaredNorm(velocity); })。
+同网格同位置检查由框架完成，不向回调暴露存储指针。
+张量中间场用 tensorField(name, Tensor3{})；faceField/faceVectorField/faceTensorField
+创建面场。当前输出格式只保存 cell 场，选择面场或非 Case 自有场输出会报错。
+
 有限次耦合修正使用普通 `for` 循环是合理的，它表达数值算法；禁止的是手写
 cell/face 索引循环来实现已有离散。停止判据必须覆盖**全部耦合未知量**，不能只看一个场。
 `diagnostics::relativeChange` 已经是全局值，不能再写 rank 本地范数决定是否继续。
@@ -161,6 +199,24 @@ BDF2 首步自动用 Euler；当前 BDF2 只支持均匀步长，非整数步数
 
 只有算法确实跨多个模块复用时才建立类似 `SimpleSolver` 的算法对象。
 SIMPLE 的公开 API 是 loop、五个步骤和 converged；内部状态不属于普通调用者要学习的内容。
+
+## 方程控制和动量响应
+
+普通标量/矢量源统一使用 `fvm::source(F)` 或 `fvm::source(a,F)`。
+已知矢量场源不再需要转换成手写逐分量循环。
+
+```cpp
+SolveResult result = solveWithResponse(
+    fvm::div(phi, U) == -fvc::grad(p) + fvm::laplacian(nu, U),
+    rAU, relaxed(0.7));
+```
+
+rAU 是对角体积响应，不是矩阵引用。必须检查 result.converged()；
+它的缩放约定与框架 SIMPLE 一致，详见 [fvm/fvc](fvm-fvc.md)。
+
+对于相容的全 Neumann 标量 Poisson 方程，使用 `solve(equation, referenceValue(0.0))`
+指定零空间规范。这不是任意方程的通用点约束，不能用来代替固定值边界。
+通常 Solver 只用默认 solve；这些控制用于有明确数值需求的耦合算法。
 
 ## 6. 两类开发者的交接点
 
@@ -183,7 +239,7 @@ SIMPLE 的公开 API 是 loop、五个步骤和 converged；内部状态不属�
 
 维护者则从 architecture.md 的所有权与执行契约开始，读 Runtime、离散、代数和并行测试。
 `make test-architecture` 独立检查头文件依赖与层次约束，且已纳入下面两个测试目标。
-每次改变接口都跑 `make test test-workflow`，涉及执行层还需
+每次改变接口都跑 `make test test-workflow test-external`，涉及执行层还需
 `make test-mpi test-mpi-poiseuille`。
 
 当前仍有边界：显式操作有时需要一个命名结果场；没有一般表达式模板、自动单位检查、

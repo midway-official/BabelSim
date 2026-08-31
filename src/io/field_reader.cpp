@@ -1,3 +1,4 @@
+#include "internal/mesh_access.h"
 #include "babelsim/field_io.h"
 
 #include "babelsim/config.h"
@@ -55,8 +56,8 @@ private:
 };
 
 Index patchIndex(const Mesh& mesh, const std::string& name) {
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
-        if (mesh.patches[static_cast<std::size_t>(patch)].name == name) return patch;
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
+        if (detail::meshData(mesh).patches[static_cast<std::size_t>(patch)].name == name) return patch;
     }
     return invalid_index;
 }
@@ -118,7 +119,7 @@ void read(const std::filesystem::path& path, Field<T>& field, const char* type_n
     bool type = false;
     bool location = false;
     bool internal = false;
-    std::vector<bool> configured(field.mesh().patches.size(), false);
+    std::vector<bool> configured(detail::meshData(field.mesh()).patches.size(), false);
     while (!input.nextIs("}")) {
         const ConfigToken& entry = input.take();
         if (entry.text == "type") {
@@ -167,7 +168,7 @@ void read(const std::filesystem::path& path, Field<T>& field, const char* type_n
     for (Index patch = 0;
          patch < static_cast<Index>(configured.size()); ++patch) {
         if (!configured[static_cast<std::size_t>(patch)] &&
-            field.mesh().patches[static_cast<std::size_t>(patch)].kind ==
+            detail::meshData(field.mesh()).patches[static_cast<std::size_t>(patch)].kind ==
                 PatchKind::Processor) {
             field.setBoundary(patch, BoundaryCondition<T>::zeroGradient());
             configured[static_cast<std::size_t>(patch)] = true;

@@ -6,6 +6,7 @@ BabelSim 的选择名称为 `simple`。它解决稳态、常密度牛顿流体�
 ```cpp
 int runSimple(Case& problem) {
     SimpleSolver simple(problem);
+    problem.start();
     while (simple.loop()) {
         simple.solveMomentum();
         simple.solvePressure();
@@ -32,7 +33,7 @@ SIMPLE 算法本身仍是有状态的；复杂性没有被删掉，而是放在�
 | simple/simple_solver.cpp | 维护算法执行的人；步骤顺序检查和单次迭代入口 |
 | include/babelsim/simple.h | 普通调用者；简短算法接口 |
 | src/physics/simple/state.h | 框架/算法维护者；完整私有状态，只供本算法包含 |
-| simple_discretization.cpp | 数值核维护者；动量对角、压力参考和插值执行 |
+| simple_discretization.cpp | 数值核维护者；Rhie–Chow 逐面修正核 |
 
 此前 simple_case.cpp 混在一起的读入、外循环、日志和输出已经拆清：通用 Case 读入/输出，
 main 组织循环，convergence 输出数值诊断。没有为五个步骤新增五个 Manager 或接口基类。
@@ -45,10 +46,10 @@ main 组织循环，convergence 输出数值诊断。没有为五个步骤新增
 动量代码仍直接表达：
 
 ```cpp
-simple::solveMomentumEquation(
+solveWithResponse(
     fvm::div(rho, phi, U) ==
         -fvc::grad(p) + fvm::laplacian(mu, U),
-    relaxation, rAU);
+    rAU, relaxed(relaxation));
 ```
 
 rho 是密度，mu 是动力黏度。rAU 是带欠松弛的动量对角对应的体积/对角系数，
@@ -64,13 +65,17 @@ rho 是密度，mu 是动力黏度。rAU 是带欠松弛的动量对角对应的
 代码采用等价的正对角符号：
 
 ```cpp
-simple::solvePressureCorrectionEquation(
+solve(
     -fvm::laplacian(rAU, pPrime) == -fvm::source(divPhiHbyA),
-    fix_reference);
+    fix_reference ? referenceValue(0.0) : EquationControl{});
 ```
 
 随后欠松弛更新 p、用 fvc 修正 U 和 phi。压力参考、非正交显式项与通量修正保持原有数值路径；
 本轮没有以换一种 SIMPLE 公式来换取较短代码。
+
+动量响应和参考规范是通用公开求解能力，不再由 SIMPLE 专用转发函数提供。
+矢量 SolveResult 在后端合并三个分量；算法检查一次方程级结果即可。
+SimpleSolver 构造不关闭 Case 的声明阶段，组合算法可继续声明额外场；主程序最后调用 start()。
 
 pPrime/rAU/phiHbyA/UPrevious 是算法状态；梯度、面系数和散度是预分配数值工作场。
 不额外保存可由已有速度与压力梯度形成的 HbyA，避免无必要的整场存储。

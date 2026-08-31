@@ -1,3 +1,4 @@
+#include "internal/mesh_access.h"
 #include "babelsim/assembly.h"
 #include "babelsim/linear_solver.h"
 #include "babelsim/operators.h"
@@ -50,7 +51,7 @@ int main() {
 
     double maximum_error = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        const double exact = mesh.cell_centres[static_cast<std::size_t>(cell)].x;
+        const double exact = detail::meshData(mesh).cell_centres[static_cast<std::size_t>(cell)].x;
         maximum_error = std::max(
             maximum_error,
             std::abs(solution[static_cast<Eigen::Index>(cell)] - exact));

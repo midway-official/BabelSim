@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -53,12 +55,12 @@ int main() {
         const auto f = static_cast<std::size_t>(face);
         maximum_nonorthogonal_ratio = std::max(
             maximum_nonorthogonal_ratio,
-            norm(mesh.face_non_orthogonal[f]) / mesh.face_areas[f]);
+            norm(detail::meshData(mesh).face_non_orthogonal[f]) / detail::meshData(mesh).face_areas[f]);
         maximum_skewness_ratio = std::max(
             maximum_skewness_ratio,
-            norm(mesh.face_skewness[f]) /
-                std::cbrt(mesh.cell_volumes[
-                    static_cast<std::size_t>(mesh.face_owner[f])]));
+            norm(detail::meshData(mesh).face_skewness[f]) /
+                std::cbrt(detail::meshData(mesh).cell_volumes[
+                    static_cast<std::size_t>(detail::meshData(mesh).face_owner[f])]));
     }
     require(
         maximum_nonorthogonal_ratio > 0.05 && maximum_skewness_ratio > 1e-3,
@@ -66,7 +68,7 @@ int main() {
 
     IncompressibleFields fields(mesh);
     for (Index patch = 0;
-         patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+         patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         fields.velocity.setBoundary(
             patch, BoundaryCondition<Vec3>::fixedValue({}));
     }
@@ -108,12 +110,12 @@ int main() {
 
     const Index centre = mesh.cellId(n / 2, n / 2, n / 2);
     require(
-        fields.velocity[centre].x < -0.015,
+        detail::fieldData(fields.velocity)[centre].x < -0.015,
         "3D non-orthogonal cavity primary vortex is missing");
     double maximum_spanwise_velocity = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         maximum_spanwise_velocity = std::max(
-            maximum_spanwise_velocity, std::abs(fields.velocity[cell].z));
+            maximum_spanwise_velocity, std::abs(detail::fieldData(fields.velocity)[cell].z));
     }
     require(
         maximum_spanwise_velocity > 1e-4,
@@ -125,7 +127,7 @@ int main() {
     std::cout << "nonorthogonal_cavity_3d_test: cells=" << mesh.cellCount()
               << " iterations=" << iterations
               << " mass=" << result.continuity.relative
-              << " centreU=" << fields.velocity[centre].x
+              << " centreU=" << detail::fieldData(fields.velocity)[centre].x
               << " maxW=" << maximum_spanwise_velocity
               << " maxKbySf=" << maximum_nonorthogonal_ratio
               << " maxSkew=" << maximum_skewness_ratio << '\n';

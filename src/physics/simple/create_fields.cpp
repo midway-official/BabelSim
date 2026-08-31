@@ -87,7 +87,6 @@ SimpleSolver::SimpleSolver(Case& problem)
                           problem.properties().positive("dynamicViscosity")},
           simpleControl(problem.solution())))
 {
-    problem.validate();
     m_state->m_log = true;
 }
 

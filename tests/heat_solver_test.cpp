@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/runtime.h"
 
 #include "babelsim/fvm.h"
@@ -12,7 +14,7 @@ using namespace babelsim;
 int main() {
     const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0});
     ScalarField temperature(mesh, FieldLocation::Cell, "T", 1.0);
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         temperature.setBoundary(patch, BoundaryCondition<double>::fixedValue(0.0));
     }
 
@@ -31,7 +33,7 @@ int main() {
     require(result.converged(), "heat equation did not converge");
     require(!run_time.loop(), "heat run used an unexpected number of time steps");
     require(
-        near(temperature[0], 10.0 / 22.0, 1e-12),
+        near(detail::fieldData(temperature)[0], 10.0 / 22.0, 1e-12),
         "implicit heat equation does not match the one-cell FVM result");
     require(run_time.step() == 1, "runtime did not advance exactly one step");
 
@@ -40,7 +42,7 @@ int main() {
     ScalarField variable_temperature(mesh, FieldLocation::Cell, "Tv", 1.0);
     ScalarField heat_capacity(mesh, FieldLocation::Cell, "rhoCp", 2.0);
     ScalarField conductivity(mesh, FieldLocation::Cell, "k", 1.0);
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         variable_temperature.boundary(patch) = fixedValue(0.0);
     }
     const SolveResult variable_result = solve(
@@ -48,14 +50,14 @@ int main() {
             fvm::laplacian(conductivity, variable_temperature));
     require(variable_result.converged(), "variable-coefficient heat solve did not converge");
     require(
-        near(variable_temperature[0], 20.0 / 32.0, 1e-12),
+        near(detail::fieldData(variable_temperature)[0], 20.0 / 32.0, 1e-12),
         "field time/diffusion coefficients do not match the one-cell FVM result");
 
     // 同一 API 还接受材料场和热源场。温度相关材料只需在每步前更新 conductivity，
     // 不需要改动 FVM、运行时或 MPI 层。
     ScalarField field_temperature(mesh, FieldLocation::Cell, "Tf", 1.0);
     ScalarField field_source(mesh, FieldLocation::Cell, "Q", 0.0);
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         field_temperature.boundary(patch) = fixedValue(0.0);
     }
     const SolveResult field_result = solve(
@@ -63,6 +65,6 @@ int main() {
             fvm::laplacian(conductivity, field_temperature) + fvm::source(field_source));
     require(field_result.converged(), "Field-material heat step did not converge");
 
-    std::cout << "heat_solver_test: T=" << temperature[0]
+    std::cout << "heat_solver_test: T=" << detail::fieldData(temperature)[0]
               << " residual=" << result.relative_residual << '\n';
 }

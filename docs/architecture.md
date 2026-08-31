@@ -1,173 +1,136 @@
 # BabelSim 架构与维护边界
 
-本文面向框架维护者；普通 Solver 作者先读 [solver-development.md](solver-development.md)。
-精简的标准是：同一职责只有一个实现来源，依赖方向清楚，数值与生命周期契约不被削弱，
-而不是把必要的工作区删掉，或者把几百行代码藏进另一个 Manager。
+本文面向框架维护者。普通 Solver 作者先读 [开发指南](solver-development.md)：
+作者组合方程和算法；维护者负责这些数学操作如何离散、存储和并行执行。
 
-## 1. 本轮审计结论与处理
+## 本轮解决的问题
 
-| 审计发现 | 处理 | 保留的数值能力 |
-| --- | --- | --- |
-| Heat/Transport 的 Case 入口与库式入口重复方程、时间循环和结果类型 | 删除 thermal.h、transport.h 及两个 transient_* 实现；内存测试直接用 fvm/solve | 常数/Field 系数、时间历史、串并行求解 |
-| equation.h 只是旧名称转发，数学 Equation 与 LDU 容易混淆 | 删除兼容别名；唯一存储定义为 discrete_equation.h 中的 DiscreteEquation | 原来的连续 LDU 数组、跨分区面系数 |
-| SimpleControl 与 RuntimeControl 重复保存线性配置 | SimpleControl 只保留算法参数；线性配置仅归 RuntimeControl | 相同求解方法、容差和预条件器 |
-| 通用 operators.cpp 含 Rhie–Chow 专用核 | 专用核归 simple_discretization.cpp | 原公式、面遍历顺序与非正交法向梯度 |
-| 专用离散文件反向定义 SimpleSolver 私有工作区的方法 | 工作区与编排回到 physics/simple；专用数值层只接收数学方程/Field | 固定分配并复用工作场 |
-| 启动选择逻辑打包进核心库，声明位于公开数值头目录 | 声明/实现归 apps，只有启动器链接选择表 | 一个 Solver 函数加一项显式选择 |
-| 四种方法覆盖重复相同解析逻辑 | 一个文件内模板检查 Field 名重复，保留独立 enum | 原配置语法、类型检查、错误诊断 |
-| 非正交次数有单用途计数类，多个函数只做一次转发 | 使用普通修正循环和已有 fvc/Field API | 原求解次数与步骤顺序 |
+- 公开 fvc 曾混有不负责通信的单面内核。现在公开入口统一为整场 evaluate/subtract，
+  同步输入、执行离散并同步结果；局部内核仅供离散维护者使用。
+- 矢量源 Field、压力参考和对角响应原先只有内部算法能使用，现在提供通用数学 API。
+  SIMPLE 自己也使用这些入口，不保留另一套专用求解转发。
+- Case 校验曾顺便关闭声明阶段，SIMPLE 构造会妨碍组合算法继续创建场。
+  现在 validate 只校验；start/loop 才关闭声明。
+- 应用曾直接包含 MPI 生命周期和格式转换，外部 Solver 需要修改内置选择逻辑。
+  现在应用只提供显式 SolverEntry 表，公共 runApplication 负责启动。
+- Field/Mesh 的存储数组曾可被普通调用者修改。现在原始访问、分区和构造维护入口
+  位于 src/internal；公开接口只保留数学场操作和只读几何查询。
+- 原 RunTime 混合时间推进、表达式解释、LDU 装配和数值工作区。
+  现在 FVM 执行实现独立，不包含 RunTime 定义。
 
-没有增加新的框架类、继承层、Factory、Registry 或执行引擎。SIMPLE 的 State 不是新增抽象，
-只是把原有私有状态放回所属算法目录。
+## 实际层次和文件边界
 
-## 2. 实际层次与文件边界
+不是每个层次都必须是一个类，也不是一条继承链。Mesh/Field 是共享的数学数据，
+应用运行层组合 Case、时间与 FVM 执行；不存在通用算子反向依赖 SIMPLE 的关系。
 
-这不是一条严格的继承栈。Mesh/Field 是共享对象；RunTime 将数学操作、离散、代数与并行组合起来。
-应按以下职责判断依赖是否合理，而不是只看目录深度。
-
-| 层次 | 主要文件 | 负责什么 | 不负责什么 |
+| 层次 | 主要文件 | 职责 | 禁止依赖/承担 |
 | --- | --- | --- | --- |
-| 几何/拓扑 | mesh.h、vector.h；core/mesh.cpp | cell/face/patch、几何缓存、整数索引及局部分布映射 | MPI 调用、物理模型 |
-| 场/边界 | field.h | 标量/矢量/张量存储、位置、数学边界、通用场赋值 | 时间历史、离散方程、消息通信 |
-| 方法与数学描述 | methods.h、fvm.h、fvc.h；fvm_expression.cpp | 格式选择、轻量运算描述、lhs == rhs | 创建矩阵、求解或通信 |
-| 物理/算法 | physics/heat、transport、simple | PDE、物性、耦合顺序、收敛判断 | MPI、稀疏矩阵、逐 cell/face 存储处理 |
-| 通用离散 | operators.h；discretization/operators.cpp | 梯度、散度、对流、扩散、时间项与 BC 的离散 | SIMPLE 状态或具体热模型 |
-| 专用数值步骤 | internal/simple_discretization.h；simple_discretization.cpp | 动量响应、压力参考、Rhie–Chow 核；复用通用离散/执行接口 | 持有 SimpleSolver、Case 或算法工作区 |
-| 离散表示与装配 | discrete_equation.h、assembly.h；assembly.cpp | 唯一 LDU 表示、owned 行装配、稀疏结构缓存 | 物理方程选择、停止策略 |
-| 串行代数 | linear_solver.h；algebra/linear_solver.cpp | A/b/x、Krylov、预条件器 | Mesh、Field、装配、物理模型 |
-| 分布式代数 | distributed_solver.h；distributed_solver.cpp | owned 行、跨分区系数、halo matvec、全局点积 | 温度/压力等物理含义 |
-| 并行 | parallel.h、mpi_support.h；parallel/ | 分解、halo、归约、MPI 生命周期检查 | PDE、SIMPLE 停止规则 |
-| FVM 执行协调 | runtime.h；runtime/runtime.cpp | 时间历史、解释表达式、调用离散/代数、同步和诊断 | 读取物性、选择 Heat/SIMPLE |
-| Case/IO | case.h、各 IO 头；io/、parallel_writer.cpp | 输入校验、命名场所有权、按时间写结果 | 离散公式、算法外迭代 |
-| 应用 | apps/babelsim_solve.cpp、solver_selection.*、babelsim_post.cpp | 参数、MPI 进退、显式分派、独立后处理 | 物理方程与求解器工作场 |
+| 几何/拓扑 | mesh.h、core/mesh.cpp | 几何、拓扑、构造校验、固定布局和缓存 | MPI 调用、物理模型 |
+| 场/边界 | field.h | scalar/vector/tensor、位置、数学赋值、边界 | 离散、历史、通信 |
+| 数学描述 | fvm.h、fvc.h、fvm_expression.cpp | 轻量项与 lhs == rhs | 矩阵分配、通信、执行 |
+| 方法 | methods.h | enum 默认格式和按场名覆盖 | 物理算法状态 |
+| 通用离散核 | operators.cpp、internal/boundary_evaluation.h | 梯度/通量/扩散/时间项及边界离散 | Case、SIMPLE、RunTime |
+| FVM 执行 | internal/fvm_execution.h、discretization/fvm_execution.cpp | 表达式解释、历史、装配、工作区、同步、数值诊断 | Case、应用、具体 Physics、RunTime 定义 |
+| 离散/装配 | discrete_equation.h、assembly.cpp | LDU、owned 行及稀疏结构 | 温度/压力物理意义 |
+| 代数 | algebra/ | 串行和分布式求解、全局点积 | Case、Physics |
+| 并行 | parallel/ | 分解、halo、归约、MPI 校验 | PDE、算法停止策略 |
+| 时间与运行 | runtime/runtime.cpp | 活动运行域、时间、后端生命周期 | LDU/装配公式和工作数组 |
+| 数学 API 绑定 | runtime/solver_api.cpp | 将公开 solve/fvc/diagnostics 交给活动 FVM 后端；失败日志 | 离散实现、物理方程 |
+| 应用启动 | application.h、runtime/application.cpp | 参数、MPI 初始化/销毁、显式分派与失败退出 | 内置物理分支 |
+| Case/IO | case.h、io/、parallel_writer.cpp | 配置、命名场所有权、时间输出 | 求解物理方程 |
+| 结果/后处理 | result.h、result_reader.cpp、postprocess.cpp | 文件验证、合并、VTU/PVD/Tecplot | MPI 运行依赖 |
+| Physics/算法 | physics/heat、transport、simple | 方程、耦合、修正、收敛 | 存储、MPI、代数实现 |
+| 应用文件 | apps/babelsim_solve.cpp、babelsim_post.cpp | 内置选择表/调用公共启动函数 | MPI API、格式细节 |
 
-分布式代数知道 Mesh 的 owned/ghost 映射和离散面的代数耦合，是当前 FVM 并行实现的必要契约，
-不等于知道 Navier–Stokes。串行线性求解器不需要这些内容，已移除它经 assembly.h 间接引入的几何依赖。
+RunTime 仍选择当前唯一 FVM 后端，不是假称已具备任意后端插件能力。
+但 FVM 执行者只接收网格、方法、线性配置、并行能力和步长，不知道应用时间循环。
+solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manager 类。
 
-SIMPLE 专用数值步骤可以调用通用执行接口；通用执行和通用算子不能反过来包含 SIMPLE。
-专用步骤也不能包含 physics/simple/state.h。物理算法负责准备工作场，数值核只消费所需数据。
+## Public Solver API
 
-## 3. Solver API 与维护接口
+- case.h：命名场、物性与算法参数、声明阶段、时间循环和输出选择。
+- field.h：数学边界、fill/assign/assignScaled/assignProduct/addProduct/evaluate。
+- fvm.h：隐式项、已知源、轻量表达式；Scalar/VectorEquationDefinition。
+- fvc.h：显式描述和整场 evaluate/subtract；单独包含即可使用。
+- solver.h：solve、solveWithResponse、relaxed、referenceValue、diagnostics。
+- simple.h：现成 SIMPLE 的步骤接口。
+- application.h：SolverEntry、runApplication；无需 Registry 或注册宏。
 
-普通 Solver 入口仍是：
+外部 Solver 仅需 include/ 和预编译 libbabelsim.a，不需要 -Isrc、Eigen 头或 MPI 头。
+普通编译器可编译 Solver；最终数值程序使用 MPI 链接器链接框架依赖。
+result_reader 则连 MPI 库也不需要。include/ 中还保留供维护者使用的代数/并行头，
+不能把“可包含”误认为“普通 Solver 应依赖”。
 
-- case.h：场、物性、时间和输出的统一问题入口；
-- solver.h：solve、显式求值和全局 diagnostics；
-- simple.h：使用现成 SIMPLE 时的算法步骤；
-- Field、Boundary、fvm/fvc：由上述头提供的数学对象与表达。
+src/internal/field_access.h、mesh_access.h 是维护通道，不作为外部 SDK 分发。
+它们内联访问原连续数组，不增加虚调用或元素复制。Mesh 的整体赋值、所有权/patch 修改
+均受限；普通 API 无法用替换 Mesh 或改数组的方式破坏已经绑定的 Field。
 
-include/babelsim 是可包含的头文件集合，不代表其中每个文件都应由普通 Solver 使用。
-runtime.h、discrete_equation.h、operators.h、assembly.h、linear_solver.h、parallel.h 是维护接口。
-目前用明确命名、包含闭包和源码检查区分，而不是再造一套包装 Field。
+## 生命周期与阶段
 
-所有 include/babelsim 头的项目依赖均留在 include/，不再从公开头包含 src/internal 文件。
-src/internal 只放框架内部的方程控制和专用数值桥接声明。
-SIMPLE 私有状态在 src/physics/simple/state.h；应用选择声明在 src/apps/solver_selection.h。
-动量、压力、主步骤及私有状态头均不包含 RunTime 定义，只有初始化与日志实现直接使用它。
+Case 拥有 Mesh、稳定地址的命名 Field、RunTime；销毁顺序为 FVM 后端/历史、Field、Mesh。
+返回的引用以及表达式借用的场必须活得比表达式的求值更久。
 
-测试构造一个小网格后可显式创建 RunTime，直接调用同一个 fvm/solve；不再为测试保留另一套
-固定物理方程库入口。Case 工作流测试实际运行生产 Heat/Transport 入口，防止单元测试与入口脱节。
+1. 声明：读物性和控制，读取/创建全部场，定义边界，选择输出。
+2. validate()：校验未消费参数，不关闭声明阶段，可重复执行。
+3. start()：校验并关闭声明；算法驱动主入口显式调用。loop() 会隐式调用 start()。
+4. 计算：可读取已有命名场，禁止再创建新场；loop 按物理时间推进和写出。
+5. finish()：只用于成功结果；公共启动器在返回 0 后调用。
 
-## 4. 生命周期与配置的唯一来源
+SimpleSolver 构造不再关闭 Case，组合算法可继续声明别的物理场。
+同一个线程仍只允许一个活动 Case/RunTime；多区域 Case、子通信器和 restart 尚未提供。
+外部 Solver 不应绕过 Case 创建短命未知量后让时间历史继续使用它。
 
-Case 拥有局部 Mesh、稳定地址的命名 Field 和 RunTime。析构顺序为：
-执行对象/历史/后端先释放，Field 再释放，Mesh 最后释放。外部引用不得超过 Case 的生存期。
+## 数学与同步契约
 
-带初值创建的中间场与输入场使用同一所有权机制，不默认写出。
-新场在进入计算前声明；Case::validate 会检查参数消费并关闭声明阶段，因此不是 const 操作。
-目前 SIMPLE 构造会调用该检查；新增耦合场/物性仍须在构造 SIMPLE 前声明/读取。
-这是当前工作流约束，不应被隐瞒成“任意顺序都可组合”。
+公开 fvc 的所有参与进程必须按相同顺序调用；先同步输入，执行指定方法，再同步结果。
+同位输入/输出别名会破坏直接求值顺序，因此 laplacian(T,T)、div(phi,U,U) 等被拒绝。
+Field 的局部数学赋值不通信；下一个 fvm/fvc 操作负责所需同步。
+Field::evaluate(function) 按位置定义初值/物性/源，函数必须与分区、调用次数无关。
 
-SIMPLE 保留固定分配的状态：
+source(a,F) 是已知体源，不是隐式线性化；支持 cell scalar/vector。
+referenceValue(c) 是相容、常数零空间标量方程的定值规范，不是任意方程的点值约束。
+它锚定固定全局参考单元；矢量方程使用该规范会被拒绝。
+solveWithResponse 返回 V/aP 数学场，沿用 SIMPLE 当前缩放形式的欠松弛对角，
+不暴露矩阵布局。线性收敛、数值健康、SIMPLE 外迭代收敛分别判断。
 
-| 状态 | 内容 |
+数学表达式只复制小描述符，不复制完整矩阵/Field。系数数组仍在离散方程建立时分配；
+稀疏结构、线性工作区、几何缓存及算法工作场复用，不宣称“零分配”。
+时间历史只在下一物理步推进一次，重复 solve 不推进时间层。
+
+## SIMPLE 的私有边界
+
+main 是算法流程；momentum/pressure 写数学方程与修正；create_fields 管理固定状态，
+convergence 处理全局结果和日志，state.h 仅属于该算法。
+Rhie–Chow 的逐面核位于 simple_discretization.cpp；通用 operators 不依赖它。
+动量响应和压力参考已改用通用 solveWithResponse/solve，不再是 SIMPLE 独占的内部入口。
+
+保留项必须如实区分：simple.h 的 unique_ptr 是私有所有权；算法初始化和日志仍访问
+内部 RunTime；非正交 for 是数学迭代，不是存储循环。普通主入口、动量、压力代码
+不访问 MPI、矩阵或原始 Field 数组。
+
+## 接口迁移
+
+| 旧接口/文件 | 当前替代 |
 | --- | --- |
-| 物理场引用 | U、p、phi，由 Case 或显式调用者拥有 |
-| 算法场 | pPrime、rAU、phiHbyA、UPrevious |
-| 数值缓存 | 压力梯度、面插值、散度 |
-| 执行顺序与结果 | 步骤枚举、迭代次数、线性/健康/外迭代结果 |
+| Field::data/mutableData/values/at/operator[] | 普通作者用数学场操作；维护者用 internal/field_access.h |
+| Mesh 公开数组、setOwnership/setPatches/addPatchFace、整体赋值 | 只读几何 API；维护者用 internal/mesh_access.h |
+| fvc::integratedNormalGradient 单面函数 | fvc::evaluate(fvc::normalGradient(p), result)；局部核留在 operators |
+| SIMPLE 专用求解转发 | solveWithResponse(eq,rAU,relaxed(alpha))；solve(eq,referenceValue(value)) |
+| detail::solve 与 ScalarEquationControl | 公开 EquationControl；矢量装配的可选响应仍是内部实现 |
+| apps/solver_selection.* | application.h 的显式表；内置表在 babelsim_solve.cpp，外部表在自己的 main |
+| RunTime 数值实现 | internal/fvm_execution.h 与 discretization/fvm_execution.cpp |
+| result_reader.h 经 parallel_writer.h 获取结构 | 独立 result.h，无 MPI 包含链 |
 
-SimpleControl 只保存最大次数、非正交次数、欠松弛和算法停止容差。
-RuntimeControl 保存 Methods、TimeControl、scalar_solver/vector_solver。
-不得再从 SimpleControl 复制一套“可能与实际运行不一致”的线性配置。
+此前删除的 thermal.h/transport.h 专用库式入口、equation.h 兼容别名及重复线性控制不恢复。
+存储维护 API 是有意的源码不兼容变化；仓库调用者和测试已迁移，不长期保留两套接口。
 
-## 5. 数学、数值和性能契约
+## 维护验收
 
-lhs == rhs 形成描述符列表；加减数学项不复制 LDU 或整场。
-真正 solve 时才选择方法并调用离散核；边界条件进入同一次离散。
-ScalarEquationDefinition/VectorEquationDefinition 是数学描述；
-ScalarDiscreteEquation/VectorDiscreteEquation 是明确命名的代数系数载体。
+- make test-architecture：真实头文件闭包、包含环、上下层边界及禁止的物理源码依赖。
+- make test-external：临时目录中只用公开 SDK 编译外部方程/耦合/矢量 Solver，
+  1/2/4 进程解析解验证；原始存储等十类负向编译；普通 g++ 链接结果读取器。
+- make test / test-workflow：算子、生命周期、Heat、Transport、SIMPLE、自动时间输出。
+- make test-mpi / test-mpi-poiseuille：halo、分布式代数、非正交 fvc、SIMPLE 和结果差异。
 
-fvm::source 是已知体源，不是源 Field 的隐式线性化；source(a,C) 复用描述符系数。
-数学符号 A/b/x、U/p/phi/rAU 保留原命名，不做没有语义收益的长名替换。
-
-几何、稀疏结构、线性求解工作区和 SIMPLE 整场缓存继续复用。
-当前表达式列表仍有小容器分配，Runtime 每次构造离散方程仍会分配其系数数组；
-本轮没有宣称“零分配”，也不通过删除安全检查或缓存来缩短代码。
-时间历史只在进入下一物理步时推进一次，内迭代重复 solve 不修改旧时间层。
-
-MPI、残差归约和通信顺序未改变。健康状态、线性收敛与外迭代收敛依然分别检查。
-非正交循环改用普通 for，但正交求一次、非正交追加修正的次数与顺序不变。
-
-## 6. 文件与编码规范
-
-- 一段生产 PDE 不同时维护 Case 版和库函数版；确有外部复用需求再设计共享入口。
-- 状态定义随所属算法放置；底层只接收最小数学/代数输入，不包含上层私有类。
-- 匿名命名空间收纳文件私有函数，避免把未声明的辅助符号导出到整个库。
-- 类成员使用 m_ 前缀；数学符号和简单值结构体字段保持直观命名。
-- 每个成员有明确初始化；借用的 Mesh/Field 必须覆盖所有使用者的生命周期。
-- 头文件直接包含必要声明，不通过偶然的传递 include 获取类型。
-- 注释解释数学、生命周期和性能理由；不用计数器类替代普通数值循环。
-- 不因精简改动浮点容差、预条件器、边界公式或进程间停止条件。
-- 无兼容需求的旧 API 必须迁移所有仓库调用者后删除，不留只做别名转发的长期层。
-
-## 7. 删除 API 的迁移表
-
-| 已删除/调整 | 现在使用 |
-| --- | --- |
-| thermal.h、solveTransientHeat、solveHeatStep、HeatResult | 普通入口写热方程；内存测试用 RunTime + solve，返回 SolveResult |
-| transport.h、solveTransientScalarTransport、ScalarTransportResult | 同一套 ddt/div/laplacian/solve |
-| equation.h、Equation<T>、ScalarEquation、VectorEquation | discrete_equation.h、DiscreteEquation<T>、ScalarDiscreteEquation、VectorDiscreteEquation |
-| SimpleControl.velocity_solver / pressure_solver | RuntimeControl.vector_solver / scalar_solver |
-| simpleRunTimeControl | 显式配置 RuntimeControl，不再复制两份控制 |
-| solvers.h | apps/solver_selection.h，仅供启动器链接 |
-| src/internal/simple_state.h | physics/simple/state.h，只有该算法实现包含 |
-| 两个单独的 equation_control 头 | internal/equation_control.h，统一内部方程控制 |
-
-仓库调用者和测试均随迁移调整；这些变更对直接使用旧维护接口的外部代码不保持源码兼容。
-普通 Case、Field、fvm/fvc、solve 和 SIMPLE 五步调用不变。
-
-## 8. 验证及审计范围
-
-make test-architecture 检查全部 src/include 项目头依赖：
-缺失 include、包含环、公开 Solver 头带入实现、底层依赖 Physics/应用、
-通用算子依赖 SIMPLE、串行代数依赖几何，以及被删重复入口重新出现。
-它同时由 make test 和 make test-workflow 运行；没有复制两份架构检查逻辑。
-
-该检查是包含图与源码级约束，不是所有函数调用关系、数值正确性或 ABI 的形式化证明。
-Field 仍公开维护者所需的原始数据接口，故不能宣称 C++ 类型系统已完全禁止误用。
-RunTime 当前是 FVM 执行协调器，尚不是任意离散后端的纯运行时。
-FDM/FEM、一般材料模型、restart、多区域和块耦合也不是本轮增加的功能。
-
-每轮精简后运行 make test、make test-workflow、make test-mpi、make test-mpi-poiseuille。
-源码检查通过之后仍要核对数值、并行停止次数、全局守恒和真实后处理读取结果。
-
-### 8.1 对剩余实现细节的逐项判断
-
-不能把“搜索到 C++ 语法”直接等同于抽象泄漏。复查 src/physics 与 SIMPLE 公开头后，
-按职责作如下判断：
-
-| 出现位置 | 内容 | 判断与边界 |
-| --- | --- | --- |
-| simple.h 私有成员 | unique_ptr<State> | 保留明确所有权和不完整类型隔离；Solver 作者无需创建/销毁 State，没有新增包装层 |
-| simple/create_fields.cpp | RunTime、Field 构造及初始化 | 属于现成算法的维护实现；普通入口只构造 SimpleSolver(problem)，动量/压力文件不包含 RunTime |
-| simple/convergence.cpp | RunTime::current().primary() | 仅限制日志输出；健康、线性与外迭代判据仍通过全局 diagnostics 计算，不以本地值控制进程 |
-| simple/convergence.cpp | 三个速度分量的 for | 数学结果合并，不是 cell/face 存储遍历；保留普通循环 |
-| simple/pressure.cpp | 非正交修正 for | 算法迭代本身，保留顺序与求解次数；不是底层内存操作 |
-| simple/momentum.cpp、pressure.cpp | fvc::evaluate、assign、assignProduct | 高层场运算并复用预分配缓存；不读取 data 或访问 cell/face 索引 |
-| simple/momentum.cpp | detail::applyMomentumInterpolation | 框架内专用数值接口，仅供算法维护者调用；拓扑遍历和公式实现归专用离散文件 |
-| internal/equation_control.h | 可选 mobility 指针 | 同步方程求解的借用输出，不拥有 Field；由专用数值入口传入，普通 Solver API 不暴露此控制对象 |
-
-当前 src/physics 没有 MPI API、通信缓冲、Eigen、稀疏矩阵操作、原始 Field data 访问，
-也没有逐 cell/face 手写循环。上述保留项不能被宣传为“整个 physics 目录只剩 PDE”；
-该目录也包含 SIMPLE 的算法维护实现。普通 Solver 主入口与这些内部实现的认知边界必须保持明确。
+这是可执行的边界与数值证据，不是 ABI 或任意外部程序正确性的形式化证明。
+当前未实现 FEM/FDM 后端、张量未知量求解、一般约束系统、多区域或动态插件。

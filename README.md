@@ -14,12 +14,13 @@ Method    该运算采用什么离散方式
 Equation  表达要求解的数学方程
 fvm/fvc   分别表达隐式离散项与显式场运算
 Case      提供命名场、物性、时间循环与自动结果序列
-RunTime   内部执行、时间历史与并行绑定；普通 Solver 不构造它
+RunTime   内部时间推进、运行域与后端生命周期；普通 Solver 不构造它
+FVM       表达式执行、时间历史、离散装配与数值工作区
 Physics   如何组合方程与算子解决具体物理问题
 ```
 
 `Equation` 的数学表达与内部离散 LDU 系统明确分离。Heat 与 SIMPLE 的 Physics 源码不接触
-MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 Runtime 自动处理。
+MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 FVM/代数/运行基础设施自动处理。
 
 Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
 采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE 和耦合算法采用
@@ -118,6 +119,7 @@ patch 元数据、点对点发送局部顶点；接收方只持有本地 owned+g
 ```bash
 make test                 # 几何、算子、case/field IO、Heat/标量输运/SIMPLE、通用输出
 make test-workflow        # 新 Solver 单函数开发、双场耦合、时间序列、真实 ParaView 读取
+make test-external        # 仓库外 Solver 构建、1/2/4 进程、负向 API 编译、无 MPI 结果读取器
 make test-mpi             # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
 make test-mpi-heat        # 1/2 rank 热传导场比较
 make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处理
@@ -130,11 +132,16 @@ make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 `nonOrthogonalCorrections` 设置压力修正右端项的显式迭代次数。串行测试还包含
 三维扭曲腔体，MPI 测试包含分区界面上的修正通用算子和 SIMPLE 私有耦合路径。
 
-新增普通 Solver 的最小工作量：一个 `src/physics/<name>/main.cpp` 函数，
-在 `src/apps/solver_selection.cpp` 中增加一项选择，再准备 Case。
+新增独立 Solver：自己的一个 C++ 源文件，用 `runApplication` 注册名称/函数，再准备 Case。
+只链接公开头和预编译库，不修改 BabelSim 核心或内置启动器。若希望加入内置命令，
+则新增 `src/physics/<name>/main.cpp`，并在 `src/apps/babelsim_solve.cpp` 的显式表登记。
 不需要专用 Case reader、RunTime、并行输出代码、注册宏或 Solver 基类。
 Heat、transport 的完整入口各自是一个短函数；SIMPLE 主循环明确列出五个算法步骤。
 输入场、命名中间场及其生命周期由 Case 管理，`solver.h` 不包含 Runtime/MPI/代数实现头。
+矢量场源、方程欠松弛、标量参考规范和动量对角响应均有公开数学入口。
+Field 原始指针/索引及 Mesh 缓存/分区修改已限制到内部维护接口；按位置定义场可用 evaluate。
+Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通过 output(field) 选择输出。
+公开 fvc 统一为整场同步契约，结果读取头和实现均不再要求 MPI。
 
 默认瞬态结果按 `output.bs` 中 `writeInterval` 保存（省略时每步写出），最终时刻总会保存。
 `-time mpi4/all` 后处理命名运行的完整序列；ParaView 打开对应的 `post/mpi4/series.pvd`。

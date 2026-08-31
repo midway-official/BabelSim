@@ -1,3 +1,5 @@
+#include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
 #include "babelsim/runtime.h"
@@ -15,8 +17,8 @@ namespace {
 
 void configureChannelBoundaries(IncompressibleFields& fields) {
     const Mesh& mesh = fields.velocity.mesh();
-    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
-        switch (mesh.patches[static_cast<std::size_t>(patch)].kind) {
+    for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
+        switch (detail::meshData(mesh).patches[static_cast<std::size_t>(patch)].kind) {
             case PatchKind::Inlet:
                 fields.velocity.setBoundary(
                     patch, BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
@@ -97,7 +99,7 @@ int main() {
         "SIMPLE converged without satisfying continuity");
 
     double maximum_z_velocity = 0.0;
-    for (const Vec3& velocity : fields.velocity.values()) {
+    for (const Vec3& velocity : detail::fieldValues(fields.velocity)) {
         maximum_z_velocity = std::max(maximum_z_velocity, std::abs(velocity.z));
         require(isFinite(velocity), "SIMPLE velocity contains a non-finite value");
     }

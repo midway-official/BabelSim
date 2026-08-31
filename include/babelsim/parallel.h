@@ -45,11 +45,11 @@ template <typename T>
 void copyBoundaryConditions(const Field<T>& global, Field<T>& local) {
     if (global.location() != FieldLocation::Cell ||
         local.location() != FieldLocation::Cell ||
-        global.mesh().patches.size() > local.mesh().patches.size()) {
+        global.mesh().patchCount() > local.mesh().patchCount()) {
         throw std::invalid_argument("boundary-condition copy fields are incompatible");
     }
     for (Index patch = 0;
-         patch < static_cast<Index>(global.mesh().patches.size()); ++patch) {
+         patch < global.mesh().patchCount(); ++patch) {
         local.setBoundary(patch, global.boundary(patch));
     }
 }

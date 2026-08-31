@@ -37,7 +37,8 @@ implementation_headers = {
     "runtime.h", "parallel.h", "mpi_support.h", "linear_solver.h", "assembly.h",
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
-for name in ("case.h", "solver.h", "simple.h", "simple_control.h"):
+for name in ("case.h", "solver.h", "fvc.h", "fvm.h", "application.h", "postprocess.h",
+             "result_reader.h", "simple.h", "simple_control.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)
         assert not re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path]), path
@@ -46,6 +47,21 @@ for name in ("case.h", "solver.h", "simple.h", "simple_control.h"):
 for path in (ROOT / "include").rglob("*.h"):
     assert all(dependency.is_relative_to(ROOT / "include")
                for dependency in closures[path]), path
+
+# 应用只声明 Solver 分派表；格式实现归 IO，MPI 生命周期归运行基础设施。
+for path in (ROOT / "src/apps").glob("*.cpp"):
+    for dependency in closures[path]:
+        assert dependency.name not in implementation_headers, (path, dependency)
+        assert not re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[dependency]), dependency
+    assert not re.search(r'MPI_|ParallelContext|HaloExchange|\.data\(|std::ofstream|'
+                         r'face_vertices|owned_cells', texts[path]), path
+
+# RunTime 负责运行生命周期与时间推进；FVM 的装配/工作区不能重新回到这个文件。
+runtime = texts[ROOT / "src/runtime/runtime.cpp"]
+assert not re.search(r'Eigen::|SparseAssembly|DiscreteEquation|FvmTerm|gradient_workspace', runtime)
+assert "integratedNormalGradient" not in texts[ROOT / "include/babelsim/fvc.h"]
+assert all(path.name != "runtime.h" for path in
+           closures[ROOT / "src/discretization/fvm_execution.cpp"])
 
 # 专用数值桥接可调用通用执行层，但底层不能导入 Solver 或它的私有状态。
 for path in files:
@@ -69,7 +85,8 @@ for path in files:
                              r'std::vector|SparseAssembly|Eigen::', texts[path]), path
 
 # 主 Solver 不操作底层对象；数值算法的修正循环不属于存储循环。
-for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [ROOT / "tests/examples/coupled_scalar.cpp"]:
+for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [
+        ROOT / "tests/examples/coupled_scalar.cpp", ROOT / "tests/external/solver.cpp"]:
     assert not re.search(r'MPI_|ParallelContext|HaloExchange|mutableData|\.data\(|'
                          r'std::vector|unique_ptr|shared_ptr|RunTime|SparseAssembly', path.read_text()), path
 control = texts[ROOT / "include/babelsim/simple_control.h"]
