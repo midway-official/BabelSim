@@ -1,4 +1,4 @@
-#include "babelsim/incompressible.h"
+#include "babelsim/simple.h"
 #include "babelsim/parallel.h"
 #include "babelsim/parallel_writer.h"
 

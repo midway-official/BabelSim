@@ -1,0 +1,15 @@
+field U
+{
+    type vector
+    location cell
+    internal uniform (1 0 0)
+    boundary
+    {
+        inlet { type fixedValue value (1 0 0) }
+        outlet { type zeroGradient }
+        lower { type symmetry }
+        upper { type symmetry }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

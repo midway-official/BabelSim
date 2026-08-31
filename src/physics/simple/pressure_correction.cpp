@@ -1,6 +1,4 @@
-#include "babelsim/incompressible.h"
-
-#include "internal/scalar_equation_control.h"
+#include "babelsim/simple.h"
 
 namespace babelsim {
 // 压力方程的第一次求解给出正交部分，后续求解用于显式非正交修正。调用点只表达
@@ -42,15 +40,13 @@ SimpleSolver::PressureEquationResult SimpleSolver::solvePressure() {
     PressureEquationResult result;
     result.healthy = true;
     result.linear_converged = true;
-    ScalarEquationControl equation_control;
-    equation_control.fix_reference = !m_has_fixed_pressure;
     NonOrthogonalCorrections corrections(
-        m_methods.diffusion, m_control.non_orthogonal_corrections);
+        m_methods.diffusionFor(pPrime.name()), m_control.non_orthogonal_corrections);
     while (corrections.correctNonOrthogonal()) {
-        result.linear = detail::solve(
+        result.linear = simple::solvePressureCorrectionEquation(
             -fvm::laplacian(rAU, pPrime) ==
                 -fvm::source(divPhiHbyA),
-            equation_control);
+            !m_has_fixed_pressure);
         result.healthy = result.healthy && result.linear.healthy();
         result.linear_converged = result.linear_converged && result.linear.converged();
     }

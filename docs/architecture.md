@@ -55,7 +55,7 @@ BabelSim 采用相同的层次和表达习惯：`fvm` 是隐式方程贡献，`f
 | --- | --- | --- | --- | --- |
 | `src/apps` | 案例启动器、MPI 生命周期、结果输出（应用层） | `case`、IO、Physics、并行 | `babelsim-solve`、`babelsim-post` | 可以知道执行细节；不把这些细节传入 Physics |
 | `src/io`、`case.h` | 案例字典、网格/Field/物性读取（案例层） | Mesh、Field、配置解析 | `readCase`、读取器 | 不参与离散；新增 Solver 增加小型读取器，不建 Manager |
-| `src/physics`、`thermal.h`、`incompressible.h` | 热传导和 SIMPLE 物理/算法（物理层） | Mesh、Field、`fvm/fvc`、RunTime | `solveTransientHeat`、`SimpleSolver` | 不得依赖代数、并行或存储入口；已移除旧泄漏 |
+| `src/physics`、`thermal.h`、`simple.h` | 热传导和 SIMPLE 物理/算法（物理层） | Mesh、Field、`fvm/fvc`、RunTime | `solveTransientHeat`、`SimpleSolver` | 不得依赖代数、并行或存储入口；已移除旧泄漏 |
 | `fvm.h`、`fvc.h`、`methods.h` | 轻量数学表达和 FVM 方法（离散接口层） | Field、网格几何 | `fvm::*`、`fvc::*`、Methods | 不创建 LDU/通信；只保存描述符，求解时解释 |
 | `src/discretization` | 梯度、插值、扩散、对流和方程装配（离散实现层） | Mesh、Field、内部离散方程 | Runtime 调用的算子核 | 可使用连续数组和非正交缓存，不应知道具体 Physics |
 | `src/runtime`、`runtime.h` | 方程解释、Field 同步、时间历史、全局判据（执行数学层） | 离散、代数、Parallel | `RunTime::loop`、`solve`、`fvc::evaluate`、`diagnostics` | PImpl 隐藏后端；统一管理对象生命周期和 MPI 选择 |
@@ -93,7 +93,7 @@ babelsim/fvc.h           显式场运算描述
 babelsim/fvm.h           隐式方程项与 EquationDefinition
 babelsim/runtime.h       RunTime、solve()、时间循环与收敛诊断
 babelsim/thermal.h       热传导物性和最小 Solver
-babelsim/incompressible.h  不可压缩物性、场和 SIMPLE 算法
+babelsim/simple.h          不可压缩物性、场和 SIMPLE 算法
 ```
 
 典型隐式方程为：
@@ -191,5 +191,5 @@ Field、Boundary、Expression、RunTime 的高层语义，并以各自的离散�
 在该能力真正实现前，BabelSim 不声称已经支持 FDM/FEM。
 
 新增热传导、对流扩散或标量输运通常只需要新建一个物理源文件和 Case 字典，不需要改 MPI、
-LDU、halo 或并行 I/O。新增压力速度耦合算法则应位于 `physics/incompressible`，并仅在具有
+LDU、halo 或并行 I/O。新增压力速度耦合算法则应位于 `physics/simple`，并仅在具有
 稳定独立数值意义时增加专用组件。

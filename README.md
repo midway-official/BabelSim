@@ -44,6 +44,7 @@ Field、`fvm/fvc`、离散、线性代数和 MPI Runtime，不建立两套 Frame
 - 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
 - OpenFOAM 风格的轻量 `fvm/fvc`：数学表达式只在 `solve()` 时离散，不复制大矩阵；
 - `heatFoam` 瞬态热传导 Solver，支持常数或 Field 系数；
+- `transportFoam` 瞬态对流-扩散 Solver，复用标量 Field、`fvm::ddt/div/laplacian` 与边界；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
 
 ## 构建与运行
@@ -65,6 +66,9 @@ mpirun -np 2 build/babelsim-solve -case cases/heat
 
 # 独立读取网格和并行结果，输出 ParaView/Tecplot 文件
 build/babelsim-post -case cases/poiseuille -format vtk tecplot
+
+# 自动扫描 results/<time>，生成每个时刻的 VTK 和 ParaView 时间序列 post/series.pvd
+build/babelsim-post -case cases/heat -time all -format vtk
 ```
 
 `-time <名称>` 可为同一案例保存多个结果时刻。例如：
@@ -87,15 +91,18 @@ cases/poiseuille/
 ├── mesh/poiseuille.mesh       # 几何、拓扑尺寸、patch 名称与角色
 ├── fields/initial/U.field     # 初值与 U 的边界条件
 ├── fields/initial/p.field     # 初值与 p 的边界条件
-├── physics/incompressible.bs  # 密度、黏度等物性
-├── numerics/simple.bs         # 算子方法、SIMPLE 与线性求解控制
+├── physics/simple.bs          # 密度、黏度等物性
+├── numerics/methods.bs        # 算子默认格式及可选的 Field 覆盖
+├── numerics/solution.bs       # SIMPLE/线性求解控制
+├── control.bs                 # 时间区间与步长
 ├── output.bs                  # 结果目录与时刻名
 └── results/<time>/rank-0000/  # 运行生成，不纳入 Git
 ```
 
 每个 MPI rank 仅写出 owned cell 的 `U.csv`、`p.csv` 与 `metadata.bs`；ghost cell
 不会写出。`babelsim-post` 按 global ID 检查完整性并合并为原始六面体网格的 VTK
-`UNSTRUCTURED_GRID` 或 Tecplot `FEBRICK` 文件。
+`UNSTRUCTURED_GRID` 或 Tecplot `FEBRICK` 文件；`-time all -format vtk` 还会产生
+ParaView 可直接打开的 `post/series.pvd`。
 
 库代码需要从已存在的全局网格分区时仍可使用 `decompose()`；启动器和文件型并行程序
 应使用 `readDistributedMesh(path, parallel)`。该接口在 rank 0 读取网格、广播尺寸和

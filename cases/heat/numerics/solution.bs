@@ -1,0 +1,1 @@
+scalarSolver bicgstab ilut 1e-14 1e-10 1000

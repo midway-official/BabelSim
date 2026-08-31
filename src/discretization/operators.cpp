@@ -1,6 +1,6 @@
 #include "babelsim/operators.h"
 
-#include "internal/incompressible_discretization.h"
+#include "internal/simple_discretization.h"
 
 #include <Eigen/Cholesky>
 #include <Eigen/Core>

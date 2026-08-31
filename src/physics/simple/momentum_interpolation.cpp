@@ -1,6 +1,4 @@
-#include "babelsim/incompressible.h"
-
-#include "internal/vector_equation_control.h"
+#include "babelsim/simple.h"
 
 namespace babelsim {
 
@@ -12,13 +10,10 @@ std::array<SolveResult, 3> SimpleSolver::solveMomentum() {
     ScalarField& phi = m_fields.face_flux;
     ScalarField& rAU = m_algorithm.rAU;
 
-    VectorEquationControl control;
-    control.relaxation = m_control.velocity_relaxation;
-    control.mobility = &rAU;
-    return detail::solve(
+    return simple::solveMomentumEquation(
         fvm::div(m_fluid.density, phi, U) ==
             -fvc::grad(p) + fvm::laplacian(m_fluid.dynamic_viscosity, U),
-        control);
+        m_control.velocity_relaxation, rAU);
 }
 
 void SimpleSolver::savePreviousState() {

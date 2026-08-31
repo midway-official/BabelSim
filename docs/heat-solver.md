@@ -10,9 +10,10 @@ FVM 装配、线性求解和 MPI 都可以在不向物理代码暴露底层细�
 = \nabla\cdot(k\nabla T) + Q.
 \]
 
-当前 `ThermalProperties` 支持常数 \(\rho,c_p,k\) 与常数体源 \(Q\)。通用方程 API 同时
-允许把 \(\rho c_p\)、\(k\) 和 \(Q\) 作为 Field 传入，因此后续温度相关物性不需要改变
-Runtime、代数或 MPI 层。
+当前 `ThermalProperties` 支持常数 \(\rho,c_p,k\) 与常数体源 \(Q\)。`ThermalFieldProperties`
+则以 `volumetric_heat_capacity`、`conductivity`、`volumetric_source` 三个 cell Field 表示
+非均匀材料；`solveHeatStep()` 允许材料模型在每个时间步前更新导热率，而无需改变 Runtime、
+代数或 MPI 层。
 
 ## 核心源码
 
@@ -61,7 +62,9 @@ case.bs                 选择 heatFoam 与各资源路径
 mesh/heat.mesh          3D 结构化网格；例子是 nz=1 的二维退化网格
 fields/initial/T.field  温度初值与 hot/cold/symmetry 边界
 physics/thermal.bs      density、heatCapacity、conductivity、source
-numerics/heat.bs        方法、时间区间、步长和 scalarSolver
+numerics/methods.bs     算子方法
+numerics/solution.bs    scalarSolver
+control.bs              时间区间与步长
 output.bs               结果目录与默认时刻名
 ```
 
@@ -77,7 +80,7 @@ OpenFOAM 的 `laplacianFoam`/标量输运 Solver 之所以短，是因为网格�
 | `fvm::ddt(T)` | `fvm::ddt(..., T)` |
 | `fvm::laplacian(k,T)` | `fvm::laplacian(k, T)` |
 | `TEqn.solve()` | `solve(equation)` |
-| `fvSchemes/fvSolution` | `numerics/heat.bs` |
+| `fvSchemes/fvSolution` | `numerics/methods.bs`、`numerics/solution.bs`、`control.bs` |
 | decomposition/MPI/IO | RunTime、启动器、并行写出与后处理器 |
 
 不同点是 BabelSim 不使用 `GeometricField`、`fvMatrix`、`tmp<>`、`IOobject` 或运行时对象

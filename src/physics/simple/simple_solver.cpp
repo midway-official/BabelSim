@@ -1,4 +1,4 @@
-#include "babelsim/incompressible.h"
+#include "babelsim/simple.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -53,7 +53,7 @@ SimpleSolver::SimpleSolver(
     m_fluid.validate();
     m_control.validate();
     initializePressureCorrectionBoundaries();
-    fvc::evaluate(fvc::flux(m_fields.velocity), m_fields.face_flux);
+    initializeFaceFlux();
 }
 
 SimpleIterationResult SimpleSolver::iterate() {
@@ -68,6 +68,10 @@ SimpleIterationResult SimpleSolver::iterate() {
     correctFlux();
     checkContinuityAndConvergence(result, pressure);
     return result;
+}
+
+void SimpleSolver::initializeFaceFlux() {
+    simple::initializeFaceFlux(m_fields.velocity, m_fields.face_flux);
 }
 
 void SimpleSolver::checkContinuityAndConvergence(

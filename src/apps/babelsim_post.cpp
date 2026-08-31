@@ -37,27 +37,50 @@ Arguments parseArguments(int argc, char* argv[]) {
     }
     if (result.case_directory.empty() || result.formats.empty()) {
         throw std::invalid_argument(
-            "usage: babelsim-post -case <case-directory> [-time <name|latest>] -format <vtk|tecplot> [...]");
+            "usage: babelsim-post -case <case-directory> [-time <name|latest|all>] -format <vtk|tecplot> [...]");
     }
     return result;
 }
 
-std::filesystem::path resolveTimeDirectory(
+std::vector<std::filesystem::path> resolveTimeDirectories(
     const CaseDefinition& definition,
     const OutputControl& output,
     const std::string& requested)
 {
     const auto result_root = definition.root / output.directory;
-    if (requested.empty()) return result_root / output.time_name;
-    if (requested != "latest") return result_root / requested;
-    std::filesystem::path latest;
+    if (requested.empty()) return {result_root / output.time_name};
+    if (requested != "latest" && requested != "all") return {result_root / requested};
+    std::vector<std::filesystem::path> times;
     for (const auto& entry : std::filesystem::directory_iterator(result_root)) {
-        if (entry.is_directory() && (latest.empty() || entry.path().filename() > latest.filename())) {
-            latest = entry.path();
-        }
+        if (entry.is_directory()) times.push_back(entry.path());
     }
-    if (latest.empty()) throw std::runtime_error("case has no saved result times");
-    return latest;
+    std::sort(times.begin(), times.end());
+    if (times.empty()) throw std::runtime_error("case has no saved result times");
+    if (requested == "latest") return {times.back()};
+    return times;
+}
+
+double pvdTime(const std::string& name, int index) {
+    try {
+        std::size_t consumed = 0;
+        const double value = std::stod(name, &consumed);
+        if (consumed == name.size()) return value;
+    } catch (const std::exception&) {
+    }
+    return static_cast<double>(index);
+}
+
+void writePvd(const std::filesystem::path& path, const std::vector<std::string>& time_names) {
+    std::ofstream output(path);
+    if (!output) throw std::runtime_error("cannot create PVD index: " + path.string());
+    output << "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\" "
+              "byte_order=\"LittleEndian\">\n<Collection>\n";
+    for (std::size_t index = 0; index < time_names.size(); ++index) {
+        const std::string& name = time_names[index];
+        output << "  <DataSet timestep=\"" << std::setprecision(17) << pvdTime(name, index)
+               << "\" group=\"\" part=\"0\" file=\"" << name << ".vtk\"/>\n";
+    }
+    output << "</Collection>\n</VTKFile>\n";
 }
 
 std::string componentName(const ResultField& field, int component) {
@@ -151,20 +174,44 @@ void writeTecplot(const std::filesystem::path& path, const Mesh& mesh, const Res
 int run(const Arguments& arguments) {
     const CaseDefinition definition = readCase(arguments.case_directory);
     const OutputControl output = readOutputControl(definition);
-    const auto time_directory = resolveTimeDirectory(definition, output, arguments.time_name);
     const Mesh mesh = readMeshFile(definition.mesh_file);
-    const ResultData results = readParallelResults(time_directory, mesh.cellCount());
-    if (results.global_dimensions != mesh.dimensions) {
-        throw std::runtime_error("result global dimensions do not match the case mesh");
-    }
     const auto post_directory = definition.root / "post";
     std::filesystem::create_directories(post_directory);
-    for (const std::string& format : arguments.formats) {
-        if (format == "vtk") writeVtk(post_directory / (results.time_name + ".vtk"), mesh, results);
-        else if (format == "tecplot") writeTecplot(post_directory / (results.time_name + ".dat"), mesh, results);
-        else throw std::invalid_argument("unknown output format " + format);
+    const auto time_directories = resolveTimeDirectories(definition, output, arguments.time_name);
+    std::vector<std::string> pvd_times;
+    bool writes_vtk = false;
+    int processed = 0;
+    for (const auto& time_directory : time_directories) {
+        ResultData results;
+        try {
+            results = readParallelResults(time_directory, mesh.cellCount());
+            if (results.global_dimensions != mesh.dimensions) {
+                throw std::runtime_error("result global dimensions do not match the case mesh");
+            }
+        } catch (const std::exception& error) {
+            if (arguments.time_name != "all") throw;
+            std::cerr << "babelsim-post: skip incompatible result " << time_directory
+                      << ": " << error.what() << '\n';
+            continue;
+        }
+        for (const std::string& format : arguments.formats) {
+            if (format == "vtk") {
+                writeVtk(post_directory / (results.time_name + ".vtk"), mesh, results);
+                writes_vtk = true;
+            } else if (format == "tecplot") {
+                writeTecplot(post_directory / (results.time_name + ".dat"), mesh, results);
+            } else {
+                throw std::invalid_argument("unknown output format " + format);
+            }
+        }
+        pvd_times.push_back(results.time_name);
+        ++processed;
     }
-    std::cout << "BabelSim postprocessed " << time_directory << " into " << post_directory << '\n';
+    if (arguments.time_name == "all" && writes_vtk) {
+        writePvd(post_directory / "series.pvd", pvd_times);
+    }
+    std::cout << "BabelSim postprocessed " << processed
+              << " time set(s) into " << post_directory << '\n';
     return 0;
 }
 

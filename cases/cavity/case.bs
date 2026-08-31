@@ -3,6 +3,8 @@
 solver simpleFoam
 mesh mesh/cavity.mesh
 fields fields/initial
-physics physics/incompressible.bs
-numerics numerics/simple.bs
+physics physics/simple.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
 output output.bs

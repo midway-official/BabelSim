@@ -1,0 +1,3 @@
+storage 1
+diffusivity 0.01
+source 0

@@ -11,12 +11,14 @@ SOURCES := src/core/mesh.cpp \
            src/io/config.cpp \
            src/io/case_reader.cpp \
            src/io/field_reader.cpp \
-           src/io/incompressible_case_reader.cpp \
+           src/io/numerics_reader.cpp \
+           src/io/simple_case_reader.cpp \
            src/io/thermal_case_reader.cpp \
+           src/io/transport_case_reader.cpp \
            src/io/mesh_reader.cpp \
            src/io/result_reader.cpp \
            src/discretization/operators.cpp \
-           src/discretization/incompressible.cpp \
+           src/discretization/simple_discretization.cpp \
            src/discretization/fvm_expression.cpp \
            src/discretization/assembly.cpp \
            src/algebra/linear_solver.cpp \
@@ -25,10 +27,13 @@ SOURCES := src/core/mesh.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
            src/physics/heat/transient_heat_solver.cpp \
+           src/physics/heat/heat_case.cpp \
            src/physics/transport/transient_scalar_transport_solver.cpp \
-           src/physics/incompressible/simple_solver.cpp \
-           src/physics/incompressible/momentum_interpolation.cpp \
-           src/physics/incompressible/pressure_correction.cpp
+           src/physics/transport/transport_case.cpp \
+           src/physics/simple/simple_solver.cpp \
+           src/physics/simple/simple_case.cpp \
+           src/physics/simple/momentum_interpolation.cpp \
+           src/physics/simple/pressure_correction.cpp
 OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
 

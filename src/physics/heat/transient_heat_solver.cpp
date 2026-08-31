@@ -7,6 +7,27 @@
 
 namespace babelsim {
 
+namespace {
+
+void requireHeatFields(
+    const RunTime& run_time,
+    const ScalarField& temperature,
+    const ThermalFieldProperties& material)
+{
+    const Mesh& mesh = run_time.mesh();
+    if (&temperature.mesh() != &mesh || temperature.location() != FieldLocation::Cell ||
+        &material.volumetric_heat_capacity.mesh() != &mesh ||
+        material.volumetric_heat_capacity.location() != FieldLocation::Cell ||
+        &material.conductivity.mesh() != &mesh ||
+        material.conductivity.location() != FieldLocation::Cell ||
+        &material.volumetric_source.mesh() != &mesh ||
+        material.volumetric_source.location() != FieldLocation::Cell) {
+        throw std::invalid_argument("thermal Fields must be cell fields on the run mesh");
+    }
+}
+
+}  // 匿名命名空间
+
 void ThermalProperties::validate() const {
     if (!(density > 0.0) || !(heat_capacity > 0.0) || !(conductivity >= 0.0) ||
         !std::isfinite(density) || !std::isfinite(heat_capacity) ||
@@ -36,6 +57,34 @@ HeatResult solveTransientHeat(
             fvm::ddt(material.volumetricHeatCapacity(), temperature) ==
                 fvm::laplacian(material.conductivity, temperature) +
                 fvm::source(volumetric_source));
+        ++result.steps;
+        if (!result.linear.converged()) return result;
+    }
+    result.converged = result.steps > 0 && result.linear.converged();
+    return result;
+}
+
+SolveResult solveHeatStep(
+    RunTime& run_time,
+    ScalarField& temperature,
+    const ThermalFieldProperties& material)
+{
+    requireHeatFields(run_time, temperature, material);
+    return solve(
+        fvm::ddt(material.volumetric_heat_capacity, temperature) ==
+            fvm::laplacian(material.conductivity, temperature) +
+            fvm::source(material.volumetric_source));
+}
+
+HeatResult solveTransientHeat(
+    RunTime& run_time,
+    ScalarField& temperature,
+    const ThermalFieldProperties& material)
+{
+    requireHeatFields(run_time, temperature, material);
+    HeatResult result;
+    while (run_time.loop()) {
+        result.linear = solveHeatStep(run_time, temperature, material);
         ++result.steps;
         if (!result.linear.converged()) return result;
     }

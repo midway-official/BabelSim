@@ -55,8 +55,12 @@ CaseDefinition readCase(const std::filesystem::path& case_directory) {
             setPath(path, line, result.fields_directory, result.root);
         } else if (key == "physics") {
             setPath(path, line, result.physics_file, result.root);
-        } else if (key == "numerics") {
-            setPath(path, line, result.numerics_file, result.root);
+        } else if (key == "methods") {
+            setPath(path, line, result.methods_file, result.root);
+        } else if (key == "solution") {
+            setPath(path, line, result.solution_file, result.root);
+        } else if (key == "control") {
+            setPath(path, line, result.control_file, result.root);
         } else if (key == "output") {
             setPath(path, line, result.output_file, result.root);
         } else {
@@ -65,8 +69,10 @@ CaseDefinition readCase(const std::filesystem::path& case_directory) {
     }
     if (result.solver.empty() || result.mesh_file.empty() ||
         result.fields_directory.empty() || result.physics_file.empty() ||
-        result.numerics_file.empty() || result.output_file.empty()) {
-        throw std::runtime_error("case.bs must define solver, mesh, fields, physics, numerics, and output");
+        result.methods_file.empty() || result.solution_file.empty() ||
+        result.control_file.empty() || result.output_file.empty()) {
+        throw std::runtime_error(
+            "case.bs must define solver, mesh, fields, physics, methods, solution, control, and output");
     }
     return result;
 }
@@ -98,6 +104,15 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
         throw std::runtime_error("output directory must be relative to the case directory");
     }
     return result;
+}
+
+std::filesystem::path outputTimeDirectory(
+    const CaseDefinition& definition,
+    const std::string& requested_time)
+{
+    OutputControl output = readOutputControl(definition);
+    if (!requested_time.empty()) output.time_name = requested_time;
+    return definition.root / output.directory / output.time_name;
 }
 
 }  // babelsim 命名空间

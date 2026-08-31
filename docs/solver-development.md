@@ -38,9 +38,10 @@ Field::data()、mutableData()、values()、手写单元循环来组装 PDE
 | C：仅框架内部 | `RunTime::current()`、内部动量/压力方程控制、时间历史 | 用于把 `solve/fvc/diagnostics` 绑定到活动运行域；普通 Solver 不直接调用。 |
 | D：禁止 Physics 使用 | MPI、Halo、并行上下文、LDU/CSR/Eigen、稀疏装配、Field 原始存储 | 它们只属于 Runtime、并行和线性代数层。 |
 
-当前 `src/physics` 审计中，除 `std::array<SolveResult,3>`（三个速度分量的轻量结果）外，
-没有容器、智能指针、MPI、矩阵或 Field 原始存储。SIMPLE 为提取 `rAU` 使用的额外方程控制
-通过 `detail::solve` 下沉到内部入口，Physics 文件不再直接访问 `RunTime::current()`。
+当前核心 `src/physics/*/*_solver.cpp` 审计中，除 `std::array<SolveResult,3>`（三个速度分量的
+轻量结果）外，没有容器、智能指针、MPI、矩阵或 Field 原始存储。SIMPLE 为提取 `rAU` 使用的
+方程控制已下沉到 `simple::solveMomentumEquation`；Physics 文件不再直接访问 `detail::solve`
+或 `RunTime::current()`。
 
 ## Equation-driven：第一个标量 Solver
 
@@ -128,7 +129,8 @@ solve(
 ```
 
 `phi` 是 face scalar Field，`C` 是 cell scalar Field，`D` 可以是常数、cell Field 或
-face Field。对流格式、梯度和扩散的非正交方式由案例 `numerics` 配置，不应硬编码到 Solver。
+face Field。对流格式、梯度和扩散的非正交方式由案例 `numerics/methods.bs` 配置，不应硬编码到
+Solver。`methods.bs` 可用 `convection C upwind` 仅覆盖某个 Field 的算子格式。
 
 ## 编写矢量方程
 
@@ -163,7 +165,8 @@ Mesh、初值、物性、方法、线性控制和输出；Solver 负责方程与
 
 1. 新建物理/算法源文件，只包含 Public Solver API；
 2. 为物性和 Case 字典增加小型值对象/读取器；
-3. 在 `babelsim-solve` 中按 `case.bs` 的 `solver` 选择它；
+3. 在所属 Physics 目录新增 Case 运行入口，并在 `babelsim-solve` 中按 `case.bs` 的 `solver`
+   增加一个明确分派；启动器不读取具体 Field 或输出逻辑；
 4. 增加至少一个解析解、守恒、对称或基准回归；
 5. 为串行和 MPI 运行比较设置合理的绝对/相对容差。
 

@@ -12,7 +12,9 @@ struct CaseDefinition {
     std::filesystem::path mesh_file;
     std::filesystem::path fields_directory;
     std::filesystem::path physics_file;
-    std::filesystem::path numerics_file;
+    std::filesystem::path methods_file;
+    std::filesystem::path solution_file;
+    std::filesystem::path control_file;
     std::filesystem::path output_file;
 };
 
@@ -23,5 +25,8 @@ struct OutputControl {
 
 CaseDefinition readCase(const std::filesystem::path& case_directory);
 OutputControl readOutputControl(const CaseDefinition& definition);
+std::filesystem::path outputTimeDirectory(
+    const CaseDefinition& definition,
+    const std::string& requested_time = {});
 
 }  // babelsim 命名空间

@@ -1,7 +1,7 @@
-solver simpleFoam
-mesh mesh/poiseuille.mesh
+solver transportFoam
+mesh mesh/transport.mesh
 fields fields/initial
-physics physics/simple.bs
+physics physics/transport.bs
 methods numerics/methods.bs
 solution numerics/solution.bs
 control control.bs

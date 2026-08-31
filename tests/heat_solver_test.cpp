@@ -50,6 +50,17 @@ int main() {
         near(variable_temperature[0], 20.0 / 32.0, 1e-12),
         "field time/diffusion coefficients do not match the one-cell FVM result");
 
+    // 同一 API 还接受材料场和热源场。温度相关材料只需在每步前更新 conductivity，
+    // 不需要改动 FVM、运行时或 MPI 层。
+    ScalarField field_temperature(mesh, FieldLocation::Cell, "Tf", 1.0);
+    ScalarField field_source(mesh, FieldLocation::Cell, "Q", 0.0);
+    for (Index patch = 0; patch < static_cast<Index>(mesh.patches.size()); ++patch) {
+        field_temperature.boundary(patch) = fixedValue(0.0);
+    }
+    const SolveResult field_result = solveHeatStep(
+        run_time, field_temperature, {heat_capacity, conductivity, field_source});
+    require(field_result.converged(), "Field-material heat step did not converge");
+
     std::cout << "heat_solver_test: T=" << temperature[0]
               << " residual=" << result.linear.relative_residual << '\n';
 }

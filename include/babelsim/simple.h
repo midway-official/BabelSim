@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "babelsim/runtime.h"
 
 #include <array>
@@ -37,15 +39,35 @@ struct SimpleControl {
 };
 
 inline RuntimeControl simpleRunTimeControl(
+    RuntimeControl result,
+    const SimpleControl& control)
+{
+    result.scalar_solver = control.pressure_solver;
+    result.vector_solver = control.velocity_solver;
+    return result;
+}
+
+inline RuntimeControl simpleRunTimeControl(
     const Methods& methods,
     const SimpleControl& control)
 {
     RuntimeControl result;
     result.methods = methods;
-    result.scalar_solver = control.pressure_solver;
-    result.vector_solver = control.velocity_solver;
-    return result;
+    return simpleRunTimeControl(std::move(result), control);
 }
+
+// SIMPLE 专用的离散入口。它们把欠松弛、rAU 主对角提取和压力参考点固定在
+// 数值层；SimpleSolver 只表达算法步骤，而普通 PDE Solver 仍只使用 solve()。
+namespace simple {
+void initializeFaceFlux(const VectorField& velocity, ScalarField& face_flux);
+std::array<SolveResult, 3> solveMomentumEquation(
+    const VectorEquationDefinition& equation,
+    double relaxation,
+    ScalarField& rAU);
+SolveResult solvePressureCorrectionEquation(
+    const ScalarEquationDefinition& equation,
+    bool fix_reference);
+}  // simple 命名空间
 
 struct IncompressibleFields {
     explicit IncompressibleFields(const Mesh& mesh)
@@ -151,6 +173,7 @@ private:
     void predictMomentumFlux();
     void correctVelocity();
     void correctFlux();
+    void initializeFaceFlux();
     void checkContinuityAndConvergence(
         SimpleIterationResult& result,
         const PressureEquationResult& pressure) const;

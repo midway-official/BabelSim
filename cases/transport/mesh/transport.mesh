@@ -1,0 +1,11 @@
+BABELSIM_MESH 1
+dimensions 32 1 1
+geometry cartesian
+bounds 0 0 0 1 1 1
+patch xmin inlet generic
+patch xmax outlet generic
+patch ymin lower symmetry
+patch ymax upper symmetry
+patch zmin front symmetry
+patch zmax back symmetry
+end

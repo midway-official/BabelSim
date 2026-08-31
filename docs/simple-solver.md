@@ -50,18 +50,19 @@ checkContinuityAndConvergence();
 
 ## 代码中的动量方程
 
-`src/physics/incompressible/momentum_interpolation.cpp` 中的动量预测器写为：
+`src/physics/simple/momentum_interpolation.cpp` 中的动量预测器写为：
 
 ```cpp
-solve(
+simple::solveMomentumEquation(
     fvm::div(rho, phi, U) ==
         -fvc::grad(p) + fvm::laplacian(mu, U),
-    momentum_control);
+    velocity_relaxation, rAU);
 ```
 
 常密度直接作为轻量 `fvm::div` 系数进入方程，不再为 \(\rho\phi\) 长期保存完整面场。
-`momentum_control` 仅在 SIMPLE 内部传递速度欠松弛和 `rAU` 输出位；Runtime 在组装后的
-对角中计算 \(rAU=V/a_P\)，并完成方程求解。普通 Solver 不会看到这个控制对象。
+`simple::solveMomentumEquation` 是 SIMPLE 的专用数值入口：它在离散层传入速度欠松弛并从
+对角中计算 \(rAU=V/a_P\)。普通 Solver 不会看到 `VectorEquationControl`、裸指针或
+`detail::solve`。
 
 该 Solver 源码不出现 MPI、通信器、rank、halo、矩阵、LDU、CSR、Eigen 或线性求解器。
 
@@ -129,13 +130,12 @@ halo 同步和临时存储都属于 FVC/Runtime 层。SIMPLE 物理源码不访�
 
 ## 使用与配置
 
-应用启动器将 `physics/incompressible.bs` 读为 `FluidProperties`，将
-`numerics/simple.bs` 分成：
+应用入口将 `physics/simple.bs` 读为 `FluidProperties`，并将配置分成：
 
 ```text
-Methods：interpolation、gradient、convection、diffusion、time
-SIMPLE：maxIterations、nonOrthogonalCorrections、速度/压力欠松弛、外层容差
-Runtime：velocitySolver、pressureSolver
+methods.bs：interpolation、gradient、convection、diffusion、time
+solution.bs：maxIterations、nonOrthogonalCorrections、速度/压力欠松弛、外层容差、velocitySolver、pressureSolver
+control.bs：稳态案例的时间占位控制
 ```
 
 `SimpleSolver` 只接受 `RunTime`、`IncompressibleFields`、`FluidProperties` 与

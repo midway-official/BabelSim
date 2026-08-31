@@ -454,8 +454,10 @@ SolveResult RunTime::solve(
                     state.synchronize(const_cast<ScalarField&>(*term.flux));
                     state.synchronize(unknown);
                     addConvection(
-                        equation, *term.flux, unknown, state.control.methods.convection,
-                        state.control.methods.interpolation, state.control.methods.gradient,
+                        equation, *term.flux, unknown,
+                        state.control.methods.convectionFor(unknown.name()),
+                        state.control.methods.interpolationFor(unknown.name()),
+                        state.control.methods.gradientFor(unknown.name()),
                         term.coefficient);
                     break;
                 case FvmTermKind::Laplacian:
@@ -475,18 +477,20 @@ SolveResult RunTime::solve(
                         if (coefficient.location() == FieldLocation::Cell) {
                             interpolate(
                                 coefficient, state.face_coefficient_workspace,
-                                state.control.methods.interpolation,
-                                state.control.methods.gradient);
+                                state.control.methods.interpolationFor(unknown.name()),
+                                state.control.methods.gradientFor(unknown.name()));
                             state.synchronize(state.face_coefficient_workspace);
                             face_coefficient = &state.face_coefficient_workspace;
                         }
                         addDiffusion(
                             equation, *face_coefficient, unknown,
-                            state.control.methods.gradient, state.control.methods.diffusion);
+                            state.control.methods.gradientFor(unknown.name()),
+                            state.control.methods.diffusionFor(unknown.name()));
                     } else {
                         addDiffusion(
                             equation, term.coefficient, unknown,
-                            state.control.methods.gradient, state.control.methods.diffusion);
+                            state.control.methods.gradientFor(unknown.name()),
+                            state.control.methods.diffusionFor(unknown.name()));
                     }
                     break;
                 case FvmTermKind::Source:
@@ -594,8 +598,10 @@ std::array<SolveResult, 3> RunTime::solve(
                     state.synchronize(const_cast<ScalarField&>(*term.flux));
                     state.synchronize(unknown);
                     addConvection(
-                        equation, *term.flux, unknown, state.control.methods.convection,
-                        state.control.methods.interpolation, state.control.methods.gradient,
+                        equation, *term.flux, unknown,
+                        state.control.methods.convectionFor(unknown.name()),
+                        state.control.methods.interpolationFor(unknown.name()),
+                        state.control.methods.gradientFor(unknown.name()),
                         term.coefficient);
                     break;
                 case FvmTermKind::Laplacian:
@@ -615,18 +621,20 @@ std::array<SolveResult, 3> RunTime::solve(
                         if (coefficient.location() == FieldLocation::Cell) {
                             interpolate(
                                 coefficient, state.face_coefficient_workspace,
-                                state.control.methods.interpolation,
-                                state.control.methods.gradient);
+                                state.control.methods.interpolationFor(unknown.name()),
+                                state.control.methods.gradientFor(unknown.name()));
                             state.synchronize(state.face_coefficient_workspace);
                             face_coefficient = &state.face_coefficient_workspace;
                         }
                         addDiffusion(
                             equation, *face_coefficient, unknown,
-                            state.control.methods.gradient, state.control.methods.diffusion);
+                            state.control.methods.gradientFor(unknown.name()),
+                            state.control.methods.diffusionFor(unknown.name()));
                     } else {
                         addDiffusion(
                             equation, term.coefficient, unknown,
-                            state.control.methods.gradient, state.control.methods.diffusion);
+                            state.control.methods.gradientFor(unknown.name()),
+                            state.control.methods.diffusionFor(unknown.name()));
                     }
                     break;
                 case FvmTermKind::Gradient:
@@ -637,7 +645,7 @@ std::array<SolveResult, 3> RunTime::solve(
                     state.synchronize(const_cast<ScalarField&>(*term.scalar_field));
                     gradient(
                         *term.scalar_field, state.gradient_workspace,
-                        state.control.methods.gradient);
+                        state.control.methods.gradientFor(term.scalar_field->name()));
                     state.synchronize(state.gradient_workspace);
                     for (Index cell : state.mesh->owned_cells) {
                         equation.source[static_cast<std::size_t>(cell)] -=
@@ -722,7 +730,7 @@ void RunTime::evaluate(fvc::ScalarGradient operation, VectorField& result) {
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    gradient(operation.field, result, state.control.methods.gradient);
+    gradient(operation.field, result, state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -731,7 +739,7 @@ void RunTime::evaluate(fvc::VectorGradient operation, TensorField& result) {
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
     state.synchronize(const_cast<VectorField&>(operation.field));
-    gradient(operation.field, result, state.control.methods.gradient);
+    gradient(operation.field, result, state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -740,7 +748,9 @@ void RunTime::evaluate(fvc::FaceFlux operation, ScalarField& result) {
     requireCellField(operation.velocity, *state.mesh, "flux input");
     requireFaceField(result, *state.mesh, "flux result");
     state.synchronize(const_cast<VectorField&>(operation.velocity));
-    flux(operation.velocity, result, state.control.methods.interpolation, state.control.methods.gradient);
+    flux(operation.velocity, result,
+         state.control.methods.interpolationFor(operation.velocity.name()),
+         state.control.methods.gradientFor(operation.velocity.name()));
     state.synchronize(result);
 }
 
@@ -759,8 +769,8 @@ void RunTime::evaluate(fvc::VectorDivergence operation, ScalarField& result) {
     requireCellField(result, *state.mesh, "divergence result");
     state.synchronize(const_cast<VectorField&>(operation.field));
     divergence(
-        operation.field, result, state.control.methods.interpolation,
-        state.control.methods.gradient);
+        operation.field, result, state.control.methods.interpolationFor(operation.field.name()),
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -772,8 +782,10 @@ void RunTime::evaluate(fvc::ScalarConvection operation, ScalarField& result) {
     state.synchronize(const_cast<ScalarField&>(operation.flux));
     state.synchronize(const_cast<ScalarField&>(operation.field));
     convection(
-        operation.flux, operation.field, result, state.control.methods.convection,
-        state.control.methods.interpolation, state.control.methods.gradient);
+        operation.flux, operation.field, result,
+        state.control.methods.convectionFor(operation.field.name()),
+        state.control.methods.interpolationFor(operation.field.name()),
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -785,8 +797,10 @@ void RunTime::evaluate(fvc::VectorConvection operation, VectorField& result) {
     state.synchronize(const_cast<ScalarField&>(operation.flux));
     state.synchronize(const_cast<VectorField&>(operation.field));
     convection(
-        operation.flux, operation.field, result, state.control.methods.convection,
-        state.control.methods.interpolation, state.control.methods.gradient);
+        operation.flux, operation.field, result,
+        state.control.methods.convectionFor(operation.field.name()),
+        state.control.methods.interpolationFor(operation.field.name()),
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -796,8 +810,8 @@ void RunTime::evaluate(fvc::ScalarInterpolation operation, ScalarField& result) 
     requireFaceField(result, *state.mesh, "interpolation result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
     interpolate(
-        operation.field, result, state.control.methods.interpolation,
-        state.control.methods.gradient);
+        operation.field, result, state.control.methods.interpolationFor(operation.field.name()),
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -809,8 +823,8 @@ void RunTime::evaluate(fvc::VectorInterpolation operation, VectorField& result) 
     }
     state.synchronize(const_cast<VectorField&>(operation.field));
     interpolate(
-        operation.field, result, state.control.methods.interpolation,
-        state.control.methods.gradient);
+        operation.field, result, state.control.methods.interpolationFor(operation.field.name()),
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
 }
 
@@ -846,7 +860,8 @@ void RunTime::evaluate(fvc::ScalarLaplacian operation, ScalarField& result) {
     if (operation.coefficient_field == nullptr) {
         laplacian(
             operation.coefficient, operation.field, result,
-            state.control.methods.gradient, state.control.methods.diffusion);
+            state.control.methods.gradientFor(operation.field.name()),
+            state.control.methods.diffusionFor(operation.field.name()));
     } else {
         const ScalarField& coefficient = *operation.coefficient_field;
         if (&coefficient.mesh() != state.mesh ||
@@ -858,16 +873,18 @@ void RunTime::evaluate(fvc::ScalarLaplacian operation, ScalarField& result) {
         if (coefficient.location() == FieldLocation::Cell) {
             interpolate(
                 coefficient, state.face_coefficient_workspace,
-                state.control.methods.interpolation,
-                state.control.methods.gradient);
+                state.control.methods.interpolationFor(operation.field.name()),
+                state.control.methods.gradientFor(operation.field.name()));
             state.synchronize(state.face_coefficient_workspace);
             laplacian(
                 state.face_coefficient_workspace, operation.field, result,
-                state.control.methods.gradient, state.control.methods.diffusion);
+                state.control.methods.gradientFor(operation.field.name()),
+                state.control.methods.diffusionFor(operation.field.name()));
         } else {
             laplacian(
-                coefficient, operation.field, result, state.control.methods.gradient,
-                state.control.methods.diffusion);
+                coefficient, operation.field, result,
+                state.control.methods.gradientFor(operation.field.name()),
+                state.control.methods.diffusionFor(operation.field.name()));
         }
     }
     state.synchronize(result);
@@ -886,7 +903,7 @@ void RunTime::subtract(
     state.synchronize(const_cast<ScalarField&>(operation.field));
     gradient(
         operation.field, state.gradient_workspace,
-        state.control.methods.gradient);
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(state.gradient_workspace);
     target.addProduct(-1.0, coefficient, state.gradient_workspace);
     state.synchronize(target);
@@ -906,21 +923,21 @@ void RunTime::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target) 
     state.synchronize(const_cast<ScalarField&>(operation.coefficient));
     gradient(
         operation.field, state.gradient_workspace,
-        state.control.methods.gradient);
+        state.control.methods.gradientFor(operation.field.name()));
     state.synchronize(state.gradient_workspace);
 
     const ScalarField* face_coefficient = &operation.coefficient;
     if (operation.coefficient.location() == FieldLocation::Cell) {
         interpolate(
             operation.coefficient, state.face_coefficient_workspace,
-            state.control.methods.interpolation,
-            state.control.methods.gradient);
+            state.control.methods.interpolationFor(operation.field.name()),
+            state.control.methods.gradientFor(operation.field.name()));
         state.synchronize(state.face_coefficient_workspace);
         face_coefficient = &state.face_coefficient_workspace;
     }
     diffusionFlux(
         *face_coefficient, operation.field, state.gradient_workspace,
-        state.face_flux_workspace, state.control.methods.diffusion);
+        state.face_flux_workspace, state.control.methods.diffusionFor(operation.field.name()));
     state.synchronize(state.face_flux_workspace);
     target.addScaled(-1.0, state.face_flux_workspace);
     state.synchronize(target);

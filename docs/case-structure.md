@@ -4,7 +4,7 @@
 
 一个 Case 描述“要计算的问题”；一个 Solver 描述“如何用物理方程与算法求解”。两者不能
 互相硬编码。BabelSim 借鉴 OpenFOAM 的 Case/solver 分离和 `fvSchemes`/`fvSolution`
-职责分离，但只保留适合当前规模的六个文件入口。
+职责分离，但只保留适合当前规模的七个文件入口。
 
 ```text
 cases/<case-name>/
@@ -12,7 +12,9 @@ cases/<case-name>/
 ├── mesh/<name>.mesh
 ├── fields/initial/<field>.field
 ├── physics/<model>.bs
-├── numerics/<solver>.bs
+├── numerics/methods.bs
+├── numerics/solution.bs
+├── control.bs
 └── output.bs
 ```
 
@@ -32,8 +34,10 @@ post/<time>.dat                Tecplot 文件
 solver simpleFoam
 mesh mesh/cavity.mesh
 fields fields/initial
-physics physics/incompressible.bs
-numerics numerics/simple.bs
+physics physics/simple.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
 output output.bs
 ```
 
@@ -44,8 +48,9 @@ build/babelsim-solve -case cases/cavity
 mpirun -np 4 build/babelsim-solve -case cases/cavity -time mpi4
 ```
 
-启动器读取 `solver` 后选择对应的 Case 读取器和 Physics Solver。它负责 MPI 初始化、局部
-网格分发、初值读取和并行输出；被选择的 Physics Solver 不知道进程数或通信器。
+启动器读取 `solver` 后选择对应的 Case 运行入口。启动器只负责参数和 MPI 生命周期；每个
+Physics 目录中的运行入口负责其 Case→Field→RunTime→输出流程，因此通用应用不需要知道
+`T/U/p/C` 等具体 Field。Physics Solver 本身不需要知道进程数或通信器。
 
 当前内置选择为：
 
@@ -53,6 +58,7 @@ mpirun -np 4 build/babelsim-solve -case cases/cavity -time mpi4
 | --- | --- | --- |
 | `heatFoam` | 瞬态热传导 | `T.field` |
 | `simpleFoam` | 稳态层流不可压缩 SIMPLE | `U.field`、`p.field` |
+| `transportFoam` | 瞬态标量对流-扩散 | `C.field`、`U.field` |
 
 新增 Solver 只需在启动器增加一个明确分支及其 Case 读取器；不要建立无边界的通用注册表或
 Factory 层。
@@ -100,7 +106,7 @@ end
 `symmetry`/`mirror`。patch 的 `wall/inlet/outlet/symmetry` 角色来自网格；Field 文件决定
 该物理量在该 patch 上的具体数学约束。
 
-## physics 与 numerics
+## physics、methods、solution 与 control
 
 `physics` 只放物性和物理源项。例如热传导：
 
@@ -111,7 +117,7 @@ conductivity 0.1
 source 0
 ```
 
-`numerics` 只放离散和求解控制。例如：
+`methods.bs` 只放离散格式。例如：
 
 ```text
 interpolation linear
@@ -119,13 +125,27 @@ gradient greenGauss
 convection upwind
 diffusion orthogonal
 time euler
+convection C upwind
+```
+
+每行既可写默认格式（两个 token），也可写“算子类别、Field 名、格式”（三个 token）。例如
+`convection C upwind` 仅覆盖 `div(phi,C)`，`convection U central` 可独立覆盖动量方程。
+
+`control.bs` 只放时间区间和步长：
+
+```text
 startTime 0
 endTime 0.05
 deltaT 0.01
+```
+
+`solution.bs` 放线性求解器和算法收敛控制：
+
+```text
 scalarSolver bicgstab ilut 1e-14 1e-10 1000
 ```
 
-`simpleFoam` 的 numerics 还包括 `maxIterations`、`nonOrthogonalCorrections`、速度/压力
+`simpleFoam` 的 `solution.bs` 还包括 `maxIterations`、`nonOrthogonalCorrections`、速度/压力
 欠松弛、连续性/速度容差以及 `velocitySolver`/`pressureSolver`。物性与数值方式分开，
 所以改变黏度不需要改线性求解控制，改变非正交扩散也不需要改 Solver 源码。
 
@@ -136,10 +156,14 @@ Field 类型。独立程序合并这些分区文件：
 
 ```bash
 build/babelsim-post -case cases/poiseuille -time mpi4 -format vtk tecplot
+
+# 自动发现可兼容的 results/<time>，生成 post/series.pvd
+build/babelsim-post -case cases/poiseuille -time all -format vtk
 ```
 
 它会检查分区全局 ID 的完整性，并产生 VTK `UNSTRUCTURED_GRID`（ParaView）与 Tecplot
-`FEBRICK`。因此求解器不包含串行聚集、可视化格式或 MPI I/O 细节。
+`FEBRICK`。`all` 会跳过与当前网格不兼容的旧结果并报告原因，并在 VTK 输出时写出 `.pvd`
+索引。因此求解器不包含串行聚集、可视化格式或 MPI I/O 细节。
 
 ## 与 OpenFOAM 的关系
 

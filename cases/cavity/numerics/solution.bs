@@ -1,8 +1,3 @@
-interpolation linear
-gradient greenGauss
-convection upwind
-diffusion orthogonal
-time steady
 maxIterations 5000
 velocityRelaxation 0.5
 pressureRelaxation 0.3

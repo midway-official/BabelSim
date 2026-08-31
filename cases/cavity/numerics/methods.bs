@@ -1,0 +1,5 @@
+interpolation linear
+gradient greenGauss
+convection upwind
+diffusion orthogonal
+time steady

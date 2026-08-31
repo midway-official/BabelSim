@@ -2,5 +2,7 @@ solver heatFoam
 mesh mesh/heat.mesh
 fields fields/initial
 physics physics/thermal.bs
-numerics numerics/heat.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
 output output.bs

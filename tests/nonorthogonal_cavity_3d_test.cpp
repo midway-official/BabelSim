@@ -1,4 +1,4 @@
-#include "babelsim/incompressible.h"
+#include "babelsim/simple.h"
 
 #include "test_util.h"
 

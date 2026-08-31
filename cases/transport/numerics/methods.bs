@@ -1,0 +1,6 @@
+interpolation linear
+gradient greenGauss
+convection upwind
+convection C upwind
+diffusion orthogonal
+time euler
