@@ -8,6 +8,8 @@
 
 namespace babelsim {
 
+const Methods& numericalMethods() { return RunTime::current().methods(); }
+
 SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control) {
     RunTime& time = RunTime::current();
     const SolveResult result = detail::execution().solve(equation, control);
@@ -108,13 +110,21 @@ void subtract(
     detail::execution().subtract(coefficient, operation, target);
 }
 
-void subtract(ScalarDiffusionFlux operation, ScalarField& target) {
-    detail::execution().subtract(operation, target);
+void add(FaceFlux operation, ScalarField& target, FaceRegion region) {
+    detail::execution().add(operation, target, region);
+}
+
+void subtract(ScalarDiffusionFlux operation, ScalarField& target, FaceRegion region) {
+    detail::execution().subtract(operation, target, region);
 }
 
 }  // fvc 命名空间
 
 namespace diagnostics {
+
+void report(std::string_view message) {
+    if (RunTime::current().primary()) std::cout << message << '\n';
+}
 
 double relativeChange(const VectorField& current, const VectorField& previous) {
     return detail::execution().relativeChange(current, previous);

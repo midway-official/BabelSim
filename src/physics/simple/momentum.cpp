@@ -25,9 +25,12 @@ void SimpleSolver::State::predictMomentumFlux() {
     work.rAU_grad_p.assignProduct(m_algorithm.rAU, work.grad_p);
     fvc::evaluate(fvc::interpolate(work.rAU_grad_p), work.rAU_grad_p_face);
     fvc::evaluate(fvc::interpolate(m_algorithm.rAU), work.rAU_face);
-    detail::applyMomentumInterpolation(
-        m_p, work.grad_p, work.rAU_face, work.rAU_grad_p_face,
-        m_algorithm.phiHbyA, m_methods.diffusionFor(m_p.name()));
+    // phiHbyA += Sf·interpolate(rAU grad(p)) - rAU_f Sf·grad(p)。
+    // 只修正内部面，保持入口/壁面等物理边界通量；面选择与同步属于通用 fvc。
+    fvc::add(fvc::flux(work.rAU_grad_p_face), m_algorithm.phiHbyA,
+             fvc::FaceRegion::Interior);
+    fvc::subtract(fvc::flux(work.rAU_face, fvc::reconstruct(m_p, work.grad_p)),
+                  m_algorithm.phiHbyA, fvc::FaceRegion::Interior);
 }
 
 }  // babelsim 命名空间

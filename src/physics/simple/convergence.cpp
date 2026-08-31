@@ -1,9 +1,8 @@
 #include "state.h"
-#include "babelsim/runtime.h"
 
 #include <cmath>
 #include <iomanip>
-#include <iostream>
+#include <sstream>
 
 namespace babelsim {
 void SimpleSolver::State::checkContinuityAndConvergence(
@@ -31,15 +30,17 @@ void SimpleSolver::State::checkContinuityAndConvergence(
 }
 
 void SimpleSolver::State::report() const {
-    if (!m_log || !RunTime::current().primary()) return;
+    if (!m_log) return;
     if (m_iteration != 1 && m_iteration % 100 != 0 && !m_result.converged &&
         m_result.healthy && m_iteration != m_control.max_iterations) return;
-    std::cout << "SIMPLE " << m_iteration << std::scientific << std::setprecision(6)
+    std::ostringstream message;
+    message << "SIMPLE " << m_iteration << std::scientific << std::setprecision(6)
               << " mass=" << m_result.continuity.relative
               << " dU=" << m_result.relative_velocity_change
               << " linP=" << m_result.pressure.relative_residual
               << " linear=" << (m_result.linear_converged ? "ok" : "inexact")
-              << " converged=" << (m_result.converged ? "true" : "false") << '\n';
+              << " converged=" << (m_result.converged ? "true" : "false");
+    diagnostics::report(message.str());
 }
 
 }  // babelsim 命名空间

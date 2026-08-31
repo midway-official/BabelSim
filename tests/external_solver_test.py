@@ -39,6 +39,33 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
         "-c", "solver.cpp", "-o", "solver.o", cwd=work)
     run("mpic++", "solver.o", "libbabelsim.a", "-o", "external-solver", cwd=work)
+
+    # 把整个 SIMPLE 模块（不是只有调用 SimpleSolver 的短 main）当成外部源码构建。
+    # 不提供 src/、MPI/Eigen 头或框架私有接口；算法自己的 state.h 可正常使用。
+    shutil.copytree(ROOT / "src/physics/simple", work / "simple")
+    simple_objects = []
+    for source in sorted((work / "simple").glob("*.cpp")):
+        output = source.with_suffix(".o")
+        run("g++", "-std=c++17", "-O2", "-Wall", "-Wextra", "-Werror", "-Iinclude",
+            "-c", source, "-o", output, cwd=work)
+        simple_objects.append(output)
+    (work / "simple_entry.cpp").write_text(
+        '#include "babelsim/application.h"\nnamespace babelsim { int runSimple(Case&); }\n'
+        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv,{"simple",babelsim::runSimple}); }\n')
+    run("g++", "-std=c++17", "-Iinclude", "-c", "simple_entry.cpp", "-o", "simple_entry.o", cwd=work)
+    run("mpic++", "simple_entry.o", *simple_objects, "libbabelsim.a", "-o", "external-simple", cwd=work)
+    simple_case = work / "simple_case"
+    shutil.copytree(ROOT / "cases/poiseuille", simple_case, ignore=shutil.ignore_patterns("results", "post"))
+    for count in (1, 2, 4):
+        result = run("mpirun", "-np", count, work / "external-simple", "-case", simple_case,
+                     "-time", f"np{count}", cwd=work)
+        assert "converged=true" in result.stdout, result.stdout
+        # 一次诊断由框架统一输出，不能让每个进程都打印一份相同日志。
+        assert sum("converged=true" in line for line in result.stdout.splitlines()) == 1
+    for count in (2, 4):
+        run("python3", ROOT / "tools/compare_parallel_results.py", simple_case / "results/np1",
+            simple_case / f"results/np{count}", "--atol", "5e-6", "--rtol", "5e-6", cwd=work)
+    print("external_solver_test: complete SIMPLE module rebuilt with public headers; 1/2/4 ranks passed")
     (work / "single.cpp").write_text(
         '#include "babelsim/application.h"\nint solveCase(babelsim::Case&){return 0;}\n'
         'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv,{"single",solveCase}); }\n')

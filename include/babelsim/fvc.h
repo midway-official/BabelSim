@@ -5,7 +5,7 @@
 namespace babelsim::fvc {
 
 // fvc 描述“立即计算为场”的显式有限体积运算。描述对象只保存 Field 引用；
-// evaluate()/subtract() 才执行：所有参与进程以相同顺序调用，后端同步所有输入、
+// evaluate()/add()/subtract() 才执行：所有参与进程以相同顺序调用，后端同步所有输入、
 // 选择离散方法，并同步写出的结果。调用者不负责 halo；同位输入与结果不得别名。
 // 单面/单元局部核不属于公开 fvc API。
 struct ScalarGradient {
@@ -22,14 +22,19 @@ struct VectorGradient {
 };
 
 struct FaceFlux {
+    // cell 输入先插值；face 输入直接计算 Sf·value，不重复插值。
     const VectorField& velocity;
 };
+
+// 几何选择，不是 MPI 分区选择。Interior 包含跨分区的内部面，但保持物理边界值。
+enum class FaceRegion { All, Interior };
 
 // 标量扩散面通量：coefficient * Sf·grad(field)。coefficient 可位于 cell 或 face，
 // FVM 执行层负责同步、插值和梯度工作区。
 struct ScalarDiffusionFlux {
     const ScalarField& coefficient;
     const ScalarField& field;
+    const VectorField* gradient = nullptr;
 };
 
 struct FaceDivergence {
@@ -100,6 +105,13 @@ inline ScalarReconstruction reconstruct(
 {
     return {field, gradient};
 }
+// 使用已经重构的梯度计算扩散通量，避免组合算法重复求梯度。
+// 梯度必须与当前 field 对应；后端负责同步，不负责替调用者更新这个数学量。
+inline ScalarDiffusionFlux flux(
+    const ScalarField& coefficient, ScalarReconstruction reconstruction)
+{
+    return {coefficient, reconstruction.field, &reconstruction.gradient};
+}
 inline VectorReconstruction reconstruct(
     const VectorField& field,
     const TensorField& gradient)
@@ -135,6 +147,9 @@ void subtract(
     const ScalarField& coefficient,
     ScalarGradient operation,
     VectorField& target);
-void subtract(ScalarDiffusionFlux operation, ScalarField& target);
+// target 是已有通量；增量只更新所选区域，输出仍履行完整的整场同步契约。
+void add(FaceFlux operation, ScalarField& target, FaceRegion region = FaceRegion::All);
+void subtract(ScalarDiffusionFlux operation, ScalarField& target,
+              FaceRegion region = FaceRegion::All);
 
 }  // babelsim::fvc 命名空间

@@ -183,6 +183,19 @@ struct FvmExecution::Implementation {
         }
     }
 
+    // 通量增量作用于选定几何区域；物理边界不等于并行分区边界。
+    void addFaceIncrement(ScalarField& target, double factor, fvc::FaceRegion region) {
+        requireFaceField(target, *mesh, "flux increment target");
+        if (region != fvc::FaceRegion::All && region != fvc::FaceRegion::Interior)
+            throw std::invalid_argument("unknown face region");
+        for (Index face : detail::meshData(*mesh).owned_faces) {
+            if (region == fvc::FaceRegion::Interior &&
+                detail::meshData(*mesh).face_neighbour[face] == invalid_index) continue;
+            detail::fieldData(target)[face] += factor * detail::fieldData(face_flux_workspace)[face];
+        }
+        synchronize(target);
+    }
+
     const Mesh* mesh;
     Methods methods;
     ParallelContext parallel;
@@ -715,7 +728,7 @@ void FvmExecution::evaluate(fvc::VectorGradient operation, TensorField& result) 
 
 void FvmExecution::evaluate(fvc::FaceFlux operation, ScalarField& result) {
     Implementation& state = *m_implementation;
-    requireCellField(operation.velocity, *state.mesh, "flux input");
+    state.requireCellOrFace(operation.velocity);
     requireFaceField(result, *state.mesh, "flux result");
     state.synchronize(const_cast<VectorField&>(operation.velocity));
     flux(operation.velocity, result,
@@ -894,12 +907,17 @@ void FvmExecution::evaluate(fvc::ScalarDiffusionFlux operation, ScalarField& tar
         throw std::invalid_argument(
             "diffusion-flux coefficient must be a cell or face field on the run mesh");
     }
+    if (operation.gradient != nullptr)
+        requireCellField(*operation.gradient, *state.mesh, "diffusion-flux gradient");
     state.synchronize(const_cast<ScalarField&>(operation.field));
     state.synchronize(const_cast<ScalarField&>(operation.coefficient));
-    gradient(
-        operation.field, state.gradient_workspace,
-        state.methods.gradientFor(operation.field.name()));
-    state.synchronize(state.gradient_workspace);
+    const VectorField* reconstructed_gradient = operation.gradient;
+    if (reconstructed_gradient == nullptr) {
+        gradient(operation.field, state.gradient_workspace,
+                 state.methods.gradientFor(operation.field.name()));
+        reconstructed_gradient = &state.gradient_workspace;
+    }
+    state.synchronize(const_cast<VectorField&>(*reconstructed_gradient));
 
     const ScalarField* face_coefficient = &operation.coefficient;
     if (operation.coefficient.location() == FieldLocation::Cell) {
@@ -911,15 +929,28 @@ void FvmExecution::evaluate(fvc::ScalarDiffusionFlux operation, ScalarField& tar
         face_coefficient = &state.face_coefficient_workspace;
     }
     diffusionFlux(
-        *face_coefficient, operation.field, state.gradient_workspace,
+        *face_coefficient, operation.field, *reconstructed_gradient,
         target, state.methods.diffusionFor(operation.field.name()));
     state.synchronize(target);
 }
 
-void FvmExecution::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target) {
+void FvmExecution::add(fvc::FaceFlux operation, ScalarField& target, fvc::FaceRegion region) {
+    requireFaceField(target, *m_implementation->mesh, "flux increment target");
+    // Cell 输入的入口/出口判定使用目标中的当前通量，而不是上一次工作区残值。
+    if (operation.velocity.location() == FieldLocation::Cell) {
+        m_implementation->synchronize(target);
+        m_implementation->face_flux_workspace.assign(target);
+    }
     evaluate(operation, m_implementation->face_flux_workspace);
-    target.addScaled(-1.0, m_implementation->face_flux_workspace);
-    m_implementation->synchronize(target);
+    m_implementation->addFaceIncrement(target, 1.0, region);
+}
+
+void FvmExecution::subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target,
+                            fvc::FaceRegion region) {
+    requireFaceField(target, *m_implementation->mesh, "flux increment target");
+    requireDistinct(&operation.coefficient, &target);
+    evaluate(operation, m_implementation->face_flux_workspace);
+    m_implementation->addFaceIncrement(target, -1.0, region);
 }
 
 void FvmExecution::evaluate(fvc::NormalGradient operation, ScalarField& result) {

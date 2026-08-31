@@ -17,7 +17,6 @@ SOURCES := src/core/mesh.cpp \
            src/io/result_reader.cpp \
            src/io/postprocess.cpp \
            src/discretization/operators.cpp \
-           src/discretization/simple_discretization.cpp \
            src/discretization/fvm_expression.cpp \
            src/discretization/fvm_execution.cpp \
            src/discretization/assembly.cpp \

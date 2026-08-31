@@ -9,9 +9,11 @@ texts = {path: path.read_text() for path in files}
 edges = {}
 for path, text in texts.items():
     dependencies = set()
-    for name in re.findall(r'#include\s*"([^"]+)"', text):
+    for delimiter, name in re.findall(r'#\s*include\s*([<"])([^">]+)[">]', text):
         candidates = [directory / name for directory in (path.parent, ROOT / "include", ROOT / "src")]
         target = next((candidate.resolve() for candidate in candidates if candidate.is_file()), None)
+        if target is None and delimiter == '<' and not name.startswith(("babelsim/", "internal/")):
+            continue  # 标准库/系统头不属于项目依赖图。
         assert target in texts, (path, "unresolved project include", name)
         dependencies.add(target)
     edges[path] = dependencies
@@ -63,7 +65,7 @@ assert "integratedNormalGradient" not in texts[ROOT / "include/babelsim/fvc.h"]
 assert all(path.name != "runtime.h" for path in
            closures[ROOT / "src/discretization/fvm_execution.cpp"])
 
-# 专用数值桥接可调用通用执行层，但底层不能导入 Solver 或它的私有状态。
+# 底层不能导入 Solver 或它的私有状态；不存在 SIMPLE 专用的跨层桥接。
 for path in files:
     if path.is_relative_to(ROOT / "src") and path.relative_to(ROOT / "src").parts[0] in {
             "core", "discretization", "algebra", "runtime", "parallel", "io"}:
@@ -71,18 +73,42 @@ for path in files:
             assert not dependency.is_relative_to(ROOT / "src/physics"), (path, dependency)
             assert not dependency.is_relative_to(ROOT / "src/apps"), (path, dependency)
             assert dependency.name not in {"simple.h", "simple_control.h"}, (path, dependency)
-for path in (ROOT / "src/discretization/operators.cpp", ROOT / "include/babelsim/operators.h"):
-    assert all(dependency.name != "simple_discretization.h" for dependency in closures[path]), path
-    assert "applyMomentumInterpolation" not in texts[path], path
+assert not (ROOT / "src/internal/simple_discretization.h").exists()
+assert not (ROOT / "src/discretization/simple_discretization.cpp").exists()
 
-# 算法方程与主步骤不需要执行器定义；仅初始化和日志实现使用执行上下文。
-for name in ("momentum.cpp", "pressure.cpp", "simple_solver.cpp", "state.h"):
-    for dependency in closures[ROOT / "src/physics/simple" / name]:
-        assert dependency.name not in implementation_headers, (name, dependency)
+
+def check_solver(path, text, dependencies):
+    # 本算法内的私有状态合法，但所有跨模块能力必须来自公开 Solver API。
+    module = ROOT / "src/physics" / path.relative_to(ROOT / "src/physics").parts[0]
+    for dependency in dependencies:
+        assert dependency.is_relative_to(ROOT / "include") or dependency.is_relative_to(module), (path, dependency)
+        assert dependency.name not in implementation_headers, (path, dependency)
+    code = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"', '', text, flags=re.S)
+    assert not re.search(r'\bdetail\s*::|MPI_|ParallelContext|HaloExchange|mutableData|'
+                         r'\.(?:data|values|internal)\s*\(|std::vector|SparseAssembly|'
+                         r'\b(?:CSR|LDU|Eigen|owned_cells|owned_faces|ghost|communicator)\b', code), path
+
+
 for path in files:
     if path.is_relative_to(ROOT / "src/physics"):
-        assert not re.search(r'MPI_|ParallelContext|HaloExchange|mutableData|\.data\(|'
-                             r'std::vector|SparseAssembly|Eigen::', texts[path]), path
+        check_solver(path, texts[path], closures[path])
+
+# 负向验收：检查器本身必须拒绝曾经漏过的私有接口、存储访问和运行后端包含链。
+momentum = ROOT / "src/physics/simple/momentum.cpp"
+for body, dependency in (
+    ('detail::fieldData(m_U)[0] = Vec3{};', None),
+    ('detail::meshData(m_U.mesh());', None),
+    ('m_U.mutableData();', None),
+    ('', ROOT / "src/internal/field_access.h"),
+    ('', ROOT / "include/babelsim/runtime.h"),
+    ('', ROOT / "include/babelsim/operators.h"),
+):
+    try:
+        check_solver(momentum, texts[momentum] + body,
+                     closures[momentum] | ({dependency} if dependency else set()))
+    except AssertionError:
+        continue
+    raise AssertionError("architecture guard accepted an internal dependency: " + body + str(dependency))
 
 # 主 Solver 不操作底层对象；数值算法的修正循环不属于存储循环。
 for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [

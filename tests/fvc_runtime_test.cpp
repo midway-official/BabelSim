@@ -66,6 +66,41 @@ int main() {
             "high-level diffusion-flux correction is inconsistent");
     }
 
+    // 面矢量直接投影；给定梯度的扩散通量复用重构，不把 SIMPLE 公式放回框架。
+    VectorField face_response(mesh, FieldLocation::Face, "response", {2.0, -1.0, 0.5});
+    ScalarField face_coefficient(mesh, FieldLocation::Face, "kf", 1.7);
+    ScalarField correction(mesh, FieldLocation::Face, "correction", 3.0);
+    ScalarField projected(mesh, FieldLocation::Face, "projected");
+    fvc::evaluate(fvc::flux(face_response), projected);
+    fvc::add(fvc::flux(face_response), correction, fvc::FaceRegion::Interior);
+    fvc::subtract(fvc::flux(face_coefficient, fvc::reconstruct(scalar, scalar_gradient)),
+                  correction, fvc::FaceRegion::Interior);
+    for (Index face : detail::meshData(mesh).owned_faces) {
+        const double projection = dot(detail::fieldData(face_response)[face], mesh.faceAreaVector(face));
+        require(near(detail::fieldData(projected)[face], projection), "face flux interpolated an already face-centred field");
+        double expected = 3.0;
+        if (detail::meshData(mesh).face_neighbour[face] != invalid_index)
+            expected += projection - 1.7 * integratedNormalGradient(
+                scalar, scalar_gradient, face, control.methods.diffusion);
+        require(near(detail::fieldData(correction)[face], expected), "interior flux update changed the boundary or its sign");
+    }
+    fvc::add(fvc::flux(face_response), projected);
+    for (Index face : detail::meshData(mesh).owned_faces)
+        require(near(detail::fieldData(projected)[face], 2 * dot(
+            detail::fieldData(face_response)[face], mesh.faceAreaVector(face))), "all-face addition omitted a boundary");
+
+    const auto rejects = [](const auto& operation) {
+        try { operation(); } catch (const std::invalid_argument&) { return; }
+        throw std::runtime_error("invalid public flux operation was accepted");
+    };
+    rejects([&] { fvc::add(fvc::flux(face_response), scalar); });
+    rejects([&] { fvc::subtract(fvc::flux(face_coefficient, scalar), face_coefficient); });
+    rejects([&] { fvc::evaluate(fvc::flux(face_coefficient, fvc::reconstruct(scalar, face_response)), projected); });
+    rejects([&] { fvc::add(fvc::flux(face_response), projected, static_cast<fvc::FaceRegion>(-1)); });
+    const Mesh other_mesh = Mesh::cartesian({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
+    VectorField other_face(other_mesh, FieldLocation::Face);
+    rejects([&] { fvc::evaluate(fvc::flux(other_face), projected); });
+
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     TensorField velocity_gradient(mesh, FieldLocation::Cell, "gradU");
     VectorField reconstructed_velocity(mesh, FieldLocation::Face, "Urec");

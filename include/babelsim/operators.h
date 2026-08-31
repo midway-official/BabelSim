@@ -52,6 +52,7 @@ Vec3 integratedNormalGradient(
     Index face,
     DiffusionMethod method = DiffusionMethod::Corrected);
 
+// cell 矢量按所选方法插值；face 矢量直接与面面积向量点乘。
 void flux(
     const VectorField& velocity,
     ScalarField& face_flux,

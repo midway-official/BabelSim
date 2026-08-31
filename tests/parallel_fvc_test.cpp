@@ -1,6 +1,7 @@
 #include "babelsim/runtime.h"
 #include "babelsim/mpi_support.h"
 #include "babelsim/parallel.h"
+#include "babelsim/operators.h"
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
 #include "test_util.h"
@@ -125,6 +126,31 @@ void exercise(Fields& f, Answers& answers, bool record) {
     fvc::subtract(f.k, fvc::grad(f.p), f.vector); check(f.vector);
     f.faceScalar.fill(3); poison(f.k); poison(f.p);
     fvc::subtract(fvc::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
+
+    poison(f.faceVector);
+    fvc::evaluate(fvc::flux(f.faceVector), f.phi); check(f.phi);
+    f.phi.fill(3); poison(f.phi); poison(f.faceVector);
+    fvc::add(fvc::flux(f.faceVector), f.phi); check(f.phi);
+    f.phi.fill(3); poison(f.phi); poison(f.faceVector);
+    fvc::add(fvc::flux(f.faceVector), f.phi, fvc::FaceRegion::Interior); check(f.phi);
+    // 给定梯度有意不等于 grad(p)，确保执行层确实使用传入的重构量。
+    f.gradP.fill({0.7, -0.2, 0.4});
+    f.faceScalar.evaluate([](Vec3 x) { return 1.7 + 0.1*x.x; });
+    poison(f.faceScalar); poison(f.p); poison(f.gradP); poison(f.phi);
+    fvc::subtract(fvc::flux(f.faceScalar, fvc::reconstruct(f.p, f.gradP)),
+                  f.phi, fvc::FaceRegion::Interior); check(f.phi);
+    // 与原 Rhie--Chow 逐面数学式直接对照，尤其检查分区界面与物理边界的区别。
+    const Mesh& mesh = f.p.mesh();
+    for (Index face : detail::meshData(mesh).owned_faces) {
+        double expected = 3.0;
+        if (detail::meshData(mesh).face_neighbour[face] != invalid_index)
+            expected += dot(detail::fieldData(f.faceVector)[face], mesh.faceAreaVector(face)) -
+                detail::fieldData(f.faceScalar)[face] * integratedNormalGradient(
+                    f.p, f.gradP, face, numericalMethods().diffusion);
+        require(near(detail::fieldData(f.phi)[face], expected, 1e-12), "composed flux differs from the original face formula");
+    }
+    poison(f.faceScalar); poison(f.p); poison(f.gradP);
+    fvc::evaluate(fvc::flux(f.faceScalar, fvc::reconstruct(f.p, f.gradP)), f.phi); check(f.phi);
 }
 }  // 匿名命名空间
 
@@ -139,8 +165,11 @@ int main(int argc, char* argv[]) {
             }
     const Mesh global = Mesh::structured({16, 4, 3}, std::move(points));
     Answers answers;
-    {
-        RunTime time = RunTime::forMesh(global);
+    for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
+                                   DiffusionMethod::LimitedCorrected}) {
+        RuntimeControl control;
+        control.methods.diffusion = method;
+        RunTime time = RunTime::forMesh(global, control);
         Fields serial(global);
         exercise(serial, answers, true);
     }
@@ -148,15 +177,18 @@ int main(int argc, char* argv[]) {
     try {
         const ParallelContext parallel = ParallelContext::world();
         const Mesh local = decompose(global, parallel);
-        {
-            RunTime time = RunTime::forMesh(local);
+        for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
+                                       DiffusionMethod::LimitedCorrected}) {
+            RuntimeControl control;
+            control.methods.diffusion = method;
+            RunTime time = RunTime::forMesh(local, control);
             Fields fields(local);
             exercise(fields, answers, false);
         }
         double maximum = 0;
         parallel.maximum(&answers.error, &maximum, 1);
         require(maximum < 1e-9, "public fvc synchronization differs from serial oracle");
-        if (parallel.rank == 0) std::cout << "parallel_fvc_test: 17 operations, poisoned halos, maxError=" << maximum << '\n';
+        if (parallel.rank == 0) std::cout << "parallel_fvc_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=" << maximum << '\n';
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         detail::checkMpi(MPI_Abort(MPI_COMM_WORLD, 1), "MPI_Abort");

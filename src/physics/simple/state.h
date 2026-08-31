@@ -2,14 +2,13 @@
 
 #include "babelsim/simple.h"
 #include "babelsim/simple_control.h"
-#include "internal/simple_discretization.h"
 
 namespace babelsim {
 
-// 只在框架实现中可见。U/p/phi 属于物理场；算法量与预分配工作量分开存放。
+// 只在 SIMPLE 模块内可见。U/p/phi 属于物理场；算法量与预分配工作量分开存放。
 // 本对象只在初始化时分配一次，外迭代不创建新的整场工作数组。
 struct SimpleSolver::State {
-    State(RunTime& run_time, VectorField& U, ScalarField& p, ScalarField& phi,
+    State(VectorField& U, ScalarField& p, ScalarField& phi,
           FluidProperties fluid, SimpleControl control);
 
     VectorField& m_U;

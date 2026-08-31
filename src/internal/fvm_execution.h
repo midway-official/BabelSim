@@ -42,7 +42,8 @@ public:
         const ScalarField& coefficient,
         fvc::ScalarGradient operation,
         VectorField& target);
-    void subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target);
+    void add(fvc::FaceFlux operation, ScalarField& target, fvc::FaceRegion region);
+    void subtract(fvc::ScalarDiffusionFlux operation, ScalarField& target, fvc::FaceRegion region);
     double relativeChange(const VectorField& current, const VectorField& previous) const;
     double relativeChange(const ScalarField& current, const ScalarField& previous) const;
     double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;

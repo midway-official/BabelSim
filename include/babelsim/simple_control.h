@@ -2,8 +2,6 @@
 
 #include "babelsim/solver.h"
 
-#include <array>
-
 namespace babelsim {
 // 不可压缩牛顿流体的常物性模型。若未来引入变黏度模型，仍由该层提供等价物性场，
 // 而不是让 SIMPLE 接触底层存储或 Case 解析。

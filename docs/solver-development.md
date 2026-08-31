@@ -199,6 +199,17 @@ BDF2 首步自动用 Euler；当前 BDF2 只支持均匀步长，非整数步数
 
 只有算法确实跨多个模块复用时才建立类似 `SimpleSolver` 的算法对象。
 SIMPLE 的公开 API 是 loop、五个步骤和 converged；内部状态不属于普通调用者要学习的内容。
+如果要修改 SIMPLE 本身，其全部算法代码都在 `src/physics/simple/`，没有另一个藏在
+通用框架中的专用动量插值实现。`momentum.cpp` 用公开 fvc 组合面通量修正，
+`pressure.cpp` 描述压力方程和速度/通量更新。模块自己的 `state.h` 只存物理场引用、
+算法量和可复用的数学中间场，不包含 `internal/` 类型。
+
+算法需要了解非正交方法时，使用只读的 `numericalMethods()`；需要输出诊断时，
+使用 `diagnostics::report("说明本次迭代的数学诊断")`，不要自己查询主进程或包含 runtime.h。
+这不要求普通方程驱动 Solver 创建更多对象，默认 solve/fvc 的方法仍来自 Case。
+
+`make test-external` 也会把整个 SIMPLE 模块复制到仓库外重新编译，并运行 1/2/4 进程算例。
+新增自己的算法时同样可以保留少量本模块私有文件，但不能包含框架或其他算法的私有头。
 
 ## 方程控制和动量响应
 

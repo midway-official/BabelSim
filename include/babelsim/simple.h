@@ -4,18 +4,17 @@
 
 namespace babelsim {
 class Case;
-class RunTime;
 struct IncompressibleFields;
 struct FluidProperties;
 struct SimpleControl;
 struct SimpleIterationResult;
 
 // 稳态层流 SIMPLE：调用者只看到算法步骤，不需要管理 pPrime/rAU 或数值工作区。
-// Case 或传入的 RunTime/物理场必须活得比算法更久。
+// Case 或当前运行域/传入的物理场必须活得比算法更久。
 class SimpleSolver {
 public:
     explicit SimpleSolver(Case& problem);
-    SimpleSolver(RunTime& run_time, IncompressibleFields& fields,
+    SimpleSolver(IncompressibleFields& fields,
                  FluidProperties fluid, SimpleControl control);
     ~SimpleSolver();
     SimpleSolver(const SimpleSolver&) = delete;

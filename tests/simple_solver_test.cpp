@@ -61,6 +61,11 @@ int main() {
     IncompressibleFields fields(mesh);
     configureChannelBoundaries(fields);
 
+    bool rejected = false;
+    try { SimpleSolver without_run(fields, {1.0, 0.01}, {}); }
+    catch (const std::logic_error&) { rejected = true; }
+    require(rejected, "SIMPLE accepted fields without an active execution domain");
+
     RuntimeControl run_control;
     run_control.scalar_solver.solver = LinearSolverType::ConjugateGradient;
     run_control.scalar_solver.preconditioner = PreconditionerType::IncompleteCholesky;
@@ -80,9 +85,15 @@ int main() {
     run_control.scalar_solver.relative_tolerance = 1e-10;
 
     RunTime run_time = RunTime::forMesh(mesh, run_control);
+    const Mesh other_mesh = Mesh::cartesian({2, 2, 1}, {}, {1, 1, 1});
+    IncompressibleFields other_fields(other_mesh);
+    rejected = false;
+    try { SimpleSolver wrong_mesh(other_fields, {1.0, 0.01}, control); }
+    catch (const std::invalid_argument&) { rejected = true; }
+    require(rejected, "SIMPLE accepted fields from a different execution domain");
     // rho=2 同时验证 fvm::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
     // 黏度以维持该回归的 Reynolds 数。
-    SimpleSolver solver(run_time, fields, {2.0, 0.2}, control);
+    SimpleSolver solver(fields, {2.0, 0.2}, control);
     SimpleIterationResult result;
     int iterations = 0;
     for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {

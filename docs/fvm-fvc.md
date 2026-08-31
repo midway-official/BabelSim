@@ -71,7 +71,8 @@ fvc::evaluate(fvc::div(phi), div_phi);
 | `fvc::grad(U)` | cell tensor | \(\nabla U\) |
 | `fvc::normalGradient(T)` | face scalar | 当前扩散格式下的法向梯度（不是面积积分值） |
 | `fvc::flux(k,T)` | face scalar | 扩散面通量；k 可为 cell 或 face scalar |
-| `fvc::flux(U)` | face scalar | \(U_f\cdot S_f\) |
+| `fvc::flux(k,fvc::reconstruct(T,gradT))` | face scalar | 同上，但复用给定的 cell 梯度，不重复重构 |
+| `fvc::flux(U)` | face scalar | \(U_f\cdot S_f\)；cell 输入先插值，face 输入直接点积 |
 | `fvc::div(phi)` | cell scalar | \(\nabla\cdot\phi\) |
 | `fvc::div(U)` | cell scalar | \(\nabla\cdot U\) |
 | `fvc::div(phi,T/U)` | cell scalar/vector | 显式对流散度 |
@@ -80,6 +81,7 @@ fvc::evaluate(fvc::div(phi), div_phi);
 | `fvc::laplacian(k,T)` | cell scalar | 显式扩散散度 |
 | `fvc::subtract(rAU, fvc::grad(p'), U)` | cell vector | 原位执行 \(U\leftarrow U-rAU\nabla p'\) |
 | `fvc::subtract(fvc::flux(rAU,p'), phi)` | face scalar | 原位执行 \(\phi\leftarrow\phi-rAU_fS_f\cdot\nabla p'\) |
+| `fvc::add(fvc::flux(faceVector),phi,region)` | face scalar | 按指定面区域累加面积积分通量 |
 
 对流显式求值使用 `Methods::convection` 的 Upwind/Central 选择；Central 且选择 corrected
 插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 FVM 后端自动选择当前方法，
@@ -89,9 +91,18 @@ fvc::evaluate(fvc::div(phi), div_phi);
 再同步结果。它避免 SIMPLE Solver 为 `grad(p')`、`rAU_f` 和每个 face 的扩散通量编写
 cell/face 循环；该 API 不生成隐式方程，也不暴露工作场的存储。
 
+面通量的 `add/subtract` 可选 `fvc::FaceRegion::All`（默认）或 `Interior`。
+后者只更新几何内部面，包含并行分区交界，物理边界保持原值。面区域不是 rank、patch
+或 ghost 选择器。SIMPLE 用它组合 Rhie–Chow，但通用 FVM 不含 Rhie–Chow 公式。
+给定重构梯度的输入必须对应当前场；调用者若改变 T，应先更新 gradT。框架负责同步
+这两个输入，却不会把用户给定的数学量偷偷改成另一种重构。可传 face 系数以精确保留
+算法选择的插值结果；传 cell 系数时仍按被微分场 T 的格式进行插值。
+增量复用执行层面通量工作场，不分配新的整场数组，不产生临时矩阵；多个公开调用
+分别履行同步契约，不承诺与融合单面核具有完全相同的通信次数。
+
 ## 公开同步契约
 
-只包含 fvc.h 即可调用上述 evaluate/subtract。
+只包含 fvc.h 即可调用上述 evaluate/add/subtract。
 所有参与进程必须按同样顺序调用；框架同步每个输入，计算，再同步输出。
 调用后 cell 结果的 ghost 和分区共享面值已可被后续算子使用。返回并不表示每个 rank 持有全局 Field。
 
@@ -102,6 +113,7 @@ cell/face 循环；该 API 不生成隐式方程，也不暴露工作场的存�
 
 evaluate 不支持同位输入和结果使用同一 Field；例如 laplacian(T,T)、div(phi,U,U)
 会拒绝。修正算法使用明确的 subtract 原位接口。
+面扩散通量的系数不能与目标通量别名；错误网格、位置和未知面区域也会拒绝。
 Field::assign/fill/evaluate 等点运算本身不通信，下一个 fvm/fvc 入口负责所需同步。
 
 ## 方程控制和响应

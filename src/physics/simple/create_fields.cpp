@@ -1,6 +1,5 @@
 #include "state.h"
 #include "babelsim/case.h"
-#include "babelsim/runtime.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -29,7 +28,6 @@ void SimpleControl::validate() const {
 }
 
 SimpleSolver::State::State(
-    RunTime& run_time,
     VectorField& U, ScalarField& p, ScalarField& phi,
     FluidProperties fluid,
     SimpleControl control)
@@ -37,11 +35,11 @@ SimpleSolver::State::State(
       m_mesh(U.mesh()),
       m_fluid(fluid),
       m_control(control),
-      m_methods(run_time.methods()),
+      m_methods(numericalMethods()),
       m_algorithm(m_mesh),
       m_workspace(m_mesh)
 {
-    if (&run_time.mesh() != &m_mesh || &m_p.mesh() != &m_mesh ||
+    if (&m_p.mesh() != &m_mesh ||
         &m_phi.mesh() != &m_mesh ||
         m_U.location() != FieldLocation::Cell ||
         m_p.location() != FieldLocation::Cell ||
@@ -58,9 +56,9 @@ SimpleSolver::State::State(
     fvc::evaluate(fvc::flux(m_U), m_phi);
 }
 
-SimpleSolver::SimpleSolver(RunTime& run_time, IncompressibleFields& fields,
+SimpleSolver::SimpleSolver(IncompressibleFields& fields,
                            FluidProperties fluid, SimpleControl control)
-    : m_state(std::make_unique<State>(run_time, fields.velocity, fields.pressure,
+    : m_state(std::make_unique<State>(fields.velocity, fields.pressure,
                                      fields.face_flux, fluid, control))
 {}
 
@@ -81,7 +79,7 @@ SimpleControl simpleControl(const Parameters& settings) {
 
 SimpleSolver::SimpleSolver(Case& problem)
     : m_state(std::make_unique<State>(
-          RunTime::current(), problem.vectorField("U"), problem.scalarField("p"),
+          problem.vectorField("U"), problem.scalarField("p"),
           problem.faceField("phi"),
           FluidProperties{problem.properties().positive("density"),
                           problem.properties().positive("dynamicViscosity")},

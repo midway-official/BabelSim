@@ -858,8 +858,15 @@ void flux(
     GradientMethod gradient_method)
 {
     const Mesh& mesh = velocity.mesh();
-    requireField(velocity, mesh, FieldLocation::Cell, "velocity");
     requireField(face_flux, mesh, FieldLocation::Face, "flux");
+    if (velocity.location() == FieldLocation::Face) {
+        requireField(velocity, mesh, FieldLocation::Face, "face vector");
+        for (Index face : detail::meshData(mesh).owned_faces)
+            detail::fieldData(face_flux)[face] = dot(
+                detail::fieldData(velocity)[face], mesh.faceAreaVector(face));
+        return;
+    }
+    requireField(velocity, mesh, FieldLocation::Cell, "velocity");
     if (method != InterpolationMethod::Linear &&
         method != InterpolationMethod::Corrected) {
         throw std::invalid_argument("unsupported flux interpolation method");
