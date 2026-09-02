@@ -1,3 +1,4 @@
+#include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
 
@@ -7,9 +8,9 @@ int runTransport(Case& problem) {
     ScalarField& C = problem.scalarField("C");
     VectorField& U = problem.vectorField("U");
     ScalarField& phi = problem.faceFlux("phi", U);
-    const double storage = problem.properties().positive("storage");
-    const double D = problem.properties().nonnegative("diffusivity");
-    const double S = problem.properties().number("source");
+    const double storage = problem.physics().positive("storage");
+    const double D = problem.physics().nonnegative("diffusivity");
+    const double S = problem.physics().number("source");
 
     while (problem.loop()) {
         if (!solve(eqn::ddt(storage, C) + eqn::div(phi, C) ==
@@ -17,5 +18,7 @@ int runTransport(Case& problem) {
     }
     return 0;
 }
+
+const SolverRegistration transport("transport", runTransport);
 
 }  // babelsim 命名空间

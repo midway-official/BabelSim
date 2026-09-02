@@ -16,10 +16,13 @@ int runSimple(Case& problem) {
     }
     return simple.converged() ? 0 : 2;
 }
+const SolverRegistration simple("simple", runSimple);
 ```
 
 调用者不列出 pPrime、梯度、rAU、面系数、历史速度或工作区，也不操作 RunTime。
 SIMPLE 算法本身仍是有状态的；复杂性没有被删掉，而是放在需要理解它的实现边界。
+`main.cpp` 包含 `babelsim/application.h`，只注册自己的 `simple` 名称。
+通用启动器读取 Case 后按该名称调用 `runSimple`，不需要修改集中名单。
 
 ## 文件按阅读目的划分
 

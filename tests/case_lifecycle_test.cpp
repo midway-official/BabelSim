@@ -9,6 +9,14 @@ using namespace babelsim;
 int main() {
     {
         Case problem("cases/heat", "lifecycle");
+        const Parameters& physics = problem.physics();
+        require(&physics == &problem.physics(), "Case recreated its physics dictionary");
+        require(near(physics.positive("density"), 1.0) &&
+                near(physics.positive("heatCapacity"), 1.0) &&
+                near(physics.nonnegative("conductivity"), 0.1) &&
+                near(physics.number("source"), 0.0),
+                "Case physics values do not match the selected dictionary");
+        problem.validate();
         ScalarField& first = problem.scalarField("T");
         for (int i = 0; i < 64; ++i)
             problem.vectorField("scratch" + std::to_string(i), Vec3{});

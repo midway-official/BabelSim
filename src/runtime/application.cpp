@@ -4,12 +4,33 @@
 
 #include <mpi.h>
 
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
 namespace babelsim {
+
+const SolverRegistration*& SolverRegistration::first() noexcept {
+    // 函数内的零初始化头指针不依赖跨翻译单元的构造顺序。
+    static const SolverRegistration* head = nullptr;
+    return head;
+}
+
+SolverRegistration::SolverRegistration(const char* name, int (*run)(Case&)) noexcept
+    : m_name(name), m_run(run), m_next(first())
+{
+    first() = this;
+}
+
+SolverRegistration::~SolverRegistration() noexcept {
+    // 既支持正常静态析构，也避免临时注册对象离开作用域后留下悬空描述项。
+    const SolverRegistration** link = &first();
+    while (*link != nullptr && *link != this) link = &(*link)->m_next;
+    if (*link != nullptr) *link = m_next;
+}
+
 namespace {
 
 struct Arguments {
@@ -35,35 +56,10 @@ Arguments parseArguments(int argc, char* argv[]) {
     return result;
 }
 
-int run(const Arguments& arguments, const SolverEntry* solvers, std::size_t count) {
-    if (solvers == nullptr || count == 0) throw std::invalid_argument("empty solver table");
-    Case problem(arguments.case_directory, arguments.time_name);
-    int status = 1;
-    bool found = false;
-    for (std::size_t index = 0; index < count; ++index) {
-        if (solvers[index].name == nullptr || solvers[index].run == nullptr)
-            throw std::invalid_argument("invalid solver entry");
-        if (solvers[index].name[0] == '\0') throw std::invalid_argument("empty solver name");
-        for (std::size_t previous = 0; previous < index; ++previous)
-            if (std::string(solvers[previous].name) == solvers[index].name)
-                throw std::invalid_argument("duplicate solver entry");
-        if (problem.solver() != solvers[index].name) continue;
-        if (found) throw std::invalid_argument("duplicate solver entry");
-        found = true;
-    }
-    if (!found) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
-    for (std::size_t index = 0; index < count; ++index)
-        if (problem.solver() == solvers[index].name) { status = solvers[index].run(problem); break; }
-    // 用户函数的任意非零值均是失败；不能让负返回码在全局 maximum 中被 0 掩盖。
-    status = ParallelContext::world().maximum(status < 0 ? 1 : status);
-    if (status == 0) problem.finish();
-    return status;
-}
-
 }  // 匿名命名空间
 }  // babelsim 命名空间
 
-int babelsim::runApplication(int argc, char* argv[], const SolverEntry* solvers, std::size_t count) {
+int babelsim::runApplication(int argc, char* argv[]) {
     int initialized = 0;
     int finalized = 0;
     if (MPI_Initialized(&initialized) != MPI_SUCCESS ||
@@ -79,7 +75,25 @@ int babelsim::runApplication(int argc, char* argv[], const SolverEntry* solvers,
     }
     int status = 1;
     try {
-        status = babelsim::run(babelsim::parseArguments(argc, argv), solvers, count);
+        const Arguments arguments = parseArguments(argc, argv);
+        const SolverRegistration* solvers = SolverRegistration::first();
+        if (solvers == nullptr) throw std::invalid_argument("no registered solvers");
+        for (const auto* entry = solvers; entry != nullptr; entry = entry->m_next) {
+            if (entry->m_name == nullptr || entry->m_run == nullptr)
+                throw std::invalid_argument("invalid solver registration");
+            if (entry->m_name[0] == '\0') throw std::invalid_argument("empty solver name");
+            for (const auto* previous = solvers; previous != entry; previous = previous->m_next)
+                if (std::strcmp(previous->m_name, entry->m_name) == 0)
+                    throw std::invalid_argument("duplicate solver registration: " + std::string(entry->m_name));
+        }
+        Case problem(arguments.case_directory, arguments.time_name);
+        const SolverRegistration* selected = solvers;
+        while (selected != nullptr && problem.solver() != selected->m_name) selected = selected->m_next;
+        if (selected == nullptr) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
+        status = selected->m_run(problem);
+        // 任意非零值均是失败；负返回码不能在全局 maximum 中被 0 掩盖。
+        status = ParallelContext::world().maximum(status < 0 ? 1 : status);
+        if (status == 0) problem.finish();
     } catch (const std::exception& error) {
         int rank = 0;
         const int rank_status = MPI_Comm_rank(MPI_COMM_WORLD, &rank);

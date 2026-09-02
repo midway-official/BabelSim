@@ -10,8 +10,8 @@ int runCoupledScalar(Case& problem) {
     ScalarField& C = problem.scalarField("C");
     ScalarField& previous = problem.scalarField("previous", 0.0);
     ScalarField& previous_C = problem.scalarField("previousC", 0.0);
-    const double D = problem.properties().nonnegative("diffusivity");
-    const double a = problem.properties().number("coupling");
+    const double D = problem.physics().nonnegative("diffusivity");
+    const double a = problem.physics().number("coupling");
     const int corrections = problem.solution().integer("couplingIterations", 100);
     const double tolerance = problem.solution().number("couplingTolerance", 1e-12);
 

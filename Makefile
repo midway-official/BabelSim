@@ -27,11 +27,7 @@ SOURCES := src/core/mesh.cpp \
            src/runtime/runtime.cpp \
            src/runtime/solver_api.cpp \
            src/runtime/application.cpp \
-           src/physics/simple/simple_solver.cpp \
-           src/physics/simple/create_fields.cpp \
-           src/physics/simple/convergence.cpp \
-           src/physics/simple/momentum.cpp \
-           src/physics/simple/pressure.cpp
+           $(filter-out $(wildcard src/physics/*/main.cpp),$(wildcard src/physics/*/*.cpp))
 OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOURCES))
 SOLVER_SOURCES := $(wildcard src/physics/*/main.cpp)
 SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
@@ -66,10 +62,12 @@ APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
 all: $(LIB) $(APPS)
 
-$(LIB): $(OBJECTS)
+# 目录依赖使删除/新增 Solver 文件后也会重新归档，避免残留旧模块。
+PHYSICS_DIRECTORIES := src/physics $(wildcard src/physics/*/)
+$(LIB): $(OBJECTS) $(PHYSICS_DIRECTORIES) Makefile
 	@mkdir -p $(dir $@)
 	$(RM) $@
-	$(AR) rcs $@ $^
+	$(AR) rcs $@ $(OBJECTS)
 
 $(BUILD)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
@@ -79,7 +77,8 @@ $(BUILD)/%: tests/%.cpp tests/test_util.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
 
-$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp $(HEADERS) $(SOLVER_OBJECTS) $(LIB)
+# 注册源文件作为目标文件直接链接，不能仅藏在静态库中等待按需抽取。
+$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp $(HEADERS) $(SOLVER_OBJECTS) $(LIB) $(PHYSICS_DIRECTORIES)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(SOLVER_OBJECTS) $(LIB) -o $@
 

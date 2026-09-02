@@ -68,7 +68,7 @@ std::string timeName(double time) {
 struct Case::Implementation {
     Implementation(const std::filesystem::path& directory, const std::string& run_name)
         : definition(readCase(directory)), output(readOutputControl(definition)),
-          properties(definition.physics_file), solution(definition.solution_file),
+          physics(definition.physics_file), solution(definition.solution_file),
           parallel(activeParallel()), mesh(readDistributedMesh(definition.mesh_file, parallel)),
           run_time(RunTime::forMesh(mesh, runtimeControl(definition, solution)))
     {
@@ -150,7 +150,7 @@ struct Case::Implementation {
 
     CaseDefinition definition;
     OutputControl output;
-    Parameters properties;
+    Parameters physics;
     Parameters solution;
     ParallelContext parallel;
     Mesh mesh;
@@ -174,7 +174,7 @@ Case::~Case() = default;
 
 const std::string& Case::solver() const { return m_implementation->definition.solver; }
 const Mesh& Case::mesh() const { return m_implementation->mesh; }
-const Parameters& Case::properties() const { return m_implementation->properties; }
+const Parameters& Case::physics() const { return m_implementation->physics; }
 const Parameters& Case::solution() const { return m_implementation->solution; }
 double Case::time() const { return m_implementation->run_time.time(); }
 int Case::step() const { return m_implementation->run_time.step(); }
@@ -230,7 +230,7 @@ void Case::selectOutput(const std::string& name, const void* field, bool enabled
 }
 
 void Case::validate() const {
-    properties().requireAllUsed();
+    physics().requireAllUsed();
     solution().requireAllUsed();
 }
 

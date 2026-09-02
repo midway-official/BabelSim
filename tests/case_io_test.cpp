@@ -12,10 +12,10 @@ using namespace babelsim;
 int main() {
     const CaseDefinition cavity = readCase("cases/cavity");
     require(cavity.solver == "simple", "cavity solver selection is incorrect");
-    const Parameters properties(cavity.physics_file);
+    const Parameters physics(cavity.physics_file);
     const Parameters solution(cavity.solution_file);
-    require(near(properties.number("density"), 1.0), "cavity density is incorrect");
-    require(near(properties.number("dynamicViscosity"), 0.01), "cavity viscosity is incorrect");
+    require(near(physics.number("density"), 1.0), "cavity density is incorrect");
+    require(near(physics.number("dynamicViscosity"), 0.01), "cavity viscosity is incorrect");
     require(solution.integer("maxIterations", 0) == 5000, "cavity iteration limit is incorrect");
 
     const Mesh mesh = readMeshFile(cavity.mesh_file);
@@ -40,10 +40,10 @@ int main() {
             "inlet velocity value was not read");
 
     const CaseDefinition transport = readCase("cases/transport");
-    const Parameters transport_properties(transport.physics_file);
+    const Parameters transport_physics(transport.physics_file);
     const Methods methods = readMethodsFile(transport.methods_file);
     require(transport.solver == "transport", "transport solver selection is incorrect");
-    require(near(transport_properties.number("diffusivity"), 0.01), "transport diffusivity is incorrect");
+    require(near(transport_physics.number("diffusivity"), 0.01), "transport diffusivity is incorrect");
     require(methods.convectionFor("C") == ConvectionMethod::Upwind,
             "Field-specific convection method was not read");
     const Methods overrides = readMethodsFile("tests/data/methods.bs");

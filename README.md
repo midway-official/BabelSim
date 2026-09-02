@@ -133,9 +133,10 @@ make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 `nonOrthogonalCorrections` 设置压力修正右端项的显式迭代次数。串行测试还包含
 三维扭曲腔体，MPI 测试包含分区界面上的修正通用算子和 SIMPLE 私有耦合路径。
 
-新增独立 Solver：自己的一个 C++ 源文件，用 `runApplication` 注册名称/函数，再准备 Case。
+新增独立 Solver：自己的一个 C++ 源文件，用一行 `SolverRegistration` 注册名称/函数，
+通用 main 调用 `runApplication(argc, argv)`，再准备 Case。
 只链接公开头和预编译库，不修改 BabelSim 核心或内置启动器。若希望加入内置命令，
-则新增 `src/physics/<name>/main.cpp`，并在 `src/apps/babelsim_solve.cpp` 的显式表登记。
+则新增 `src/physics/<name>/main.cpp`，在该文件注册自己，Makefile 自动收集，不再修改启动器名单。
 不需要专用 Case reader、RunTime、并行输出代码、注册宏或 Solver 基类。
 Heat、transport 的完整入口各自是一个短函数；SIMPLE 主循环明确列出五个算法步骤。
 输入场、命名中间场及其生命周期由 Case 管理，`solver.h` 不包含 Runtime/MPI/代数实现头。

@@ -81,8 +81,8 @@ SimpleSolver::SimpleSolver(Case& problem)
     : m_state(std::make_unique<State>(
           problem.vectorField("U"), problem.scalarField("p"),
           problem.faceField("phi"),
-          FluidProperties{problem.properties().positive("density"),
-                          problem.properties().positive("dynamicViscosity")},
+          FluidProperties{problem.physics().positive("density"),
+                          problem.physics().positive("dynamicViscosity")},
           simpleControl(problem.solution())))
 {
     m_state->m_log = true;

@@ -57,7 +57,14 @@ for path in (ROOT / "include").rglob("*.h"):
     assert all(dependency.is_relative_to(ROOT / "include")
                for dependency in closures[path]), path
 
-# 应用只声明 Solver 分派表；格式实现归 IO，MPI 生命周期归运行基础设施。
+# 应用只调用通用入口；各 Solver 在自己的 main.cpp 注册，不能回到集中名单。
+launcher = texts[ROOT / "src/apps/babelsim_solve.cpp"]
+assert "runApplication(argc, argv)" in launcher
+assert not re.search(r'SolverRegistration|SolverEntry|runHeat|runSimple|runTransport', launcher)
+for path in (ROOT / "src/physics").glob("*/main.cpp"):
+    assert len(re.findall(r'\bSolverRegistration\b', texts[path])) == 1, path
+
+# 格式实现归 IO，MPI 生命周期归运行基础设施。
 for path in (ROOT / "src/apps").glob("*.cpp"):
     for dependency in closures[path]:
         assert dependency.name not in implementation_headers, (path, dependency)

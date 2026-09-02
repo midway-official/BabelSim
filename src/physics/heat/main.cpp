@@ -1,3 +1,4 @@
+#include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
 
@@ -5,10 +6,10 @@ namespace babelsim {
 
 int runHeat(Case& problem) {
     ScalarField& T = problem.scalarField("T");
-    const double rho = problem.properties().positive("density");
-    const double cp = problem.properties().positive("heatCapacity");
-    const double k = problem.properties().nonnegative("conductivity");
-    const double Q = problem.properties().number("source");
+    const double rho = problem.physics().positive("density");
+    const double cp = problem.physics().positive("heatCapacity");
+    const double k = problem.physics().nonnegative("conductivity");
+    const double Q = problem.physics().number("source");
 
     while (problem.loop()) {
         if (!solve(eqn::ddt(rho * cp, T) ==
@@ -16,5 +17,7 @@ int runHeat(Case& problem) {
     }
     return 0;
 }
+
+const SolverRegistration heat("heat", runHeat);
 
 }  // babelsim 命名空间

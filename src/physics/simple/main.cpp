@@ -1,3 +1,4 @@
+#include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/simple.h"
 
@@ -15,5 +16,7 @@ int runSimple(Case& problem) {
     }
     return simple.converged() ? 0 : 2;
 }
+
+const SolverRegistration simple("simple", runSimple);
 
 }  // babelsim 命名空间

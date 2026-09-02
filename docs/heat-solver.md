@@ -6,10 +6,10 @@ BabelSim 的求解器名称是 `heat`，不是 heatFoam。完整用户入口只�
 ```cpp
 int runHeat(Case& problem) {
     ScalarField& T = problem.scalarField("T");
-    const double rho = problem.properties().positive("density");
-    const double cp = problem.properties().positive("heatCapacity");
-    const double k = problem.properties().nonnegative("conductivity");
-    const double Q = problem.properties().number("source");
+    const double rho = problem.physics().positive("density");
+    const double cp = problem.physics().positive("heatCapacity");
+    const double k = problem.physics().nonnegative("conductivity");
+    const double Q = problem.physics().number("source");
 
     while (problem.loop()) {
         if (!solve(eqn::ddt(rho * cp, T) ==
@@ -17,6 +17,7 @@ int runHeat(Case& problem) {
     }
     return 0;
 }
+const SolverRegistration heat("heat", runHeat);
 ```
 
 直接对应
@@ -25,7 +26,11 @@ int runHeat(Case& problem) {
 \]
 
 作者无需写 Case reader、构造 RunTime、配置线性对象、维护历史或编写输出。
-独立开发时用自己的 main 调用 runApplication 即可，不必修改 BabelSim 的启动表。
+`problem.physics()` 读取 `case.bs` 中 `physics` 指向的字典，本例是 `physics/thermal.bs`；
+它不是固定读取某个文件名。`solver heat` 通过本文件的 `SolverRegistration` 选择此函数，
+名称与函数的对应关系见 [Case 入口与分派](case-structure.md#入口与名称)。
+注册声明需要包含 `babelsim/application.h`。独立开发时再加上调用 `runApplication(argc, argv)`
+的通用 main 即可，内置启动器与外部启动器都不需要 Solver 对应表。
 原始存储不属于公开 Field API；非均匀源可通过 Field::evaluate(位置函数) 定义。
 中间或派生单元场需保存时使用 problem.output(field)。
 Case 在下一次 loop 前写出已完成时间步，正常退出保证最终时刻保存。
@@ -68,7 +73,7 @@ BabelSim 学习这个职责分离，而不复制其头文件片段包含方式�
 | 方程与数学同形 | solve(ddt == laplacian + source) |
 | 数值格式来自 Case | methods.bs / solution.bs |
 | 时间、历史和输出下沉 | Case::loop 调用内部 RunTime |
-| 普通作者新增代码 | 一个普通函数 + 一项显式选择 |
+| 普通作者新增代码 | 一个普通函数 + 同文件的一行注册 |
 
 不同点：当前 heat 的每步只求一次方程；强非线性物性或需要多次显式非正交修正时，应像
 双场例子一样在该时间步内组织收敛迭代。框架已保证重复 solve 不推进历史，

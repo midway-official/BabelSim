@@ -47,6 +47,15 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     for name in ("math_api.cpp", "eqn_api.cpp"):
         run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
             "-fsyntax-only", name, cwd=work)
+    # physics() 与 case.bs 的条目同名；旧接口不再作为并存别名暴露。
+    for method, success in (("physics", True), ("properties", False)):
+        (work / "case_api.cpp").write_text(
+            '#include "babelsim/case.h"\n'
+            f'double density(babelsim::Case& problem){{ return problem.{method}().positive("density"); }}\n')
+        result = run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
+                     "-fsyntax-only", "case_api.cpp", cwd=work, success=success)
+        if not success:
+            assert method in result.stderr
     for name in ("fvm", "fvc"):
         assert not (work / "include/babelsim" / (name + ".h")).exists()
         (work / "retired_api.cpp").write_text(
@@ -70,8 +79,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
             "-c", source, "-o", output, cwd=work)
         simple_objects.append(output)
     (work / "simple_entry.cpp").write_text(
-        '#include "babelsim/application.h"\nnamespace babelsim { int runSimple(Case&); }\n'
-        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv,{"simple",babelsim::runSimple}); }\n')
+        '#include "babelsim/application.h"\n'
+        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv); }\n')
     run("g++", "-std=c++17", "-Iinclude", "-c", "simple_entry.cpp", "-o", "simple_entry.o", cwd=work)
     run("mpic++", "simple_entry.o", *simple_objects, "libbabelsim.a", "-o", "external-simple", cwd=work)
     simple_case = work / "simple_case"
@@ -88,7 +97,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     print("external_solver_test: complete SIMPLE module rebuilt with public headers; 1/2/4 ranks passed")
     (work / "single.cpp").write_text(
         '#include "babelsim/application.h"\nint solveCase(babelsim::Case&){return 0;}\n'
-        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv,{"single",solveCase}); }\n')
+        'const babelsim::SolverRegistration single("single",solveCase);\n'
+        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv); }\n')
     run("g++", "-std=c++17", "-Iinclude", "-fsyntax-only", "single.cpp", cwd=work)
 
     negative = {
@@ -125,7 +135,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         'return babelsim::readParallelResults(argv[1], 32).fields.empty(); }\n')
     run("g++", "-std=c++17", "-Iinclude", "reader.cpp", "libbabelsim.a", "-o", "reader", cwd=work)
 
-    for solver, properties in (
+    for solver, physics in (
         ("transport_extension", "diffusivity 0.1\nsource 2\n"),
         ("coupled_extension", "diffusivity 0.1\ncoupling 1\n"),
         ("vector_extension", "strength 2\n"),
@@ -134,7 +144,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         shutil.copytree(ROOT / "cases/heat", case, ignore=shutil.ignore_patterns("results", "post"))
         path = case / "case.bs"
         path.write_text(path.read_text().replace("solver heat", f"solver {solver}"))
-        (case / "physics/thermal.bs").write_text(properties)
+        (case / "physics/thermal.bs").write_text(physics)
         field = (case / "fields/initial/T.field").read_text().replace("field T", "field C")
         field = field.replace("type fixedValue value (1)", "type zeroGradient")
         field = field.replace("type fixedValue value (0)", "type zeroGradient")
@@ -171,27 +181,41 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     (work / "failure.cpp").write_text(
         '#include "babelsim/application.h"\n#include "babelsim/case.h"\n#include <cstdlib>\n'
         'int failure(babelsim::Case& problem){\n'
-        ' (void)problem.properties().number("strength");\n'
+        ' (void)problem.physics().number("strength");\n'
         ' auto& field=problem.scalarField("failed",0.0); problem.output(field);\n'
         ' const char* rank=std::getenv("OMPI_COMM_WORLD_RANK");\n'
         ' return rank && rank[0]==\'0\' ? -1 : 0; }\n'
-        'int main(int argc,char** argv){\n'
-        '#if defined(TEST_DUPLICATE)\n'
-        ' const babelsim::SolverEntry entries[]={{"vector_extension",failure},{"vector_extension",failure}};\n'
-        ' return babelsim::runApplication(argc,argv,entries);\n'
+        '#if defined(TEST_EMPTY)\n'
         '#elif defined(TEST_NULL)\n'
-        ' return babelsim::runApplication(argc,argv,nullptr,1);\n'
+        ' const babelsim::SolverRegistration entry(nullptr,failure);\n'
+        '#elif defined(TEST_NULL_FUNCTION)\n'
+        ' const babelsim::SolverRegistration entry("vector_extension",nullptr);\n'
+        '#elif defined(TEST_EMPTY_NAME)\n'
+        ' const babelsim::SolverRegistration entry("",failure);\n'
+        '#elif defined(TEST_UNKNOWN)\n'
+        ' const babelsim::SolverRegistration entry("different_solver",failure);\n'
         '#else\n'
-        ' return babelsim::runApplication(argc,argv,{"vector_extension",failure});\n'
-        '#endif\n}\n')
+        ' const babelsim::SolverRegistration entry("vector_extension",failure);\n'
+        '#endif\n'
+        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv); }\n')
+    # 重名来自另一个源文件，确保错误检查不依赖翻译单元的静态初始化顺序。
+    (work / "duplicate.cpp").write_text(
+        '#include "babelsim/application.h"\nint failure(babelsim::Case&);\n'
+        'const babelsim::SolverRegistration duplicate("vector_extension",failure);\n')
+    run("g++", "-std=c++17", "-Iinclude", "-c", "duplicate.cpp", "-o", "duplicate.o", cwd=work)
     for name, definition, expected in (("negative", "TEST_NEGATIVE", None),
-                                       ("duplicate", "TEST_DUPLICATE", "duplicate solver entry"),
-                                       ("null", "TEST_NULL", "empty solver table")):
+                                       ("duplicate", "TEST_DUPLICATE", "duplicate solver registration"),
+                                       ("empty", "TEST_EMPTY", "no registered solvers"),
+                                       ("null", "TEST_NULL", "invalid solver registration"),
+                                       ("null_function", "TEST_NULL_FUNCTION", "invalid solver registration"),
+                                       ("empty_name", "TEST_EMPTY_NAME", "empty solver name"),
+                                       ("unknown", "TEST_UNKNOWN", "unknown BabelSim solver")):
         run("g++", "-std=c++17", "-Iinclude", f"-D{definition}", "-c", "failure.cpp", "-o", "failure.o", cwd=work)
-        run("mpic++", "failure.o", "libbabelsim.a", "-o", name, cwd=work)
+        objects = ["failure.o", "duplicate.o"] if name == "duplicate" else ["failure.o"]
+        run("mpic++", *objects, "libbabelsim.a", "-o", name, cwd=work)
         failure = run("mpirun", "-np", 2, work / name, "-case", case, "-time", name, cwd=work, success=False)
         if expected:
             assert expected in failure.stderr
         assert not (case / "results" / name).exists(), "failed application wrote successful output"
 
-print("external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 12 negative API checks, 3 application failures, MPI-free reader passed")
+print("external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed")

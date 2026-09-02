@@ -42,7 +42,8 @@ public:
 
     const std::string& solver() const;
     const Mesh& mesh() const;
-    const Parameters& properties() const;
+    // 读取 case.bs 的 physics 条目所指向的字典；solution() 对应 solution 条目。
+    const Parameters& physics() const;
     const Parameters& solution() const;
     ScalarField& scalarField(const std::string& name);
     VectorField& vectorField(const std::string& name);

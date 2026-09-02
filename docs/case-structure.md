@@ -33,8 +33,49 @@ output output.bs
 它们不代表 OpenFOAM 程序或输入格式。
 
 普通 Solver 由 Case 取得命名场、物性和算法参数；不用实现自己的 reader。
-启动器只初始化运行、构造 Case、调用显式选择表并处理成功/失败。
-外部程序可用 runApplication 和自己的 SolverEntry 表选择任意新名称；不修改这里的 reader。
+启动器只调用 runApplication，由框架初始化运行、构造 Case、选择已注册的 Solver 并处理成功/失败。
+每个 Solver 在自己的源文件注册名称和函数；不修改启动器或 Case reader。
+
+### solver 名称如何对应 C++ 函数
+
+`case.bs` 的 `solver heat` 只保存字符串 `heat`，不会自动查找名为 `runHeat` 的函数。
+对应关系在求解器自己的 `src/physics/heat/main.cpp` 中声明：
+
+```cpp
+const SolverRegistration heat("heat", runHeat);
+```
+
+这一行放在 `namespace babelsim` 中、`runHeat` 函数外，并包含 `babelsim/application.h`。
+SIMPLE 与 Transport 分别只注册自己。通用启动器不再维护对应表：
+
+```cpp
+#include "babelsim/application.h"
+int main(int argc, char* argv[]) {
+    return babelsim::runApplication(argc, argv);
+}
+```
+
+`readCase()` 把配置名称交给 `Case::solver()`；`runApplication()` 比较已注册名称，
+找到 `heat` 后调用对应的 `runHeat(problem)`。函数必须在构建时链接到可执行程序；
+这不是动态插件、文件名查找或自动命名规则。没有注册、未知名称、重名或空函数会报错。
+注册对象只记录名称与函数，启动前不调用 MPI；实际检查与分派仍由框架完成。
+外部 Solver 使用相同的一行注册和通用 main，无需维护另一套表。
+
+### physics 条目与 physics() 接口
+
+`problem.physics()` 返回 `case.bs` 的 `physics` 条目所指向的参数字典。
+例如 `physics physics/thermal.bs` 对应：
+
+```cpp
+const double rho = problem.physics().positive("density");
+const double k = problem.physics().nonnegative("conductivity");
+```
+
+它与 `problem.solution()` 的命名规则一致：接口直接对应配置条目。路径可以更换，
+无需修改读取参数的 Solver。字典在 Case 构造时读取，调用接口时复用同一对象，
+仍保留数值检查、稳定引用和未使用参数检查。
+旧 `Case::properties()` 已改为 `Case::physics()`，不保留别名；外部 Solver 需更新调用并重新编译。
+`case.bs` 和各物理参数文件的格式、键名不变，`Parameters` 通用字典类型也不变。
 
 ## 网格和场
 

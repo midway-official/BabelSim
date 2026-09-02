@@ -8,6 +8,7 @@
 普通 Solver 只包含：
 
 ```cpp
+#include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
 ```
@@ -36,14 +37,15 @@
 例如开发扩散带体源的浓度方程。在自己的项目里创建 `species.cpp`：
 
 ```cpp
+#include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
 
 namespace babelsim {
 int runSpecies(Case& problem) {
     ScalarField& C = problem.scalarField("C");
-    const double D = problem.properties().nonnegative("diffusivity");
-    const double S = problem.properties().number("source");
+    const double D = problem.physics().nonnegative("diffusivity");
+    const double S = problem.physics().number("source");
 
     while (problem.loop()) {
         if (!solve(eqn::ddt(C) ==
@@ -51,6 +53,7 @@ int runSpecies(Case& problem) {
     }
     return 0;
 }
+const SolverRegistration species("species", runSpecies);
 }
 ```
 
@@ -60,10 +63,8 @@ int runSpecies(Case& problem) {
 在同一文件加上启动入口：
 
 ```cpp
-#include "babelsim/application.h"
-
 int main(int argc, char* argv[]) {
-    return babelsim::runApplication(argc, argv, {"species", babelsim::runSpecies});
+    return babelsim::runApplication(argc, argv);
 }
 ```
 
@@ -77,12 +78,19 @@ TMPDIR=/tmp mpirun -np 4 ./species -case ./case -time mpi4
 ```
 
 Solver 编译不需要 MPI/Eigen 头或 `-Isrc`；最终用 MPI 链接器解决框架的并行依赖。
-这不是动态插件：每个可执行程序有一个简单的名称/函数表，可以注册多个 Solver。
+这不是动态插件：每个 Solver 在自己的源文件以一行 `SolverRegistration` 注册自己，
+同一个可执行程序可以链接多个 Solver；通用 main 不需要知道它们的函数名。
 不修改 Framework、Case reader、Runtime、线性代数或内置应用，也不创建注册宏和基类。
 
-如果希望加入仓库内置命令，则将函数放入 `src/physics/species/main.cpp`，
-Makefile 自动收集该文件；在 `src/apps/babelsim_solve.cpp` 添加函数声明和
-`{"species", runSpecies}` 表项。这是选择内置分发方式的可选步骤，不是独立二次开发的前提。
+如果希望加入仓库内置命令，将函数和注册行放入 `src/physics/species/main.cpp`，
+不包含独立程序的 `int main`。Makefile 自动收集这个文件及同目录的其他 `.cpp`，
+不需要修改 `src/apps/babelsim_solve.cpp` 或 Makefile 的 Solver 名单。
+这是选择内置分发方式的可选步骤，不是独立二次开发的前提。
+
+注册行放在函数外，名称使用字符串字面量。名称必须唯一，注册顺序不影响选择。
+含注册行的目标文件应直接参与链接，如上面的 `species.o`；不要仅把它藏进按需抽取的
+静态库，否则链接器可能不载入它。仓库 Makefile 已直接链接各 Solver 的 `main.o`。
+原 `SolverEntry` 表和带表参数的 `runApplication` 已移除；迁移为同文件注册后使用两参数入口。
 
 `tests/external/solver.cpp` 给出方程、双场耦合及矢量响应三个实际例子；
 `make test-external` 会将文件复制到临时目录，仅使用公开头和预编译库完成构建与 1/2/4 进程运行。
@@ -103,6 +111,8 @@ Makefile 自动收集该文件；在 `src/apps/babelsim_solve.cpp` 添加函数�
 
 移除新 Solver 不读取的旧物性/算法参数。`Parameters` 会检查重复键、非有限数字、
 缺少项和未消费项，避免拼错参数后悄悄使用默认值。它不是新的物性模型，只是命名配置的读取器。
+读取物理参数使用 `problem.physics()`，与 `case.bs` 中的 `physics` 条目对应；
+算法/求解控制使用 `problem.solution()`，与 `solution` 条目对应。
 
 ```bash
 make -j4

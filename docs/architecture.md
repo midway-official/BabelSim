@@ -12,7 +12,8 @@
 - Case 校验曾顺便关闭声明阶段，SIMPLE 构造会妨碍组合算法继续创建场。
   现在 validate 只校验；start/loop 才关闭声明。
 - 应用曾直接包含 MPI 生命周期和格式转换，外部 Solver 需要修改内置选择逻辑。
-  现在应用只提供显式 SolverEntry 表，公共 runApplication 负责启动。
+  现在每个 Solver 在自己的 main.cpp 注册名称/函数，公共 runApplication 负责启动；
+  通用应用不再维护 Solver 对应表。
 - Field/Mesh 的存储数组曾可被普通调用者修改。现在原始访问、分区和构造维护入口
   位于 src/internal；公开接口只保留数学场操作和只读几何查询。
 - 原 RunTime 混合时间推进、表达式解释、LDU 装配和数值工作区。
@@ -41,11 +42,11 @@
 | 并行 | parallel/ | 分解、halo、归约、MPI 校验 | PDE、算法停止策略 |
 | 时间与运行 | runtime/runtime.cpp | 活动运行域、时间、后端生命周期 | LDU/装配公式和工作数组 |
 | 数学 API 绑定 | runtime/solver_api.cpp | 将公开 solve/math/diagnostics 交给活动 FVM 后端；失败日志 | 离散实现、物理方程 |
-| 应用启动 | application.h、runtime/application.cpp | 参数、MPI 初始化/销毁、显式分派与失败退出 | 内置物理分支 |
+| 应用启动 | application.h、runtime/application.cpp | 轻量注册、参数、MPI 初始化/销毁、名称分派与失败退出 | 内置物理分支 |
 | Case/IO | case.h、io/、parallel_writer.cpp | 配置、命名场所有权、时间输出 | 求解物理方程 |
 | 结果/后处理 | result.h、result_reader.cpp、postprocess.cpp | 文件验证、合并、VTU/PVD/Tecplot | MPI 运行依赖 |
 | Physics/算法 | physics/heat、transport、simple | 方程、耦合、修正、收敛 | 存储、MPI、代数实现 |
-| 应用文件 | apps/babelsim_solve.cpp、babelsim_post.cpp | 内置选择表/调用公共启动函数 | MPI API、格式细节 |
+| 应用文件 | apps/babelsim_solve.cpp、babelsim_post.cpp | 调用公共启动函数 | Solver 名单、MPI API、格式细节 |
 
 RunTime 仍选择当前唯一 FVM 后端，不是假称已具备任意后端插件能力。
 但 FVM 执行者只接收网格、方法、线性配置、并行能力和步长，不知道应用时间循环。
@@ -59,7 +60,7 @@ solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manage
 - math.h：显式描述和整场 evaluate/add/subtract；单独包含即可使用。
 - solver.h：solve、solveWithResponse、relaxed、referenceValue、只读 numericalMethods、diagnostics。
 - simple.h：现成 SIMPLE 的步骤接口。
-- application.h：SolverEntry、runApplication；无需 Registry 或注册宏。
+- application.h：SolverRegistration、runApplication；每个模块只需一行注册，无工厂、宏或基类。
 
 外部 Solver 仅需 include/ 和预编译 libbabelsim.a，不需要 -Isrc、Eigen 头或 MPI 头。
 普通编译器可编译 Solver；最终数值程序使用 MPI 链接器链接框架依赖。
@@ -71,6 +72,11 @@ src/internal/field_access.h、mesh_access.h 是维护通道，不作为外部 SD
 均受限；普通 API 无法用替换 Mesh 或改数组的方式破坏已经绑定的 Field。
 
 ## 生命周期与阶段
+
+SolverRegistration 在源文件的命名空间作用域声明，名称用字符串字面量。
+实现只连接描述项，不分配堆内存、不抛异常、不调用 MPI；析构移除描述项，防止悬空引用。
+名称唯一性、空名称/函数等校验在 runApplication 初始化 MPI 后统一完成，注册顺序不影响选择。
+仅支持启动前注册，不提供运行中并发注册或动态插件卸载。Case 销毁仍先于 MPI_Finalize。
 
 Case 拥有 Mesh、稳定地址的命名 Field、RunTime；销毁顺序为 FVM 后端/历史、Field、Mesh。
 返回的引用以及表达式借用的场必须活得比表达式的求值更久。
@@ -128,7 +134,7 @@ FVM 只知道面矢量通量、给定重构梯度的扩散通量和几何面区�
 | math::integratedNormalGradient 单面函数 | math::evaluate(math::normalGradient(p), result)；局部核留在 operators |
 | SIMPLE 专用求解转发 | solveWithResponse(eq,rAU,relaxed(alpha))；solve(eq,referenceValue(value)) |
 | detail::solve 与 ScalarEquationControl | 公开 EquationControl；矢量装配的可选响应仍是内部实现 |
-| apps/solver_selection.* | application.h 的显式表；内置表在 babelsim_solve.cpp，外部表在自己的 main |
+| apps/solver_selection.*、SolverEntry、带表参数的 runApplication | 各 Solver main.cpp 的 SolverRegistration；通用 runApplication(argc,argv) |
 | RunTime 数值实现 | internal/fvm_execution.h 与 discretization/fvm_execution.cpp |
 | result_reader.h 经 parallel_writer.h 获取结构 | 独立 result.h，无 MPI 包含链 |
 | internal/simple_discretization.h、discretization/simple_discretization.cpp | SIMPLE 中用公开 math 组合；通用面区域增量保留在 FVM |

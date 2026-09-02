@@ -9,8 +9,8 @@ int transport(Case& problem) {
     ScalarField& C = problem.scalarField("C");
     VectorField& U = problem.vectorField("U", Vec3{});
     ScalarField& phi = problem.faceFlux("phi", U);
-    const double D = problem.properties().nonnegative("diffusivity");
-    const double Q = problem.properties().number("source");
+    const double D = problem.physics().nonnegative("diffusivity");
+    const double Q = problem.physics().number("source");
     while (problem.loop()) {
         if (!solve(eqn::ddt(C) + eqn::div(phi, C) ==
                    eqn::laplacian(D, C) + Q).converged()) return 2;
@@ -18,14 +18,16 @@ int transport(Case& problem) {
     return 0;
 }
 
+const SolverRegistration transport_registration("transport_extension", transport);
+
 // 外部算法驱动 Solver：两个 PDE 的定点耦合，收敛判断由公开全局诊断提供。
 int coupled(Case& problem) {
     ScalarField& T = problem.scalarField("T", 1.0);
     ScalarField& C = problem.scalarField("C", 0.0);
     ScalarField& previousT = problem.scalarField("previousT", 0.0);
     ScalarField& previousC = problem.scalarField("previousC", 0.0);
-    const double D = problem.properties().nonnegative("diffusivity");
-    const double a = problem.properties().number("coupling");
+    const double D = problem.physics().nonnegative("diffusivity");
+    const double a = problem.physics().number("coupling");
     problem.output(T);
     problem.output(C);
     while (problem.loop()) {
@@ -46,6 +48,8 @@ int coupled(Case& problem) {
     return 0;
 }
 
+const SolverRegistration coupled_registration("coupled_extension", coupled);
+
 // 验收非均匀矢量场源、动量响应、压力规范和派生场输出；不是新的流动物理模型。
 int vectorResponse(Case& problem) {
     VectorField& U = problem.vectorField("U", Vec3{});
@@ -53,7 +57,7 @@ int vectorResponse(Case& problem) {
     ScalarField& p = problem.scalarField("p", 0.0);
     ScalarField& rAU = problem.scalarField("rAU", 0.0);
     ScalarField& energy = problem.scalarField("energy", 0.0);
-    const double strength = problem.properties().number("strength");
+    const double strength = problem.physics().number("strength");
     force.evaluate([](Vec3 position) { return Vec3{1 + position.x, 2 + position.y, 3 + position.z}; });
     problem.validate();
     // 校验不应抢先关闭声明阶段；新的组合算法仍能声明自己的数学场。
@@ -75,11 +79,8 @@ int vectorResponse(Case& problem) {
     return 0;
 }
 
+const SolverRegistration vector_registration("vector_extension", vectorResponse);
+
 int main(int argc, char* argv[]) {
-    const SolverEntry solvers[] = {
-        {"transport_extension", transport},
-        {"coupled_extension", coupled},
-        {"vector_extension", vectorResponse},
-    };
-    return runApplication(argc, argv, solvers);
+    return runApplication(argc, argv);
 }
