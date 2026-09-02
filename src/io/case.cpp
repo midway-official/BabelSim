@@ -28,10 +28,9 @@ RuntimeControl runtimeControl(const CaseDefinition& definition, const Parameters
     RuntimeControl result;
     result.methods = readMethodsFile(definition.methods_file);
     result.time = readTimeControlFile(definition.control_file);
-    if (solution.contains("scalarSolver"))
-        readLinearSolverLine(definition.solution_file, solution.entry("scalarSolver"), result.scalar_solver);
-    if (solution.contains("vectorSolver"))
-        readLinearSolverLine(definition.solution_file, solution.entry("vectorSolver"), result.vector_solver);
+    // Case 必须显式选择两类线性求解器；缺项由 Parameters 给出文件路径和键名。
+    readLinearSolverLine(definition.solution_file, solution.entry("scalarSolver"), result.scalar_solver);
+    readLinearSolverLine(definition.solution_file, solution.entry("vectorSolver"), result.vector_solver);
     result.validate();
     return result;
 }

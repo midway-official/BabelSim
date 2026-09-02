@@ -26,6 +26,8 @@ const SolverRegistration heat("heat", runHeat);
 \]
 
 作者无需写 Case reader、构造 RunTime、配置线性对象、维护历史或编写输出。
+Case 的 `numerics/solution.bs` 仍必须显式填写 `scalarSolver` 与 `vectorSolver`；
+Heat 实际只使用标量配置，不会因填写矢量配置而增加矢量方程。
 `problem.physics()` 读取 `case.bs` 中 `physics` 指向的字典，本例是 `physics/thermal.bs`；
 它不是固定读取某个文件名。`solver heat` 通过本文件的 `SolverRegistration` 选择此函数，
 名称与函数的对应关系见 [Case 入口与分派](case-structure.md#入口与名称)。

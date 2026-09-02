@@ -1,7 +1,15 @@
-CXX := mpic++
-AR ?= ar
+# 默认只构建框架库和正式程序；测试仅由显式 test*/validate* 目标触发。
+.DEFAULT_GOAL := all
 
-CXXFLAGS ?= -std=c++17 -O3 -march=native -Wall -Wextra -Wpedantic -Wshadow \
+CXX := mpic++
+AR := gcc-ar
+
+# 面向本机计算速度：跨文件优化、矢量化、浮点重结合/倒数优化与融合乘加。
+# 保留 NaN/Inf 检查，不能让非法输入或发散结果被视为正常收敛。
+# fat LTO 同时保存机器码，允许外部 Solver 不启用 LTO 时链接静态库。
+OPTFLAGS ?= -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
+            -ffast-math -fno-finite-math-only -ffp-contract=fast -DNDEBUG
+CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow \
             -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
 CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 
@@ -58,8 +66,6 @@ MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
              $(BUILD)/parallel_transport_test
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
-.DEFAULT_GOAL := all
-
 all: $(LIB) $(APPS)
 
 # 目录依赖使删除/新增 Solver 文件后也会重新归档，避免残留旧模块。
@@ -69,30 +75,31 @@ $(LIB): $(OBJECTS) $(PHYSICS_DIRECTORIES) Makefile
 	$(RM) $@
 	$(AR) rcs $@ $(OBJECTS)
 
-$(BUILD)/%.o: src/%.cpp
+$(BUILD)/%.o: src/%.cpp Makefile
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD)/%: tests/%.cpp tests/test_util.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
 
 # 注册源文件作为目标文件直接链接，不能仅藏在静态库中等待按需抽取。
+# 链接命令前的 + 让 LTO 使用 Make 的并行作业配额，避免另起不限额编译进程。
 $(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp $(HEADERS) $(SOLVER_OBJECTS) $(LIB) $(PHYSICS_DIRECTORIES)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(SOLVER_OBJECTS) $(LIB) -o $@
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(SOLVER_OBJECTS) $(LIB) $(LDLIBS) -o $@
 
 $(BUILD)/babelsim-post: src/apps/babelsim_post.cpp $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
 
 $(BUILD)/parallel_channel_test: tests/parallel_channel_test.cpp tests/test_util.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
 
 $(BUILD)/parallel_cavity_3d_test: tests/parallel_cavity_3d_test.cpp tests/test_util.h $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< $(LIB) -o $@
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
 
 test-architecture:
 	python3 tests/architecture_test.py
@@ -104,7 +111,7 @@ test: test-architecture $(TESTS)
 	@set -e; for test in $(TESTS); do $$test; done
 
 $(BUILD)/case_programming_test: tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(HEADERS) $(LIB)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) -o $@
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) $(LDLIBS) -o $@
 
 test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
 	$(BUILD)/time_history_test

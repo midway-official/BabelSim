@@ -75,6 +75,19 @@ def check_pvd(case, name, expected):
 
 with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
     base = Path(temporary)
+    # 两类线性配置均为必填；即使 Heat 只求标量，也不能遗漏矢量配置或静默回退。
+    required = clone_case(base, "required-solvers", "heat")
+    path = required / "numerics/solution.bs"
+    settings = path.read_text().splitlines()
+    for missing in (("scalarSolver",), ("vectorSolver",), ("scalarSolver", "vectorSolver")):
+        path.write_text("\n".join(line for line in settings
+                                  if not line.startswith(missing)) + "\n")
+        for count in (1, 2):
+            error = run("mpirun", "-np", count, ROOT / "build/babelsim-solve",
+                        "-case", required, success=False)
+            assert f"{path}: missing entry {missing[0]}" in error.stderr
+            assert not (required / "results").exists()
+
     heat = clone_case(base, "heat", "heat")
     (heat / "physics/thermal.bs").write_text("density 1\nheatCapacity 1\nconductivity 0\nsource 2\n")
     (heat / "output.bs").write_text("directory results\ntimeName final\nwriteInterval 2\n")
@@ -103,6 +116,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
     (coupled / "physics/thermal.bs").write_text("diffusivity 0.1\ncoupling 1\n")
     (coupled / "numerics/solution.bs").write_text(
         "scalarSolver bicgstab ilut 1e-14 1e-12 1000\n"
+        "vectorSolver bicgstab ilut 1e-12 1e-8 1000\n"
         "couplingIterations 100\ncouplingTolerance 1e-12\n")
     field = (coupled / "fields/initial/T.field").read_text()
     field = field.replace("type fixedValue value (1)", "type zeroGradient")

@@ -109,6 +109,9 @@ Solver 编译不需要 MPI/Eigen 头或 `-Isrc`；最终用 MPI 链接器解决�
 - `methods.bs`、`solution.bs`：离散格式、线性求解器；
 - `output.bs`：结果目录、写出间隔。
 
+`solution.bs` 必须同时包含 `scalarSolver` 和 `vectorSolver` 的完整配置，即使新 PDE
+只使用其中一类。通用 Case 读取两项，不需要 Solver 自己处理；漏项会直接报错。
+
 移除新 Solver 不读取的旧物性/算法参数。`Parameters` 会检查重复键、非有限数字、
 缺少项和未消费项，避免拼错参数后悄悄使用默认值。它不是新的物性模型，只是命名配置的读取器。
 读取物理参数使用 `problem.physics()`，与 `case.bs` 中的 `physics` 条目对应；

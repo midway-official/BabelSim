@@ -135,10 +135,13 @@ Solver 不手写几何修正。
 
 ```text
 scalarSolver bicgstab ilut 1e-14 1e-10 1000
+vectorSolver bicgstab ilut 1e-12 1e-8 1000
 ```
 
-依次是方法、预条件器、绝对容差、相对容差、最大迭代数。
-vectorSolver 配置矢量方程；未给出时使用 RuntimeControl 默认值。
+每行在配置名后依次填写方法、预条件器、绝对容差、相对容差、最大迭代数。
+scalarSolver 配置标量方程，vectorSolver 配置矢量方程，两个条目均为必填，不能省略。
+缺少任意一个都会在 Case 创建时报告 solution.bs 路径和缺失键名，不再回退到默认值。
+即使 Heat/Transport 当前只求标量，也必须提供两项；配置矢量求解器不会创建或求解额外矢量方程。
 SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySolver/pressureSolver
 需改为这两个通用键。SIMPLE 自身的松弛、最大外迭代和容差仍在此文件，由算法读取。
 

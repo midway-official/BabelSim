@@ -56,11 +56,27 @@ Heat/Transport 不再维护重复的库式入口。`make test-architecture` 自�
 
 ## 构建与运行
 
-依赖：C++17 编译器、Eigen 3、MPI-3 实现和 GNU Make。默认编译器为 `mpic++`，
-保证串行测试与 MPI 程序使用相同 ABI。
+依赖：C++17 编译器、Eigen 3、MPI-3 实现和 GNU Make。默认配置面向 GCC 工具链：
+`mpic++` 调用 GCC，`gcc-ar` 归档 LTO 对象，正式程序与显式构建的测试使用相同 ABI。
+
+默认 `make` 只构建 `build/libbabelsim.a`、`build/babelsim-solve` 和 `build/babelsim-post`，
+不编译或运行任何测试。测试与验证必须另行显式调用 `make test*` / `make validate*` 的具体目标。
+
+默认优化为 `-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects
+-ffast-math -fno-finite-math-only -ffp-contract=fast -DNDEBUG`：启用本机 CPU 优化、
+跨文件优化、浮点重结合与倒数优化、融合乘加，并关闭调试断言。仍使用 double，
+保留 NaN/Inf 检查及显式参数/收敛校验；不保证严格 IEEE 运算顺序或逐位一致。
+快速数学还可能改变极小数、舍入和溢出行为，因此既有数值验证结论不能直接替代本配置的验证。
+这些选项的含义参见 [GCC 优化选项](https://gcc.gnu.org/onlinedocs/gcc-11.4.0/gcc/Optimize-Options.html)。
+
+`-march=native` 产物只适合本机及支持相同指令集的节点；异构集群应改用共同 CPU 基线并重编译。
+fat LTO 让静态库保留普通机器码，外部程序可用 `-fno-lto` 禁用链接时优化。
+若需要不放宽浮点规则的构建，可执行 `make clean`，然后使用
+`make -j4 OPTFLAGS='-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects'`。
+修改命令行编译选项后应先清理；`make clean` 仅删除选定的 BUILD 目录，不删除 Case 结果。
 
 ```bash
-make -j
+make -j4  # 只构建，不测试；按可用内存调整并行编译数
 
 # 串行腔体
 build/babelsim-solve -case cases/cavity
@@ -148,6 +164,7 @@ Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通
 默认瞬态结果按 `output.bs` 中 `writeInterval` 保存（省略时每步写出），最终时刻总会保存。
 `-time mpi4/all` 后处理命名运行的完整序列；ParaView 打开对应的 `post/mpi4/series.pvd`。
 案例名称现为 `heat/simple/transport`，线性配置统一为 `scalarSolver/vectorSolver`。
+所有 Case 的 `solution.bs` 必须同时填写这两项，缺项报错，不使用隐式默认选择。
 
 详细设计与数据结构见 [架构说明](docs/architecture.md)，新增物理模型/求解器的流程
 见 [Solver 开发指南](docs/solver-development.md)，数学表达规则见
