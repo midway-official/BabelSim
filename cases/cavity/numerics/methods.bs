@@ -1,5 +1,5 @@
 interpolation linear
 gradient greenGauss
-convection upwind
+convection linearUpwind
 diffusion orthogonal
 time steady

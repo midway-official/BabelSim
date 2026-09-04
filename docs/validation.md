@@ -153,7 +153,7 @@ make validate-poiseuille
 - `nz=1` 二维退化、三维六面体几何、非正交与偏斜量；
 - scalar/vector/tensor Field、FixedValue、FixedGradient、ZeroGradient、
   InletOutlet、Symmetry/Mirror，以及压力修正齐次边界映射；
-- Green-Gauss/Least-Squares 梯度、插值、重构、通量、散度、中心/迎风对流、
+- Green-Gauss/Least-Squares 梯度、插值、重构、通量、散度、中心/一阶/二阶迎风对流、
   正交/非正交扩散、Laplacian、Euler/BDF2；
 - Runtime 隐藏的离散 LDU 装配、Field 系数时间/扩散项、稀疏结构复用与串行线性求解；
 - `case.bs`、物性/数值字典、花括号 `.field`、通用 scalar/vector/tensor 结果写出与
@@ -176,7 +176,7 @@ make validate-poiseuille
 | 非正交腔体 | 10 × 10 × 1 | 164 | `9.74e-9` | `max(abs(k_nonorth))/abs(Sf)=0.412398` |
 | 三维非正交腔体 | 5 × 5 × 5 | 79 | `1.86e-8` | `centreU=-0.0940683`，`max(abs(w))=0.0108384` |
 
-## 2. Re=100 顶盖驱动腔体
+## 2. 顶盖驱动腔体
 
 运行：
 
@@ -184,28 +184,31 @@ make validate-poiseuille
 make validate-cavity
 ```
 
-案例为稳态不可压 SIMPLE，网格 `64 × 64 × 1`，一阶迎风对流、正交扩散、速度收敛
-阈值 `1e-6`。通过 `babelsim-solve -case cases/cavity -time validation` 启动，在
-2355 次迭代后收敛：
+内置案例为稳态不可压 SIMPLE，网格 `64 × 64 × 1`，二阶 `linearUpwind` 对流、
+中心型正交扩散、速度收敛阈值 `1e-6`。通过
+`mpirun -np 4 babelsim-solve -case cases/cavity -time validation-mpi4` 启动，在
+2522 次迭代后收敛：
 
 ```text
-相对质量不平衡 = 1.0811e-14
-相对速度变化   = 9.9889e-07
+相对质量不平衡 = 1.2725e-14
+相对速度变化   = 9.9929e-07
 ```
 
 与 Ghia 中心线样本比较：
 
 | 指标 | 数值 |
 |---|---:|
-| 水平速度中心插值 | `-0.19697720` |
-| 垂直速度中心插值 | `0.05108802` |
-| 水平速度 L∞ 误差 | `0.011111441` |
-| 水平速度 L2 误差 | `0.005884307` |
-| 垂直速度 L∞ 误差 | `0.007404026` |
-| 垂直速度 L2 误差 | `0.003986802` |
+| 水平速度中心插值 | `-0.20818258` |
+| 垂直速度中心插值 | `0.05740706` |
+| 水平速度 L∞ 误差 | `0.004068828` |
+| 水平速度 L2 误差 | `0.001775332` |
+| 垂直速度 L∞ 误差 | `0.008431023` |
+| 垂直速度 L2 误差 | `0.004352236` |
 
-该结果对应当前 64²、一阶迎风、指定松弛与线性容差；不应将它表述为高阶离散或
-网格无关解。
+该目标是快速回归，不是网格无关性证明。Re=100/400/1000、32²/64²/128²、壁面加密、
+格式对照、MPI 一致性和可视化结果见
+[二维顶盖驱动方腔 Ghia 验证报告](reports/cavity-ghia-validation.md)及其
+[PDF 版本](reports/cavity-ghia-validation.pdf)。
 
 ## 3. Poiseuille 通道流
 

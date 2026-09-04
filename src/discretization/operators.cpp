@@ -79,6 +79,35 @@ Vec3 correctedInternalFaceValue(
     return value;
 }
 
+double linearUpwindCorrection(
+    const ScalarField& field,
+    const VectorField& field_gradient,
+    Index cell,
+    Index face)
+{
+    return dot(
+        detail::fieldData(field_gradient)[cell],
+        detail::meshData(field.mesh()).face_centres[static_cast<std::size_t>(face)] -
+            detail::meshData(field.mesh()).cell_centres[static_cast<std::size_t>(cell)]);
+}
+
+Vec3 linearUpwindCorrection(
+    const VectorField& field,
+    const TensorField& field_gradient,
+    Index cell,
+    Index face)
+{
+    const Vec3 offset =
+        detail::meshData(field.mesh()).face_centres[static_cast<std::size_t>(face)] -
+        detail::meshData(field.mesh()).cell_centres[static_cast<std::size_t>(cell)];
+    Vec3 correction{};
+    for (std::size_t component = 0; component < 3; ++component) {
+        correction[component] = dot(
+            detail::fieldData(field_gradient)[cell][component], offset);
+    }
+    return correction;
+}
+
 double reconstructedBoundaryValue(
     const ScalarField& field,
     const VectorField& field_gradient,
@@ -469,8 +498,9 @@ void addConvectionImpl(
     }
     using GradientField = typename GradientFieldType<T>::Type;
     std::optional<GradientField> transported_gradient;
-    if (method == ConvectionMethod::Central &&
-        interpolation_method == InterpolationMethod::Corrected) {
+    if (method == ConvectionMethod::LinearUpwind ||
+        (method == ConvectionMethod::Central &&
+         interpolation_method == InterpolationMethod::Corrected)) {
         transported_gradient.emplace(
             mesh, FieldLocation::Cell, "grad(" + transported.name() + ')');
         gradient(transported, *transported_gradient, gradient_method);
@@ -482,12 +512,20 @@ void addConvectionImpl(
         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const double F = flux_scale * detail::fieldData(face_flux)[face];
         if (neighbour != invalid_index) {
-            if (method == ConvectionMethod::Upwind) {
+            if (method == ConvectionMethod::Upwind ||
+                method == ConvectionMethod::LinearUpwind) {
                 equation.diagonal[static_cast<std::size_t>(owner)] += std::max(F, 0.0);
                 equation.upper[f] += std::min(F, 0.0);
                 equation.diagonal[static_cast<std::size_t>(neighbour)] +=
                     std::max(-F, 0.0);
                 equation.lower[f] += std::min(-F, 0.0);
+                if (method == ConvectionMethod::LinearUpwind) {
+                    const Index upwind = F >= 0.0 ? owner : neighbour;
+                    const T correction = linearUpwindCorrection(
+                        transported, *transported_gradient, upwind, face);
+                    equation.source[static_cast<std::size_t>(owner)] -= F * correction;
+                    equation.source[static_cast<std::size_t>(neighbour)] += F * correction;
+                }
             } else if (method == ConvectionMethod::Central) {
                 const double weight = ownerWeight(mesh, face);
                 equation.diagonal[static_cast<std::size_t>(owner)] += F * weight;
@@ -510,9 +548,15 @@ void addConvectionImpl(
         }
 
         const auto& condition = transported.boundary(detail::meshData(mesh).face_patch[f]);
-        if (method == ConvectionMethod::Upwind) {
+        if (method == ConvectionMethod::Upwind ||
+            method == ConvectionMethod::LinearUpwind) {
             if (F >= 0.0) {
                 equation.diagonal[static_cast<std::size_t>(owner)] += F;
+                if (method == ConvectionMethod::LinearUpwind) {
+                    equation.source[static_cast<std::size_t>(owner)] -= F *
+                        linearUpwindCorrection(
+                            transported, *transported_gradient, owner, face);
+                }
             } else {
                 equation.source[static_cast<std::size_t>(owner)] -=
                     F * boundaryFaceValue(transported, face, F);
@@ -963,7 +1007,9 @@ void convectionImpl(
     requireField(face_flux, mesh, FieldLocation::Face, "face flux");
     requireField(transported, mesh, FieldLocation::Cell, "transported");
     requireField(result, mesh, FieldLocation::Cell, "convection");
-    if (method != ConvectionMethod::Upwind && method != ConvectionMethod::Central) {
+    if (method != ConvectionMethod::Upwind &&
+        method != ConvectionMethod::LinearUpwind &&
+        method != ConvectionMethod::Central) {
         throw std::invalid_argument("unsupported convection method");
     }
     if (interpolation_method != InterpolationMethod::Linear &&
@@ -972,8 +1018,9 @@ void convectionImpl(
     }
     using GradientField = typename GradientFieldType<T>::Type;
     std::optional<GradientField> transported_gradient;
-    if (method == ConvectionMethod::Central &&
-        interpolation_method == InterpolationMethod::Corrected) {
+    if (method == ConvectionMethod::LinearUpwind ||
+        (method == ConvectionMethod::Central &&
+         interpolation_method == InterpolationMethod::Corrected)) {
         transported_gradient.emplace(
             mesh, FieldLocation::Cell, "grad(" + transported.name() + ')');
         gradient(transported, *transported_gradient, gradient_method);
@@ -985,12 +1032,25 @@ void convectionImpl(
         const Index neighbour = detail::meshData(mesh).face_neighbour[index];
         const double flux_value = detail::fieldData(face_flux)[face];
         T face_value{};
-        if (method == ConvectionMethod::Upwind) {
+        if (method == ConvectionMethod::Upwind ||
+            method == ConvectionMethod::LinearUpwind) {
             if (neighbour != invalid_index) {
-                face_value = flux_value >= 0.0 ? detail::fieldData(transported)[owner] : detail::fieldData(transported)[neighbour];
+                const Index upwind = flux_value >= 0.0 ? owner : neighbour;
+                face_value = detail::fieldData(transported)[upwind];
+                if (method == ConvectionMethod::LinearUpwind) {
+                    face_value += linearUpwindCorrection(
+                        transported, *transported_gradient, upwind, face);
+                }
             } else {
-                face_value = flux_value >= 0.0
-                    ? detail::fieldData(transported)[owner] : boundaryFaceValue(transported, face, flux_value);
+                if (flux_value >= 0.0) {
+                    face_value = detail::fieldData(transported)[owner];
+                    if (method == ConvectionMethod::LinearUpwind) {
+                        face_value += linearUpwindCorrection(
+                            transported, *transported_gradient, owner, face);
+                    }
+                } else {
+                    face_value = boundaryFaceValue(transported, face, flux_value);
+                }
             }
         } else if (transported_gradient) {
             face_value = correctedFaceValue(

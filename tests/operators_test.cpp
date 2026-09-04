@@ -240,6 +240,35 @@ int main() {
     require(
         near(convection_residual, exact_convection, 1e-10),
         "corrected central convection is not affine exact on a warped cell");
+    ScalarDiscreteEquation linear_upwind_convection(warped);
+    addConvection(
+        linear_upwind_convection, advecting_flux, warped_linear,
+        ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
+        GradientMethod::LeastSquares);
+    double linear_upwind_residual =
+        linear_upwind_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
+            detail::fieldData(warped_linear)[warped_centre] -
+        linear_upwind_convection.source[static_cast<std::size_t>(warped_centre)];
+    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+        const auto f = static_cast<std::size_t>(face);
+        const Index owner = detail::meshData(warped).face_owner[f];
+        const Index neighbour = detail::meshData(warped).face_neighbour[f];
+        linear_upwind_residual += owner == warped_centre
+            ? linear_upwind_convection.upper[f] * detail::fieldData(warped_linear)[neighbour]
+            : linear_upwind_convection.lower[f] * detail::fieldData(warped_linear)[owner];
+    }
+    require(
+        near(linear_upwind_residual, exact_convection, 1e-10),
+        "linear-upwind convection is not affine exact on a warped cell");
+    ScalarField explicit_linear_upwind(
+        warped, FieldLocation::Cell, "explicitLinearUpwind");
+    convection(
+        advecting_flux, warped_linear, explicit_linear_upwind,
+        ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
+        GradientMethod::LeastSquares);
+    require(
+        near(detail::fieldData(explicit_linear_upwind)[warped_centre], 2.2, 1e-10),
+        "explicit linear-upwind convection is not affine exact");
     VectorDiscreteEquation warped_vector_convection(warped);
     addConvection(
         warped_vector_convection, advecting_flux, warped_vector,
@@ -267,6 +296,39 @@ int main() {
     require(
         near(vector_convection_residual, exact_vector_convection, 1e-10),
         "corrected central vector convection is not affine exact");
+    VectorDiscreteEquation linear_upwind_vector_convection(warped);
+    addConvection(
+        linear_upwind_vector_convection, advecting_flux, warped_vector,
+        ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
+        GradientMethod::LeastSquares);
+    Vec3 linear_upwind_vector_residual =
+        linear_upwind_vector_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
+            detail::fieldData(warped_vector)[warped_centre] -
+        linear_upwind_vector_convection.source[static_cast<std::size_t>(warped_centre)];
+    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+        const auto f = static_cast<std::size_t>(face);
+        const Index owner = detail::meshData(warped).face_owner[f];
+        const Index neighbour = detail::meshData(warped).face_neighbour[f];
+        if (neighbour == invalid_index) {
+            continue;
+        }
+        linear_upwind_vector_residual += owner == warped_centre
+            ? linear_upwind_vector_convection.upper[f] * detail::fieldData(warped_vector)[neighbour]
+            : linear_upwind_vector_convection.lower[f] * detail::fieldData(warped_vector)[owner];
+    }
+    require(
+        near(linear_upwind_vector_residual, exact_vector_convection, 1e-10),
+        "linear-upwind vector convection is not affine exact");
+    VectorField explicit_linear_upwind_vector(
+        warped, FieldLocation::Cell, "explicitLinearUpwindVector");
+    convection(
+        advecting_flux, warped_vector, explicit_linear_upwind_vector,
+        ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
+        GradientMethod::LeastSquares);
+    require(
+        near(detail::fieldData(explicit_linear_upwind_vector)[warped_centre],
+             Vec3{0.1, 0.5, 1.175}, 1e-10),
+        "explicit linear-upwind vector convection is not affine exact");
     VectorDiscreteEquation vector_diffusion(skewed);
     addDiffusion(
         vector_diffusion, 1.0, skewed_vector,

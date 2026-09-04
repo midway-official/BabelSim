@@ -106,7 +106,9 @@ math::evaluate(math::div(phi), div_phi);
 | `math::subtract(math::flux(rAU,p'), phi)` | face scalar | 原位执行 \(\phi\leftarrow\phi-rAU_fS_f\cdot\nabla p'\) |
 | `math::add(math::flux(faceVector),phi,region)` | face scalar | 按指定面区域累加面积积分通量 |
 
-对流显式求值使用 `Methods::convection` 的 Upwind/Central 选择；Central 且选择 corrected
+对流显式求值使用 `Methods::convection` 的 Upwind/LinearUpwind/Central 选择。
+LinearUpwind 从迎风单元按梯度重构到面中心；隐式方程采用一阶迎风系数作为稳定基底，
+二阶重构量以延迟修正加入右端，因此不会复制完整离散矩阵。Central 且选择 corrected
 插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 FVM 后端自动选择当前方法，
 调用者不应自行 halo 或重构 ghost。
 

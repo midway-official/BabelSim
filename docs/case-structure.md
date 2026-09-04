@@ -122,14 +122,15 @@ source 0
 ```text
 interpolation linear
 gradient greenGauss
-convection upwind
+convection linearUpwind
 diffusion orthogonal
 time euler
 convection C upwind
 ```
 
-三列条目覆盖某个 Field 的默认方法。非正交问题使用 corrected 插值/扩散、适当梯度；
-Solver 不手写几何修正。
+三列条目覆盖某个 Field 的默认方法。对流可选一阶 `upwind`、二阶
+`linearUpwind` 和 `central`；`linearUpwind` 使用迎风单元梯度重构面值，隐式部分仍保留
+一阶迎风基底。非正交问题使用 corrected 插值/扩散、适当梯度；Solver 不手写几何修正。
 
 `numerics/solution.bs`：
 

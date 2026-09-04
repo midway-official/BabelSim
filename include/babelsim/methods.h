@@ -17,6 +17,7 @@ enum class GradientMethod {
 
 enum class ConvectionMethod {
     Upwind,
+    LinearUpwind,
     Central,
 };
 

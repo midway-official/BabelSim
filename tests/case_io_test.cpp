@@ -49,7 +49,7 @@ int main() {
     const Methods overrides = readMethodsFile("tests/data/methods.bs");
     require(overrides.interpolationFor("T") == InterpolationMethod::Corrected &&
             overrides.gradientFor("T") == GradientMethod::LeastSquares &&
-            overrides.convectionFor("T") == ConvectionMethod::Central &&
+            overrides.convectionFor("T") == ConvectionMethod::LinearUpwind &&
             overrides.diffusionFor("T") == DiffusionMethod::LimitedCorrected,
             "method overrides were mixed between operator types");
     require(overrides.interpolationFor("C") == InterpolationMethod::Linear &&

@@ -6,5 +6,5 @@ diffusion orthogonal
 time euler
 interpolation T corrected
 gradient T leastSquares
-convection T central
+convection T linearUpwind
 diffusion T limitedCorrected

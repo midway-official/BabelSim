@@ -48,6 +48,7 @@ Field、`eqn/math`、离散、线性代数和 MPI Runtime，不建立两套 Fram
 - 轻量 `eqn/math` 编程模型：方程表达式只在 `solve()` 时离散，场运算按需执行，不复制大矩阵；
 - `heat` 常物性瞬态热传导入口；通用方程 API 同时支持常数或 Field 系数；
 - `transport` 瞬态对流-扩散 Solver，复用标量 Field、`eqn::ddt/div/laplacian` 与边界；
+- 对流支持一阶迎风、梯度重构的二阶 `linearUpwind` 和中心格式，扩散保持中心型有限体积离散；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
 
 维护者以 [架构与文件边界](docs/architecture.md) 为准：数学 EquationDefinition 与
@@ -140,7 +141,7 @@ make test-external        # 仓库外 Solver 构建、1/2/4 进程、负向 API 
 make test-mpi             # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
 make test-mpi-heat        # 1/2 rank 热传导场比较
 make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处理
-make validate-cavity      # 收敛的 Re=100 Ghia 腔体比较
+make validate-cavity      # Re=100、二阶迎风的 Ghia 腔体快速回归
 make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 ```
 
@@ -172,4 +173,6 @@ Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通
 [热传导](docs/heat-solver.md)、[SIMPLE](docs/simple-solver.md)，案例组织见
 [Case 结构](docs/case-structure.md)，两种 Solver 组织模式见
 [Solver Programming Model](docs/solver-programming-model.md)，数值验证结果见
-[验证说明](docs/validation.md)。
+[验证说明](docs/validation.md)；多 Reynolds 数、网格无关性、格式与 MPI 对照见
+[Ghia 方腔验证报告](docs/reports/cavity-ghia-validation.md)及其
+[PDF 版本](docs/reports/cavity-ghia-validation.pdf)。

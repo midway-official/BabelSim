@@ -156,8 +156,10 @@ test-mpi-poiseuille: $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 	$(BUILD)/babelsim-post -case cases/poiseuille -time mpi-np4 -format vtk tecplot
 
 validate-cavity: $(BUILD)/babelsim-solve
-	$(BUILD)/babelsim-solve -case cases/cavity -time validation
-	python3 tools/validate_cavity.py cases/cavity/results/validation/rank-0000/U.csv
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/babelsim-solve \
+		-case cases/cavity -time validation-mpi4
+	python3 cases/cavity/validation/validate_cavity.py \
+		cases/cavity/results/validation-mpi4
 
 postprocess-mpi-poiseuille:
 	@test -d cases/poiseuille/results/mpi-np4 || \

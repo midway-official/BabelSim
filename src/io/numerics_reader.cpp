@@ -63,6 +63,8 @@ ConvectionMethod convection(
     const std::filesystem::path& path, const ConfigLine& line, const std::string& value)
 {
     if (value == "upwind") return ConvectionMethod::Upwind;
+    if (value == "linearUpwind" || value == "linear_upwind" ||
+        value == "secondOrderUpwind") return ConvectionMethod::LinearUpwind;
     if (value == "central") return ConvectionMethod::Central;
     invalid(path, line, "unknown convection method " + value);
 }

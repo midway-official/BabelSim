@@ -336,7 +336,13 @@ int main(int argc, char* argv[]) {
         ScalarDiscreteEquation skew_convection(skew);
         addConvection(
             skew_convection, advecting_flux, skew_linear,
-            ConvectionMethod::Central, InterpolationMethod::Corrected,
+            ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
+            GradientMethod::LeastSquares);
+        ScalarField explicit_skew_convection(
+            skew, FieldLocation::Cell, "explicitSkewConvection");
+        convection(
+            advecting_flux, skew_linear, explicit_skew_convection,
+            ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
             GradientMethod::LeastSquares);
 
         double local_operator_error = 0.0;
@@ -390,6 +396,9 @@ int main(int argc, char* argv[]) {
                 detail::meshData(skew).cell_volumes[static_cast<std::size_t>(cell)] * 2.2;
             local_operator_error = std::max(
                 local_operator_error, std::abs(row - expected));
+            local_operator_error = std::max(
+                local_operator_error,
+                std::abs(detail::fieldData(explicit_skew_convection)[cell] - 2.2));
         }
         double global_operator_error = 0.0;
         parallel.maximum(
