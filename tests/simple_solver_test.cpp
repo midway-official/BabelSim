@@ -1,7 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
-#include "babelsim/simple.h"
-#include "babelsim/simple_control.h"
+#include "physics/simple/algorithm.h"
 #include "babelsim/runtime.h"
 #include "babelsim/mesh_io.h"
 
@@ -62,7 +61,7 @@ int main() {
     configureChannelBoundaries(fields);
 
     bool rejected = false;
-    try { SimpleSolver without_run(fields, {1.0, 0.01}, {}); }
+    try { SteadySimpleAlgorithm without_run(fields, {1.0, 0.01}, {}); }
     catch (const std::logic_error&) { rejected = true; }
     require(rejected, "SIMPLE accepted fields without an active execution domain");
 
@@ -88,12 +87,12 @@ int main() {
     const Mesh other_mesh = Mesh::cartesian({2, 2, 1}, {}, {1, 1, 1});
     IncompressibleFields other_fields(other_mesh);
     rejected = false;
-    try { SimpleSolver wrong_mesh(other_fields, {1.0, 0.01}, control); }
+    try { SteadySimpleAlgorithm wrong_mesh(other_fields, {1.0, 0.01}, control); }
     catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "SIMPLE accepted fields from a different execution domain");
     // rho=2 同时验证 eqn::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
     // 黏度以维持该回归的 Reynolds 数。
-    SimpleSolver solver(fields, {2.0, 0.2}, control);
+    SteadySimpleAlgorithm solver(fields, {2.0, 0.2}, control);
     SimpleIterationResult result;
     int iterations = 0;
     for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {

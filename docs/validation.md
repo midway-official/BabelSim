@@ -6,6 +6,39 @@
 
 ## 1. 自动测试
 
+### 具体 Solver 接口私有化与瞬态 SIMPLE 回归（2026-09-05）
+
+本轮删除 `include/babelsim/simple.h` 和 `include/babelsim/simple_control.h`，并确认不存在
+`transient_simple.h`。Heat、Transport、稳态 SIMPLE 与瞬态 SIMPLE 均不再发布具体 Solver
+接口；前两者保持单文件方程入口，后两者在各自 Physics 目录中保留私有算法文件。
+公共 `Case/Field/eqn/math/solve`、FVM、Runtime、MPI、代数和存储实现均未改动。
+
+执行：
+
+```bash
+make -j4 test
+make test-workflow
+make test-external
+make test-mpi
+make test-mpi-poiseuille
+```
+
+上述目标全部通过。架构检查覆盖 69 个生产源文件/头文件：Physics 对 `internal/`、Runtime、
+MPI、矩阵、原始 Field 存储的直接依赖为零，并拒绝重新加入具体 Solver 公共头。仓库外测试
+区分两类证据：普通新 Solver 只复制公开 SDK；完整稳态 SIMPLE 则作为私有模块维护对象复制，
+不把它伪装成公共二次开发接口。
+
+另用临时 16×16 腔体 Case 验证 `transientSimple`，不向仓库增加专用 Case：Euler 三个物理
+时间步在 1/2/4 rank 均收敛且各 rank 校正次数一致；以 1 rank 为参考，最终场最大绝对差为：
+
+| 对照 | U | p |
+| --- | ---: | ---: |
+| 1 对 2 rank | 2.5650228e-10 | 6.6396855e-10 |
+| 1 对 4 rank | 4.1818399e-10 | 2.8137813e-9 |
+
+同一临时 Case 的 BDF2 三个物理时间步也正常收敛。该测试验证当前小网格的时间循环、历史、
+全局停止行为与并行一致性，不替代高雷诺数瞬态基准、时间步无关性或物理精度验证。
+
 ### eqn/math 命名迁移回归（2026-08-31）
 
 以 `dfc73e5` 为改名前基线，统一公开命名空间、头文件、实现文件、测试及文档。
@@ -24,7 +57,7 @@ make -j2 all test test-mpi test-workflow test-external
 | 显式同步 | 22 项 math 运算 × 3 种扩散方法，污染 halo 后与串行对照；1/2/4 rank 最大差异为 0 / 7.42e-14 / 6.94e-14 |
 | SIMPLE 回归 | 1/2/4 rank 腔体均 137 次；2 rank Poiseuille 为 865 次；三维及非正交测试通过 |
 | 改名前后场对照 | 同进程数、同配置的腔体（1/2/4 rank）、三维腔体（2 rank）、Poiseuille（2 rank）的 U/p，以及 Heat（2 rank）的 T，与预先保存的结果最大绝对差均为 0 |
-| 外部 Solver | 只使用公开头文件重编译完整 SIMPLE；方程驱动、耦合和矢量示例均通过 1/2/4 rank 测试 |
+| 外部 Solver | 方程驱动、耦合和矢量示例只使用公开头文件；完整 SIMPLE 作为私有模块维护回归，均通过 1/2/4 rank 测试 |
 | 完整工作流 | Heat/transport/耦合时间序列、失败路径、ParaView PVD/VTU 实际读取通过 |
 
 场对照按 global ID 对齐，逐分量计算最大绝对差，以 `atol=rtol=1e-12` 验收；
@@ -121,7 +154,8 @@ ASan/UBSan 使用 `-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer`�
 
 Solver 工作流阶段另外确认：
 
-- SIMPLE 公开头由 187 行降到 40 行；Heat、SIMPLE、transport 主入口分别为
+- 当时 SIMPLE 公开头由 187 行降到 40 行；当前版本已进一步删除全部具体 Solver 公开头，
+  SIMPLE 只保留 Physics 模块私有算法接口。Heat、SIMPLE、transport 主入口分别为
   20、18、21 行（含 include、空行和命名空间）。这只是可读性指标，不替代数值验收。
 - 新双场耦合例子只新增一个普通函数；在 1/2/4 rank 上对每个保存时间层检查
   隐式 Euler 的解析递推结果，不要求新 reader、执行类或矩阵实现。

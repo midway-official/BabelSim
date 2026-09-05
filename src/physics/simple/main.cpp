@@ -1,11 +1,11 @@
 #include "babelsim/application.h"
 #include "babelsim/case.h"
-#include "babelsim/simple.h"
+#include "algorithm.h"
 
 namespace babelsim {
 
 int runSimple(Case& problem) {
-    SimpleSolver simple(problem);
+    SteadySimpleAlgorithm simple(problem);
     problem.start();
     while (simple.loop()) {
         simple.solveMomentum();

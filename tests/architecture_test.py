@@ -47,7 +47,7 @@ implementation_headers = {
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
 for name in ("case.h", "solver.h", "math.h", "eqn.h", "application.h", "postprocess.h",
-             "result_reader.h", "simple.h", "simple_control.h"):
+             "result_reader.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)
         assert not re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path]), path
@@ -94,8 +94,13 @@ assert not (ROOT / "src/discretization/simple_discretization.cpp").exists()
 def check_solver(path, text, dependencies):
     # 本算法内的私有状态合法，但所有跨模块能力必须来自公开 Solver API。
     module = ROOT / "src/physics" / path.relative_to(ROOT / "src/physics").parts[0]
+    shared_simple_types = ROOT / "src/physics/simple_common.h"
     for dependency in dependencies:
-        assert dependency.is_relative_to(ROOT / "include") or dependency.is_relative_to(module), (path, dependency)
+        allowed_simple_shared = (dependency == shared_simple_types and
+                                 module.name in {"simple", "transient_simple"})
+        assert (dependency.is_relative_to(ROOT / "include") or
+                dependency.is_relative_to(module) or
+                allowed_simple_shared), (path, dependency)
         assert dependency.name not in implementation_headers, (path, dependency)
     code = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"', '', text, flags=re.S)
     assert not re.search(r'\bdetail\s*::|MPI_|ParallelContext|HaloExchange|mutableData|'
@@ -129,9 +134,13 @@ for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [
         ROOT / "tests/examples/coupled_scalar.cpp", ROOT / "tests/external/solver.cpp"]:
     assert not re.search(r'MPI_|ParallelContext|HaloExchange|mutableData|\.data\(|'
                          r'std::vector|unique_ptr|shared_ptr|RunTime|SparseAssembly', path.read_text()), path
-control = texts[ROOT / "include/babelsim/simple_control.h"]
+simple_common = ROOT / "src/physics/simple_common.h"
+control = texts[simple_common]
 assert "LinearSolverConfig" not in control and "simpleRunTimeControl" not in control
-for name in ("thermal.h", "transport.h", "equation.h", "solvers.h"):
+assert all(dependency.is_relative_to(ROOT / "include") or dependency == simple_common
+           for dependency in closures[simple_common])
+for name in ("thermal.h", "transport.h", "simple.h", "simple_control.h",
+             "transient_simple.h", "equation.h", "solvers.h"):
     assert not (ROOT / "include/babelsim" / name).exists(), name
 
 print(f"architecture_test: {len(files)} sources/headers, acyclic includes and layer boundaries passed")

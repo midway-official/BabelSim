@@ -45,22 +45,26 @@
 | 应用启动 | application.h、runtime/application.cpp | 轻量注册、参数、MPI 初始化/销毁、名称分派与失败退出 | 内置物理分支 |
 | Case/IO | case.h、io/、parallel_writer.cpp | 配置、命名场所有权、时间输出 | 求解物理方程 |
 | 结果/后处理 | result.h、result_reader.cpp、postprocess.cpp | 文件验证、合并、VTU/PVD/Tecplot | MPI 运行依赖 |
-| Physics/算法 | physics/heat、transport、simple | 方程、耦合、修正、收敛 | 存储、MPI、代数实现 |
+| Physics/算法 | physics/heat、transport、simple、transient_simple | 方程、耦合、修正、收敛 | 存储、MPI、代数实现 |
 | 应用文件 | apps/babelsim_solve.cpp、babelsim_post.cpp | 调用公共启动函数 | Solver 名单、MPI API、格式细节 |
 
 RunTime 仍选择当前唯一 FVM 后端，不是假称已具备任意后端插件能力。
 但 FVM 执行者只接收网格、方法、线性配置、并行能力和步长，不知道应用时间循环。
 solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manager 类。
 
-## Public Solver API
+## Solver 作者的公共框架 API
 
 - case.h：命名场、物性与算法参数、声明阶段、时间循环和输出选择。
 - field.h：数学边界、fill/assign/assignScaled/assignProduct/addProduct/evaluate。
 - eqn.h：隐式项、已知源、轻量表达式；Scalar/VectorEquationDefinition。
 - math.h：显式描述和整场 evaluate/add/subtract；单独包含即可使用。
 - solver.h：solve、solveWithResponse、relaxed、referenceValue、只读 numericalMethods、diagnostics。
-- simple.h：现成 SIMPLE 的步骤接口。
 - application.h：SolverRegistration、runApplication；每个模块只需一行注册，无工厂、宏或基类。
+
+`include/babelsim/` 不发布任何具体求解器接口。Heat、Transport、稳态 SIMPLE 和瞬态
+SIMPLE 都通过各自 `src/physics/<name>/main.cpp` 的注册入口成为可运行求解器。
+多步骤算法可以在自己的目录内声明私有算法对象，但普通二次开发者不能依赖这些内部头。
+这避免把“当前内置算法的组织方式”误当成长期稳定的 Framework SDK。
 
 外部 Solver 仅需 include/ 和预编译 libbabelsim.a，不需要 -Isrc、Eigen 头或 MPI 头。
 普通编译器可编译 Solver；最终数值程序使用 MPI 链接器链接框架依赖。
@@ -87,7 +91,7 @@ Case 拥有 Mesh、稳定地址的命名 Field、RunTime；销毁顺序为 FVM �
 4. 计算：可读取已有命名场，禁止再创建新场；loop 按物理时间推进和写出。
 5. finish()：只用于成功结果；公共启动器在返回 0 后调用。
 
-SimpleSolver 构造不再关闭 Case，组合算法可继续声明别的物理场。
+两个 SIMPLE 私有算法对象的构造都不关闭 Case，组合算法可继续声明别的物理场。
 同一个线程仍只允许一个活动 Case/RunTime；多区域 Case、子通信器和 restart 尚未提供。
 外部 Solver 不应绕过 Case 创建短命未知量后让时间历史继续使用它。
 
@@ -110,20 +114,25 @@ solveWithResponse 返回 V/aP 数学场，沿用 SIMPLE 当前缩放形式的欠
 
 ## SIMPLE 的私有边界
 
-main 是算法流程；momentum/pressure 写数学方程与修正；create_fields 管理固定状态，
-convergence 处理全局结果和日志，state.h 仅属于该算法。
+main 是算法流程；algorithm.h/.cpp 是模块私有步骤边界和生命周期；
+momentum/pressure 写数学方程与修正；state.h 仅属于所在算法。
 Rhie–Chow 的数学组合位于 momentum.cpp；原专用逐面核及私有桥接头已删除。
 FVM 只知道面矢量通量、给定重构梯度的扩散通量和几何面区域增量，不知道 SIMPLE。
 动量响应和压力参考已改用通用 solveWithResponse/solve，不再是 SIMPLE 独占的内部入口。
 
-保留项必须如实区分：simple.h 的 unique_ptr 是本算法私有所有权；state.h 的预分配
+保留项必须如实区分：algorithm.h 的 unique_ptr 是本算法私有所有权；state.h 的预分配
 工作场是数学 Field，不是与 FVM 共享的内部存储。非正交 for 是数学迭代，不是存储循环。
-包括初始化、诊断在内的全部 SIMPLE 源码都不访问 internal/、RunTime、MPI、矩阵或
+包括初始化、诊断在内的稳态与瞬态 SIMPLE 源码都不访问 internal/、RunTime、MPI、矩阵或
 原始 Field 数组。配置查询和日志分别经 numericalMethods/diagnostics::report 绑定到底层。
 这两个函数不持有算法状态、不形成新的管理对象。
 
 物理状态由 Case/调用者拥有；算法状态与数学中间量由 SIMPLE 拥有；数值执行工作区
 由 FVM/代数/并行独占。禁止把专用算法原样搬入通用核心，也禁止把逐面存储内核原样搬入 Solver。
+
+稳态与瞬态 SIMPLE 是两个独立模块。它们有意使用相同的五步算法顺序、压力修正公式和
+`eqn/math/solve` 词汇，但不通过继承、包装、friend 或布尔模式共享私有状态。瞬态模块只在
+自己的动量方程加入 ddt，并由自己的 beginTimeStep 划分物理时间步。新增该 Solver 没有给
+FVM、Runtime、并行或线性代数增加 SIMPLE 专用接口。
 
 ## 接口迁移
 
@@ -138,7 +147,7 @@ FVM 只知道面矢量通量、给定重构梯度的扩散通量和几何面区�
 | RunTime 数值实现 | internal/fvm_execution.h 与 discretization/fvm_execution.cpp |
 | result_reader.h 经 parallel_writer.h 获取结构 | 独立 result.h，无 MPI 包含链 |
 | internal/simple_discretization.h、discretization/simple_discretization.cpp | SIMPLE 中用公开 math 组合；通用面区域增量保留在 FVM |
-| SimpleSolver(run_time,fields,fluid,control) | SimpleSolver(fields,fluid,control)；活动运行域仍由调用者建立 |
+| include/babelsim/simple.h、simple_control.h | 已删除；实现移入 src/physics 的模块私有 algorithm.h 与 simple_common.h，Case 用户只选择注册名称 |
 | SIMPLE 中 RunTime::current().methods()/primary() | numericalMethods()/diagnostics::report() |
 
 此前删除的 thermal.h/transport.h 专用库式入口、equation.h 兼容别名及重复线性控制不恢复。
@@ -150,7 +159,7 @@ FVM 只知道面矢量通量、给定重构梯度的扩散通量和几何面区�
   Physics 源码禁止跨入 src/internal、其他模块私有文件或运行/代数维护头。
   注入私有存储、运行头等违规样本，检查门禁本身确实拒绝，而不是只做正向扫描。
 - make test-external：临时目录中只用公开 SDK 编译外部方程/耦合/矢量 Solver，
-  1/2/4 进程解析解验证；完整 SIMPLE 源码仓库外重编译及 Poiseuille 回归；
+  1/2/4 进程解析解验证；另以维护测试方式复制完整私有 SIMPLE 模块并做 Poiseuille 回归；
   原始存储等十类负向编译；普通 g++ 链接结果读取器。
 - make test / test-workflow：算子、生命周期、Heat、Transport、SIMPLE、自动时间输出。
 - make test-mpi / test-mpi-poiseuille：halo、分布式代数、非正交 math、SIMPLE 和结果差异。

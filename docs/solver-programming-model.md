@@ -3,6 +3,22 @@
 两种方式不是两套架构，也不需要共同的 Solver 基类。普通作者都从 Case、命名 Field、
 eqn/math、solve 和数学 diagnostics 出发；RunTime、矩阵和 MPI 由框架维护者负责。
 
+## 公共的是框架语言，不是具体求解器
+
+`include/babelsim/` 只发布 Case、Field、边界、eqn、math、solve、diagnostics 和应用注册等
+通用接口，不发布 Heat、Transport、稳态 SIMPLE 或瞬态 SIMPLE 的类。具体求解器是使用这门
+“框架语言”编写的应用，而不是供另一个 Solver 继承或调用的 SDK。
+
+- Heat、Transport 足够简单，各自在一个 `main.cpp` 中完成方程与注册；
+- 稳态和瞬态 SIMPLE 需要跨步骤共享数学状态，只在自己的 `src/physics/<solver>/` 中使用
+  私有 `algorithm.h/.cpp`、`momentum.cpp`、`pressure.cpp` 和 `state.h`；
+- 普通 Solver 作者不能包含这些私有头，也不需要理解它们；应直接组合公共数学 API；
+- Case 用户只写 `solver heat`、`solver transport`、`solver simple` 或
+  `solver transientSimple`，不会构造具体 Solver 对象。
+
+这种边界避免“内置算法的当前 C++ 组织”变成必须长期兼容的公共抽象，同时保证所有新 Solver
+仍可使用同一套 Field、Equation、离散、代数和 MPI 执行设施。
+
 ## 方程驱动
 
 源码直接描述一个或几个 PDE。完整实际入口见
@@ -21,7 +37,7 @@ while (problem.loop()) {
 
 本质是在同一时间层或稳态迭代里组织方程、修正与收敛。
 [双场例子](../tests/examples/coupled_scalar.cpp) 用一个普通函数完成交替耦合，
-没有新增类、框架对象、解析器或通信文件；SIMPLE 较复杂，才使用可复用算法对象：
+没有新增类、框架对象、解析器或通信文件；SIMPLE 较复杂，才在自身模块内使用私有算法对象：
 
 ```cpp
 while (simple.loop()) {

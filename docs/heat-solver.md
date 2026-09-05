@@ -20,6 +20,9 @@ int runHeat(Case& problem) {
 const SolverRegistration heat("heat", runHeat);
 ```
 
+Heat 没有对应的公共头文件或求解器类。它是一个使用公共 `Case + Field + eqn + solve`
+接口编写的应用；Case 用户通过名称选择它，其他 Solver 也不应依赖它的实现文件。
+
 直接对应
 \[
 \rho c_p\partial_tT=\nabla\cdot(k\nabla T)+Q.

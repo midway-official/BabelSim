@@ -60,6 +60,10 @@ const SolverRegistration species("species", runSpecies);
 这就是完整 Solver，不需要再写 Case reader、执行入口类、析构函数或输出代码。
 也不需要同时提供一个专用头文件和 solveTransientXXX 库函数；原来的 Heat/Transport
 重复库式入口已经删除。测试需要内存输入时直接调用同一套通用数学 API。
+
+不要为具体 Solver 向 `include/babelsim/` 增加头文件。公共头表达稳定的框架概念，
+具体 Solver 只在自己的实现文件注册运行入口；算法较复杂时，其辅助头也必须留在所属
+`src/physics/<solver>/` 目录，并且不能成为其他 Solver 的依赖。
 在同一文件加上启动入口：
 
 ```cpp
@@ -182,7 +186,7 @@ const double change = diagnostics::relativeChange(T, previous);
 带初值的重载创建不读取文件、也不自动输出的中间场；Case 拥有它，算法不管理分配或析构。
 这是数学上的赋值和变化范数，不是存储访问。初始边界是零梯度；需要别的数学条件时显式设置。
 
-所有场在 start/首次 loop 之前创建。validate() 只做校验，SimpleSolver 的构造不会
+所有场在 start/首次 loop 之前创建。validate() 只做校验，算法私有对象的构造不会
 抢先结束声明阶段；算法驱动主程序完成声明后调用 problem.start()。
 已有命名场在开始计算后仍能查找，但新名称会报错。Case 返回的引用必须保留 `&`，
 也不能超出 Case 生命周期。
@@ -210,19 +214,27 @@ cell/face 索引循环来实现已有离散。停止判据必须覆盖**全部�
 时间步内可重复求同一场。历史场在进入下一个物理时间步时推进一次，不随 solve 调用次数推进。
 BDF2 首步自动用 Euler；当前 BDF2 只支持均匀步长，非整数步数的终点会被拒绝。
 
-只有算法确实跨多个模块复用时才建立类似 `SimpleSolver` 的算法对象。
-SIMPLE 的公开 API 是 loop、五个步骤和 converged；内部状态不属于普通调用者要学习的内容。
-如果要修改 SIMPLE 本身，其全部算法代码都在 `src/physics/simple/`，没有另一个藏在
-通用框架中的专用动量插值实现。`momentum.cpp` 用公开 math 组合面通量修正，
-`pressure.cpp` 描述压力方程和速度/通量更新。模块自己的 `state.h` 只存物理场引用、
-算法量和可复用的数学中间场，不包含 `internal/` 类型。
+只有算法确实跨多个步骤共享状态时，才在自己的 `src/physics/<solver>/` 内建立私有算法对象。
+这不是公共 Solver API：所有具体求解器都只通过同目录的 `SolverRegistration` 被选择，
+`include/babelsim/` 不发布 Heat、Transport、稳态 SIMPLE 或瞬态 SIMPLE 的类。
+
+稳态 SIMPLE 的全部代码在 `src/physics/simple/`；瞬态版本在
+`src/physics/transient_simple/`。两个目录分别拥有 `main.cpp`、私有 `algorithm.h/.cpp`、
+`momentum.cpp`、`pressure.cpp` 和 `state.h`。瞬态版本复用稳态方程写法和校正顺序，
+仅在自己的动量方程加入 `eqn::ddt(rho,U)` 并增加物理时间循环；没有给稳态类增加模式开关，
+也没有修改 Runtime、MPI 或离散后端。
+
+普通 Case 用户只写 `solver simple` 或 `solver transientSimple`。开发新的 Solver 时也不要
+包含任何其他求解器目录的 algorithm.h/state.h；应组合公共 Case/Field/eqn/math/solve。
+`simple_common.h` 只是两个内置 SIMPLE 的 Physics 私有数据类型，不是二次开发入口。
 
 算法需要了解非正交方法时，使用只读的 `numericalMethods()`；需要输出诊断时，
 使用 `diagnostics::report("说明本次迭代的数学诊断")`，不要自己查询主进程或包含 runtime.h。
 这不要求普通方程驱动 Solver 创建更多对象，默认 solve/math 的方法仍来自 Case。
 
-`make test-external` 也会把整个 SIMPLE 模块复制到仓库外重新编译，并运行 1/2/4 进程算例。
-新增自己的算法时同样可以保留少量本模块私有文件，但不能包含框架或其他算法的私有头。
+`make test-external` 会把稳态 SIMPLE 私有模块作为维护对象复制到仓库外重新编译，
+同时验证真正的外部 Solver 只使用公共 Framework 头。新增自己的算法可以保留少量本模块
+私有文件，但不能包含框架 internal/ 或其他求解器的私有头。
 
 ## 方程控制和动量响应
 

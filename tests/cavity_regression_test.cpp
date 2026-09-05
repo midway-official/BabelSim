@@ -1,6 +1,5 @@
 #include "internal/field_access.h"
-#include "babelsim/simple.h"
-#include "babelsim/simple_control.h"
+#include "physics/simple/algorithm.h"
 #include "babelsim/runtime.h"
 
 #include "test_util.h"
@@ -58,7 +57,7 @@ int main() {
     run_control.scalar_solver.relative_tolerance = 1e-10;
 
     RunTime run_time = RunTime::forMesh(mesh, run_control);
-    SimpleSolver solver(fields, {1.0, 0.01}, control);
+    SteadySimpleAlgorithm solver(fields, {1.0, 0.01}, control);
     SimpleIterationResult result;
     int iterations = 0;
     for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {

@@ -28,7 +28,8 @@ control control.bs
 output output.bs
 ```
 
-现有选择是 heat（热传导）、simple（稳态层流 SIMPLE）、transport（对流扩散）。
+现有选择是 heat（瞬态热传导）、transport（瞬态对流扩散）、simple（稳态层流 SIMPLE）和
+transientSimple（瞬态层流 SIMPLE）。
 不再接受 BabelSim 旧的 heatFoam/simpleFoam/transportFoam 名称。
 它们不代表 OpenFOAM 程序或输入格式。
 
@@ -60,6 +61,10 @@ int main(int argc, char* argv[]) {
 这不是动态插件、文件名查找或自动命名规则。没有注册、未知名称、重名或空函数会报错。
 注册对象只记录名称与函数，启动前不调用 MPI；实际检查与分派仍由框架完成。
 外部 Solver 使用相同的一行注册和通用 main，无需维护另一套表。
+
+注册只负责把 Case 中的名称连接到求解函数，不会把具体 Solver 变成公共类。
+`include/babelsim/` 不提供 Heat、Transport 或 SIMPLE 头文件；Case 用户只选择名称，
+Solver 作者只依赖公共 Framework API。内置求解器的实现全部留在各自的 `src/physics/` 目录。
 
 ### physics 条目与 physics() 接口
 
@@ -156,6 +161,8 @@ deltaT 0.01
 
 Euler 的最后一步可缩短到 endTime，不越过终点。BDF2 首步 Euler、后续等步长；
 不支持以非整数步数终止的 BDF2。稳态 simple 使用算法外循环，不把迭代次数冒充物理时间。
+瞬态 transientSimple 使用 `problem.loop()` 推进物理时间，并在每个时间步内部完成 SIMPLE
+压力速度校正；其 `methods.bs` 必须选择 `euler` 或 `bdf2`，不能选择 `steady`。
 
 ## 自动输出
 

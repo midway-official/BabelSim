@@ -69,9 +69,10 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "-c", "solver.cpp", "-o", "solver.o", cwd=work)
     run("mpic++", "solver.o", "libbabelsim.a", "-o", "external-solver", cwd=work)
 
-    # 把整个 SIMPLE 模块（不是只有调用 SimpleSolver 的短 main）当成外部源码构建。
-    # 不提供 src/、MPI/Eigen 头或框架私有接口；算法自己的 state.h 可正常使用。
+    # 把整个私有 SIMPLE 模块作为维护对象在仓库外重建。
+    # 不提供框架 internal/、MPI/Eigen 头；算法自己的私有头可正常使用。
     shutil.copytree(ROOT / "src/physics/simple", work / "simple")
+    shutil.copy(ROOT / "src/physics/simple_common.h", work / "simple_common.h")
     simple_objects = []
     for source in sorted((work / "simple").glob("*.cpp")):
         output = source.with_suffix(".o")
@@ -94,7 +95,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     for count in (2, 4):
         run("python3", ROOT / "tools/compare_parallel_results.py", simple_case / "results/np1",
             simple_case / f"results/np{count}", "--atol", "5e-6", "--rtol", "5e-6", cwd=work)
-    print("external_solver_test: complete SIMPLE module rebuilt with public headers; 1/2/4 ranks passed")
+    print("external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed")
+
     (work / "single.cpp").write_text(
         '#include "babelsim/application.h"\nint solveCase(babelsim::Case&){return 0;}\n'
         'const babelsim::SolverRegistration single("single",solveCase);\n'
