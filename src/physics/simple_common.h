@@ -8,6 +8,8 @@
 
 namespace babelsim {
 
+class Case;
+
 // 稳态与瞬态 SIMPLE 共用的私有物理量和算法控制，不属于 BabelSim Solver SDK。
 struct FluidProperties {
     double density = 1.0;
@@ -69,12 +71,33 @@ struct IncompressibleFields {
 struct SimpleIterationResult {
     SolveResult velocity;
     SolveResult pressure;
+    SolveResult turbulence{SolveStatus::Converged, 0, 0.0, 0.0, 0.0};
     FluxBalance continuity;
     double relative_velocity_change = 0.0;
     double relative_pressure_correction = 0.0;
+    double relative_turbulence_change = 0.0;
+    bool turbulence_active = false;
     bool healthy = false;
     bool linear_converged = false;
     bool converged = false;
 };
+
+// 稳态和瞬态 SIMPLE 共享的私有湍流耦合边界。Model 的具体类型、输运变量与
+// 工作场全部留在 physics/RANS；SIMPLE 只触发校正并读取统一的收敛语义。
+namespace rans {
+class Model;
+Model* create(
+    Case& problem,
+    const VectorField& velocity,
+    const ScalarField& face_flux,
+    ScalarField& effective_viscosity,
+    double density,
+    double molecular_viscosity);
+void destroy(Model* model) noexcept;
+SolveResult correct(Model& model);
+double relativeChange(const Model& model);
+double tolerance(const Model& model);
+const char* name(const Model& model);
+}  // rans 命名空间
 
 }  // babelsim 命名空间

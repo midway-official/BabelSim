@@ -13,10 +13,13 @@ void SteadySimpleAlgorithm::solveMomentum() {
     ScalarField& p = state.m_p;
     ScalarField& phi = state.m_phi;
     ScalarField& rAU = state.m_rAU;
+    const VectorExpression diffusion = state.m_turbulence
+        ? eqn::laplacian(state.m_effective_viscosity, U)
+        : eqn::laplacian(state.m_fluid.dynamic_viscosity, U);
 
     state.m_result.velocity = solveWithResponse(
         eqn::div(state.m_fluid.density, phi, U) ==
-            -math::grad(p) + eqn::laplacian(state.m_fluid.dynamic_viscosity, U),
+            -math::grad(p) + diffusion,
         rAU, relaxed(state.m_control.velocity_relaxation));
     state.m_step = State::Step::Momentum;
 }

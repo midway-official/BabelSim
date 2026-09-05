@@ -9,7 +9,7 @@
 namespace babelsim {
 
 SteadySimpleAlgorithm::State::State(VectorField& U, ScalarField& p, ScalarField& phi,
-                                    FluidProperties fluid, SimpleControl control)
+                                    FluidProperties fluid, SimpleControl control, Case* problem)
     : m_U(U), m_p(p), m_phi(phi), m_mesh(U.mesh()),
       m_fluid(fluid), m_control(control), m_methods(numericalMethods())
 {
@@ -24,6 +24,13 @@ SteadySimpleAlgorithm::State::State(VectorField& U, ScalarField& p, ScalarField&
     }
     m_fluid.validate();
     m_control.validate();
+    m_effective_viscosity.fill(m_fluid.dynamic_viscosity);
+    if (problem) {
+        m_turbulence.reset(rans::create(
+            *problem, m_U, m_phi, m_effective_viscosity,
+            m_fluid.density, m_fluid.dynamic_viscosity));
+    }
+    m_result.turbulence_active = static_cast<bool>(m_turbulence);
     m_has_fixed_pressure = setHomogeneousCorrectionBoundaries(m_p_prime, m_p);
     math::evaluate(math::flux(m_U), m_phi);
 }
@@ -39,9 +46,12 @@ SteadySimpleAlgorithm::SteadySimpleAlgorithm(Case& problem)
           problem.vectorField("U"), problem.scalarField("p"), problem.faceField("phi"),
           FluidProperties{problem.physics().positive("density"),
                           problem.physics().positive("dynamicViscosity")},
-          readSimpleControl(problem.solution())))
+          readSimpleControl(problem.solution()), &problem))
 {
     m_state->m_log = true;
+    if (m_state->m_turbulence) {
+        diagnostics::report(std::string("RANS model: ") + rans::name(*m_state->m_turbulence));
+    }
 }
 
 SteadySimpleAlgorithm::~SteadySimpleAlgorithm() = default;
@@ -60,21 +70,26 @@ bool SteadySimpleAlgorithm::loop() const {
 
 void SteadySimpleAlgorithm::checkContinuity() {
     State& state = *m_state;
-    state.requireStep(State::Step::Flux);
+    state.requireStep(State::Step::Turbulence);
     SimpleIterationResult& result = state.m_result;
     result.relative_velocity_change = diagnostics::relativeChange(state.m_U, state.m_previous_velocity);
     result.relative_pressure_correction = diagnostics::relativeMagnitude(state.m_p_prime, state.m_p);
     result.continuity = diagnostics::fluxBalance(state.m_phi);
 
-    result.healthy = diagnostics::all(state.m_pressure_healthy &&
+    const bool turbulence_healthy = !result.turbulence_active ||
+        (result.turbulence.healthy() && std::isfinite(result.relative_turbulence_change));
+    result.healthy = diagnostics::all(state.m_pressure_healthy && turbulence_healthy &&
         std::isfinite(result.relative_velocity_change) &&
         std::isfinite(result.continuity.relative) && result.velocity.healthy());
     result.linear_converged = diagnostics::all(
-        state.m_pressure_converged && result.velocity.converged());
+        state.m_pressure_converged && result.velocity.converged() &&
+        (!result.turbulence_active || result.turbulence.converged()));
     // 只有已全局一致的状态才能短路后续归约；线性收敛不等于外迭代收敛。
     result.converged = result.healthy && result.linear_converged && diagnostics::all(
         result.continuity.relative <= state.m_control.continuity_tolerance &&
-        result.relative_velocity_change <= state.m_control.velocity_tolerance);
+        result.relative_velocity_change <= state.m_control.velocity_tolerance &&
+        (!result.turbulence_active || result.relative_turbulence_change <=
+            rans::tolerance(*state.m_turbulence)));
     state.m_step = State::Step::Complete;
     ++state.m_iteration;
     state.report();
@@ -87,6 +102,7 @@ SimpleIterationResult SteadySimpleAlgorithm::iterate() {
     solvePressure();
     correctVelocity();
     correctFlux();
+    correctTurbulence();
     checkContinuity();
     return m_state->m_result;
 }
@@ -100,6 +116,7 @@ void SteadySimpleAlgorithm::State::report() const {
             << " mass=" << m_result.continuity.relative
             << " dU=" << m_result.relative_velocity_change
             << " linP=" << m_result.pressure.relative_residual
+            << " dTurb=" << m_result.relative_turbulence_change
             << " linear=" << (m_result.linear_converged ? "ok" : "inexact")
             << " converged=" << (m_result.converged ? "true" : "false");
     diagnostics::report(message.str());

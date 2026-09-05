@@ -13,6 +13,7 @@ int runTransientSimple(Case& problem) {
             simple.solvePressure();
             simple.correctVelocity();
             simple.correctFlux();
+            simple.correctTurbulence();
             simple.checkContinuity();
         }
         if (!simple.converged()) return 2;

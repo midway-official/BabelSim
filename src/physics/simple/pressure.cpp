@@ -50,4 +50,18 @@ void SteadySimpleAlgorithm::correctFlux() {
     state.m_step = State::Step::Flux;
 }
 
+void SteadySimpleAlgorithm::correctTurbulence() {
+    State& state = *m_state;
+    state.requireStep(State::Step::Flux);
+    SimpleIterationResult& result = state.m_result;
+    if (state.m_turbulence) {
+        result.turbulence = rans::correct(*state.m_turbulence);
+        result.relative_turbulence_change = rans::relativeChange(*state.m_turbulence);
+    } else {
+        result.turbulence = {SolveStatus::Converged, 0, 0.0, 0.0, 0.0};
+        result.relative_turbulence_change = 0.0;
+    }
+    state.m_step = State::Step::Turbulence;
+}
+
 }  // babelsim 命名空间

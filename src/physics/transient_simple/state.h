@@ -8,7 +8,7 @@ namespace babelsim {
 // 所有临时场都属于本算法模块，不向 Solver 调用者或框架底层泄漏。
 struct TransientSimpleAlgorithm::State {
     State(VectorField& U, ScalarField& p, ScalarField& phi,
-          FluidProperties fluid, SimpleControl control);
+          FluidProperties fluid, SimpleControl control, Case* problem = nullptr);
 
     // Case 或调用者拥有物理场和网格，必须活得比算法对象更久。
     VectorField& m_U;
@@ -18,6 +18,8 @@ struct TransientSimpleAlgorithm::State {
     FluidProperties m_fluid;
     SimpleControl m_control;
     Methods m_methods;
+    ScalarField m_effective_viscosity{m_mesh, FieldLocation::Cell, "muEffective"};
+    std::unique_ptr<rans::Model, void (*)(rans::Model*)> m_turbulence{nullptr, rans::destroy};
 
     ScalarField m_p_prime{m_mesh, FieldLocation::Cell, "pPrime"};
     ScalarField m_rAU{m_mesh, FieldLocation::Cell, "rAU"};
@@ -34,7 +36,7 @@ struct TransientSimpleAlgorithm::State {
     SimpleIterationResult m_result;
     bool m_pressure_healthy = false;
     bool m_pressure_converged = false;
-    enum class Step { Ready, Momentum, Pressure, Velocity, Flux, Complete };
+    enum class Step { Ready, Momentum, Pressure, Velocity, Flux, Turbulence, Complete };
     Step m_step = Step::Ready;
     // -1 表示尚未由物理时间循环开启时间步。
     int m_iteration = -1;

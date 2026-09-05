@@ -22,6 +22,7 @@ public:
     void solvePressure();
     void correctVelocity();
     void correctFlux();
+    void correctTurbulence();
     void checkContinuity();
     bool converged() const;
     SimpleIterationResult iterate();

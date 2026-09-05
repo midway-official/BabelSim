@@ -9,7 +9,7 @@
 namespace babelsim {
 
 TransientSimpleAlgorithm::State::State(VectorField& U, ScalarField& p, ScalarField& phi,
-                                       FluidProperties fluid, SimpleControl control)
+                                       FluidProperties fluid, SimpleControl control, Case* problem)
     : m_U(U), m_p(p), m_phi(phi), m_mesh(U.mesh()),
       m_fluid(fluid), m_control(control), m_methods(numericalMethods())
 {
@@ -23,6 +23,13 @@ TransientSimpleAlgorithm::State::State(VectorField& U, ScalarField& p, ScalarFie
     }
     m_fluid.validate();
     m_control.validate();
+    m_effective_viscosity.fill(m_fluid.dynamic_viscosity);
+    if (problem) {
+        m_turbulence.reset(rans::create(
+            *problem, m_U, m_phi, m_effective_viscosity,
+            m_fluid.density, m_fluid.dynamic_viscosity));
+    }
+    m_result.turbulence_active = static_cast<bool>(m_turbulence);
     m_has_fixed_pressure = setHomogeneousCorrectionBoundaries(m_p_prime, m_p);
     math::evaluate(math::flux(m_U), m_phi);
 }
@@ -38,9 +45,12 @@ TransientSimpleAlgorithm::TransientSimpleAlgorithm(Case& problem)
           problem.vectorField("U"), problem.scalarField("p"), problem.faceField("phi"),
           FluidProperties{problem.physics().positive("density"),
                           problem.physics().positive("dynamicViscosity")},
-          readSimpleControl(problem.solution())))
+          readSimpleControl(problem.solution()), &problem))
 {
     m_state->m_log = true;
+    if (m_state->m_turbulence) {
+        diagnostics::report(std::string("RANS model: ") + rans::name(*m_state->m_turbulence));
+    }
 }
 
 TransientSimpleAlgorithm::~TransientSimpleAlgorithm() = default;
@@ -54,6 +64,8 @@ void TransientSimpleAlgorithm::beginTimeStep() {
     if (state.m_step != State::Step::Ready && state.m_step != State::Step::Complete)
         throw std::logic_error("cannot begin a time step during an incomplete SIMPLE correction");
     state.m_result = {};
+    state.m_result.turbulence.status = SolveStatus::Converged;
+    state.m_result.turbulence_active = static_cast<bool>(state.m_turbulence);
     state.m_pressure_healthy = false;
     state.m_pressure_converged = false;
     state.m_step = State::Step::Ready;
@@ -72,20 +84,25 @@ bool TransientSimpleAlgorithm::loop() const {
 
 void TransientSimpleAlgorithm::checkContinuity() {
     State& state = *m_state;
-    state.requireStep(State::Step::Flux);
+    state.requireStep(State::Step::Turbulence);
     SimpleIterationResult& result = state.m_result;
     result.relative_velocity_change = diagnostics::relativeChange(state.m_U, state.m_previous_velocity);
     result.relative_pressure_correction = diagnostics::relativeMagnitude(state.m_p_prime, state.m_p);
     result.continuity = diagnostics::fluxBalance(state.m_phi);
 
-    result.healthy = diagnostics::all(state.m_pressure_healthy &&
+    const bool turbulence_healthy = !result.turbulence_active ||
+        (result.turbulence.healthy() && std::isfinite(result.relative_turbulence_change));
+    result.healthy = diagnostics::all(state.m_pressure_healthy && turbulence_healthy &&
         std::isfinite(result.relative_velocity_change) &&
         std::isfinite(result.continuity.relative) && result.velocity.healthy());
     result.linear_converged = diagnostics::all(
-        state.m_pressure_converged && result.velocity.converged());
+        state.m_pressure_converged && result.velocity.converged() &&
+        (!result.turbulence_active || result.turbulence.converged()));
     result.converged = result.healthy && result.linear_converged && diagnostics::all(
         result.continuity.relative <= state.m_control.continuity_tolerance &&
-        result.relative_velocity_change <= state.m_control.velocity_tolerance);
+        result.relative_velocity_change <= state.m_control.velocity_tolerance &&
+        (!result.turbulence_active || result.relative_turbulence_change <=
+            rans::tolerance(*state.m_turbulence)));
     state.m_step = State::Step::Complete;
     ++state.m_iteration;
     state.report();
@@ -98,6 +115,7 @@ SimpleIterationResult TransientSimpleAlgorithm::iterate() {
     solvePressure();
     correctVelocity();
     correctFlux();
+    correctTurbulence();
     checkContinuity();
     return m_state->m_result;
 }
@@ -112,6 +130,7 @@ void TransientSimpleAlgorithm::State::report() const {
             << " mass=" << m_result.continuity.relative
             << " dU=" << m_result.relative_velocity_change
             << " linP=" << m_result.pressure.relative_residual
+            << " dTurb=" << m_result.relative_turbulence_change
             << " linear=" << (m_result.linear_converged ? "ok" : "inexact")
             << " converged=" << (m_result.converged ? "true" : "false");
     diagnostics::report(message.str());

@@ -8,7 +8,7 @@ namespace babelsim {
 // 所有工作场在构造时分配一次；外迭代只更新数值，不创建整场临时数组。
 struct SteadySimpleAlgorithm::State {
     State(VectorField& U, ScalarField& p, ScalarField& phi,
-          FluidProperties fluid, SimpleControl control);
+          FluidProperties fluid, SimpleControl control, Case* problem = nullptr);
 
     // 借用物理场；Case/调用者拥有它们及网格，必须活得比算法更久。
     VectorField& m_U;
@@ -18,6 +18,9 @@ struct SteadySimpleAlgorithm::State {
     FluidProperties m_fluid;
     SimpleControl m_control;
     Methods m_methods;
+    // RANS 只更新有效动力黏度；速度、压力和面通量仍由 SIMPLE 独立拥有。
+    ScalarField m_effective_viscosity{m_mesh, FieldLocation::Cell, "muEffective"};
+    std::unique_ptr<rans::Model, void (*)(rans::Model*)> m_turbulence{nullptr, rans::destroy};
 
     // 跨步骤保留的算法量。m_mesh 必须先于这些 Field 初始化；场名用于格式选择。
     ScalarField m_p_prime{m_mesh, FieldLocation::Cell, "pPrime"};
@@ -37,7 +40,7 @@ struct SteadySimpleAlgorithm::State {
     // 最后一次压力结果存在 m_result.pressure；两项累计所有非正交子求解的状态。
     bool m_pressure_healthy = false;
     bool m_pressure_converged = false;
-    enum class Step { Ready, Momentum, Pressure, Velocity, Flux, Complete };
+    enum class Step { Ready, Momentum, Pressure, Velocity, Flux, Turbulence, Complete };
     Step m_step = Step::Ready;
     int m_iteration = 0;
     bool m_log = false;

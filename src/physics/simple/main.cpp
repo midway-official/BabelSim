@@ -12,6 +12,7 @@ int runSimple(Case& problem) {
         simple.solvePressure();
         simple.correctVelocity();
         simple.correctFlux();
+        simple.correctTurbulence();
         simple.checkContinuity();
     }
     return simple.converged() ? 0 : 2;
