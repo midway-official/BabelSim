@@ -1,0 +1,15 @@
+field p
+{
+    type scalar
+    location cell
+    internal uniform (0)
+    boundary
+    {
+        cavity_left { type zeroGradient }
+        cavity_right { type zeroGradient }
+        cavity_bottom { type zeroGradient }
+        lid { type zeroGradient }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

@@ -19,6 +19,7 @@ LIB := $(BUILD)/libbabelsim.a
 # 整组替换可同时移除默认 Eigen 装配/求解实现，数值前端和 Physics 无需修改。
 COMPUTE_BACKEND_SOURCES ?= src/backend/eigen_mpi.cpp \
                           src/backend/eigen_assembly.cpp \
+                          src/backend/algebraic_multigrid.cpp \
                           src/algebra/linear_solver.cpp \
                           src/algebra/distributed_solver.cpp
 SOURCES := src/core/mesh.cpp \

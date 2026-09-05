@@ -8,11 +8,15 @@ namespace babelsim {
 enum class LinearSolverType {
     ConjugateGradient,
     BiCGSTAB,
+    GMRES,
+    AlgebraicMultigrid,
 };
 
 enum class PreconditionerType {
+    None,
     IncompleteCholesky,
     ILUT,
+    AlgebraicMultigrid,
 };
 
 enum class SolveStatus {
@@ -28,6 +32,12 @@ struct LinearSolverConfig {
     double relative_tolerance = 1e-8;
     int max_iterations = 1000;
     bool warm_start = false;
+    // GMRES 的每轮 Krylov 子空间维数。较大值通常减少重启，但增加局部正交化和缓存占用。
+    int gmres_restart = 30;
+    // AMG 使用固定聚合与 V-cycle；这些参数只改变计算后端，不改变方程 API。
+    int amg_max_levels = 12;
+    int amg_coarse_size = 48;
+    int amg_smoothing_steps = 2;
 
     void validate() const;
 };

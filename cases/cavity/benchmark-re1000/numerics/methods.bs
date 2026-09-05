@@ -1,0 +1,5 @@
+interpolation linear
+gradient leastSquares
+convection linearUpwind
+diffusion orthogonal
+time steady

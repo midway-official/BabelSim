@@ -10,7 +10,7 @@
 
 namespace babelsim {
 
-// 带各 rank 局部 ILUT/IC 块预条件器的分布式 Krylov 求解器。跨 rank 的 LDU 系数在
+// 带各 rank 局部 IC/ILUT/AMG 块预条件器的分布式 Krylov 求解器。跨 rank 的 LDU 系数在
 // halo 交换后施加；所有点积和残差范数均在给定通信器上归约。
 class DistributedLinearSolver {
 public:

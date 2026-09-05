@@ -42,7 +42,7 @@ Field、`eqn/math`、离散、线性代数和 MPI Runtime，不建立两套 Fram
   TimeDerivative 等有限体积算子；
 - 三维非正交/偏斜修正：Least-Squares、修正 Green--Gauss、修正面插值、非正交
   扩散与压力法向梯度，以及面通量和中心对流的一致重构；
-- LDU 方程、稀疏装配、串行与分布式 Krylov 线性求解；
+- LDU 方程、稀疏装配、串行与分布式 CG/BiCGSTAB/重启 GMRES，以及可独立或作为预条件器的轻量 AMG；
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
 - 分布式网格读取：rank 0 解析原生 `.mesh`，只发送各 rank 局部几何；不会在每个
   rank 重复保留全局 Mesh/Field；
@@ -183,4 +183,5 @@ Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通
 [Solver Programming Model](docs/solver-programming-model.md)，数值验证结果见
 [验证说明](docs/validation.md)；多 Reynolds 数、网格无关性、格式与 MPI 对照见
 [Ghia 方腔验证报告](docs/reports/cavity-ghia-validation.md)及其
-[PDF 版本](docs/reports/cavity-ghia-validation.pdf)。
+[PDF 版本](docs/reports/cavity-ghia-validation.pdf)；线性后端 Re=1000 性能对照见
+[GMRES/AMG 报告](docs/reports/re1000-linear-solver-benchmark.md)。

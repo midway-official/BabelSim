@@ -70,6 +70,52 @@ int main() {
             (second - 2.0 * solution).norm() < 1e-12,
         "prepared linear solver failed to reuse a factorization");
 
+    // AMG 只接收代数系统；同一层级既可作 Krylov 预条件器，也可独立重复 V-cycle。
+    // 将粗网格阈值压低，确保该小系统也实际建立多层而非退化为一次直接分解。
+    LinearSolverConfig amg_config = config;
+    amg_config.preconditioner = PreconditionerType::AlgebraicMultigrid;
+    amg_config.amg_coarse_size = 2;
+    amg_config.amg_smoothing_steps = 2;
+    amg_config.max_iterations = 100;
+    Eigen::VectorXd amg_cg_solution;
+    const SolveResult amg_cg_result = solve(
+        system.A, system.b, amg_cg_solution, amg_config);
+    require(
+        amg_cg_result.converged() && (amg_cg_solution - solution).norm() < 1e-10,
+        "AMG-preconditioned CG did not solve diffusion");
+
+    amg_config.solver = LinearSolverType::GMRES;
+    amg_config.gmres_restart = 3;
+    Eigen::VectorXd gmres_solution;
+    const SolveResult gmres_result = solve(system.A, system.b, gmres_solution, amg_config);
+    require(
+        gmres_result.converged() && (gmres_solution - solution).norm() < 1e-10,
+        "AMG-preconditioned GMRES did not solve diffusion");
+
+    amg_config.solver = LinearSolverType::AlgebraicMultigrid;
+    amg_config.preconditioner = PreconditionerType::None;
+    Eigen::VectorXd standalone_amg_solution;
+    const SolveResult standalone_amg_result = solve(
+        system.A, system.b, standalone_amg_solution, amg_config);
+    require(
+        standalone_amg_result.converged() &&
+            (standalone_amg_solution - solution).norm() < 1e-10,
+        "standalone AMG did not solve diffusion");
+
+    PreparedLinearSolver prepared_amg(amg_config);
+    prepared_amg.compute(system.A);
+    Eigen::VectorXd prepared_amg_solution;
+    require(
+        prepared_amg.solve(system.b, prepared_amg_solution).converged() &&
+            (prepared_amg_solution - solution).norm() < 1e-10,
+        "prepared AMG did not solve diffusion");
+    prepared_amg.factorize(2.0 * system.A);
+    Eigen::VectorXd refactorized_amg_solution;
+    require(
+        prepared_amg.solve(2.0 * system.b, refactorized_amg_solution).converged() &&
+            (refactorized_amg_solution - solution).norm() < 1e-10,
+        "AMG factorization did not reuse its hierarchy");
+
     VectorDiscreteEquation vector_equation(mesh);
     vector_equation.diagonal = equation.diagonal;
     vector_equation.upper = equation.upper;

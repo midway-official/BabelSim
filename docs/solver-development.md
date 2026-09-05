@@ -116,6 +116,18 @@ Solver 编译不需要 MPI/Eigen 头或 `-Isrc`；最终用 MPI 链接器解决�
 `solution.bs` 必须同时包含 `scalarSolver` 和 `vectorSolver` 的完整配置，即使新 PDE
 只使用其中一类。通用 Case 读取两项，不需要 Solver 自己处理；漏项会直接报错。
 
+线性后端还支持 `gmres amg`、`cg amg`、`bicgstab amg` 和独立的 `amg none`。例如：
+
+```text
+scalarSolver gmres amg 1e-14 1e-9 800 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2
+vectorSolver gmres amg 1e-12 1e-8 800 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2
+```
+
+这些是 Case 的计算后端选择，不是 Solver 代码中的对象。AMG/GMRES 的层级、Krylov 基和
+全局归约由默认后端管理；新增 PDE 只需要组合 `eqn`/`math`/`solve`，不需要修改或调用
+线性代数 API。MPI 下独立 AMG 使用局部子域 V-cycle 加全局残差判据；若要开发全局粗网格
+或 GPU AMG，应替换 ComputeBackend，而不是在 Physics 中加入通信代码。
+
 移除新 Solver 不读取的旧物性/算法参数。`Parameters` 会检查重复键、非有限数字、
 缺少项和未消费项，避免拼错参数后悄悄使用默认值。它不是新的物性模型，只是命名配置的读取器。
 读取物理参数使用 `problem.physics()`，与 `case.bs` 中的 `physics` 条目对应；

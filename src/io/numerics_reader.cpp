@@ -193,22 +193,49 @@ void readLinearSolverLine(
     const ConfigLine& line,
     LinearSolverConfig& result)
 {
-    if (line.tokens.size() != 6) {
+    if (line.tokens.size() < 6) {
         invalid(path, line, "linear solver needs method, preconditioner, tolerances, and iterations");
     }
     if (line.tokens[1] == "cg") result.solver = LinearSolverType::ConjugateGradient;
     else if (line.tokens[1] == "bicgstab") result.solver = LinearSolverType::BiCGSTAB;
+    else if (line.tokens[1] == "gmres") result.solver = LinearSolverType::GMRES;
+    else if (line.tokens[1] == "amg") result.solver = LinearSolverType::AlgebraicMultigrid;
     else invalid(path, line, "unknown linear solver " + line.tokens[1]);
-    if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
+    if (line.tokens[2] == "none") {
+        result.preconditioner = PreconditionerType::None;
+    } else if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
         result.preconditioner = PreconditionerType::IncompleteCholesky;
     } else if (line.tokens[2] == "ilut") {
         result.preconditioner = PreconditionerType::ILUT;
+    } else if (line.tokens[2] == "amg") {
+        result.preconditioner = PreconditionerType::AlgebraicMultigrid;
     } else {
         invalid(path, line, "unknown preconditioner " + line.tokens[2]);
     }
     result.absolute_tolerance = number(path, line, 3);
     result.relative_tolerance = number(path, line, 4);
     result.max_iterations = integer(path, line, 5);
+    for (std::size_t index = 6; index < line.tokens.size(); ++index) {
+        const std::string& option = line.tokens[index];
+        const std::size_t separator = option.find('=');
+        if (separator == std::string::npos || separator == 0 ||
+            separator + 1 == option.size()) {
+            invalid(path, line, "linear solver option must use name=value");
+        }
+        ConfigLine value_line = line;
+        value_line.tokens = {option.substr(0, separator), option.substr(separator + 1)};
+        if (value_line.tokens[0] == "gmresRestart") {
+            result.gmres_restart = integer(path, value_line, 1);
+        } else if (value_line.tokens[0] == "amgMaxLevels") {
+            result.amg_max_levels = integer(path, value_line, 1);
+        } else if (value_line.tokens[0] == "amgCoarseSize") {
+            result.amg_coarse_size = integer(path, value_line, 1);
+        } else if (value_line.tokens[0] == "amgSmoothingSteps") {
+            result.amg_smoothing_steps = integer(path, value_line, 1);
+        } else {
+            invalid(path, line, "unknown linear solver option " + value_line.tokens[0]);
+        }
+    }
 }
 
 }  // babelsim 命名空间

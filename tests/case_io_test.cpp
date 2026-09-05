@@ -57,6 +57,33 @@ int main() {
             overrides.convectionFor("C") == ConvectionMethod::Upwind &&
             overrides.diffusionFor("C") == DiffusionMethod::Orthogonal &&
             overrides.time == TimeMethod::Euler,
-            "method overrides changed the default or time method");
+        "method overrides changed the default or time method");
+
+    ConfigLine gmres_line;
+    gmres_line.number = 1;
+    gmres_line.tokens = {
+        "scalarSolver", "gmres", "amg", "1e-14", "1e-9", "400",
+        "gmresRestart=17", "amgMaxLevels=9", "amgCoarseSize=24",
+        "amgSmoothingSteps=3"};
+    LinearSolverConfig gmres_config;
+    readLinearSolverLine("tests/data/solution.bs", gmres_line, gmres_config);
+    gmres_config.validate();
+    require(
+        gmres_config.solver == LinearSolverType::GMRES &&
+            gmres_config.preconditioner == PreconditionerType::AlgebraicMultigrid &&
+            gmres_config.gmres_restart == 17 && gmres_config.amg_max_levels == 9 &&
+            gmres_config.amg_coarse_size == 24 && gmres_config.amg_smoothing_steps == 3,
+        "GMRES/AMG configuration was not read");
+
+    ConfigLine standalone_amg_line;
+    standalone_amg_line.number = 2;
+    standalone_amg_line.tokens = {"vectorSolver", "amg", "none", "1e-14", "1e-9", "400"};
+    LinearSolverConfig standalone_amg;
+    readLinearSolverLine("tests/data/solution.bs", standalone_amg_line, standalone_amg);
+    standalone_amg.validate();
+    require(
+        standalone_amg.solver == LinearSolverType::AlgebraicMultigrid &&
+            standalone_amg.preconditioner == PreconditionerType::None,
+        "standalone AMG configuration was not read");
     std::cout << "case_io_test: SIMPLE, heat-compatible and transport dictionaries passed\n";
 }

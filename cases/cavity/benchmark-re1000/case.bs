@@ -1,0 +1,10 @@
+# The solver entry is intentionally small; numerical and physical controls live
+# in their own dictionaries so another solver can reuse this case layout.
+solver simple
+mesh mesh/cavity.mesh
+fields fields/initial
+physics physics/simple.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
+output output.bs

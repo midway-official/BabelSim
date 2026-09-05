@@ -3,6 +3,7 @@ build-*/
 report/
 result/
 cases/*/results/
+cases/*/*/results/
 cases/*/post/
 __pycache__/
 *.pyc

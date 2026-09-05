@@ -39,8 +39,8 @@
 | 通用离散核 | operators.cpp、internal/boundary_evaluation.h | 梯度/通量/扩散/时间项及边界离散 | Case、SIMPLE、RunTime |
 | FVM 数值前端 | internal/fvm_execution.h、discretization/fvm_execution.cpp | 表达式解释、离散方程、历史与数值工作区；经接口发起同步、归约和求解 | MPI、Eigen、稀疏装配、Case、具体 Physics |
 | 计算后端接口 | internal/compute_backend.h | 定义粗粒度同步、归约和方程求解契约 | 数学表达、离散格式、具体 Physics |
-| 默认计算后端 | backend/eigen_mpi.cpp | Halo、LDU 稀疏装配、Eigen 工作区、串行/分布式线性求解 | Case、方程表达、具体 Physics |
-| 离散/装配 | discrete_equation.h、assembly.cpp | LDU、owned 行及稀疏结构 | 温度/压力物理意义 |
+| 默认计算后端 | backend/eigen_mpi.cpp、backend/algebraic_multigrid.cpp、algebra/ | Halo、LDU 稀疏装配、缓存 Krylov 工作区、串行/分布式 CG/BiCGSTAB/GMRES 与 AMG | Case、方程表达、具体 Physics |
+| 离散方程/装配 | discrete_equation.h、backend/eigen_assembly.cpp | LDU、owned 行及默认稀疏结构 | 温度/压力物理意义 |
 | 代数 | algebra/ | 串行和分布式求解、全局点积 | Case、Physics |
 | 并行 | parallel/ | 分解、halo、归约、MPI 校验 | PDE、算法停止策略 |
 | 时间与运行 | runtime/runtime.cpp | 活动运行域、时间、创建计算后端并注入 FVM 数值前端 | LDU/装配公式和工作数组 |
@@ -58,6 +58,13 @@ RunTime 创建构建时选定的 ComputeBackend 并把所有权注入 FVM 数值
 这是有意保持简单的构建期替换，不是假称已经提供动态插件、运行时工厂或稳定后端 ABI。
 FVM 数值前端只接收网格、方法、计算后端和步长，不知道应用时间循环。
 solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manager 类。
+
+默认后端的 AMG 是轻量聚合多重网格：聚合、Galerkin 粗矩阵、对角平滑工作区和最粗层
+分解均在 `compute/factorize` 准备期缓存。串行独立 AMG 是完整 V-cycle 迭代；分布式 AMG
+保持每 rank 局部层级，并由已有 halo matvec 和全局残差组成加性子域迭代。它不假称拥有
+全局粗网格；需要该能力时可在替换 ComputeBackend 时提供。GMRES 使用右预条件，Arnoldi
+点积在每一步融合为一次全局归约，基向量/Hessenberg/Givens 工作区不在热循环重新分配。
+这些都是计算后端细节，`eqn/math/solve`、FVM 和 Physics API 均不改变。
 
 ## Solver 作者的公共框架 API
 

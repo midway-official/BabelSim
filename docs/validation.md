@@ -368,6 +368,25 @@ MPI/Eigen 的记录后端，确认标量/矢量 solve、显式梯度同步和全
 大规模强/弱扩展测试，不能把本轮验收解释为获得了新的性能加速。当前可替换范围是“对既有
 DiscreteEquation 的计算实现”；GPU 后端、动态插件 ABI 和 FVM/FEM 离散后端互换仍未实现。
 
+### 5.2 GMRES 与 AMG 后端回归（2026-09-05）
+
+默认 Eigen/MPI 后端新增了重启 GMRES 和轻量聚合 AMG，而没有修改 `src/physics`、公开
+`eqn/math/solve` 或 FVM 数值前端。AMG 的聚合、Galerkin 粗矩阵、平滑对角和最粗层分解在
+矩阵 `compute/factorize` 时构建并复用；GMRES 的 Arnoldi 基、右预条件基、Hessenberg 和
+Givens 缓冲在准备期分配。分布式 GMRES 每个 Arnoldi 步将所有已知点积和本 rank 的预条件
+状态合并为一次 `sum`，仍使用现有 halo matvec；没有把全局稀疏矩阵复制或集中到单一进程。
+
+`assembly_solver_test` 在固定端一维扩散系统上验证 `CG+AMG`、`GMRES+AMG`、独立 `AMG`，
+并验证 AMG 对系数重缩放后的 `factorize` 复用。`parallel_domain_test` 在两个 rank 的 48-cell
+扩散系统上验证 `GMRES+AMG` 与独立 `AMG` 的全局残差和解析线性解。MPI 独立 AMG 明确采用
+“局部子域 V-cycle + halo 矩阵向量乘 + 全局残差”的加性迭代；它不是全局粗网格 AMG。
+因此它可作为低通信、无矩阵集中选项，但强扩展效果仍须在大规模三维问题上单独测试。
+
+Re=1000、64² 壁面加密顶盖驱动流的 1/2/4 rank 墙钟对照（基线 ILUT/IC 与 GMRES+AMG）
+见 [线性后端性能报告](reports/re1000-linear-solver-benchmark.md)。该报告明确区分了
+“求解正确”与“本题规模下更快”：当前聚合 AMG 在小规模 SIMPLE 上因为层级更新和同步
+开销慢于 ILUT，后续仍需大规模问题和全局粗网格实现来评估扩展性。
+
 ## 6. 当前未完成项
 
 - 更高分辨率三维腔体的外部基准比较与网格收敛研究；

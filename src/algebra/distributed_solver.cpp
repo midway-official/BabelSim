@@ -1,6 +1,8 @@
 #include "internal/mesh_access.h"
 #include "babelsim/distributed_solver.h"
 
+#include "backend/algebraic_multigrid.h"
+
 #include <Eigen/IterativeLinearSolvers>
 
 #include <algorithm>
@@ -24,6 +26,11 @@ struct RemoteCoupling {
 
 bool invalid(double value) {
     return !std::isfinite(value);
+}
+
+bool usesAmg(const LinearSolverConfig& config) {
+    return config.solver == LinearSolverType::AlgebraicMultigrid ||
+        config.preconditioner == PreconditionerType::AlgebraicMultigrid;
 }
 
 }  // 匿名命名空间
@@ -71,6 +78,23 @@ struct DistributedLinearSolver::Implementation {
         intermediate.resize(rows);
         preconditioned_intermediate.resize(rows);
         intermediate_product.resize(rows);
+        resizeGmresWorkspace(rows);
+    }
+
+    void resizeGmresWorkspace(Eigen::Index rows) {
+        const int restart = config.gmres_restart;
+        gmres_basis.resize(static_cast<std::size_t>(restart + 1));
+        gmres_preconditioned_basis.resize(static_cast<std::size_t>(restart));
+        for (Eigen::VectorXd& value : gmres_basis) value.resize(rows);
+        for (Eigen::VectorXd& value : gmres_preconditioned_basis) value.resize(rows);
+        gmres_hessenberg.resize(restart + 1, restart);
+        gmres_cosine.resize(restart);
+        gmres_sine.resize(restart);
+        gmres_least_squares.resize(restart + 1);
+        gmres_coefficients.resize(restart);
+        // 最后一项存放本 rank 的预条件器失败标志，随 Arnoldi 点积一次归约。
+        gmres_local_products.resize(static_cast<std::size_t>(restart + 1));
+        gmres_global_products.resize(static_cast<std::size_t>(restart + 1));
     }
 
     void setEquation(
@@ -107,7 +131,11 @@ struct DistributedLinearSolver::Implementation {
 
     void computePreconditioner() {
         factorization_succeeded = false;
-        if (config.solver == LinearSolverType::ConjugateGradient) {
+        if (usesAmg(config)) {
+            amg = std::make_unique<detail::AlgebraicMultigrid>(config);
+            amg->compute(matrix);
+            factorization_succeeded = amg->ready();
+        } else if (config.solver == LinearSolverType::ConjugateGradient) {
             incomplete_cholesky.compute(matrix);
             factorization_succeeded =
                 incomplete_cholesky.info() == Eigen::Success;
@@ -128,7 +156,10 @@ struct DistributedLinearSolver::Implementation {
                 "distributed pattern must be computed before factorization");
         }
         factorization_succeeded = false;
-        if (config.solver == LinearSolverType::ConjugateGradient) {
+        if (usesAmg(config)) {
+            amg->factorize(matrix);
+            factorization_succeeded = amg->ready();
+        } else if (config.solver == LinearSolverType::ConjugateGradient) {
             incomplete_cholesky.factorize(matrix);
             factorization_succeeded =
                 incomplete_cholesky.info() == Eigen::Success;
@@ -209,7 +240,9 @@ struct DistributedLinearSolver::Implementation {
         Eigen::VectorXd& output)
     {
         bool local_success = false;
-        if (config.solver == LinearSolverType::ConjugateGradient) {
+        if (usesAmg(config)) {
+            local_success = amg && amg->apply(input, output);
+        } else if (config.solver == LinearSolverType::ConjugateGradient) {
             output = incomplete_cholesky.solve(input);
             local_success = incomplete_cholesky.info() == Eigen::Success;
         } else {
@@ -222,6 +255,17 @@ struct DistributedLinearSolver::Implementation {
             return false;
         }
         return true;
+    }
+
+    bool preconditionAll(
+        const Eigen::VectorXd& input,
+        Eigen::VectorXd& output)
+    {
+        const bool local_success = precondition(input, output);
+        const double local_failure = local_success ? 0.0 : 1.0;
+        double global_failure = 0.0;
+        parallel.sum(&local_failure, &global_failure, 1);
+        return global_failure == 0.0;
     }
 
     SolveResult finish(
@@ -438,6 +482,143 @@ struct DistributedLinearSolver::Implementation {
         return finish(status, iterations, initial_residual, scale, b, x);
     }
 
+    SolveResult solveGmres(
+        const Eigen::VectorXd& b,
+        Eigen::VectorXd& x,
+        double initial_residual,
+        double target,
+        double scale)
+    {
+        SolveStatus status = SolveStatus::MaxIterations;
+        int iterations = 0;
+        while (iterations < config.max_iterations) {
+            apply(x, matrix_product);
+            residual = b - matrix_product;
+            const double beta = normGlobal(residual);
+            if (invalid(beta)) {
+                status = SolveStatus::NumericalFailure;
+                break;
+            }
+            if (beta <= target) {
+                status = SolveStatus::Converged;
+                break;
+            }
+            gmres_basis.front() = residual / beta;
+            gmres_hessenberg.setZero();
+            gmres_least_squares.setZero();
+            gmres_least_squares[0] = beta;
+            const int cycle_size = std::min(
+                config.gmres_restart, config.max_iterations - iterations);
+            int columns = 0;
+            for (int column = 0; column < cycle_size; ++column) {
+                const bool local_success = precondition(
+                    gmres_basis[static_cast<std::size_t>(column)],
+                    gmres_preconditioned_basis[static_cast<std::size_t>(column)]);
+                apply(gmres_preconditioned_basis[static_cast<std::size_t>(column)],
+                      matrix_product);
+                for (int row = 0; row <= column; ++row) {
+                    gmres_local_products[static_cast<std::size_t>(row)] = local_success
+                        ? gmres_basis[static_cast<std::size_t>(row)].dot(matrix_product) : 0.0;
+                }
+                gmres_local_products[static_cast<std::size_t>(column + 1)] =
+                    local_success ? 0.0 : 1.0;
+                parallel.sum(gmres_local_products.data(), gmres_global_products.data(),
+                             column + 2);
+                if (gmres_global_products[static_cast<std::size_t>(column + 1)] != 0.0) {
+                    status = SolveStatus::NumericalFailure;
+                    break;
+                }
+                for (int row = 0; row <= column; ++row) {
+                    const double value = gmres_global_products[static_cast<std::size_t>(row)];
+                    gmres_hessenberg(row, column) = value;
+                    matrix_product.noalias() -= value *
+                        gmres_basis[static_cast<std::size_t>(row)];
+                }
+                gmres_hessenberg(column + 1, column) = normGlobal(matrix_product);
+                if (invalid(gmres_hessenberg(column + 1, column))) {
+                    status = SolveStatus::NumericalFailure;
+                    break;
+                }
+                if (gmres_hessenberg(column + 1, column) > breakdown_tolerance) {
+                    gmres_basis[static_cast<std::size_t>(column + 1)] = matrix_product /
+                        gmres_hessenberg(column + 1, column);
+                }
+                for (int row = 0; row < column; ++row) {
+                    const double upper = gmres_hessenberg(row, column);
+                    const double lower = gmres_hessenberg(row + 1, column);
+                    gmres_hessenberg(row, column) = gmres_cosine[row] * upper +
+                        gmres_sine[row] * lower;
+                    gmres_hessenberg(row + 1, column) = -gmres_sine[row] * upper +
+                        gmres_cosine[row] * lower;
+                }
+                const double upper = gmres_hessenberg(column, column);
+                const double lower = gmres_hessenberg(column + 1, column);
+                const double hessenberg_norm = std::hypot(upper, lower);
+                if (invalid(hessenberg_norm) || hessenberg_norm <= breakdown_tolerance) {
+                    status = SolveStatus::NumericalFailure;
+                    break;
+                }
+                gmres_cosine[column] = upper / hessenberg_norm;
+                gmres_sine[column] = lower / hessenberg_norm;
+                gmres_hessenberg(column, column) = hessenberg_norm;
+                gmres_hessenberg(column + 1, column) = 0.0;
+                const double first = gmres_least_squares[column];
+                const double second = gmres_least_squares[column + 1];
+                gmres_least_squares[column] = gmres_cosine[column] * first +
+                    gmres_sine[column] * second;
+                gmres_least_squares[column + 1] = -gmres_sine[column] * first +
+                    gmres_cosine[column] * second;
+                ++iterations;
+                columns = column + 1;
+                if (std::abs(gmres_least_squares[column + 1]) <= target) break;
+            }
+            if (columns == 0) break;
+            gmres_coefficients.head(columns) = gmres_least_squares.head(columns);
+            for (int row = columns - 1; row >= 0; --row) {
+                gmres_coefficients[row] -= gmres_hessenberg.row(row)
+                    .segment(row + 1, columns - row - 1)
+                    .dot(gmres_coefficients.segment(row + 1, columns - row - 1));
+                gmres_coefficients[row] /= gmres_hessenberg(row, row);
+            }
+            for (int column = 0; column < columns; ++column) {
+                x.noalias() += gmres_coefficients[column] *
+                    gmres_preconditioned_basis[static_cast<std::size_t>(column)];
+            }
+            if (status == SolveStatus::NumericalFailure) break;
+        }
+        return finish(status, iterations, initial_residual, scale, b, x);
+    }
+
+    SolveResult solveAmg(
+        const Eigen::VectorXd& b,
+        Eigen::VectorXd& x,
+        double initial_residual,
+        double target,
+        double scale)
+    {
+        SolveStatus status = SolveStatus::MaxIterations;
+        int iterations = 0;
+        for (; iterations < config.max_iterations; ++iterations) {
+            const double residual_norm = normGlobal(residual);
+            if (invalid(residual_norm)) {
+                status = SolveStatus::NumericalFailure;
+                break;
+            }
+            if (residual_norm <= target) {
+                status = SolveStatus::Converged;
+                break;
+            }
+            if (!preconditionAll(residual, preconditioned_direction)) {
+                status = SolveStatus::NumericalFailure;
+                break;
+            }
+            x += preconditioned_direction;
+            apply(x, matrix_product);
+            residual = b - matrix_product;
+        }
+        return finish(status, iterations, initial_residual, scale, b, x);
+    }
+
     const Mesh& mesh;
     ParallelContext parallel;
     LinearSolverConfig config;
@@ -448,6 +629,7 @@ struct DistributedLinearSolver::Implementation {
     std::vector<double> local_values;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
+    std::unique_ptr<detail::AlgebraicMultigrid> amg;
     Eigen::VectorXd residual;
     Eigen::VectorXd matrix_product;
     Eigen::VectorXd shadow;
@@ -457,6 +639,16 @@ struct DistributedLinearSolver::Implementation {
     Eigen::VectorXd intermediate;
     Eigen::VectorXd preconditioned_intermediate;
     Eigen::VectorXd intermediate_product;
+    // GMRES 的基、预条件基和 Hessenberg 缓冲在构造期一次分配，Krylov 热循环不分配。
+    std::vector<Eigen::VectorXd> gmres_basis;
+    std::vector<Eigen::VectorXd> gmres_preconditioned_basis;
+    Eigen::MatrixXd gmres_hessenberg;
+    Eigen::VectorXd gmres_cosine;
+    Eigen::VectorXd gmres_sine;
+    Eigen::VectorXd gmres_least_squares;
+    Eigen::VectorXd gmres_coefficients;
+    std::vector<double> gmres_local_products;
+    std::vector<double> gmres_global_products;
     bool pattern_ready = false;
     bool factorization_succeeded = false;
     bool equation_ready = false;
@@ -560,6 +752,12 @@ SolveResult DistributedLinearSolver::solve(
             SolveStatus::NumericalFailure, 0, initial_residual,
             initial_residual, initial_residual / scale,
         };
+    }
+    if (state.config.solver == LinearSolverType::AlgebraicMultigrid) {
+        return state.solveAmg(b, x, initial_residual, target, scale);
+    }
+    if (state.config.solver == LinearSolverType::GMRES) {
+        return state.solveGmres(b, x, initial_residual, target, scale);
     }
     // 有限精度下可能提前停在近似 breakdown，或递推残差与真实残差不一致。
     // 有进展且预算尚有剩余时，以真实残差重启 Krylov；不增加外迭代，不放宽容差。
