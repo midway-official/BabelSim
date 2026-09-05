@@ -11,8 +11,8 @@
 OpenFOAM 相同的**语义分离**，但使用表达用途的名称，不沿用它的命名或复杂矩阵模板体系。
 
 ```text
-eqn::operator   轻量方程项 → solve → FVM 后端离散方程 → 线性系统
-math::operator  轻量求值描述 → math::evaluate → FVM 后端计算 → 已计算的 Field
+eqn::operator   轻量方程项 → solve → FVM 数值前端 → 离散方程 → 计算后端
+math::operator  轻量求值描述 → math::evaluate → FVM 数值前端 → 已计算的 Field
 ```
 
 两类描述都只保存 Field 引用和常数。不会在表达式构造、`+`、`-` 或 `==` 时复制大型场，
@@ -38,8 +38,10 @@ math::operator  轻量求值描述 → math::evaluate → FVM 后端计算 → �
 方程描述的 `FvmTermKind/ScalarFvmTerm/VectorFvmTerm` 改为
 `EquationTermKind/ScalarEquationTerm/VectorEquationTerm`，仍是同样的轻量项，不是矩阵。
 
-内部 `FvmExecution` 与 `fvm_execution.h/.cpp` 保留：FVM 在这里明确表示有限体积后端，
-不是公开操作的名字。本次不宣称实现了 FEM/FDM，也不改变现有离散、内存或 MPI 行为。
+内部 `FvmExecution` 与 `fvm_execution.h/.cpp` 保留：FVM 在这里明确表示有限体积数值前端，
+不是公开操作的名字。它负责把轻量数学描述解释为已有算子和 `DiscreteEquation`，但不再
+包含 Eigen、稀疏装配、Halo 或 MPI。`ComputeBackend` 接收离散方程，负责同步、归约、
+装配与线性求解。本次不宣称实现了 FEM/FDM 或动态后端插件。
 
 ## eqn 方程贡献
 
@@ -66,11 +68,11 @@ solve(
          + eqn::source(source));
 ```
 
-这里 `rhoCp` 可预先作为 cell Field 建立；FVM 后端在 `solve` 时验证位置、同步 ghost、
-将 cell 扩散系数插值到 face，并根据 `Methods` 选择对流、梯度和非正交扩散处理。
+这里 `rhoCp` 可预先作为 cell Field 建立；FVM 数值前端在 `solve` 时验证位置，经计算后端
+同步 ghost，将 cell 扩散系数插值到 face，并根据 `Methods` 选择对流、梯度和非正交扩散处理。
 
 `eqn::laplacian` 在表达式中位于右端时对应正扩散项。等价地可以将其取负放在左端；不支持
-把正 Laplacian 直接放左端，因为这通常与正定扩散矩阵的符号约定相反，FVM 后端会报出清晰错误。
+把正 Laplacian 直接放左端，因为这通常与正定扩散矩阵的符号约定相反，FVM 数值前端会报出清晰错误。
 
 ## 显式 math 量
 
@@ -109,10 +111,10 @@ math::evaluate(math::div(phi), div_phi);
 对流显式求值使用 `Methods::convection` 的 Upwind/LinearUpwind/Central 选择。
 LinearUpwind 从迎风单元按梯度重构到面中心；隐式方程采用一阶迎风系数作为稳定基底，
 二阶重构量以延迟修正加入右端，因此不会复制完整离散矩阵。Central 且选择 corrected
-插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 FVM 后端自动选择当前方法，
+插值时会进行面中心偏斜修正。扩散、梯度和插值的非正交实现由 FVM 数值前端自动选择当前方法，
 调用者不应自行 halo 或重构 ghost。
 
-`math::subtract` 是面向修正算法的原位显式操作：FVM 后端复用梯度、面系数和面通量工作场，
+`math::subtract` 是面向修正算法的原位显式操作：FVM 数值前端复用梯度、面系数和面通量工作场，
 再同步结果。它避免 SIMPLE Solver 为 `grad(p')`、`rAU_f` 和每个 face 的扩散通量编写
 cell/face 循环；该 API 不生成隐式方程，也不暴露工作场的存储。
 
@@ -185,17 +187,20 @@ interpolation/Green--Gauss reconstruction 处理。梯度可选择 Green--Gauss 
 `solve(equation)` 的固定顺序为：
 
 ```text
-检查表达式与 Field 位置
-→ 同步该算子所需的局部/ghost 输入
-→ 按 Methods 组装 owned 行
-→ 施加 Field 边界条件
-→ 选择串行或分布式线性后端
-→ 用全局残差判断线性收敛
-→ 写回 unknown 并同步 ghost
+FVM 数值前端检查表达式与 Field 位置
+→ 经 ComputeBackend 同步该算子所需的局部/ghost 输入
+→ FVM 按 Methods 形成 owned 行的 DiscreteEquation 并施加边界条件
+→ ComputeBackend 装配其线性代数表示
+→ 默认后端选择串行或分布式线性求解并用全局残差判断收敛
+→ ComputeBackend 写回 unknown 并同步 ghost
 ```
 
-这个顺序解释了为什么 Solver 不应调用 `data()`、`HaloExchange` 或 `Equation::discrete()`：
+这个顺序解释了为什么 Solver 不应调用 `data()`、`HaloExchange` 或离散方程入口：
 这些会绕开 Runtime 的一致性与生命周期管理。
+
+接口调用以整场同步、一次全局归约或一套离散方程为单位，不在 cell/face 热循环内进行虚调用。
+因此默认 Eigen/MPI 实现保持原有连续存储、几何缓存、稀疏模式复用和通信路径。维护者可以在
+构建时替换计算后端，而 Solver 与上述 FVM 数值代码无需修改。
 
 ## 隐式与显式的选择
 

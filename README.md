@@ -15,13 +15,15 @@ Equation  表达要求解的数学方程
 eqn       构造待求解方程的项，包括隐式项与已知源项
 math      描述并计算已有场上的数学量
 Case      提供命名场、物性、时间循环与自动结果序列
-RunTime   内部时间推进、运行域与后端生命周期；普通 Solver 不构造它
-FVM       表达式执行、时间历史、离散装配与数值工作区
+RunTime   内部时间推进、运行域与计算后端生命周期；普通 Solver 不构造它
+FVM       数值前端：表达式解释、时间历史、离散方程与数值工作区
+Backend   计算后端：整场同步、全局归约、稀疏装配和线性求解
 Physics   如何组合方程与算子解决具体物理问题
 ```
 
 `Equation` 的数学表达与内部离散 LDU 系统明确分离。Heat 与 SIMPLE 的 Physics 源码不接触
-MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；这些由 FVM/代数/运行基础设施自动处理。
+MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；FVM 只经粗粒度 ComputeBackend 接口调用
+这些能力，默认 Eigen/MPI 后端负责具体实现。
 
 Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
 采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE 和耦合算法采用
@@ -75,6 +77,12 @@ fat LTO 让静态库保留普通机器码，外部程序可用 `-fno-lto` 禁用
 若需要不放宽浮点规则的构建，可执行 `make clean`，然后使用
 `make -j4 OPTFLAGS='-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects'`。
 修改命令行编译选项后应先清理；`make clean` 仅删除选定的 BUILD 目录，不删除 Case 结果。
+
+计算后端采用构建期替换，避免运行时注册和热循环虚分派。框架维护者可令
+`COMPUTE_BACKEND_SOURCES='src/backend/other.cpp ...'`；该源文件组实现内部
+`makeComputeBackend()` 工厂及所需代数能力即可，并会整体排除默认 Eigen 装配/求解源码。
+普通 Solver 作者不需要看到或选择这个接口，且替换后端不应修改 Physics、`eqn/math` 或
+FVM 离散源码。当前没有承诺动态插件或稳定后端 ABI。
 
 ```bash
 make -j4  # 只构建，不测试；按可用内存调整并行编译数

@@ -79,10 +79,32 @@ assert "integratedNormalGradient" not in texts[ROOT / "include/babelsim/math.h"]
 assert all(path.name != "runtime.h" for path in
            closures[ROOT / "src/discretization/fvm_execution.cpp"])
 
+# FVM 前端只通过粗粒度 ComputeBackend 同步、归约和求解；具体 Eigen/MPI/装配
+# 类型只能出现在后端实现中。这样更换后端不会修改数学表达或 FVM 离散源码。
+fvm_execution = ROOT / "src/discretization/fvm_execution.cpp"
+fvm_dependencies = closures[fvm_execution]
+assert ROOT / "src/internal/compute_backend.h" in fvm_dependencies
+for name in ("assembly.h", "distributed_solver.h",
+             "linear_solver.h", "parallel.h", "mpi_support.h"):
+    assert all(path.name != name for path in fvm_dependencies), name
+assert not any(re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path])
+               for path in fvm_dependencies)
+backend = closures[ROOT / "src/backend/eigen_mpi.cpp"]
+assert any(path.name == "compute_backend.h" for path in backend)
+assert any(path.name == "assembly.h" for path in backend)
+assert any(path.name == "parallel.h" for path in backend)
+compute_contract = closures[ROOT / "src/internal/compute_backend.h"]
+assert not any(path.name in {"assembly.h", "distributed_solver.h", "linear_solver.h"}
+               for path in compute_contract)
+assert not any(re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path])
+               for path in compute_contract)
+assert not (ROOT / "src/discretization/assembly.cpp").exists()
+assert (ROOT / "src/backend/eigen_assembly.cpp").exists()
+
 # 底层不能导入 Solver 或它的私有状态；不存在 SIMPLE 专用的跨层桥接。
 for path in files:
     if path.is_relative_to(ROOT / "src") and path.relative_to(ROOT / "src").parts[0] in {
-            "core", "discretization", "algebra", "runtime", "parallel", "io"}:
+            "core", "discretization", "algebra", "backend", "runtime", "parallel", "io"}:
         for dependency in closures[path]:
             assert not dependency.is_relative_to(ROOT / "src/physics"), (path, dependency)
             assert not dependency.is_relative_to(ROOT / "src/apps"), (path, dependency)

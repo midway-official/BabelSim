@@ -90,7 +90,7 @@ make -B -j2 all test test-workflow test-external test-mpi test-mpi-poiseuille
 | 启动失败路径 | 负返回码与其他进程的 0 不会合并为成功；空表和重复名称拒绝；失败不写成功结果 |
 | 结果读取隔离 | 普通 g++ 链接并实际读取并行结果，未链接 MPI |
 | 显式同步契约 | 故意污染 ghost/重复面值，17 项 math 运算对照串行；1/2/4 进程最大差异为 0 / 7.42e-14 / 6.94e-14 |
-| 源码边界 | 67 个 src/include 文件的包含图无环；FVM 执行实现不包含 RunTime；Application 无 MPI/格式实现 |
+| 源码边界 | 76 个 src/include 文件的包含图无环；FVM 数值前端不包含 RunTime/MPI/Eigen/装配实现；Application 无 MPI/格式实现 |
 | 数值回归 | 通道/2D腔体/3D腔体/2D非正交/3D非正交迭代仍为 49/137/57/164/79 |
 | MPI SIMPLE | 腔体 1/2/4 rank 均 137 次；Poiseuille 均 865 次 |
 | MPI 场差异 | Poiseuille 1 对 4 rank：U 6.1705172e-7、p 1.5343525e-6；Heat 1 对 2 rank：T 3.7990135e-11 |
@@ -341,6 +341,32 @@ SIMPLE、二维/三维与非正交回归；它是前一版本的验证记录，�
 单 rank，包含完整 2355 次外迭代）：串行墙钟时间由 `22.34 s` 降至 `20.41 s`，约
 `8.6%`。该数字只用于确认优化方向，受 CPU 频率和系统负载影响，不代表跨平台基准；
 MPI 扩展性仍应使用更大三维网格和多次重复测量评估。
+
+### 5.1 数值前端与计算后端隔离回归（2026-09-05）
+
+本轮把原先混在 `FvmExecution` 中的 Halo、Eigen 稀疏装配、串行/分布式线性求解和工作向量
+移入默认 `EigenMpiBackend`。FVM 数值前端只通过 `ComputeBackend` 请求整场同步、全局归约和
+整套离散方程求解。`src/physics` 与 `include/babelsim` 均为 0 行修改；Heat、Transport、
+稳态/瞬态 SIMPLE 继续使用原有公开 API。
+
+静态门禁检查 FVM 头文件闭包不存在 MPI、Eigen、Assembly、ParallelContext 或线性求解实现，
+并禁止 `src/backend` 反向依赖 Physics/Application。`backend_interface_test` 注入一个不含
+MPI/Eigen 的记录后端，确认标量/矢量 solve、显式梯度同步和全局判定均经接口执行。
+另以临时最小后端源文件设置 `COMPUTE_BACKEND_SOURCES`，在不编译默认 Eigen 装配/求解源码的
+条件下完整重建静态库成功；测试后端及独立构建目录随后删除。默认后端还通过以下回归：
+
+- `make test`、`make test-workflow`、`make test-external`；
+- `make test-mpi`：污染 halo 的 22 类 math 运算乘三种扩散方法，2/4 rank 最大误差分别为
+  `7.32e-14`、`6.27e-14`；SIMPLE 1/2/4 rank 均在 137 次停止；Heat 1/2 rank 最大温差
+  `1.46e-12`；
+- `make test-mpi-poiseuille`：1/2/4 rank 均在 865 次停止；1 对 4 rank 的 `U/p` 最大绝对
+  差分别为 `6.17e-7/1.53e-6`，且 VTK/Tecplot 后处理通过。
+
+原混合职责的 `fvm_execution.cpp` 从 973 行缩减为 836 行，并合并了重复的标量/矢量时间历史
+实现。接口只增加粗粒度虚调用，不进入 cell/face 热循环；默认后端仍复用原稀疏模式、求解器
+工作区和连续 Field 存储。因此这些结果证明数值路径和并行一致性未退化，但没有做重复计时或
+大规模强/弱扩展测试，不能把本轮验收解释为获得了新的性能加速。当前可替换范围是“对既有
+DiscreteEquation 的计算实现”；GPU 后端、动态插件 ABI 和 FVM/FEM 离散后端互换仍未实现。
 
 ## 6. 当前未完成项
 

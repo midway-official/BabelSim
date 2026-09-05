@@ -22,7 +22,8 @@
   现在 Rhie–Chow 组合完全位于 SIMPLE，复用公开 math 面通量/扩散通量与内部面增量。
   初始化和日志也不再包含 runtime.h；算法全部源文件遵守相同公开边界。
 - 公开数学编程入口统一为 eqn（方程项）和 math（已有场数学量），头文件分别为
-  eqn.h/math.h。内部 FvmExecution 仍是有限体积后端，不与公开语义名称混淆。
+  eqn.h/math.h。内部 FvmExecution 是有限体积数值前端；它只经 ComputeBackend 接口
+  请求整场同步、全局归约和离散方程求解，不再依赖具体 MPI/Eigen/稀疏矩阵实现。
 
 ## 实际层次和文件边界
 
@@ -36,20 +37,26 @@
 | 数学描述 | eqn.h、math.h、equation_expression.cpp | 轻量项与 lhs == rhs | 矩阵分配、通信、执行 |
 | 方法 | methods.h | enum 默认格式和按场名覆盖 | 物理算法状态 |
 | 通用离散核 | operators.cpp、internal/boundary_evaluation.h | 梯度/通量/扩散/时间项及边界离散 | Case、SIMPLE、RunTime |
-| FVM 执行 | internal/fvm_execution.h、discretization/fvm_execution.cpp | 表达式解释、历史、装配、工作区、同步、数值诊断 | Case、应用、具体 Physics、RunTime 定义 |
+| FVM 数值前端 | internal/fvm_execution.h、discretization/fvm_execution.cpp | 表达式解释、离散方程、历史与数值工作区；经接口发起同步、归约和求解 | MPI、Eigen、稀疏装配、Case、具体 Physics |
+| 计算后端接口 | internal/compute_backend.h | 定义粗粒度同步、归约和方程求解契约 | 数学表达、离散格式、具体 Physics |
+| 默认计算后端 | backend/eigen_mpi.cpp | Halo、LDU 稀疏装配、Eigen 工作区、串行/分布式线性求解 | Case、方程表达、具体 Physics |
 | 离散/装配 | discrete_equation.h、assembly.cpp | LDU、owned 行及稀疏结构 | 温度/压力物理意义 |
 | 代数 | algebra/ | 串行和分布式求解、全局点积 | Case、Physics |
 | 并行 | parallel/ | 分解、halo、归约、MPI 校验 | PDE、算法停止策略 |
-| 时间与运行 | runtime/runtime.cpp | 活动运行域、时间、后端生命周期 | LDU/装配公式和工作数组 |
-| 数学 API 绑定 | runtime/solver_api.cpp | 将公开 solve/math/diagnostics 交给活动 FVM 后端；失败日志 | 离散实现、物理方程 |
+| 时间与运行 | runtime/runtime.cpp | 活动运行域、时间、创建计算后端并注入 FVM 数值前端 | LDU/装配公式和工作数组 |
+| 数学 API 绑定 | runtime/solver_api.cpp | 将公开 solve/math/diagnostics 交给活动 FVM 数值前端；失败日志 | 离散实现、物理方程 |
 | 应用启动 | application.h、runtime/application.cpp | 轻量注册、参数、MPI 初始化/销毁、名称分派与失败退出 | 内置物理分支 |
 | Case/IO | case.h、io/、parallel_writer.cpp | 配置、命名场所有权、时间输出 | 求解物理方程 |
 | 结果/后处理 | result.h、result_reader.cpp、postprocess.cpp | 文件验证、合并、VTU/PVD/Tecplot | MPI 运行依赖 |
 | Physics/算法 | physics/heat、transport、simple、transient_simple | 方程、耦合、修正、收敛 | 存储、MPI、代数实现 |
 | 应用文件 | apps/babelsim_solve.cpp、babelsim_post.cpp | 调用公共启动函数 | Solver 名单、MPI API、格式细节 |
 
-RunTime 仍选择当前唯一 FVM 后端，不是假称已具备任意后端插件能力。
-但 FVM 执行者只接收网格、方法、线性配置、并行能力和步长，不知道应用时间循环。
+RunTime 创建构建时选定的 ComputeBackend 并把所有权注入 FVM 数值前端。
+默认实现是 Eigen/MPI；维护者可以设置 Makefile 的 `COMPUTE_BACKEND_SOURCES`，用另一组实现
+`makeComputeBackend()` 及代数能力的源文件整体替换它，而不修改 FVM、公开 API 或 Physics。
+默认 Eigen 装配/求解源码不会在替换构建中继续编译或链接。
+这是有意保持简单的构建期替换，不是假称已经提供动态插件、运行时工厂或稳定后端 ABI。
+FVM 数值前端只接收网格、方法、计算后端和步长，不知道应用时间循环。
 solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manager 类。
 
 ## Solver 作者的公共框架 API
@@ -82,7 +89,7 @@ SolverRegistration 在源文件的命名空间作用域声明，名称用字符�
 名称唯一性、空名称/函数等校验在 runApplication 初始化 MPI 后统一完成，注册顺序不影响选择。
 仅支持启动前注册，不提供运行中并发注册或动态插件卸载。Case 销毁仍先于 MPI_Finalize。
 
-Case 拥有 Mesh、稳定地址的命名 Field、RunTime；销毁顺序为 FVM 后端/历史、Field、Mesh。
+Case 拥有 Mesh、稳定地址的命名 Field、RunTime；RunTime 内的 FVM/计算后端先于 Field、Mesh 销毁。
 返回的引用以及表达式借用的场必须活得比表达式的求值更久。
 
 1. 声明：读物性和控制，读取/创建全部场，定义边界，选择输出。
@@ -109,7 +116,9 @@ solveWithResponse 返回 V/aP 数学场，沿用 SIMPLE 当前缩放形式的欠
 不暴露矩阵布局。线性收敛、数值健康、SIMPLE 外迭代收敛分别判断。
 
 数学表达式只复制小描述符，不复制完整矩阵/Field。系数数组仍在离散方程建立时分配；
-稀疏结构、线性工作区、几何缓存及算法工作场复用，不宣称“零分配”。
+稀疏结构、线性工作区、几何缓存及算法工作场复用，不宣称“零分配”。ComputeBackend 的
+虚调用粒度是一整个同步、归约或方程求解，不进入 cell/face 循环；默认实现声明为 final，
+并保留已有连续数组、稀疏结构复用和 LTO 优化路径。
 时间历史只在下一物理步推进一次，重复 solve 不推进时间层。
 
 ## SIMPLE 的私有边界
@@ -162,6 +171,8 @@ FVM、Runtime、并行或线性代数增加 SIMPLE 专用接口。
   1/2/4 进程解析解验证；另以维护测试方式复制完整私有 SIMPLE 模块并做 Poiseuille 回归；
   原始存储等十类负向编译；普通 g++ 链接结果读取器。
 - make test / test-workflow：算子、生命周期、Heat、Transport、SIMPLE、自动时间输出。
+- backend_interface_test：注入不含 MPI/Eigen 的记录后端，验证标量/矢量方程、显式算子同步
+  和全局判定只经过 ComputeBackend；不依赖默认实现才能测试数值前端。
 - make test-mpi / test-mpi-poiseuille：halo、分布式代数、非正交 math、SIMPLE 和结果差异。
 
 这是可执行的边界与数值证据，不是 ABI 或任意外部程序正确性的形式化证明。

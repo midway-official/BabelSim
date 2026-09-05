@@ -15,6 +15,12 @@ CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 
 BUILD := build
 LIB := $(BUILD)/libbabelsim.a
+# 计算后端只需实现 internal/compute_backend.h 的 makeComputeBackend()。
+# 整组替换可同时移除默认 Eigen 装配/求解实现，数值前端和 Physics 无需修改。
+COMPUTE_BACKEND_SOURCES ?= src/backend/eigen_mpi.cpp \
+                          src/backend/eigen_assembly.cpp \
+                          src/algebra/linear_solver.cpp \
+                          src/algebra/distributed_solver.cpp
 SOURCES := src/core/mesh.cpp \
            src/io/config.cpp \
            src/io/case_reader.cpp \
@@ -27,9 +33,7 @@ SOURCES := src/core/mesh.cpp \
            src/discretization/operators.cpp \
            src/discretization/equation_expression.cpp \
            src/discretization/fvm_execution.cpp \
-           src/discretization/assembly.cpp \
-           src/algebra/linear_solver.cpp \
-           src/algebra/distributed_solver.cpp \
+           $(COMPUTE_BACKEND_SOURCES) \
            src/parallel/parallel_context.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
@@ -46,6 +50,7 @@ TEST_SOURCES := tests/mesh_geometry_test.cpp \
                 tests/operators_test.cpp \
                 tests/math_runtime_test.cpp \
                 tests/public_equation_test.cpp \
+                tests/backend_interface_test.cpp \
                 tests/assembly_solver_test.cpp \
                 tests/simple_solver_test.cpp \
                 tests/mesh_file_test.cpp \

@@ -1,5 +1,5 @@
-#include "internal/mesh_access.h"
 #include "babelsim/assembly.h"
+#include "internal/mesh_access.h"
 
 #include <stdexcept>
 #include <vector>

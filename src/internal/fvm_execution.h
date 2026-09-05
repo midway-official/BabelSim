@@ -1,21 +1,21 @@
 #pragma once
 
 #include "babelsim/methods.h"
-
 #include "babelsim/solver.h"
-#include "babelsim/parallel.h"
 #include "internal/equation_control.h"
 
 #include <array>
 #include <memory>
 
 namespace babelsim::detail {
-// FVM 执行后端：解释数学描述、同步局部场、装配与求解，独占离散工作区和时间历史。
-// RunTime 仅负责运行域与物理时间推进，不再理解 Term、LDU、Eigen 或矩阵系数。
+class ComputeBackend;
+
+// FVM 数值执行层：解释数学描述并调用通用算子；计算后端负责同步、归约、装配与求解。
+// 该类独占离散工作区和时间历史，不依赖 MPI、Eigen 或具体稀疏矩阵实现。
 class FvmExecution {
 public:
-    FvmExecution(const Mesh&, const Methods&, const LinearSolverConfig&, const LinearSolverConfig&,
-                 ParallelContext, double delta_t);
+    FvmExecution(
+        const Mesh&, const Methods&, std::unique_ptr<ComputeBackend>, double delta_t);
     ~FvmExecution();
     FvmExecution(const FvmExecution&) = delete;
     FvmExecution& operator=(const FvmExecution&) = delete;

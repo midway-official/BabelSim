@@ -1,16 +1,10 @@
+#include "internal/compute_backend.h"
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
 #include "internal/fvm_execution.h"
 
-#include "babelsim/assembly.h"
-#include "babelsim/distributed_solver.h"
 #include "babelsim/discrete_equation.h"
-#include "babelsim/linear_solver.h"
-#include "babelsim/mpi_support.h"
 #include "babelsim/operators.h"
-#include "babelsim/parallel.h"
-
-#include <Eigen/Core>
 
 #include <algorithm>
 #include <cmath>
@@ -23,25 +17,6 @@
 namespace babelsim {
 namespace detail {
 namespace {
-
-template <typename EquationType>
-void prepare(
-    const Eigen::SparseMatrix<double>& matrix,
-    const EquationType& equation,
-    bool& pattern_ready,
-    PreparedLinearSolver& serial_solver,
-    DistributedLinearSolver* distributed_solver)
-{
-    if (distributed_solver != nullptr) {
-        if (pattern_ready) distributed_solver->factorize(matrix, equation);
-        else distributed_solver->compute(matrix, equation);
-    } else if (pattern_ready) {
-        serial_solver.factorize(matrix);
-    } else {
-        serial_solver.compute(matrix);
-    }
-    pattern_ready = true;
-}
 
 template <typename T>
 void requireCellField(const Field<T>& field, const Mesh& mesh, const char* name) {
@@ -70,77 +45,40 @@ void requireDistinct(const void* input, const void* result) {
 }  // 匿名命名空间
 
 struct FvmExecution::Implementation {
-    struct ScalarHistory {
-        explicit ScalarHistory(const ScalarField& field)
+    template <typename T>
+    struct History {
+        explicit History(const Field<T>& field)
             : source(&field), previous(field), older(field)
         {}
 
-        const ScalarField* source;
-        ScalarField previous;
-        ScalarField older;
+        const Field<T>* source;
+        Field<T> previous;
+        Field<T> older;
         bool has_older = false;
 
-        void advance(const ScalarField& current) {
-            for (std::size_t index = 0; index < previous.size(); ++index) {
-                detail::fieldData(older)[static_cast<Index>(index)] = detail::fieldData(previous)[static_cast<Index>(index)];
-                detail::fieldData(previous)[static_cast<Index>(index)] = detail::fieldData(current)[static_cast<Index>(index)];
-            }
+        void advance(const Field<T>& current) {
+            older.assign(previous);
+            previous.assign(current);
             has_older = true;
         }
     };
 
-    struct VectorHistory {
-        explicit VectorHistory(const VectorField& field)
-            : source(&field), previous(field), older(field)
-        {}
-
-        const VectorField* source;
-        VectorField previous;
-        VectorField older;
-        bool has_older = false;
-
-        void advance(const VectorField& current) {
-            for (std::size_t index = 0; index < previous.size(); ++index) {
-                detail::fieldData(older)[static_cast<Index>(index)] = detail::fieldData(previous)[static_cast<Index>(index)];
-                detail::fieldData(previous)[static_cast<Index>(index)] = detail::fieldData(current)[static_cast<Index>(index)];
-            }
-            has_older = true;
-        }
-    };
+    using ScalarHistory = History<double>;
+    using VectorHistory = History<Vec3>;
 
     Implementation(const Mesh& mesh_value, const Methods& methods_value,
-                   const LinearSolverConfig& scalar_config, const LinearSolverConfig& vector_config,
-                   ParallelContext parallel_value, double initial_delta_t)
+                   std::unique_ptr<ComputeBackend> backend_value,
+                   double initial_delta_t)
         : mesh(&mesh_value),
           methods(methods_value),
-          parallel(std::move(parallel_value)),
-          scalar_assembly(mesh_value),
-          vector_assembly(mesh_value),
-          scalar_linear_solver(scalar_config),
-          vector_linear_solver(vector_config),
-          scalar_source(Eigen::VectorXd::Zero(detail::ownedCellCount(mesh_value))),
-          scalar_solution(Eigen::VectorXd::Zero(detail::ownedCellCount(mesh_value))),
+          backend(std::move(backend_value)),
           gradient_workspace(mesh_value, FieldLocation::Cell, "grad"),
           face_coefficient_workspace(mesh_value, FieldLocation::Face, "faceCoefficient"),
           face_flux_workspace(mesh_value, FieldLocation::Face, "faceFlux"),
           delta_t(initial_delta_t)
     {
         mesh->validate();
-        parallel.validate();
-        if (parallel.distributed() != (detail::ownedCellCount(*mesh) < mesh->cellCount())) {
-            throw std::invalid_argument("run time and mesh ownership are inconsistent");
-        }
-        if (parallel.distributed()) {
-            halo = std::make_unique<HaloExchange>(*mesh, parallel);
-            scalar_distributed_solver = std::make_unique<DistributedLinearSolver>(
-                *mesh, parallel, scalar_config);
-            vector_distributed_solver = std::make_unique<DistributedLinearSolver>(
-                *mesh, parallel, vector_config);
-        }
-        for (std::size_t component = 0; component < 3; ++component) {
-            vector_source[component].resize(detail::ownedCellCount(*mesh));
-            vector_solution[component].resize(detail::ownedCellCount(*mesh));
-        }
+        if (!backend) throw std::invalid_argument("FVM execution requires a compute backend");
     }
 
     ScalarHistory& history(const ScalarField& field) {
@@ -159,28 +97,9 @@ struct FvmExecution::Implementation {
         return vector_histories.back();
     }
 
-    void synchronize(ScalarField& field) {
-        requireCellOrFace(field);
-        if (halo) halo->exchange(field);
-    }
-
-    void synchronize(VectorField& field) {
-        requireCellOrFace(field);
-        if (halo) halo->exchange(field);
-    }
-
-    void synchronize(TensorField& field) {
-        requireCellOrFace(field);
-        if (halo) halo->exchange(field);
-    }
-
     template <typename T>
-    void requireCellOrFace(const Field<T>& field) const {
-        field.validateStorage();
-        if (&field.mesh() != mesh ||
-            (field.location() != FieldLocation::Cell && field.location() != FieldLocation::Face)) {
-            throw std::invalid_argument("field does not belong to the run mesh");
-        }
+    void synchronize(Field<T>& field) {
+        backend->synchronize(field);
     }
 
     // 通量增量作用于选定几何区域；物理边界不等于并行分区边界。
@@ -198,20 +117,7 @@ struct FvmExecution::Implementation {
 
     const Mesh* mesh;
     Methods methods;
-    ParallelContext parallel;
-    std::unique_ptr<HaloExchange> halo;
-    SparseAssembly scalar_assembly;
-    SparseAssembly vector_assembly;
-    PreparedLinearSolver scalar_linear_solver;
-    PreparedLinearSolver vector_linear_solver;
-    std::unique_ptr<DistributedLinearSolver> scalar_distributed_solver;
-    std::unique_ptr<DistributedLinearSolver> vector_distributed_solver;
-    Eigen::VectorXd scalar_source;
-    Eigen::VectorXd scalar_solution;
-    std::array<Eigen::VectorXd, 3> vector_source;
-    std::array<Eigen::VectorXd, 3> vector_solution;
-    bool scalar_pattern_ready = false;
-    bool vector_pattern_ready = false;
+    std::unique_ptr<ComputeBackend> backend;
     std::vector<ScalarHistory> scalar_histories;
     std::vector<VectorHistory> vector_histories;
     VectorField gradient_workspace;
@@ -223,9 +129,9 @@ struct FvmExecution::Implementation {
 
 
 FvmExecution::FvmExecution(const Mesh& mesh, const Methods& methods,
-                          const LinearSolverConfig& scalar, const LinearSolverConfig& vector,
-                          ParallelContext parallel, double delta_t)
-    : m_implementation(std::make_unique<Implementation>(mesh, methods, scalar, vector, parallel, delta_t)) {}
+                           std::unique_ptr<ComputeBackend> backend, double delta_t)
+    : m_implementation(std::make_unique<Implementation>(
+          mesh, methods, std::move(backend), delta_t)) {}
 FvmExecution::~FvmExecution() = default;
 
 void FvmExecution::beginStep(double delta_t) {
@@ -253,7 +159,7 @@ double FvmExecution::relativeChange(
     }
     const double local[2] = {difference_squared, current_squared};
     double global[2]{};
-    state.parallel.sum(local, global, 2);
+    state.backend->sum(local, global, 2);
     return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
 }
 
@@ -273,7 +179,7 @@ double FvmExecution::relativeChange(
     }
     const double local[2] = {difference_squared, current_squared};
     double global[2]{};
-    state.parallel.sum(local, global, 2);
+    state.backend->sum(local, global, 2);
     return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
 }
 
@@ -292,7 +198,7 @@ double FvmExecution::relativeMagnitude(
     }
     const double local[2] = {value_squared, reference_squared};
     double global[2]{};
-    state.parallel.sum(local, global, 2);
+    state.backend->sum(local, global, 2);
     return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
 }
 
@@ -317,9 +223,9 @@ FluxBalance FvmExecution::fluxBalance(const ScalarField& face_flux) const {
     }
     const double local[3] = {result.l1, squared, scale};
     double global[3]{};
-    state.parallel.sum(local, global, 3);
+    state.backend->sum(local, global, 3);
     const double local_maximum = result.maximum;
-    state.parallel.maximum(&local_maximum, &result.maximum, 1);
+    state.backend->maximum(&local_maximum, &result.maximum, 1);
     result.l1 = global[0];
     result.l2 = std::sqrt(global[1]);
     result.relative = global[0] / std::max(global[2], 1e-30);
@@ -327,8 +233,7 @@ FluxBalance FvmExecution::fluxBalance(const ScalarField& face_flux) const {
 }
 
 bool FvmExecution::all(bool local_condition) const {
-    const Implementation& state = *m_implementation;
-    return state.parallel.sum(local_condition ? 1 : 0) == state.parallel.size;
+    return m_implementation->backend->all(local_condition);
 }
 
 namespace {
@@ -499,22 +404,7 @@ SolveResult FvmExecution::solve(
         }
     }
 
-    state.scalar_assembly.update(equation);
-    assembleSource(equation, state.scalar_source);
-    prepare(
-        state.scalar_assembly.matrix(), equation, state.scalar_pattern_ready,
-        state.scalar_linear_solver, state.scalar_distributed_solver.get());
-    for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-        state.scalar_solution[detail::ownedIndex(*state.mesh, cell)] = detail::fieldData(unknown)[cell];
-    }
-    const SolveResult result = state.scalar_distributed_solver
-        ? state.scalar_distributed_solver->solve(state.scalar_source, state.scalar_solution)
-        : state.scalar_linear_solver.solve(state.scalar_source, state.scalar_solution);
-    for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-        detail::fieldData(unknown)[cell] = state.scalar_solution[detail::ownedIndex(*state.mesh, cell)];
-    }
-    state.synchronize(unknown);
-    return result;
+    return state.backend->solve(equation, unknown);
 }
 
 std::array<SolveResult, 3> FvmExecution::solve(
@@ -679,33 +569,7 @@ std::array<SolveResult, 3> FvmExecution::solve(
         state.synchronize(*equation_control.mobility);
     }
 
-    state.vector_assembly.update(equation);
-    assembleSource(equation, state.vector_source);
-    prepare(
-        state.vector_assembly.matrix(), equation, state.vector_pattern_ready,
-        state.vector_linear_solver, state.vector_distributed_solver.get());
-    for (std::size_t component = 0; component < 3; ++component) {
-        for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-            state.vector_solution[component][detail::ownedIndex(*state.mesh, cell)] =
-                detail::fieldData(unknown)[cell][component];
-        }
-    }
-    std::array<SolveResult, 3> results;
-    for (std::size_t component = 0; component < 3; ++component) {
-        results[component] = state.vector_distributed_solver
-            ? state.vector_distributed_solver->solve(
-                  state.vector_source[component], state.vector_solution[component])
-            : state.vector_linear_solver.solve(
-                  state.vector_source[component], state.vector_solution[component]);
-    }
-    for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-        for (std::size_t component = 0; component < 3; ++component) {
-            detail::fieldData(unknown)[cell][component] =
-                state.vector_solution[component][detail::ownedIndex(*state.mesh, cell)];
-        }
-    }
-    state.synchronize(unknown);
-    return results;
+    return state.backend->solve(equation, unknown);
 }
 
 void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result) {
@@ -728,7 +592,6 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
 
 void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
     Implementation& state = *m_implementation;
-    state.requireCellOrFace(operation.velocity);
     requireFaceField(result, *state.mesh, "flux result");
     state.synchronize(const_cast<VectorField&>(operation.velocity));
     flux(operation.velocity, result,

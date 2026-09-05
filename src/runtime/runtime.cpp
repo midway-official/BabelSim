@@ -1,5 +1,7 @@
 #include "babelsim/runtime.h"
 #include "babelsim/mpi_support.h"
+#include "babelsim/parallel.h"
+#include "internal/compute_backend.h"
 #include "internal/fvm_execution.h"
 
 #include <algorithm>
@@ -14,13 +16,16 @@ thread_local RunTime* active_run_time = nullptr;
 
 struct RunTime::Implementation {
     Implementation(const Mesh& mesh_value, RuntimeControl settings, ParallelContext parallel_value)
-        : mesh(&mesh_value), control(std::move(settings)), parallel(parallel_value),
-          backend(mesh_value, control.methods, control.scalar_solver, control.vector_solver,
-              parallel, control.time.delta_t) {}
+        : mesh(&mesh_value), control(std::move(settings)), primary_rank(parallel_value.rank == 0),
+          fvm(mesh_value, control.methods,
+              detail::makeComputeBackend(
+                  mesh_value, control.scalar_solver, control.vector_solver,
+                  std::move(parallel_value)),
+              control.time.delta_t) {}
     const Mesh* mesh;
     RuntimeControl control;
-    ParallelContext parallel;
-    detail::FvmExecution backend;
+    bool primary_rank;
+    detail::FvmExecution fvm;
     double current_time = 0.0;
     double current_delta_t = 0.0;
     int current_step = 0;
@@ -83,7 +88,7 @@ const Methods& RunTime::methods() const { return m_implementation->control.metho
 double RunTime::time() const { return m_implementation->current_time; }
 double RunTime::deltaT() const { return m_implementation->current_delta_t; }
 int RunTime::step() const { return m_implementation->current_step; }
-bool RunTime::primary() const { return m_implementation->parallel.rank == 0; }
+bool RunTime::primary() const { return m_implementation->primary_rank; }
 
 
 bool RunTime::loop() {
@@ -98,13 +103,13 @@ bool RunTime::loop() {
         static_cast<long double>(state.current_step + 1) * control.delta_t);
     state.current_delta_t = remaining < control.delta_t - tolerance ? remaining : control.delta_t;
     state.current_time = next >= control.end_time - tolerance ? control.end_time : next;
-    state.backend.beginStep(state.current_delta_t);
+    state.fvm.beginStep(state.current_delta_t);
     ++state.current_step;
     return true;
 }
 
 
 detail::FvmExecution& detail::execution() {
-    return RunTime::current().m_implementation->backend;
+    return RunTime::current().m_implementation->fvm;
 }
 }  // babelsim 命名空间
