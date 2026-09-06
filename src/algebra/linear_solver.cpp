@@ -100,7 +100,11 @@ struct PreparedLinearSolver::Implementation {
     {}
 
     bool precondition(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
-        return amg && amg->apply(input, output) && output.allFinite();
+        if (usesAmg(config)) {
+            return amg && amg->apply(input, output) && output.allFinite();
+        }
+        output = ilut.solve(input);
+        return ilut.info() == Eigen::Success && output.allFinite();
     }
 
     SolveResult finish(
@@ -337,23 +341,28 @@ struct PreparedLinearSolver::Implementation {
     Eigen::SparseMatrix<double> matrix;
     ConjugateGradient conjugate_gradient;
     BiCGSTAB bicgstab;
+    Eigen::IncompleteLUT<double> ilut;
     std::unique_ptr<detail::AlgebraicMultigrid> amg;
     KrylovWorkspace workspace;
     bool pattern_analyzed = false;
     bool factorization_succeeded = false;
+    int amg_updates_since_factorization = 0;
 };
 
 void LinearSolverConfig::validate() const {
     if (!(absolute_tolerance > 0.0) || !(relative_tolerance > 0.0) ||
         !std::isfinite(absolute_tolerance) || !std::isfinite(relative_tolerance) ||
         max_iterations <= 0 || gmres_restart <= 0 || amg_max_levels <= 0 ||
-        amg_coarse_size <= 0 || amg_smoothing_steps <= 0) {
+        amg_coarse_size <= 0 || amg_smoothing_steps <= 0 ||
+        amg_refresh_interval <= 0) {
         throw std::invalid_argument("linear solver configuration is invalid");
     }
     const bool supported =
         (solver == LinearSolverType::ConjugateGradient &&
          preconditioner == PreconditionerType::IncompleteCholesky) ||
         (solver == LinearSolverType::BiCGSTAB &&
+         preconditioner == PreconditionerType::ILUT) ||
+        (solver == LinearSolverType::GMRES &&
          preconditioner == PreconditionerType::ILUT) ||
         ((solver == LinearSolverType::ConjugateGradient ||
           solver == LinearSolverType::BiCGSTAB || solver == LinearSolverType::GMRES) &&
@@ -391,6 +400,7 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
         state.workspace.resize(state.matrix.rows(), state.config.gmres_restart);
         state.pattern_analyzed = true;
         state.factorization_succeeded = state.amg->ready();
+        state.amg_updates_since_factorization = 0;
         return;
     }
     if (state.config.solver == LinearSolverType::ConjugateGradient) {
@@ -398,6 +408,15 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
         state.conjugate_gradient.compute(state.matrix);
         state.pattern_analyzed = true;
         state.factorization_succeeded = state.conjugate_gradient.info() == Eigen::Success;
+        return;
+    }
+    if (state.config.solver == LinearSolverType::GMRES) {
+        state.ilut.setDroptol(1e-3);
+        state.ilut.setFillfactor(2);
+        state.ilut.compute(state.matrix);
+        state.workspace.resize(state.matrix.rows(), state.config.gmres_restart);
+        state.pattern_analyzed = true;
+        state.factorization_succeeded = state.ilut.info() == Eigen::Success;
         return;
     }
     state.bicgstab.setMaxIterations(state.config.max_iterations);
@@ -417,13 +436,25 @@ void PreparedLinearSolver::factorize(const Eigen::SparseMatrix<double>& A) {
     state.matrix = A;
     state.factorization_succeeded = false;
     if (usesAmg(state.config)) {
-        state.amg->factorize(state.matrix);
+        const bool standalone_amg =
+            state.config.solver == LinearSolverType::AlgebraicMultigrid;
+        const bool refresh = standalone_amg ||
+            ++state.amg_updates_since_factorization >= state.config.amg_refresh_interval;
+        if (refresh) {
+            state.amg->factorize(state.matrix);
+            state.amg_updates_since_factorization = 0;
+        }
         state.factorization_succeeded = state.amg->ready();
         return;
     }
     if (state.config.solver == LinearSolverType::ConjugateGradient) {
         state.conjugate_gradient.factorize(state.matrix);
         state.factorization_succeeded = state.conjugate_gradient.info() == Eigen::Success;
+        return;
+    }
+    if (state.config.solver == LinearSolverType::GMRES) {
+        state.ilut.factorize(state.matrix);
+        state.factorization_succeeded = state.ilut.info() == Eigen::Success;
         return;
     }
     state.bicgstab.factorize(state.matrix);
@@ -450,11 +481,15 @@ SolveResult PreparedLinearSolver::solve(const Eigen::VectorXd& b, Eigen::VectorX
                 initial_residual / scale};
     }
     if (!usesAmg(state.config)) {
-        return state.config.solver == LinearSolverType::ConjugateGradient
-            ? runPreparedSolver(state.conjugate_gradient, state.matrix, b, x, state.config,
-                                initial_residual, target)
-            : runPreparedSolver(state.bicgstab, state.matrix, b, x, state.config,
-                                initial_residual, target);
+        if (state.config.solver == LinearSolverType::ConjugateGradient) {
+            return runPreparedSolver(state.conjugate_gradient, state.matrix, b, x,
+                                     state.config, initial_residual, target);
+        }
+        if (state.config.solver == LinearSolverType::BiCGSTAB) {
+            return runPreparedSolver(state.bicgstab, state.matrix, b, x,
+                                     state.config, initial_residual, target);
+        }
+        return state.solveGmres(b, x, initial_residual, target, scale);
     }
     if (state.config.solver == LinearSolverType::AlgebraicMultigrid) {
         return state.amg->solve(b, x);

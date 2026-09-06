@@ -38,6 +38,9 @@ struct LinearSolverConfig {
     int amg_max_levels = 12;
     int amg_coarse_size = 48;
     int amg_smoothing_steps = 2;
+    // AMG 仅作 Krylov 预条件器时，允许复用前几次方程的层级和粗层分解。
+    // 线性算子始终使用当前矩阵；1 表示每次更新，保持最保守的数值路径。
+    int amg_refresh_interval = 1;
 
     void validate() const;
 };

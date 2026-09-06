@@ -92,6 +92,30 @@ int main() {
         gmres_result.converged() && (gmres_solution - solution).norm() < 1e-10,
         "AMG-preconditioned GMRES did not solve diffusion");
 
+    LinearSolverConfig gmres_ilut_config = config;
+    gmres_ilut_config.solver = LinearSolverType::GMRES;
+    gmres_ilut_config.preconditioner = PreconditionerType::ILUT;
+    gmres_ilut_config.gmres_restart = 3;
+    Eigen::VectorXd gmres_ilut_solution;
+    const SolveResult gmres_ilut_result = solve(
+        system.A, system.b, gmres_ilut_solution, gmres_ilut_config);
+    require(
+        gmres_ilut_result.converged() &&
+            (gmres_ilut_solution - solution).norm() < 1e-10,
+        "ILUT-preconditioned GMRES did not solve diffusion");
+
+    // AMG 是预条件器时可短期复用上一轮层级；Krylov matvec 仍使用新矩阵，
+    // 因而复用只影响速度和迭代数，不能改变线性系统的解。
+    amg_config.amg_refresh_interval = 4;
+    PreparedLinearSolver cached_amg(amg_config);
+    cached_amg.compute(system.A);
+    Eigen::VectorXd cached_amg_solution;
+    cached_amg.factorize(2.0 * system.A);
+    require(
+        cached_amg.solve(2.0 * system.b, cached_amg_solution).converged() &&
+            (cached_amg_solution - solution).norm() < 1e-10,
+        "reused AMG preconditioner did not solve the updated system");
+
     amg_config.solver = LinearSolverType::AlgebraicMultigrid;
     amg_config.preconditioner = PreconditionerType::None;
     Eigen::VectorXd standalone_amg_solution;

@@ -1,0 +1,9 @@
+# 求解器入口只声明 Case 组成；物理和数值控制独立存放，便于复用该目录结构。
+solver simple
+mesh mesh/cavity.mesh
+fields fields/initial
+physics physics/simple.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
+output output.bs

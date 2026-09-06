@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -92,9 +93,10 @@ struct DistributedLinearSolver::Implementation {
         gmres_sine.resize(restart);
         gmres_least_squares.resize(restart + 1);
         gmres_coefficients.resize(restart);
-        // 最后一项存放本 rank 的预条件器失败标志，随 Arnoldi 点积一次归约。
-        gmres_local_products.resize(static_cast<std::size_t>(restart + 1));
-        gmres_global_products.resize(static_cast<std::size_t>(restart + 1));
+        // Arnoldi 一次归约同时携带所有投影、未正交向量平方范数和预条件器状态。
+        // 最坏列需要 restart 个投影、一个范数和一个状态项。
+        gmres_local_products.resize(static_cast<std::size_t>(restart + 2));
+        gmres_global_products.resize(static_cast<std::size_t>(restart + 2));
     }
 
     void setEquation(
@@ -135,6 +137,7 @@ struct DistributedLinearSolver::Implementation {
             amg = std::make_unique<detail::AlgebraicMultigrid>(config);
             amg->compute(matrix);
             factorization_succeeded = amg->ready();
+            amg_updates_since_factorization = 0;
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
             incomplete_cholesky.compute(matrix);
             factorization_succeeded =
@@ -157,7 +160,14 @@ struct DistributedLinearSolver::Implementation {
         }
         factorization_succeeded = false;
         if (usesAmg(config)) {
-            amg->factorize(matrix);
+            const bool standalone_amg =
+                config.solver == LinearSolverType::AlgebraicMultigrid;
+            const bool refresh = standalone_amg ||
+                ++amg_updates_since_factorization >= config.amg_refresh_interval;
+            if (refresh) {
+                amg->factorize(matrix);
+                amg_updates_since_factorization = 0;
+            }
             factorization_succeeded = amg->ready();
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
             incomplete_cholesky.factorize(matrix);
@@ -520,21 +530,41 @@ struct DistributedLinearSolver::Implementation {
                     gmres_local_products[static_cast<std::size_t>(row)] = local_success
                         ? gmres_basis[static_cast<std::size_t>(row)].dot(matrix_product) : 0.0;
                 }
-                gmres_local_products[static_cast<std::size_t>(column + 1)] =
+                // CGS 的正交系数与 w·w 可在同一 Allreduce 中取得。全局基已归一化，
+                // 所以 ||w-Q(Q^T w)||² = ||w||²-sum(h²)。这把每一 Arnoldi 列从两次
+                // 同步降为一次；数值消去过强时下方会回退为一次精确范数归约。
+                gmres_local_products[static_cast<std::size_t>(column + 1)] = local_success
+                    ? matrix_product.squaredNorm() : 0.0;
+                gmres_local_products[static_cast<std::size_t>(column + 2)] =
                     local_success ? 0.0 : 1.0;
                 parallel.sum(gmres_local_products.data(), gmres_global_products.data(),
-                             column + 2);
-                if (gmres_global_products[static_cast<std::size_t>(column + 1)] != 0.0) {
+                             column + 3);
+                if (gmres_global_products[static_cast<std::size_t>(column + 2)] != 0.0) {
                     status = SolveStatus::NumericalFailure;
                     break;
                 }
+                double projection_squared = 0.0;
                 for (int row = 0; row <= column; ++row) {
                     const double value = gmres_global_products[static_cast<std::size_t>(row)];
                     gmres_hessenberg(row, column) = value;
                     matrix_product.noalias() -= value *
                         gmres_basis[static_cast<std::size_t>(row)];
+                    projection_squared += value * value;
                 }
-                gmres_hessenberg(column + 1, column) = normGlobal(matrix_product);
+                const double unorthogonalized_squared =
+                    gmres_global_products[static_cast<std::size_t>(column + 1)];
+                double orthogonal_squared = unorthogonalized_squared - projection_squared;
+                // 浮点消去使差值略负时，或基显著失去正交性时，用实际向量再做一次
+                // 全局范数归约。正常路径不发生该同步，异常路径优先保证鲁棒性。
+                const double cancellation_tolerance = 128.0 * std::numeric_limits<double>::epsilon() *
+                    std::max(unorthogonalized_squared, projection_squared);
+                if (!std::isfinite(orthogonal_squared) ||
+                    orthogonal_squared < -cancellation_tolerance) {
+                    gmres_hessenberg(column + 1, column) = normGlobal(matrix_product);
+                } else {
+                    gmres_hessenberg(column + 1, column) =
+                        std::sqrt(std::max(orthogonal_squared, 0.0));
+                }
                 if (invalid(gmres_hessenberg(column + 1, column))) {
                     status = SolveStatus::NumericalFailure;
                     break;
@@ -652,6 +682,7 @@ struct DistributedLinearSolver::Implementation {
     bool pattern_ready = false;
     bool factorization_succeeded = false;
     bool equation_ready = false;
+    int amg_updates_since_factorization = 0;
 };
 
 DistributedLinearSolver::DistributedLinearSolver(

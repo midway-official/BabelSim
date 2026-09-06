@@ -115,6 +115,22 @@ struct AlgebraicMultigrid::Implementation {
         }
     }
 
+    void smoothFromZero(
+        Level& level,
+        const Eigen::VectorXd& right_hand_side,
+        Eigen::VectorXd& solution)
+    {
+        // 每次 V-cycle 的 finest correction 与递归 coarse correction 都由调用点清零。
+        // 第一遍加权 Jacobi 因而严格等于 w*D^-1*b；省去一次结果必为零的 A*0 SpMV。
+        solution.noalias() = smoothing_weight *
+            level.inverse_diagonal.cwiseProduct(right_hand_side);
+        for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
+            level.residual.noalias() = right_hand_side - level.matrix * solution;
+            solution.noalias() += smoothing_weight *
+                level.inverse_diagonal.cwiseProduct(level.residual);
+        }
+    }
+
     bool vCycle(std::size_t index, const Eigen::VectorXd& right_hand_side, Eigen::VectorXd& solution) {
         Level& level = levels[index];
         if (index + 1U == levels.size()) {
@@ -122,7 +138,7 @@ struct AlgebraicMultigrid::Implementation {
             return level.direct_solver->info() == Eigen::Success && finite(solution);
         }
 
-        smooth(level, right_hand_side, solution);
+        smoothFromZero(level, right_hand_side, solution);
         level.residual.noalias() = right_hand_side - level.matrix * solution;
         Level& coarse = levels[index + 1U];
         coarse.right_hand_side.noalias() = level.prolongation.transpose() * level.residual;

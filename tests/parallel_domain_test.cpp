@@ -275,6 +275,23 @@ int main(int argc, char* argv[]) {
         parallel.maximum(&local_error, &global_error, 1);
         require(global_error < 1e-9, "distributed AMG-GMRES diffusion solution is incorrect");
 
+        gmres_config.preconditioner = PreconditionerType::ILUT;
+        DistributedLinearSolver gmres_ilut_solver(local, parallel, gmres_config);
+        gmres_ilut_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
+        Eigen::VectorXd gmres_ilut_solution;
+        const SolveResult gmres_ilut_result = gmres_ilut_solver.solve(
+            diffusion_source, gmres_ilut_solution);
+        require(gmres_ilut_result.converged(), "distributed ILUT-GMRES diffusion solve failed");
+        local_error = 0.0;
+        for (Index cell : detail::meshData(local).owned_cells) {
+            local_error = std::max(
+                local_error,
+                std::abs(gmres_ilut_solution[detail::ownedIndex(local, cell)] -
+                         detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x));
+        }
+        parallel.maximum(&local_error, &global_error, 1);
+        require(global_error < 1e-9, "distributed ILUT-GMRES diffusion solution is incorrect");
+
         // 独立 AMG 在 MPI 下是带 halo 更新和全局残差判据的加性子域 V-cycle，
         // 不构造会集中到单个 rank 的全局粗网格。
         LinearSolverConfig amg_config = gmres_config;

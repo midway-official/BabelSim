@@ -1,0 +1,7 @@
+maxIterations 1200
+velocityRelaxation 0.3
+pressureRelaxation 0.25
+continuityTolerance 1e-8
+velocityTolerance 3e-3
+vectorSolver bicgstab ilut 1e-10 3e-3 1000
+scalarSolver cg incompleteCholesky 1e-10 3e-3 1000

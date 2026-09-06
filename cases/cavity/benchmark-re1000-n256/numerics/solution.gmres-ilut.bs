@@ -1,0 +1,8 @@
+# 固定工作量性能对比：GMRES 的 Arnoldi 正交化 + ILUT 预条件。
+maxIterations 1200
+velocityRelaxation 0.3
+pressureRelaxation 0.25
+continuityTolerance 1e-8
+velocityTolerance 3e-3
+vectorSolver gmres ilut 1e-10 3e-3 1000 gmresRestart=30
+scalarSolver gmres ilut 1e-10 3e-3 1000 gmresRestart=30

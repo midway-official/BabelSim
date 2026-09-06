@@ -1,0 +1,9 @@
+# 性能 Case 只绑定物理问题；线性后端方案由 numerics/solution.*.bs 单独给出。
+solver simple
+mesh mesh/cavity.mesh
+fields fields/initial
+physics physics/simple.bs
+methods numerics/methods.bs
+solution numerics/solution.baseline.bs
+control control.bs
+output output.bs

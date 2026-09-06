@@ -1,0 +1,15 @@
+field U
+{
+    type vector
+    location cell
+    internal uniform (0 0 0)
+    boundary
+    {
+        cavity_left { type fixedValue value (0 0 0) }
+        cavity_right { type fixedValue value (0 0 0) }
+        cavity_bottom { type fixedValue value (0 0 0) }
+        lid { type fixedValue value (1 0 0) }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

@@ -64,7 +64,7 @@ int main() {
     gmres_line.tokens = {
         "scalarSolver", "gmres", "amg", "1e-14", "1e-9", "400",
         "gmresRestart=17", "amgMaxLevels=9", "amgCoarseSize=24",
-        "amgSmoothingSteps=3"};
+        "amgSmoothingSteps=3", "amgRefreshInterval=5"};
     LinearSolverConfig gmres_config;
     readLinearSolverLine("tests/data/solution.bs", gmres_line, gmres_config);
     gmres_config.validate();
@@ -72,7 +72,8 @@ int main() {
         gmres_config.solver == LinearSolverType::GMRES &&
             gmres_config.preconditioner == PreconditionerType::AlgebraicMultigrid &&
             gmres_config.gmres_restart == 17 && gmres_config.amg_max_levels == 9 &&
-            gmres_config.amg_coarse_size == 24 && gmres_config.amg_smoothing_steps == 3,
+            gmres_config.amg_coarse_size == 24 && gmres_config.amg_smoothing_steps == 3 &&
+            gmres_config.amg_refresh_interval == 5,
         "GMRES/AMG configuration was not read");
 
     ConfigLine standalone_amg_line;

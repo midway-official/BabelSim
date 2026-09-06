@@ -586,18 +586,27 @@ void HaloExchange::exchangeCells(
     m_receive_buffer_right.resize(receive_right.size() * components);
     m_receive_buffer_left.resize(receive_left.size() * components);
     double dummy = 0.0;
-    detail::checkMpi(MPI_Sendrecv(
-        m_send_buffer_left.empty() ? &dummy : m_send_buffer_left.data(),
-        detail::mpiCount(m_send_buffer_left.size(), "left halo buffer"), MPI_DOUBLE, m_left, 101,
+    // 左、右界面彼此独立；一次性投递四个请求，将原来两段 Sendrecv 等待合并为一次。
+    // 101 表示向左发送/从右接收，102 表示向右发送/从左接收，保持原有方向和所有权语义。
+    MPI_Request requests[4]{};
+    detail::checkMpi(MPI_Irecv(
         m_receive_buffer_right.empty() ? &dummy : m_receive_buffer_right.data(),
-        detail::mpiCount(m_receive_buffer_right.size(), "right halo buffer"), MPI_DOUBLE, m_right, 101,
-        m_parallel.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(left halo)");
-    detail::checkMpi(MPI_Sendrecv(
-        m_send_buffer_right.empty() ? &dummy : m_send_buffer_right.data(),
-        detail::mpiCount(m_send_buffer_right.size(), "right halo buffer"), MPI_DOUBLE, m_right, 102,
+        detail::mpiCount(m_receive_buffer_right.size(), "right halo buffer"), MPI_DOUBLE,
+        m_right, 101, m_parallel.communicator, &requests[0]), "MPI_Irecv(right halo)");
+    detail::checkMpi(MPI_Irecv(
         m_receive_buffer_left.empty() ? &dummy : m_receive_buffer_left.data(),
-        detail::mpiCount(m_receive_buffer_left.size(), "left halo buffer"), MPI_DOUBLE, m_left, 102,
-        m_parallel.communicator, MPI_STATUS_IGNORE), "MPI_Sendrecv(right halo)");
+        detail::mpiCount(m_receive_buffer_left.size(), "left halo buffer"), MPI_DOUBLE,
+        m_left, 102, m_parallel.communicator, &requests[1]), "MPI_Irecv(left halo)");
+    detail::checkMpi(MPI_Isend(
+        m_send_buffer_left.empty() ? &dummy : m_send_buffer_left.data(),
+        detail::mpiCount(m_send_buffer_left.size(), "left halo buffer"), MPI_DOUBLE,
+        m_left, 101, m_parallel.communicator, &requests[2]), "MPI_Isend(left halo)");
+    detail::checkMpi(MPI_Isend(
+        m_send_buffer_right.empty() ? &dummy : m_send_buffer_right.data(),
+        detail::mpiCount(m_send_buffer_right.size(), "right halo buffer"), MPI_DOUBLE,
+        m_right, 102, m_parallel.communicator, &requests[3]), "MPI_Isend(right halo)");
+    detail::checkMpi(
+        MPI_Waitall(4, requests, MPI_STATUSES_IGNORE), "MPI_Waitall(cell halo)");
     unpack(receive_right, m_receive_buffer_right);
     unpack(receive_left, m_receive_buffer_left);
 }

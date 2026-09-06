@@ -154,16 +154,19 @@ SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySo
 可选的尾随项采用 `名称=值`，只影响计算后端。例如将 AMG 作为 GMRES 预条件器：
 
 ```text
-scalarSolver gmres amg 1e-14 1e-9 800 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2
+scalarSolver gmres amg 1e-14 1e-9 800 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2 amgRefreshInterval=4
 vectorSolver bicgstab amg 1e-12 1e-8 800 amgCoarseSize=64
 ```
 
-支持的组合是 `cg incompleteCholesky`、`bicgstab ilut`、`cg/bicgstab/gmres amg` 与
+支持的组合是 `cg incompleteCholesky`、`bicgstab ilut`、`gmres ilut`、`cg/bicgstab/gmres amg` 与
 `amg none`。最后一种是独立 AMG：串行时执行完整聚合 V-cycle；MPI 时执行每个子域的
 AMG V-cycle、halo 矩阵向量乘与全局残差归约，不会把全局矩阵汇集到单一进程。GMRES 使用
 右预条件且在一个重启周期内缓存 Krylov 基；`gmresRestart` 越大，通常重启越少但本地缓存
 和正交化开销越大。AMG 的层级和粗网格分解在矩阵模式分析阶段构建，后续相同模式的
-factorize 会复用聚合关系。
+factorize 会复用聚合关系。`amgRefreshInterval` 只对“AMG 作为 Krylov 预条件器”生效：
+它每隔指定的方程更新次数重建粗层，期间 Krylov 的矩阵向量乘始终使用当前方程矩阵。
+默认 `1` 最保守；对逐步变化的稳态非线性问题可试验 `2` 到 `8`，并以收敛次数和总墙钟
+时间确认收益。独立 `amg none` 每次都使用当前矩阵，忽略该选项。
 
 `control.bs`：
 
