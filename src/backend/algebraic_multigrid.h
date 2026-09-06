@@ -4,12 +4,13 @@
 
 #include <Eigen/Sparse>
 
+#include <cstdint>
 #include <memory>
 
 namespace babelsim::detail {
 
-// 默认计算后端的轻量聚合 AMG。它只接收代数矩阵，不知道 Mesh、Field 或 MPI；分布式
-// 求解器将其作为每个子域的可复用块预条件器，并继续负责跨分区矩阵向量乘和全局归约。
+// 默认计算后端的串行聚合 AMG。它只接收代数矩阵，不知道 Mesh、Field 或 MPI；
+// 分布式求解器在代数层实现全局粗空间，不复用这个串行层级。
 class AlgebraicMultigrid {
 public:
     explicit AlgebraicMultigrid(LinearSolverConfig config);
@@ -24,10 +25,10 @@ public:
     void factorize(const Eigen::SparseMatrix<double>& matrix);
     bool ready() const;
 
-    // 一个 V-cycle，可作为 CG/BiCGSTAB/GMRES 的预条件器。输出与输入不允许别名。
+    // 一个 V-cycle，只作为 CG/BiCGSTAB 的预条件器。输出与输入不允许别名。
     bool apply(const Eigen::VectorXd& input, Eigen::VectorXd& output);
-    // 以重复 V-cycle 直接求解；用于显式选择 amg none 的线性系统。
-    SolveResult solve(const Eigen::VectorXd& right_hand_side, Eigen::VectorXd& solution);
+    std::uint64_t lastSparseMatvecs() const;
+    double lastSparseMatvecSeconds() const;
 
 private:
     struct Implementation;

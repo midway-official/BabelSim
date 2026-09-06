@@ -236,6 +236,10 @@ bool FvmExecution::all(bool local_condition) const {
     return m_implementation->backend->all(local_condition);
 }
 
+PerformanceCounters FvmExecution::performance() const {
+    return m_implementation->backend->performance();
+}
+
 namespace {
 
 void addScalarSource(

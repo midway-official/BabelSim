@@ -5,45 +5,25 @@
 #include <Eigen/IterativeLinearSolvers>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <memory>
+#include <limits>
 #include <stdexcept>
 #include <utility>
-#include <vector>
 
 namespace babelsim {
 namespace {
 
 constexpr double breakdown_tolerance = 1e-30;
+using Clock = std::chrono::steady_clock;
 
-template <typename Solver>
-SolveResult runPreparedSolver(
-    Solver& solver,
-    const Eigen::SparseMatrix<double>& A,
-    const Eigen::VectorXd& b,
-    Eigen::VectorXd& x,
-    const LinearSolverConfig& config,
-    double initial_residual,
-    double target)
-{
-    solver.setTolerance(target / std::max(b.norm(), 1e-30));
-    if (config.warm_start) x = solver.solveWithGuess(b, x);
-    else x = solver.solve(b);
-    const double final_residual = (b - A * x).norm();
-    const double scale = std::max({initial_residual, b.norm(), 1e-30});
-    SolveStatus status = SolveStatus::NumericalFailure;
-    if (std::isfinite(final_residual) && final_residual <= target * (1.0 + 1e-10)) {
-        status = SolveStatus::Converged;
-    } else if (solver.info() == Eigen::NoConvergence && std::isfinite(final_residual)) {
-        status = SolveStatus::MaxIterations;
-    }
-    return {status, static_cast<int>(solver.iterations()), initial_residual,
-            final_residual, final_residual / scale};
+double secondsSince(Clock::time_point start) {
+    return std::chrono::duration<double>(Clock::now() - start).count();
 }
 
 bool usesAmg(const LinearSolverConfig& config) {
-    return config.solver == LinearSolverType::AlgebraicMultigrid ||
-        config.preconditioner == PreconditionerType::AlgebraicMultigrid;
+    return config.preconditioner == PreconditionerType::AlgebraicMultigrid;
 }
 
 struct KrylovWorkspace {
@@ -56,15 +36,8 @@ struct KrylovWorkspace {
     Eigen::VectorXd intermediate;
     Eigen::VectorXd preconditioned_intermediate;
     Eigen::VectorXd intermediate_product;
-    std::vector<Eigen::VectorXd> basis;
-    std::vector<Eigen::VectorXd> preconditioned_basis;
-    Eigen::MatrixXd hessenberg;
-    Eigen::VectorXd givens_cosine;
-    Eigen::VectorXd givens_sine;
-    Eigen::VectorXd least_squares;
-    Eigen::VectorXd coefficients;
 
-    void resize(Eigen::Index rows, int restart) {
+    void resize(Eigen::Index rows) {
         residual.resize(rows);
         product.resize(rows);
         shadow.resize(rows);
@@ -74,37 +47,41 @@ struct KrylovWorkspace {
         intermediate.resize(rows);
         preconditioned_intermediate.resize(rows);
         intermediate_product.resize(rows);
-        basis.resize(static_cast<std::size_t>(restart + 1));
-        preconditioned_basis.resize(static_cast<std::size_t>(restart));
-        for (Eigen::VectorXd& value : basis) value.resize(rows);
-        for (Eigen::VectorXd& value : preconditioned_basis) value.resize(rows);
-        hessenberg.resize(restart + 1, restart);
-        givens_cosine.resize(restart);
-        givens_sine.resize(restart);
-        least_squares.resize(restart + 1);
-        coefficients.resize(restart);
     }
 };
 
 }  // 匿名命名空间
 
 struct PreparedLinearSolver::Implementation {
-    using ConjugateGradient = Eigen::ConjugateGradient<
-        Eigen::SparseMatrix<double>, Eigen::Lower | Eigen::Upper,
-        Eigen::IncompleteCholesky<double>>;
-    using BiCGSTAB = Eigen::BiCGSTAB<
-        Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>>;
+    explicit Implementation(LinearSolverConfig value) : config(std::move(value)) {}
 
-    explicit Implementation(LinearSolverConfig value)
-        : config(std::move(value))
-    {}
+    void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
+        const Clock::time_point start = Clock::now();
+        output.noalias() = matrix * input;
+        ++current_performance.sparse_matvecs;
+        current_performance.sparse_matvec_seconds += secondsSince(start);
+    }
 
     bool precondition(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
+        const Clock::time_point start = Clock::now();
+        bool success = false;
         if (usesAmg(config)) {
-            return amg && amg->apply(input, output) && output.allFinite();
+            success = amg && amg->apply(input, output);
+            if (amg) {
+                current_performance.sparse_matvecs += amg->lastSparseMatvecs();
+                current_performance.sparse_matvec_seconds +=
+                    amg->lastSparseMatvecSeconds();
+            }
+        } else if (config.solver == LinearSolverType::ConjugateGradient) {
+            output = incomplete_cholesky.solve(input);
+            success = incomplete_cholesky.info() == Eigen::Success;
+        } else {
+            output = ilut.solve(input);
+            success = ilut.info() == Eigen::Success;
         }
-        output = ilut.solve(input);
-        return ilut.info() == Eigen::Success && output.allFinite();
+        ++current_performance.preconditioner_applications;
+        current_performance.preconditioner_apply_seconds += secondsSince(start);
+        return success && output.allFinite();
     }
 
     SolveResult finish(
@@ -115,15 +92,25 @@ struct PreparedLinearSolver::Implementation {
         const Eigen::VectorXd& right_hand_side,
         const Eigen::VectorXd& solution)
     {
-        workspace.product.noalias() = matrix * solution;
+        apply(solution, workspace.product);
         const double final_residual = (right_hand_side - workspace.product).norm();
         const double target = std::max(
             config.absolute_tolerance, config.relative_tolerance * scale);
+        // 当 b-Ax 已达到稀疏乘与向量范数的舍入误差下限时，继续迭代只会
+        // 触发 Krylov breakdown。该阈值不改变正常尺度问题的用户容差。
+        const double roundoff = 64.0 * std::numeric_limits<double>::epsilon() *
+            std::max(1.0, right_hand_side.norm() + matrix.norm() * solution.norm());
+        const double attainable_target = std::max(target, roundoff);
         if (!std::isfinite(final_residual)) status = SolveStatus::NumericalFailure;
-        else if (final_residual <= target * (1.0 + 1e-10)) status = SolveStatus::Converged;
+        else if (final_residual <= attainable_target * (1.0 + 1e-10))
+            status = SolveStatus::Converged;
         else if (status == SolveStatus::Converged) status = SolveStatus::MaxIterations;
-        return {status, iterations, initial_residual, final_residual,
-                final_residual / scale};
+        SolveResult result{status, iterations, initial_residual, final_residual,
+                           final_residual / scale};
+        current_performance.linear_solves = 1;
+        current_performance.krylov_iterations = static_cast<std::uint64_t>(iterations);
+        result.performance = current_performance;
+        return result;
     }
 
     SolveResult solvePcg(
@@ -138,20 +125,14 @@ struct PreparedLinearSolver::Implementation {
                           right_hand_side, solution);
         }
         double rho = workspace.residual.dot(workspace.preconditioned_direction);
-        if (!std::isfinite(rho)) {
-            return finish(SolveStatus::NumericalFailure, 0, initial_residual, scale,
-                          right_hand_side, solution);
-        }
         workspace.direction = workspace.preconditioned_direction;
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
         for (int iteration = 1; iteration <= config.max_iterations; ++iteration) {
-            workspace.direction_product.noalias() = matrix * workspace.direction;
+            apply(workspace.direction, workspace.direction_product);
             const double denominator = workspace.direction.dot(workspace.direction_product);
             if (!std::isfinite(denominator) || denominator <= breakdown_tolerance ||
-                std::abs(rho) <= breakdown_tolerance) {
-                break;
-            }
+                !std::isfinite(rho) || std::abs(rho) <= breakdown_tolerance) break;
             const double alpha = rho / denominator;
             solution.noalias() += alpha * workspace.direction;
             workspace.residual.noalias() -= alpha * workspace.direction_product;
@@ -203,9 +184,10 @@ struct PreparedLinearSolver::Implementation {
                 status = SolveStatus::NumericalFailure;
                 break;
             }
-            workspace.direction_product.noalias() = matrix * workspace.preconditioned_direction;
+            apply(workspace.preconditioned_direction, workspace.direction_product);
             const double denominator = workspace.shadow.dot(workspace.direction_product);
-            if (!std::isfinite(denominator) || std::abs(denominator) <= breakdown_tolerance) break;
+            if (!std::isfinite(denominator) ||
+                std::abs(denominator) <= breakdown_tolerance) break;
             alpha = rho / denominator;
             workspace.intermediate = workspace.residual - alpha * workspace.direction_product;
             iterations = iteration;
@@ -219,8 +201,8 @@ struct PreparedLinearSolver::Implementation {
                 status = SolveStatus::NumericalFailure;
                 break;
             }
-            workspace.intermediate_product.noalias() =
-                matrix * workspace.preconditioned_intermediate;
+            apply(workspace.preconditioned_intermediate,
+                  workspace.intermediate_product);
             const double product_norm = workspace.intermediate_product.squaredNorm();
             if (!std::isfinite(product_norm) || product_norm <= breakdown_tolerance) break;
             omega = workspace.intermediate_product.dot(workspace.intermediate) / product_norm;
@@ -237,113 +219,13 @@ struct PreparedLinearSolver::Implementation {
         return finish(status, iterations, initial_residual, scale, right_hand_side, solution);
     }
 
-    SolveResult solveGmres(
-        const Eigen::VectorXd& right_hand_side,
-        Eigen::VectorXd& solution,
-        double initial_residual,
-        double target,
-        double scale)
-    {
-        SolveStatus status = SolveStatus::MaxIterations;
-        int iterations = 0;
-        while (iterations < config.max_iterations) {
-            workspace.product.noalias() = matrix * solution;
-            workspace.residual = right_hand_side - workspace.product;
-            const double beta = workspace.residual.norm();
-            if (!std::isfinite(beta)) {
-                status = SolveStatus::NumericalFailure;
-                break;
-            }
-            if (beta <= target) {
-                status = SolveStatus::Converged;
-                break;
-            }
-            workspace.basis.front() = workspace.residual / beta;
-            workspace.hessenberg.setZero();
-            workspace.least_squares.setZero();
-            workspace.least_squares[0] = beta;
-            int columns = 0;
-            const int cycle_size = std::min(config.gmres_restart,
-                                            config.max_iterations - iterations);
-            for (int column = 0; column < cycle_size; ++column) {
-                if (!precondition(workspace.basis[static_cast<std::size_t>(column)],
-                                  workspace.preconditioned_basis[static_cast<std::size_t>(column)])) {
-                    status = SolveStatus::NumericalFailure;
-                    break;
-                }
-                workspace.product.noalias() = matrix *
-                    workspace.preconditioned_basis[static_cast<std::size_t>(column)];
-                for (int row = 0; row <= column; ++row) {
-                    const double value = workspace.basis[static_cast<std::size_t>(row)].dot(
-                        workspace.product);
-                    workspace.hessenberg(row, column) = value;
-                    workspace.product.noalias() -= value *
-                        workspace.basis[static_cast<std::size_t>(row)];
-                }
-                workspace.hessenberg(column + 1, column) = workspace.product.norm();
-                if (workspace.hessenberg(column + 1, column) > breakdown_tolerance) {
-                    workspace.basis[static_cast<std::size_t>(column + 1)] = workspace.product /
-                        workspace.hessenberg(column + 1, column);
-                }
-                for (int row = 0; row < column; ++row) {
-                    const double upper = workspace.hessenberg(row, column);
-                    const double lower = workspace.hessenberg(row + 1, column);
-                    workspace.hessenberg(row, column) =
-                        workspace.givens_cosine[row] * upper +
-                        workspace.givens_sine[row] * lower;
-                    workspace.hessenberg(row + 1, column) =
-                        -workspace.givens_sine[row] * upper +
-                        workspace.givens_cosine[row] * lower;
-                }
-                const double upper = workspace.hessenberg(column, column);
-                const double lower = workspace.hessenberg(column + 1, column);
-                const double norm = std::hypot(upper, lower);
-                if (!std::isfinite(norm) || norm <= breakdown_tolerance) {
-                    status = SolveStatus::NumericalFailure;
-                    break;
-                }
-                workspace.givens_cosine[column] = upper / norm;
-                workspace.givens_sine[column] = lower / norm;
-                workspace.hessenberg(column, column) = norm;
-                workspace.hessenberg(column + 1, column) = 0.0;
-                const double first = workspace.least_squares[column];
-                const double second = workspace.least_squares[column + 1];
-                workspace.least_squares[column] =
-                    workspace.givens_cosine[column] * first +
-                    workspace.givens_sine[column] * second;
-                workspace.least_squares[column + 1] =
-                    -workspace.givens_sine[column] * first +
-                    workspace.givens_cosine[column] * second;
-                ++iterations;
-                columns = column + 1;
-                if (std::abs(workspace.least_squares[column + 1]) <= target) break;
-            }
-            if (columns == 0) break;
-            workspace.coefficients.head(columns) =
-                workspace.least_squares.head(columns);
-            for (int row = columns - 1; row >= 0; --row) {
-                workspace.coefficients[row] -= workspace.hessenberg.row(row)
-                    .segment(row + 1, columns - row - 1)
-                    .dot(workspace.coefficients.segment(row + 1, columns - row - 1));
-                workspace.coefficients[row] /= workspace.hessenberg(row, row);
-            }
-            for (int column = 0; column < columns; ++column) {
-                solution.noalias() += workspace.coefficients[column] *
-                    workspace.preconditioned_basis[static_cast<std::size_t>(column)];
-            }
-            if (status == SolveStatus::NumericalFailure) break;
-        }
-        return finish(status, iterations, initial_residual, scale, right_hand_side, solution);
-    }
-
     LinearSolverConfig config;
-    // 求解器拥有快照，调用者可以在 compute/factorize 返回后释放临时矩阵。
     Eigen::SparseMatrix<double> matrix;
-    ConjugateGradient conjugate_gradient;
-    BiCGSTAB bicgstab;
+    Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
     std::unique_ptr<detail::AlgebraicMultigrid> amg;
     KrylovWorkspace workspace;
+    PerformanceCounters current_performance;
     bool pattern_analyzed = false;
     bool factorization_succeeded = false;
     int amg_updates_since_factorization = 0;
@@ -352,23 +234,17 @@ struct PreparedLinearSolver::Implementation {
 void LinearSolverConfig::validate() const {
     if (!(absolute_tolerance > 0.0) || !(relative_tolerance > 0.0) ||
         !std::isfinite(absolute_tolerance) || !std::isfinite(relative_tolerance) ||
-        max_iterations <= 0 || gmres_restart <= 0 || amg_max_levels <= 0 ||
-        amg_coarse_size <= 0 || amg_smoothing_steps <= 0 ||
-        amg_refresh_interval <= 0) {
+        max_iterations <= 0 || amg_max_levels <= 0 || amg_coarse_size <= 0 ||
+        amg_smoothing_steps <= 0 || amg_refresh_interval <= 0) {
         throw std::invalid_argument("linear solver configuration is invalid");
     }
     const bool supported =
         (solver == LinearSolverType::ConjugateGradient &&
-         preconditioner == PreconditionerType::IncompleteCholesky) ||
+         (preconditioner == PreconditionerType::IncompleteCholesky ||
+          preconditioner == PreconditionerType::AlgebraicMultigrid)) ||
         (solver == LinearSolverType::BiCGSTAB &&
-         preconditioner == PreconditionerType::ILUT) ||
-        (solver == LinearSolverType::GMRES &&
-         preconditioner == PreconditionerType::ILUT) ||
-        ((solver == LinearSolverType::ConjugateGradient ||
-          solver == LinearSolverType::BiCGSTAB || solver == LinearSolverType::GMRES) &&
-         preconditioner == PreconditionerType::AlgebraicMultigrid) ||
-        (solver == LinearSolverType::AlgebraicMultigrid &&
-         preconditioner == PreconditionerType::None);
+         (preconditioner == PreconditionerType::ILUT ||
+          preconditioner == PreconditionerType::AlgebraicMultigrid));
     if (!supported) {
         throw std::invalid_argument("unsupported linear solver/preconditioner pair");
     }
@@ -382,65 +258,50 @@ PreparedLinearSolver::PreparedLinearSolver(LinearSolverConfig config)
 
 PreparedLinearSolver::~PreparedLinearSolver() = default;
 PreparedLinearSolver::PreparedLinearSolver(PreparedLinearSolver&&) noexcept = default;
-PreparedLinearSolver& PreparedLinearSolver::operator=(
-    PreparedLinearSolver&&) noexcept = default;
+PreparedLinearSolver& PreparedLinearSolver::operator=(PreparedLinearSolver&&) noexcept = default;
 
-void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& A) {
-    if (A.rows() != A.cols()) {
+void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& matrix) {
+    if (matrix.rows() != matrix.cols()) {
         throw std::invalid_argument("linear-system matrix must be square");
     }
     if (!m_implementation) throw std::logic_error("linear solver is moved-from");
-    auto& state = *m_implementation;
-    state.matrix = A;
+    Implementation& state = *m_implementation;
+    state.matrix = matrix;
+    state.workspace.resize(state.matrix.rows());
     state.pattern_analyzed = false;
     state.factorization_succeeded = false;
     if (usesAmg(state.config)) {
         state.amg = std::make_unique<detail::AlgebraicMultigrid>(state.config);
         state.amg->compute(state.matrix);
-        state.workspace.resize(state.matrix.rows(), state.config.gmres_restart);
         state.pattern_analyzed = true;
         state.factorization_succeeded = state.amg->ready();
         state.amg_updates_since_factorization = 0;
         return;
     }
     if (state.config.solver == LinearSolverType::ConjugateGradient) {
-        state.conjugate_gradient.setMaxIterations(state.config.max_iterations);
-        state.conjugate_gradient.compute(state.matrix);
+        state.incomplete_cholesky.compute(state.matrix);
         state.pattern_analyzed = true;
-        state.factorization_succeeded = state.conjugate_gradient.info() == Eigen::Success;
+        state.factorization_succeeded =
+            state.incomplete_cholesky.info() == Eigen::Success;
         return;
     }
-    if (state.config.solver == LinearSolverType::GMRES) {
-        state.ilut.setDroptol(1e-3);
-        state.ilut.setFillfactor(2);
-        state.ilut.compute(state.matrix);
-        state.workspace.resize(state.matrix.rows(), state.config.gmres_restart);
-        state.pattern_analyzed = true;
-        state.factorization_succeeded = state.ilut.info() == Eigen::Success;
-        return;
-    }
-    state.bicgstab.setMaxIterations(state.config.max_iterations);
-    state.bicgstab.preconditioner().setDroptol(1e-3);
-    state.bicgstab.preconditioner().setFillfactor(2);
-    state.bicgstab.compute(state.matrix);
+    state.ilut.setDroptol(1e-3);
+    state.ilut.setFillfactor(2);
+    state.ilut.compute(state.matrix);
     state.pattern_analyzed = true;
-    state.factorization_succeeded = state.bicgstab.info() == Eigen::Success;
+    state.factorization_succeeded = state.ilut.info() == Eigen::Success;
 }
 
-void PreparedLinearSolver::factorize(const Eigen::SparseMatrix<double>& A) {
+void PreparedLinearSolver::factorize(const Eigen::SparseMatrix<double>& matrix) {
     if (!m_implementation) throw std::logic_error("linear solver is moved-from");
-    auto& state = *m_implementation;
-    if (!state.pattern_analyzed || A.rows() != A.cols()) {
+    Implementation& state = *m_implementation;
+    if (!state.pattern_analyzed || matrix.rows() != matrix.cols()) {
         throw std::logic_error("linear-solver pattern must be analyzed before factorization");
     }
-    state.matrix = A;
+    state.matrix = matrix;
     state.factorization_succeeded = false;
     if (usesAmg(state.config)) {
-        const bool standalone_amg =
-            state.config.solver == LinearSolverType::AlgebraicMultigrid;
-        const bool refresh = standalone_amg ||
-            ++state.amg_updates_since_factorization >= state.config.amg_refresh_interval;
-        if (refresh) {
+        if (++state.amg_updates_since_factorization >= state.config.amg_refresh_interval) {
             state.amg->factorize(state.matrix);
             state.amg_updates_since_factorization = 0;
         }
@@ -448,72 +309,57 @@ void PreparedLinearSolver::factorize(const Eigen::SparseMatrix<double>& A) {
         return;
     }
     if (state.config.solver == LinearSolverType::ConjugateGradient) {
-        state.conjugate_gradient.factorize(state.matrix);
-        state.factorization_succeeded = state.conjugate_gradient.info() == Eigen::Success;
+        state.incomplete_cholesky.factorize(state.matrix);
+        state.factorization_succeeded =
+            state.incomplete_cholesky.info() == Eigen::Success;
         return;
     }
-    if (state.config.solver == LinearSolverType::GMRES) {
-        state.ilut.factorize(state.matrix);
-        state.factorization_succeeded = state.ilut.info() == Eigen::Success;
-        return;
-    }
-    state.bicgstab.factorize(state.matrix);
-    state.factorization_succeeded = state.bicgstab.info() == Eigen::Success;
+    state.ilut.factorize(state.matrix);
+    state.factorization_succeeded = state.ilut.info() == Eigen::Success;
 }
 
-SolveResult PreparedLinearSolver::solve(const Eigen::VectorXd& b, Eigen::VectorXd& x) {
+SolveResult PreparedLinearSolver::solve(
+    const Eigen::VectorXd& right_hand_side,
+    Eigen::VectorXd& solution)
+{
     if (!m_implementation) throw std::logic_error("linear solver is moved-from");
-    auto& state = *m_implementation;
-    if (!state.pattern_analyzed || state.matrix.rows() != b.size()) {
+    Implementation& state = *m_implementation;
+    if (!state.pattern_analyzed || state.matrix.rows() != right_hand_side.size()) {
         throw std::invalid_argument("linear system dimensions are inconsistent");
     }
-    if (!state.config.warm_start || x.size() != b.size()) x.setZero(b.size());
-    const double initial_residual = (b - state.matrix * x).norm();
-    const double scale = std::max({initial_residual, b.norm(), 1e-30});
+    if (!state.config.warm_start || solution.size() != right_hand_side.size()) {
+        solution.setZero(right_hand_side.size());
+    }
+    state.current_performance = {};
+    state.apply(solution, state.workspace.product);
+    state.workspace.residual = right_hand_side - state.workspace.product;
+    const double initial_residual = state.workspace.residual.norm();
+    const double scale = std::max({initial_residual, right_hand_side.norm(), 1e-30});
     const double target = std::max(
         state.config.absolute_tolerance, state.config.relative_tolerance * scale);
-    if (initial_residual <= target) {
-        return {SolveStatus::Converged, 0, initial_residual, initial_residual,
-                initial_residual / scale};
+    if (initial_residual <= target || !state.factorization_succeeded) {
+        const SolveStatus status = initial_residual <= target
+            ? SolveStatus::Converged : SolveStatus::NumericalFailure;
+        SolveResult result{status, 0, initial_residual, initial_residual,
+                           initial_residual / scale};
+        state.current_performance.linear_solves = 1;
+        result.performance = state.current_performance;
+        return result;
     }
-    if (!state.factorization_succeeded) {
-        return {SolveStatus::NumericalFailure, 0, initial_residual, initial_residual,
-                initial_residual / scale};
-    }
-    if (!usesAmg(state.config)) {
-        if (state.config.solver == LinearSolverType::ConjugateGradient) {
-            return runPreparedSolver(state.conjugate_gradient, state.matrix, b, x,
-                                     state.config, initial_residual, target);
-        }
-        if (state.config.solver == LinearSolverType::BiCGSTAB) {
-            return runPreparedSolver(state.bicgstab, state.matrix, b, x,
-                                     state.config, initial_residual, target);
-        }
-        return state.solveGmres(b, x, initial_residual, target, scale);
-    }
-    if (state.config.solver == LinearSolverType::AlgebraicMultigrid) {
-        return state.amg->solve(b, x);
-    }
-    state.workspace.product.noalias() = state.matrix * x;
-    state.workspace.residual = b - state.workspace.product;
-    if (state.config.solver == LinearSolverType::ConjugateGradient) {
-        return state.solvePcg(b, x, initial_residual, target, scale);
-    }
-    if (state.config.solver == LinearSolverType::BiCGSTAB) {
-        return state.solveBicgstab(b, x, initial_residual, target, scale);
-    }
-    return state.solveGmres(b, x, initial_residual, target, scale);
+    return state.config.solver == LinearSolverType::ConjugateGradient
+        ? state.solvePcg(right_hand_side, solution, initial_residual, target, scale)
+        : state.solveBicgstab(right_hand_side, solution, initial_residual, target, scale);
 }
 
 SolveResult solve(
-    const Eigen::SparseMatrix<double>& A,
-    const Eigen::VectorXd& b,
-    Eigen::VectorXd& x,
+    const Eigen::SparseMatrix<double>& matrix,
+    const Eigen::VectorXd& right_hand_side,
+    Eigen::VectorXd& solution,
     const LinearSolverConfig& config)
 {
     PreparedLinearSolver solver(config);
-    solver.compute(A);
-    return solver.solve(b, x);
+    solver.compute(matrix);
+    return solver.solve(right_hand_side, solution);
 }
 
 }  // babelsim 命名空间

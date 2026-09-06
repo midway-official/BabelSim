@@ -251,67 +251,56 @@ int main(int argc, char* argv[]) {
         parallel.maximum(&local_error, &global_error, 1);
         require(global_error < 1e-10, "distributed diffusion solution is incorrect");
 
-        // 分布式 GMRES 仍通过 halo matvec 与全局归约工作；AMG 仅作为已缓存的
-        // 本地子域 V-cycle 预条件器，不能集中矩阵到任一 rank。
-        LinearSolverConfig gmres_config = solver_config;
-        gmres_config.solver = LinearSolverType::GMRES;
-        gmres_config.preconditioner = PreconditionerType::AlgebraicMultigrid;
-        gmres_config.gmres_restart = 8;
-        gmres_config.amg_coarse_size = 6;
-        gmres_config.max_iterations = 200;
-        DistributedLinearSolver gmres_solver(local, parallel, gmres_config);
-        gmres_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
-        Eigen::VectorXd gmres_solution;
-        const SolveResult gmres_result = gmres_solver.solve(
-            diffusion_source, gmres_solution);
-        require(gmres_result.converged(), "distributed AMG-GMRES diffusion solve failed");
+        // MPI AMG 使用分布式细网格平滑和全局聚合粗网格校正，并且只作为
+        // BiCGSTAB/CG 的预条件器。
+        LinearSolverConfig bicgstab_config = solver_config;
+        bicgstab_config.solver = LinearSolverType::BiCGSTAB;
+        bicgstab_config.preconditioner = PreconditionerType::AlgebraicMultigrid;
+        bicgstab_config.amg_coarse_size = 6;
+        bicgstab_config.max_iterations = 200;
+        DistributedLinearSolver bicgstab_solver(local, parallel, bicgstab_config);
+        bicgstab_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
+        Eigen::VectorXd bicgstab_solution;
+        const SolveResult bicgstab_result = bicgstab_solver.solve(
+            diffusion_source, bicgstab_solution);
+        require(bicgstab_result.converged(),
+                "distributed AMG-BiCGSTAB diffusion solve failed");
         local_error = 0.0;
         for (Index cell : detail::meshData(local).owned_cells) {
             local_error = std::max(
                 local_error,
-                std::abs(gmres_solution[detail::ownedIndex(local, cell)] -
+                std::abs(bicgstab_solution[detail::ownedIndex(local, cell)] -
                          detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x));
         }
         parallel.maximum(&local_error, &global_error, 1);
-        require(global_error < 1e-9, "distributed AMG-GMRES diffusion solution is incorrect");
+        require(global_error < 1e-9,
+                "distributed AMG-BiCGSTAB diffusion solution is incorrect");
 
-        gmres_config.preconditioner = PreconditionerType::ILUT;
-        DistributedLinearSolver gmres_ilut_solver(local, parallel, gmres_config);
-        gmres_ilut_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
-        Eigen::VectorXd gmres_ilut_solution;
-        const SolveResult gmres_ilut_result = gmres_ilut_solver.solve(
-            diffusion_source, gmres_ilut_solution);
-        require(gmres_ilut_result.converged(), "distributed ILUT-GMRES diffusion solve failed");
+        bicgstab_config.preconditioner = PreconditionerType::ILUT;
+        DistributedLinearSolver bicgstab_ilut_solver(local, parallel, bicgstab_config);
+        bicgstab_ilut_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
+        Eigen::VectorXd bicgstab_ilut_solution;
+        const SolveResult bicgstab_ilut_result = bicgstab_ilut_solver.solve(
+            diffusion_source, bicgstab_ilut_solution);
+        require(bicgstab_ilut_result.converged(),
+                "distributed ILUT-BiCGSTAB diffusion solve failed");
+        require(
+            bicgstab_ilut_result.performance.sparse_matvecs > 0 &&
+            bicgstab_ilut_result.performance.halo_exchanges ==
+                bicgstab_ilut_result.performance.sparse_matvecs &&
+            bicgstab_ilut_result.performance.global_reductions <=
+                4U * static_cast<std::uint64_t>(bicgstab_ilut_result.iterations) + 4U,
+            "distributed BiCGSTAB counters do not reflect fused reductions and halo SpMV");
         local_error = 0.0;
         for (Index cell : detail::meshData(local).owned_cells) {
             local_error = std::max(
                 local_error,
-                std::abs(gmres_ilut_solution[detail::ownedIndex(local, cell)] -
+                std::abs(bicgstab_ilut_solution[detail::ownedIndex(local, cell)] -
                          detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x));
         }
         parallel.maximum(&local_error, &global_error, 1);
-        require(global_error < 1e-9, "distributed ILUT-GMRES diffusion solution is incorrect");
-
-        // 独立 AMG 在 MPI 下是带 halo 更新和全局残差判据的加性子域 V-cycle，
-        // 不构造会集中到单个 rank 的全局粗网格。
-        LinearSolverConfig amg_config = gmres_config;
-        amg_config.solver = LinearSolverType::AlgebraicMultigrid;
-        amg_config.preconditioner = PreconditionerType::None;
-        amg_config.max_iterations = 800;
-        DistributedLinearSolver amg_solver(local, parallel, amg_config);
-        amg_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
-        Eigen::VectorXd amg_solution;
-        const SolveResult amg_result = amg_solver.solve(diffusion_source, amg_solution);
-        require(amg_result.converged(), "distributed standalone AMG diffusion solve failed");
-        local_error = 0.0;
-        for (Index cell : detail::meshData(local).owned_cells) {
-            local_error = std::max(
-                local_error,
-                std::abs(amg_solution[detail::ownedIndex(local, cell)] -
-                         detail::meshData(local).cell_centres[static_cast<std::size_t>(cell)].x));
-        }
-        parallel.maximum(&local_error, &global_error, 1);
-        require(global_error < 1e-8, "distributed standalone AMG solution is incorrect");
+        require(global_error < 1e-9,
+                "distributed ILUT-BiCGSTAB diffusion solution is incorrect");
 
         const std::array<Index, 3> skew_dimensions{{8, 5, 5}};
         std::vector<Vec3> skew_points;

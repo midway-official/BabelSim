@@ -59,32 +59,39 @@ int main() {
             overrides.time == TimeMethod::Euler,
         "method overrides changed the default or time method");
 
-    ConfigLine gmres_line;
-    gmres_line.number = 1;
-    gmres_line.tokens = {
-        "scalarSolver", "gmres", "amg", "1e-14", "1e-9", "400",
-        "gmresRestart=17", "amgMaxLevels=9", "amgCoarseSize=24",
+    ConfigLine amg_line;
+    amg_line.number = 1;
+    amg_line.tokens = {
+        "scalarSolver", "bicgstab", "amg", "1e-14", "1e-9", "400",
+        "amgMaxLevels=9", "amgCoarseSize=24",
         "amgSmoothingSteps=3", "amgRefreshInterval=5"};
-    LinearSolverConfig gmres_config;
-    readLinearSolverLine("tests/data/solution.bs", gmres_line, gmres_config);
-    gmres_config.validate();
+    LinearSolverConfig amg_config;
+    readLinearSolverLine("tests/data/solution.bs", amg_line, amg_config);
+    amg_config.validate();
     require(
-        gmres_config.solver == LinearSolverType::GMRES &&
-            gmres_config.preconditioner == PreconditionerType::AlgebraicMultigrid &&
-            gmres_config.gmres_restart == 17 && gmres_config.amg_max_levels == 9 &&
-            gmres_config.amg_coarse_size == 24 && gmres_config.amg_smoothing_steps == 3 &&
-            gmres_config.amg_refresh_interval == 5,
-        "GMRES/AMG configuration was not read");
+        amg_config.solver == LinearSolverType::BiCGSTAB &&
+            amg_config.preconditioner == PreconditionerType::AlgebraicMultigrid &&
+            amg_config.amg_max_levels == 9 && amg_config.amg_coarse_size == 24 &&
+            amg_config.amg_smoothing_steps == 3 &&
+            amg_config.amg_refresh_interval == 5,
+        "BiCGSTAB/AMG configuration was not read");
 
-    ConfigLine standalone_amg_line;
-    standalone_amg_line.number = 2;
-    standalone_amg_line.tokens = {"vectorSolver", "amg", "none", "1e-14", "1e-9", "400"};
-    LinearSolverConfig standalone_amg;
-    readLinearSolverLine("tests/data/solution.bs", standalone_amg_line, standalone_amg);
-    standalone_amg.validate();
-    require(
-        standalone_amg.solver == LinearSolverType::AlgebraicMultigrid &&
-            standalone_amg.preconditioner == PreconditionerType::None,
-        "standalone AMG configuration was not read");
+    bool rejected_gmres = false;
+    ConfigLine retired_line{2, {"scalarSolver", "gmres", "ilut", "1e-14", "1e-9", "400"}};
+    try {
+        readLinearSolverLine("tests/data/solution.bs", retired_line, amg_config);
+    } catch (const std::exception&) {
+        rejected_gmres = true;
+    }
+    require(rejected_gmres, "retired GMRES configuration was accepted");
+
+    bool rejected_standalone_amg = false;
+    retired_line.tokens = {"scalarSolver", "amg", "none", "1e-14", "1e-9", "400"};
+    try {
+        readLinearSolverLine("tests/data/solution.bs", retired_line, amg_config);
+    } catch (const std::exception&) {
+        rejected_standalone_amg = true;
+    }
+    require(rejected_standalone_amg, "standalone AMG configuration was accepted");
     std::cout << "case_io_test: SIMPLE, heat-compatible and transport dictionaries passed\n";
 }

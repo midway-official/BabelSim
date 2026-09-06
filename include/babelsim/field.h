@@ -64,7 +64,8 @@ public:
         : m_mesh(&mesh),
           m_location(location),
           m_name(std::move(name)),
-          m_values(entityCount(mesh, location), std::move(initial))
+          m_values(entityCount(mesh, location), std::move(initial)),
+          m_halo_valid(true)
     {
         if (location == FieldLocation::Cell) {
             m_boundaries.resize(mesh.patchCount());
@@ -96,7 +97,11 @@ public:
     Field(Field&&) noexcept = default;
     Field& operator=(const Field&) = delete;
     Field& operator=(Field&&) = delete;
-    void fill(const T& value) { std::fill(m_values.begin(), m_values.end(), value); }
+    void fill(const T& value) {
+        std::fill(m_values.begin(), m_values.end(), value);
+        // owned 与 ghost 同时被同一常量覆盖，不需要再进行 halo 交换。
+        m_halo_valid = true;
+    }
 
     // 按空间位置定义已知场（初值、物性或源）。函数应只依赖位置和捕获的物理参数，
     // 不依赖调用次数或分区；框架遍历正确的数据位置，Solver 不接触本地索引。
@@ -110,6 +115,8 @@ public:
                                                    : m_mesh->vertex(index);
             m_values[static_cast<std::size_t>(index)] = function(position);
         }
+        // 坐标函数在本地完整布局上求值，分区两侧的重复实体天然一致。
+        m_halo_valid = true;
     }
 
     // 点值物性/源关系，例如 k(T) 或动能(U)。输入输出可有不同值类型，布局必须相同；
@@ -122,6 +129,7 @@ public:
             throw std::invalid_argument("field evaluation requires the same mesh and location");
         for (std::size_t index = 0; index < m_values.size(); ++index)
             m_values[index] = function(source.m_values[index]);
+        m_halo_valid = source.m_halo_valid;
     }
 
     // 显式场赋值保留 Mesh、位置、名称和边界定义，只复制数值。它用于算法历史场和
@@ -129,6 +137,7 @@ public:
     void assign(const Field& source) {
         requireCompatible(source, "field assignment");
         std::copy(source.m_values.begin(), source.m_values.end(), m_values.begin());
+        m_halo_valid = source.m_halo_valid;
     }
 
     void assignScaled(double factor, const Field& source) {
@@ -139,6 +148,7 @@ public:
         std::transform(
             source.m_values.begin(), source.m_values.end(), m_values.begin(),
             [factor](const T& value) { return factor * value; });
+        m_halo_valid = source.m_halo_valid;
     }
 
     void addScaled(double factor, const Field& source) {
@@ -149,6 +159,7 @@ public:
         for (std::size_t index = 0; index < m_values.size(); ++index) {
             m_values[index] += factor * source.m_values[index];
         }
+        m_halo_valid = m_halo_valid && source.m_halo_valid;
     }
 
     // 通用逐点乘积。该操作覆盖 owned+ghost 的连续本地存储，使 Physics 不需要
@@ -164,6 +175,7 @@ public:
             m_values[index] = coefficient.m_values[index] *
                 source.m_values[index];
         }
+        m_halo_valid = coefficient.m_halo_valid && source.m_halo_valid;
     }
 
     void addProduct(
@@ -184,6 +196,7 @@ public:
             m_values[index] += factor * coefficient.m_values[index] *
                 source.m_values[index];
         }
+        m_halo_valid = m_halo_valid && coefficient.m_halo_valid && source.m_halo_valid;
     }
 
     void setBoundary(Index patch, BoundaryCondition<T> condition) {
@@ -251,6 +264,8 @@ private:
     std::string m_name;
     std::vector<T> m_values;
     std::vector<BoundaryCondition<T>> m_boundaries;
+    // 仅由 Field 与计算后端维护。Solver 看见的仍是完整数学场，不接触 ghost 状态。
+    bool m_halo_valid = false;
 };
 
 using ScalarField = Field<double>;

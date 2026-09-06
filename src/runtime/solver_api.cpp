@@ -36,6 +36,7 @@ SolveResult aggregate(const std::array<SolveResult, 3>& components) {
         result.initial_residual = std::hypot(result.initial_residual, component.initial_residual);
         result.final_residual = std::hypot(result.final_residual, component.final_residual);
         result.relative_residual = std::max(result.relative_residual, component.relative_residual);
+        result.performance += component.performance;
     }
     if (!result.converged() && RunTime::current().primary())
         std::cerr << "vector equation failed at time=" << RunTime::current().time()

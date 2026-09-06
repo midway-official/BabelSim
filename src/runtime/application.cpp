@@ -4,6 +4,7 @@
 
 #include <mpi.h>
 
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -60,6 +61,7 @@ Arguments parseArguments(int argc, char* argv[]) {
 }  // babelsim 命名空间
 
 int babelsim::runApplication(int argc, char* argv[]) {
+    const auto application_started = std::chrono::steady_clock::now();
     int initialized = 0;
     int finalized = 0;
     if (MPI_Initialized(&initialized) != MPI_SUCCESS ||
@@ -93,6 +95,7 @@ int babelsim::runApplication(int argc, char* argv[]) {
         status = selected->m_run(problem);
         // 任意非零值均是失败；负返回码不能在全局 maximum 中被 0 掩盖。
         status = ParallelContext::world().maximum(status < 0 ? 1 : status);
+        problem.reportPerformance();
         if (status == 0) problem.finish();
     } catch (const std::exception& error) {
         int rank = 0;
@@ -107,6 +110,13 @@ int babelsim::runApplication(int argc, char* argv[]) {
         }
         return 1;
     }
+    const double local_elapsed = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - application_started).count();
+    const ParallelContext parallel = ParallelContext::world();
+    double time_to_solution = 0.0;
+    parallel.maximum(&local_elapsed, &time_to_solution, 1);
+    if (parallel.rank == 0)
+        std::cout << "BabelSim timeToSolution=" << time_to_solution << '\n';
     // Finalize 不再放在可能抛异常的 try 块内；避免 finalize 失败后异常路径
     // 再次调用 MPI_Comm_rank/MPI_Abort，违反 MPI 生命周期。
     const int finalize_status = owns_mpi ? MPI_Finalize() : MPI_SUCCESS;

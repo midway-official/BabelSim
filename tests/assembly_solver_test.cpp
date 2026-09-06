@@ -70,7 +70,7 @@ int main() {
             (second - 2.0 * solution).norm() < 1e-12,
         "prepared linear solver failed to reuse a factorization");
 
-    // AMG 只接收代数系统；同一层级既可作 Krylov 预条件器，也可独立重复 V-cycle。
+    // AMG 只接收代数系统并作为 Krylov 预条件器；不作为独立线性求解器。
     // 将粗网格阈值压低，确保该小系统也实际建立多层而非退化为一次直接分解。
     LinearSolverConfig amg_config = config;
     amg_config.preconditioner = PreconditionerType::AlgebraicMultigrid;
@@ -84,25 +84,20 @@ int main() {
         amg_cg_result.converged() && (amg_cg_solution - solution).norm() < 1e-10,
         "AMG-preconditioned CG did not solve diffusion");
 
-    amg_config.solver = LinearSolverType::GMRES;
-    amg_config.gmres_restart = 3;
-    Eigen::VectorXd gmres_solution;
-    const SolveResult gmres_result = solve(system.A, system.b, gmres_solution, amg_config);
+    amg_config.solver = LinearSolverType::BiCGSTAB;
+    Eigen::VectorXd bicgstab_solution;
+    const SolveResult bicgstab_result = solve(
+        system.A, system.b, bicgstab_solution, amg_config);
     require(
-        gmres_result.converged() && (gmres_solution - solution).norm() < 1e-10,
-        "AMG-preconditioned GMRES did not solve diffusion");
-
-    LinearSolverConfig gmres_ilut_config = config;
-    gmres_ilut_config.solver = LinearSolverType::GMRES;
-    gmres_ilut_config.preconditioner = PreconditionerType::ILUT;
-    gmres_ilut_config.gmres_restart = 3;
-    Eigen::VectorXd gmres_ilut_solution;
-    const SolveResult gmres_ilut_result = solve(
-        system.A, system.b, gmres_ilut_solution, gmres_ilut_config);
+        bicgstab_result.converged() &&
+            (bicgstab_solution - solution).norm() < 1e-10,
+        "AMG-preconditioned BiCGSTAB did not solve diffusion");
     require(
-        gmres_ilut_result.converged() &&
-            (gmres_ilut_solution - solution).norm() < 1e-10,
-        "ILUT-preconditioned GMRES did not solve diffusion");
+        bicgstab_result.performance.sparse_matvecs > 0 &&
+            bicgstab_result.performance.preconditioner_applications > 0 &&
+            bicgstab_result.performance.sparse_matvec_seconds >= 0.0 &&
+            bicgstab_result.performance.preconditioner_apply_seconds >= 0.0,
+        "serial Krylov performance counters were not collected by the actual kernels");
 
     // AMG 是预条件器时可短期复用上一轮层级；Krylov matvec 仍使用新矩阵，
     // 因而复用只影响速度和迭代数，不能改变线性系统的解。
@@ -115,16 +110,6 @@ int main() {
         cached_amg.solve(2.0 * system.b, cached_amg_solution).converged() &&
             (cached_amg_solution - solution).norm() < 1e-10,
         "reused AMG preconditioner did not solve the updated system");
-
-    amg_config.solver = LinearSolverType::AlgebraicMultigrid;
-    amg_config.preconditioner = PreconditionerType::None;
-    Eigen::VectorXd standalone_amg_solution;
-    const SolveResult standalone_amg_result = solve(
-        system.A, system.b, standalone_amg_solution, amg_config);
-    require(
-        standalone_amg_result.converged() &&
-            (standalone_amg_solution - solution).norm() < 1e-10,
-        "standalone AMG did not solve diffusion");
 
     PreparedLinearSolver prepared_amg(amg_config);
     prepared_amg.compute(system.A);

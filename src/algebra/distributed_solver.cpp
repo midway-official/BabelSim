@@ -1,13 +1,14 @@
 #include "internal/mesh_access.h"
 #include "babelsim/distributed_solver.h"
 
-#include "backend/algebraic_multigrid.h"
+#include "babelsim/mpi_support.h"
 
 #include <Eigen/IterativeLinearSolvers>
+#include <Eigen/SparseLU>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
-#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -16,6 +17,11 @@ namespace babelsim {
 namespace {
 
 constexpr double breakdown_tolerance = 1e-30;
+using Clock = std::chrono::steady_clock;
+
+double secondsSince(Clock::time_point start) {
+    return std::chrono::duration<double>(Clock::now() - start).count();
+}
 
 struct RemoteCoupling {
     Index row = invalid_index;
@@ -25,13 +31,116 @@ struct RemoteCoupling {
     double coefficient = 0.0;
 };
 
+// Krylov 向量只包含 owned 行。该内部通信器直接从分区边界 owned 元素打包，
+// 不再为每次 SpMV 构造 cellCount 大小的完整场；请求存活期严格限制在 apply() 内。
+class KrylovHalo {
+public:
+    KrylovHalo(const Mesh& mesh, ParallelContext parallel)
+        : m_parallel(parallel),
+          m_ghost_values(static_cast<std::size_t>(mesh.cellCount()), 0.0)
+    {
+        const auto& data = detail::meshData(mesh);
+        m_left = parallel.rank == 0 ? MPI_PROC_NULL : parallel.rank - 1;
+        m_right = parallel.rank + 1 == parallel.size
+            ? MPI_PROC_NULL : parallel.rank + 1;
+        const auto append = [&](Index cell_i, std::vector<Index>& owned,
+                                std::vector<Index>& ghosts, Index ghost_i) {
+            for (Index k = 0; k < data.dimensions[2]; ++k) {
+                for (Index j = 0; j < data.dimensions[1]; ++j) {
+                    owned.push_back(detail::ownedIndex(mesh, mesh.cellId(cell_i, j, k)));
+                    ghosts.push_back(mesh.cellId(ghost_i, j, k));
+                }
+            }
+        };
+        if (m_left != MPI_PROC_NULL) {
+            append(data.owned_i_begin, m_send_left_indices, m_receive_left_cells,
+                   data.owned_i_begin - 1);
+        }
+        if (m_right != MPI_PROC_NULL) {
+            append(data.owned_i_end - 1, m_send_right_indices, m_receive_right_cells,
+                   data.owned_i_end);
+        }
+        m_send_left.resize(m_send_left_indices.size());
+        m_send_right.resize(m_send_right_indices.size());
+        m_receive_left.resize(m_receive_left_cells.size());
+        m_receive_right.resize(m_receive_right_cells.size());
+    }
+
+    void begin(const Eigen::VectorXd& owned_values) {
+        if (m_active) throw std::logic_error("Krylov halo exchange is already active");
+        for (std::size_t i = 0; i < m_send_left.size(); ++i) {
+            m_send_left[i] = owned_values[m_send_left_indices[i]];
+        }
+        for (std::size_t i = 0; i < m_send_right.size(); ++i) {
+            m_send_right[i] = owned_values[m_send_right_indices[i]];
+        }
+        detail::checkMpi(MPI_Irecv(
+            m_receive_right.empty() ? &m_dummy : m_receive_right.data(),
+            detail::mpiCount(m_receive_right.size(), "Krylov right halo"), MPI_DOUBLE,
+            m_right, 301, m_parallel.communicator, &m_requests[0]),
+            "MPI_Irecv(Krylov right halo)");
+        detail::checkMpi(MPI_Irecv(
+            m_receive_left.empty() ? &m_dummy : m_receive_left.data(),
+            detail::mpiCount(m_receive_left.size(), "Krylov left halo"), MPI_DOUBLE,
+            m_left, 302, m_parallel.communicator, &m_requests[1]),
+            "MPI_Irecv(Krylov left halo)");
+        detail::checkMpi(MPI_Isend(
+            m_send_left.empty() ? &m_dummy : m_send_left.data(),
+            detail::mpiCount(m_send_left.size(), "Krylov left halo"), MPI_DOUBLE,
+            m_left, 301, m_parallel.communicator, &m_requests[2]),
+            "MPI_Isend(Krylov left halo)");
+        detail::checkMpi(MPI_Isend(
+            m_send_right.empty() ? &m_dummy : m_send_right.data(),
+            detail::mpiCount(m_send_right.size(), "Krylov right halo"), MPI_DOUBLE,
+            m_right, 302, m_parallel.communicator, &m_requests[3]),
+            "MPI_Isend(Krylov right halo)");
+        m_active = true;
+    }
+
+    void finish() {
+        if (!m_active) throw std::logic_error("Krylov halo exchange is not active");
+        detail::checkMpi(
+            MPI_Waitall(4, m_requests.data(), MPI_STATUSES_IGNORE),
+            "MPI_Waitall(Krylov halo)");
+        m_active = false;
+        for (std::size_t i = 0; i < m_receive_left.size(); ++i) {
+            m_ghost_values[static_cast<std::size_t>(m_receive_left_cells[i])] =
+                m_receive_left[i];
+        }
+        for (std::size_t i = 0; i < m_receive_right.size(); ++i) {
+            m_ghost_values[static_cast<std::size_t>(m_receive_right_cells[i])] =
+                m_receive_right[i];
+        }
+    }
+
+    double value(Index ghost_cell) const {
+        return m_ghost_values[static_cast<std::size_t>(ghost_cell)];
+    }
+
+private:
+    ParallelContext m_parallel;
+    int m_left = MPI_PROC_NULL;
+    int m_right = MPI_PROC_NULL;
+    std::vector<Index> m_send_left_indices;
+    std::vector<Index> m_send_right_indices;
+    std::vector<Index> m_receive_left_cells;
+    std::vector<Index> m_receive_right_cells;
+    std::vector<double> m_send_left;
+    std::vector<double> m_send_right;
+    std::vector<double> m_receive_left;
+    std::vector<double> m_receive_right;
+    std::vector<double> m_ghost_values;
+    std::array<MPI_Request, 4> m_requests{};
+    double m_dummy = 0.0;
+    bool m_active = false;
+};
+
 bool invalid(double value) {
     return !std::isfinite(value);
 }
 
 bool usesAmg(const LinearSolverConfig& config) {
-    return config.solver == LinearSolverType::AlgebraicMultigrid ||
-        config.preconditioner == PreconditionerType::AlgebraicMultigrid;
+    return config.preconditioner == PreconditionerType::AlgebraicMultigrid;
 }
 
 }  // 匿名命名空间
@@ -44,8 +153,7 @@ struct DistributedLinearSolver::Implementation {
         : mesh(mesh_value),
           parallel(parallel_value),
           config(std::move(config_value)),
-          halo(mesh, parallel),
-          local_values(static_cast<std::size_t>(mesh.cellCount()), 0.0)
+          krylov_halo(mesh, parallel)
     {
         parallel.validate();
         mesh.validate();
@@ -79,24 +187,6 @@ struct DistributedLinearSolver::Implementation {
         intermediate.resize(rows);
         preconditioned_intermediate.resize(rows);
         intermediate_product.resize(rows);
-        resizeGmresWorkspace(rows);
-    }
-
-    void resizeGmresWorkspace(Eigen::Index rows) {
-        const int restart = config.gmres_restart;
-        gmres_basis.resize(static_cast<std::size_t>(restart + 1));
-        gmres_preconditioned_basis.resize(static_cast<std::size_t>(restart));
-        for (Eigen::VectorXd& value : gmres_basis) value.resize(rows);
-        for (Eigen::VectorXd& value : gmres_preconditioned_basis) value.resize(rows);
-        gmres_hessenberg.resize(restart + 1, restart);
-        gmres_cosine.resize(restart);
-        gmres_sine.resize(restart);
-        gmres_least_squares.resize(restart + 1);
-        gmres_coefficients.resize(restart);
-        // Arnoldi 一次归约同时携带所有投影、未正交向量平方范数和预条件器状态。
-        // 最坏列需要 restart 个投影、一个范数和一个状态项。
-        gmres_local_products.resize(static_cast<std::size_t>(restart + 2));
-        gmres_global_products.resize(static_cast<std::size_t>(restart + 2));
     }
 
     void setEquation(
@@ -129,14 +219,48 @@ struct DistributedLinearSolver::Implementation {
             throw std::invalid_argument("distributed local matrix size is invalid");
         }
         matrix = value;
+        if (!spmv_pattern_ready) {
+            boundary_rows.assign(static_cast<std::size_t>(value.rows()), 0);
+            for (const RemoteCoupling& coupling : remote) {
+                boundary_rows[static_cast<std::size_t>(coupling.row)] = 1;
+            }
+            std::vector<Eigen::Triplet<double>> interior_entries;
+            std::vector<Eigen::Triplet<double>> boundary_entries;
+            interior_entries.reserve(static_cast<std::size_t>(value.nonZeros()));
+            boundary_entries.reserve(remote.size() * 8U);
+            for (Eigen::Index column = 0; column < value.outerSize(); ++column) {
+                for (Eigen::SparseMatrix<double>::InnerIterator entry(value, column);
+                     entry; ++entry) {
+                    auto& entries = boundary_rows[static_cast<std::size_t>(entry.row())]
+                        ? boundary_entries : interior_entries;
+                    entries.emplace_back(entry.row(), entry.col(), entry.value());
+                }
+            }
+            interior_matrix.resize(value.rows(), value.cols());
+            boundary_matrix.resize(value.rows(), value.cols());
+            interior_matrix.setFromTriplets(interior_entries.begin(), interior_entries.end());
+            boundary_matrix.setFromTriplets(boundary_entries.begin(), boundary_entries.end());
+            interior_matrix.makeCompressed();
+            boundary_matrix.makeCompressed();
+            spmv_pattern_ready = true;
+        } else {
+            // 稀疏模式固定时只覆盖已有系数，不在每个外迭代重新分配 Triplet/矩阵。
+            for (Eigen::Index column = 0; column < value.outerSize(); ++column) {
+                for (Eigen::SparseMatrix<double>::InnerIterator entry(value, column);
+                     entry; ++entry) {
+                    Eigen::SparseMatrix<double>& target =
+                        boundary_rows[static_cast<std::size_t>(entry.row())]
+                        ? boundary_matrix : interior_matrix;
+                    target.coeffRef(entry.row(), entry.col()) = entry.value();
+                }
+            }
+        }
     }
 
     void computePreconditioner() {
         factorization_succeeded = false;
         if (usesAmg(config)) {
-            amg = std::make_unique<detail::AlgebraicMultigrid>(config);
-            amg->compute(matrix);
-            factorization_succeeded = amg->ready();
+            factorization_succeeded = updateDistributedAmg(true);
             amg_updates_since_factorization = 0;
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
             incomplete_cholesky.compute(matrix);
@@ -148,8 +272,7 @@ struct DistributedLinearSolver::Implementation {
             ilut.compute(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }
-        factorization_succeeded =
-            parallel.maximum(factorization_succeeded ? 0 : 1) == 0;
+        factorization_succeeded = globallyReady(factorization_succeeded);
         pattern_ready = true;
     }
 
@@ -160,15 +283,14 @@ struct DistributedLinearSolver::Implementation {
         }
         factorization_succeeded = false;
         if (usesAmg(config)) {
-            const bool standalone_amg =
-                config.solver == LinearSolverType::AlgebraicMultigrid;
-            const bool refresh = standalone_amg ||
+            const bool refresh =
                 ++amg_updates_since_factorization >= config.amg_refresh_interval;
             if (refresh) {
-                amg->factorize(matrix);
+                factorization_succeeded = updateDistributedAmg(false);
                 amg_updates_since_factorization = 0;
+            } else {
+                factorization_succeeded = amg_ready;
             }
-            factorization_succeeded = amg->ready();
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
             incomplete_cholesky.factorize(matrix);
             factorization_succeeded =
@@ -177,8 +299,179 @@ struct DistributedLinearSolver::Implementation {
             ilut.factorize(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }
-        factorization_succeeded =
-            parallel.maximum(factorization_succeeded ? 0 : 1) == 0;
+        factorization_succeeded = globallyReady(factorization_succeeded);
+    }
+
+    bool globallyReady(bool local_ready) {
+        const Clock::time_point start = Clock::now();
+        const bool ready = parallel.maximum(local_ready ? 0 : 1) == 0;
+        ++pending_performance.global_reductions;
+        pending_performance.global_reduction_seconds += secondsSince(start);
+        return ready;
+    }
+
+    void sumGlobal(const double* local, double* global, int count) const {
+        const Clock::time_point start = Clock::now();
+        parallel.sum(local, global, count);
+        ++current_performance.global_reductions;
+        current_performance.global_reduction_seconds += secondsSince(start);
+    }
+
+    int coarseIndex(Index global_cell) const {
+        const auto& global = detail::meshData(mesh).global_dimensions;
+        const Index i = global_cell % global[0];
+        const Index j = (global_cell / global[0]) % global[1];
+        const Index k = global_cell / (global[0] * global[1]);
+        return static_cast<int>(
+            i / amg_stride[0] + amg_dimensions[0] *
+            (j / amg_stride[1] + amg_dimensions[1] * (k / amg_stride[2])));
+    }
+
+    void buildCoarseMapping() {
+        const auto& global = detail::meshData(mesh).global_dimensions;
+        amg_stride = {1, 1, 1};
+        amg_dimensions = global;
+        auto count = [&]() -> std::int64_t {
+            return static_cast<std::int64_t>(amg_dimensions[0]) *
+                amg_dimensions[1] * amg_dimensions[2];
+        };
+        int levels = 1;
+        while (count() > config.amg_coarse_size && levels < config.amg_max_levels) {
+            int selected = -1;
+            for (int dimension = 0; dimension < 3; ++dimension) {
+                if (amg_dimensions[dimension] > 1 &&
+                    (selected < 0 || amg_dimensions[dimension] > amg_dimensions[selected])) {
+                    selected = dimension;
+                }
+            }
+            if (selected < 0) break;
+            amg_stride[selected] *= 2;
+            amg_dimensions[selected] =
+                (global[selected] + amg_stride[selected] - 1) / amg_stride[selected];
+            ++levels;
+        }
+        const std::int64_t coarse_count = count();
+        // 当前全局粗矩阵在每个 rank 复制，以避免 root 串行通信。限制实际行数，
+        // 防止错误配置把 coarse_count² 的准备缓冲膨胀为不可控内存。
+        constexpr std::int64_t maximum_replicated_coarse_rows = 2048;
+        if (coarse_count <= 0 || coarse_count > maximum_replicated_coarse_rows) {
+            throw std::runtime_error("distributed AMG coarse space is invalid");
+        }
+        amg_aggregate.resize(static_cast<std::size_t>(matrix.rows()));
+        const auto& owned = detail::meshData(mesh).owned_cells;
+        for (std::size_t row = 0; row < owned.size(); ++row) {
+            amg_aggregate[row] = coarseIndex(detail::globalCellId(mesh, owned[row]));
+        }
+        amg_coarse_rhs.resize(coarse_count);
+        amg_global_rhs.resize(coarse_count);
+        amg_coarse_correction.resize(coarse_count);
+        amg_local_coarse.assign(
+            static_cast<std::size_t>(coarse_count * coarse_count), 0.0);
+        amg_global_coarse.resize(amg_local_coarse.size());
+    }
+
+    bool updateDistributedAmg(bool rebuild_pattern) {
+        if (rebuild_pattern) buildCoarseMapping();
+        amg_inverse_diagonal.resize(matrix.rows());
+        bool diagonal_ok = true;
+        for (Eigen::Index row = 0; row < matrix.rows(); ++row) {
+            const double diagonal = matrix.coeff(row, row);
+            if (!std::isfinite(diagonal) || std::abs(diagonal) <= breakdown_tolerance) {
+                diagonal_ok = false;
+                amg_inverse_diagonal[row] = 0.0;
+            } else {
+                amg_inverse_diagonal[row] = 1.0 / diagonal;
+            }
+        }
+        const Clock::time_point diagonal_reduction_start = Clock::now();
+        const bool global_diagonal_ok =
+            parallel.maximum(diagonal_ok ? 0 : 1) == 0;
+        ++pending_performance.global_reductions;
+        pending_performance.global_reduction_seconds +=
+            secondsSince(diagonal_reduction_start);
+        if (!global_diagonal_ok) {
+            amg_ready = false;
+            return false;
+        }
+        std::fill(amg_local_coarse.begin(), amg_local_coarse.end(), 0.0);
+        const std::size_t coarse_count = static_cast<std::size_t>(amg_coarse_rhs.size());
+        const auto add = [&](int row, int column, double value) {
+            amg_local_coarse[static_cast<std::size_t>(row) * coarse_count +
+                             static_cast<std::size_t>(column)] += value;
+        };
+        for (Eigen::Index column = 0; column < matrix.outerSize(); ++column) {
+            for (Eigen::SparseMatrix<double>::InnerIterator entry(matrix, column);
+                 entry; ++entry) {
+                add(amg_aggregate[static_cast<std::size_t>(entry.row())],
+                    amg_aggregate[static_cast<std::size_t>(entry.col())], entry.value());
+            }
+        }
+        for (const RemoteCoupling& coupling : remote) {
+            add(amg_aggregate[static_cast<std::size_t>(coupling.row)],
+                coarseIndex(detail::globalCellId(mesh, coupling.ghost_cell)),
+                coupling.coefficient);
+        }
+        const Clock::time_point reduction_start = Clock::now();
+        parallel.sum(amg_local_coarse.data(), amg_global_coarse.data(),
+                     detail::mpiCount(amg_local_coarse.size(), "AMG coarse matrix"));
+        ++pending_performance.global_reductions;
+        pending_performance.global_reduction_seconds += secondsSince(reduction_start);
+
+        std::vector<Eigen::Triplet<double>> entries;
+        entries.reserve(coarse_count * 7U);
+        for (std::size_t row = 0; row < coarse_count; ++row) {
+            for (std::size_t column = 0; column < coarse_count; ++column) {
+                entries.emplace_back(
+                    row, column, amg_global_coarse[row * coarse_count + column]);
+            }
+        }
+        amg_coarse_matrix.resize(coarse_count, coarse_count);
+        amg_coarse_matrix.setFromTriplets(entries.begin(), entries.end());
+        amg_coarse_matrix.makeCompressed();
+        if (rebuild_pattern) amg_coarse_solver.analyzePattern(amg_coarse_matrix);
+        amg_coarse_solver.factorize(amg_coarse_matrix);
+        amg_residual.resize(matrix.rows());
+        amg_product.resize(matrix.rows());
+        amg_ready = amg_coarse_solver.info() == Eigen::Success;
+        return amg_ready;
+    }
+
+    bool applyDistributedAmg(
+        const Eigen::VectorXd& input,
+        Eigen::VectorXd& output)
+    {
+        if (!amg_ready || &input == &output) return false;
+        constexpr double weight = 2.0 / 3.0;
+        output.noalias() = weight * amg_inverse_diagonal.cwiseProduct(input);
+        for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
+            apply(output, amg_product);
+            amg_residual = input - amg_product;
+            output.noalias() += weight *
+                amg_inverse_diagonal.cwiseProduct(amg_residual);
+        }
+        apply(output, amg_product);
+        amg_residual = input - amg_product;
+        amg_coarse_rhs.setZero();
+        for (Eigen::Index row = 0; row < amg_residual.size(); ++row) {
+            amg_coarse_rhs[amg_aggregate[static_cast<std::size_t>(row)]] +=
+                amg_residual[row];
+        }
+        sumGlobal(amg_coarse_rhs.data(), amg_global_rhs.data(),
+                  static_cast<int>(amg_coarse_rhs.size()));
+        amg_coarse_correction = amg_coarse_solver.solve(amg_global_rhs);
+        if (amg_coarse_solver.info() != Eigen::Success ||
+            !amg_coarse_correction.allFinite()) return false;
+        for (Eigen::Index row = 0; row < output.size(); ++row) {
+            output[row] += amg_coarse_correction[
+                amg_aggregate[static_cast<std::size_t>(row)]];
+        }
+        for (int sweep = 0; sweep < config.amg_smoothing_steps; ++sweep) {
+            apply(output, amg_product);
+            amg_residual = input - amg_product;
+            output.noalias() += weight *
+                amg_inverse_diagonal.cwiseProduct(amg_residual);
+        }
+        return output.allFinite();
     }
 
     double dotGlobal(
@@ -187,7 +480,7 @@ struct DistributedLinearSolver::Implementation {
     {
         const double local = left.dot(right);
         double global = 0.0;
-        parallel.sum(&local, &global, 1);
+        sumGlobal(&local, &global, 1);
         return global;
     }
 
@@ -206,7 +499,7 @@ struct DistributedLinearSolver::Implementation {
             local_success ? 0.0 : 1.0,
         };
         double global[2]{};
-        parallel.sum(local, global, 2);
+        sumGlobal(local, global, 2);
         global_success = global[1] == 0.0;
         return global[0];
     }
@@ -225,33 +518,39 @@ struct DistributedLinearSolver::Implementation {
             local_success ? 0.0 : 1.0,
         };
         double global[3]{};
-        parallel.sum(local, global, 3);
+        sumGlobal(local, global, 3);
         global_first = global[0];
         global_second = global[1];
         global_success = global[2] == 0.0;
     }
 
     void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
-        output.noalias() = matrix * input;
-        for (std::size_t owned = 0; owned < detail::meshData(mesh).owned_cells.size(); ++owned) {
-            const Index cell = detail::meshData(mesh).owned_cells[owned];
-            local_values[static_cast<std::size_t>(cell)] = input[
-                static_cast<Eigen::Index>(owned)];
-        }
-        halo.exchangeFirstLayer(local_values);
+        const Clock::time_point start = Clock::now();
+        ++current_performance.sparse_matvecs;
+        const Clock::time_point halo_start = Clock::now();
+        krylov_halo.begin(input);
+        current_performance.halo_seconds += secondsSince(halo_start);
+        output.noalias() = interior_matrix * input;
+        const Clock::time_point halo_wait_start = Clock::now();
+        krylov_halo.finish();
+        ++current_performance.halo_exchanges;
+        current_performance.halo_seconds += secondsSince(halo_wait_start);
+        output.noalias() += boundary_matrix * input;
         for (const RemoteCoupling& coupling : remote) {
             output[coupling.row] += coupling.coefficient *
-                local_values[static_cast<std::size_t>(coupling.ghost_cell)];
+                krylov_halo.value(coupling.ghost_cell);
         }
+        current_performance.sparse_matvec_seconds += secondsSince(start);
     }
 
     bool precondition(
         const Eigen::VectorXd& input,
         Eigen::VectorXd& output)
     {
+        const Clock::time_point start = Clock::now();
         bool local_success = false;
         if (usesAmg(config)) {
-            local_success = amg && amg->apply(input, output);
+            local_success = applyDistributedAmg(input, output);
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
             output = incomplete_cholesky.solve(input);
             local_success = incomplete_cholesky.info() == Eigen::Success;
@@ -259,23 +558,14 @@ struct DistributedLinearSolver::Implementation {
             output = ilut.solve(input);
             local_success = ilut.info() == Eigen::Success;
         }
+        ++current_performance.preconditioner_applications;
+        current_performance.preconditioner_apply_seconds += secondsSince(start);
         if (!local_success || !output.allFinite()) {
             // 失败 rank 仍需参加下一次全局归约；零向量避免把 NaN 传播给其他 rank。
             output.setZero();
             return false;
         }
         return true;
-    }
-
-    bool preconditionAll(
-        const Eigen::VectorXd& input,
-        Eigen::VectorXd& output)
-    {
-        const bool local_success = precondition(input, output);
-        const double local_failure = local_success ? 0.0 : 1.0;
-        double global_failure = 0.0;
-        parallel.sum(&local_failure, &global_failure, 1);
-        return global_failure == 0.0;
     }
 
     SolveResult finish(
@@ -299,13 +589,17 @@ struct DistributedLinearSolver::Implementation {
             // 递推 Krylov 残差可能偏离真实残差，因此周期性计算实际残差。
             status = SolveStatus::MaxIterations;
         }
-        return {
+        SolveResult result{
             status,
             iterations,
             initial_residual,
             final_residual,
             final_residual / scale,
         };
+        result.performance = current_performance;
+        result.performance.linear_solves = 1;
+        result.performance.krylov_iterations = static_cast<std::uint64_t>(iterations);
+        return result;
     }
 
     SolveResult solvePcg(
@@ -392,10 +686,10 @@ struct DistributedLinearSolver::Implementation {
         double previous_rho = 1.0;
         double alpha = 1.0;
         double omega = 1.0;
+        double rho = dotGlobal(shadow, residual);
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
         for (int iteration = 1; iteration <= iteration_limit; ++iteration) {
-            const double rho = dotGlobal(shadow, residual);
             if (invalid(rho) || invalid(omega)) {
                 status = SolveStatus::NumericalFailure;
                 break;
@@ -478,7 +772,14 @@ struct DistributedLinearSolver::Implementation {
             x.noalias() += alpha * preconditioned_direction +
                 omega * preconditioned_intermediate;
             residual = intermediate - omega * intermediate_product;
-            const double residual_norm = normGlobal(residual);
+            // 将本轮真实残差范数和下一轮 rho 合并到同一次 Allreduce。
+            // 下一轮不再单独归约 rho，正常 BiCGSTAB 每轮少一个全局同步点。
+            const double local_residual_products[2] = {
+                residual.squaredNorm(), shadow.dot(residual)};
+            double global_residual_products[2]{};
+            sumGlobal(local_residual_products, global_residual_products, 2);
+            const double residual_norm =
+                std::sqrt(std::max(global_residual_products[0], 0.0));
             if (invalid(residual_norm)) {
                 status = SolveStatus::NumericalFailure;
                 break;
@@ -488,163 +789,7 @@ struct DistributedLinearSolver::Implementation {
                 break;
             }
             previous_rho = rho;
-        }
-        return finish(status, iterations, initial_residual, scale, b, x);
-    }
-
-    SolveResult solveGmres(
-        const Eigen::VectorXd& b,
-        Eigen::VectorXd& x,
-        double initial_residual,
-        double target,
-        double scale)
-    {
-        SolveStatus status = SolveStatus::MaxIterations;
-        int iterations = 0;
-        while (iterations < config.max_iterations) {
-            apply(x, matrix_product);
-            residual = b - matrix_product;
-            const double beta = normGlobal(residual);
-            if (invalid(beta)) {
-                status = SolveStatus::NumericalFailure;
-                break;
-            }
-            if (beta <= target) {
-                status = SolveStatus::Converged;
-                break;
-            }
-            gmres_basis.front() = residual / beta;
-            gmres_hessenberg.setZero();
-            gmres_least_squares.setZero();
-            gmres_least_squares[0] = beta;
-            const int cycle_size = std::min(
-                config.gmres_restart, config.max_iterations - iterations);
-            int columns = 0;
-            for (int column = 0; column < cycle_size; ++column) {
-                const bool local_success = precondition(
-                    gmres_basis[static_cast<std::size_t>(column)],
-                    gmres_preconditioned_basis[static_cast<std::size_t>(column)]);
-                apply(gmres_preconditioned_basis[static_cast<std::size_t>(column)],
-                      matrix_product);
-                for (int row = 0; row <= column; ++row) {
-                    gmres_local_products[static_cast<std::size_t>(row)] = local_success
-                        ? gmres_basis[static_cast<std::size_t>(row)].dot(matrix_product) : 0.0;
-                }
-                // CGS 的正交系数与 w·w 可在同一 Allreduce 中取得。全局基已归一化，
-                // 所以 ||w-Q(Q^T w)||² = ||w||²-sum(h²)。这把每一 Arnoldi 列从两次
-                // 同步降为一次；数值消去过强时下方会回退为一次精确范数归约。
-                gmres_local_products[static_cast<std::size_t>(column + 1)] = local_success
-                    ? matrix_product.squaredNorm() : 0.0;
-                gmres_local_products[static_cast<std::size_t>(column + 2)] =
-                    local_success ? 0.0 : 1.0;
-                parallel.sum(gmres_local_products.data(), gmres_global_products.data(),
-                             column + 3);
-                if (gmres_global_products[static_cast<std::size_t>(column + 2)] != 0.0) {
-                    status = SolveStatus::NumericalFailure;
-                    break;
-                }
-                double projection_squared = 0.0;
-                for (int row = 0; row <= column; ++row) {
-                    const double value = gmres_global_products[static_cast<std::size_t>(row)];
-                    gmres_hessenberg(row, column) = value;
-                    matrix_product.noalias() -= value *
-                        gmres_basis[static_cast<std::size_t>(row)];
-                    projection_squared += value * value;
-                }
-                const double unorthogonalized_squared =
-                    gmres_global_products[static_cast<std::size_t>(column + 1)];
-                double orthogonal_squared = unorthogonalized_squared - projection_squared;
-                // 浮点消去使差值略负时，或基显著失去正交性时，用实际向量再做一次
-                // 全局范数归约。正常路径不发生该同步，异常路径优先保证鲁棒性。
-                const double cancellation_tolerance = 128.0 * std::numeric_limits<double>::epsilon() *
-                    std::max(unorthogonalized_squared, projection_squared);
-                if (!std::isfinite(orthogonal_squared) ||
-                    orthogonal_squared < -cancellation_tolerance) {
-                    gmres_hessenberg(column + 1, column) = normGlobal(matrix_product);
-                } else {
-                    gmres_hessenberg(column + 1, column) =
-                        std::sqrt(std::max(orthogonal_squared, 0.0));
-                }
-                if (invalid(gmres_hessenberg(column + 1, column))) {
-                    status = SolveStatus::NumericalFailure;
-                    break;
-                }
-                if (gmres_hessenberg(column + 1, column) > breakdown_tolerance) {
-                    gmres_basis[static_cast<std::size_t>(column + 1)] = matrix_product /
-                        gmres_hessenberg(column + 1, column);
-                }
-                for (int row = 0; row < column; ++row) {
-                    const double upper = gmres_hessenberg(row, column);
-                    const double lower = gmres_hessenberg(row + 1, column);
-                    gmres_hessenberg(row, column) = gmres_cosine[row] * upper +
-                        gmres_sine[row] * lower;
-                    gmres_hessenberg(row + 1, column) = -gmres_sine[row] * upper +
-                        gmres_cosine[row] * lower;
-                }
-                const double upper = gmres_hessenberg(column, column);
-                const double lower = gmres_hessenberg(column + 1, column);
-                const double hessenberg_norm = std::hypot(upper, lower);
-                if (invalid(hessenberg_norm) || hessenberg_norm <= breakdown_tolerance) {
-                    status = SolveStatus::NumericalFailure;
-                    break;
-                }
-                gmres_cosine[column] = upper / hessenberg_norm;
-                gmres_sine[column] = lower / hessenberg_norm;
-                gmres_hessenberg(column, column) = hessenberg_norm;
-                gmres_hessenberg(column + 1, column) = 0.0;
-                const double first = gmres_least_squares[column];
-                const double second = gmres_least_squares[column + 1];
-                gmres_least_squares[column] = gmres_cosine[column] * first +
-                    gmres_sine[column] * second;
-                gmres_least_squares[column + 1] = -gmres_sine[column] * first +
-                    gmres_cosine[column] * second;
-                ++iterations;
-                columns = column + 1;
-                if (std::abs(gmres_least_squares[column + 1]) <= target) break;
-            }
-            if (columns == 0) break;
-            gmres_coefficients.head(columns) = gmres_least_squares.head(columns);
-            for (int row = columns - 1; row >= 0; --row) {
-                gmres_coefficients[row] -= gmres_hessenberg.row(row)
-                    .segment(row + 1, columns - row - 1)
-                    .dot(gmres_coefficients.segment(row + 1, columns - row - 1));
-                gmres_coefficients[row] /= gmres_hessenberg(row, row);
-            }
-            for (int column = 0; column < columns; ++column) {
-                x.noalias() += gmres_coefficients[column] *
-                    gmres_preconditioned_basis[static_cast<std::size_t>(column)];
-            }
-            if (status == SolveStatus::NumericalFailure) break;
-        }
-        return finish(status, iterations, initial_residual, scale, b, x);
-    }
-
-    SolveResult solveAmg(
-        const Eigen::VectorXd& b,
-        Eigen::VectorXd& x,
-        double initial_residual,
-        double target,
-        double scale)
-    {
-        SolveStatus status = SolveStatus::MaxIterations;
-        int iterations = 0;
-        for (; iterations < config.max_iterations; ++iterations) {
-            const double residual_norm = normGlobal(residual);
-            if (invalid(residual_norm)) {
-                status = SolveStatus::NumericalFailure;
-                break;
-            }
-            if (residual_norm <= target) {
-                status = SolveStatus::Converged;
-                break;
-            }
-            if (!preconditionAll(residual, preconditioned_direction)) {
-                status = SolveStatus::NumericalFailure;
-                break;
-            }
-            x += preconditioned_direction;
-            apply(x, matrix_product);
-            residual = b - matrix_product;
+            rho = global_residual_products[1];
         }
         return finish(status, iterations, initial_residual, scale, b, x);
     }
@@ -652,14 +797,28 @@ struct DistributedLinearSolver::Implementation {
     const Mesh& mesh;
     ParallelContext parallel;
     LinearSolverConfig config;
-    HaloExchange halo;
+    KrylovHalo krylov_halo;
     // 系数和局部矩阵均由求解器拥有快照，Equation/Assembly 可安全地在调用后销毁。
     Eigen::SparseMatrix<double> matrix;
+    Eigen::SparseMatrix<double> interior_matrix;
+    Eigen::SparseMatrix<double> boundary_matrix;
+    std::vector<char> boundary_rows;
     std::vector<RemoteCoupling> remote;
-    std::vector<double> local_values;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
-    std::unique_ptr<detail::AlgebraicMultigrid> amg;
+    std::array<Index, 3> amg_stride{1, 1, 1};
+    std::array<Index, 3> amg_dimensions{1, 1, 1};
+    std::vector<int> amg_aggregate;
+    std::vector<double> amg_local_coarse;
+    std::vector<double> amg_global_coarse;
+    Eigen::SparseMatrix<double> amg_coarse_matrix;
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> amg_coarse_solver;
+    Eigen::VectorXd amg_inverse_diagonal;
+    Eigen::VectorXd amg_residual;
+    Eigen::VectorXd amg_product;
+    Eigen::VectorXd amg_coarse_rhs;
+    Eigen::VectorXd amg_global_rhs;
+    Eigen::VectorXd amg_coarse_correction;
     Eigen::VectorXd residual;
     Eigen::VectorXd matrix_product;
     Eigen::VectorXd shadow;
@@ -669,20 +828,14 @@ struct DistributedLinearSolver::Implementation {
     Eigen::VectorXd intermediate;
     Eigen::VectorXd preconditioned_intermediate;
     Eigen::VectorXd intermediate_product;
-    // GMRES 的基、预条件基和 Hessenberg 缓冲在构造期一次分配，Krylov 热循环不分配。
-    std::vector<Eigen::VectorXd> gmres_basis;
-    std::vector<Eigen::VectorXd> gmres_preconditioned_basis;
-    Eigen::MatrixXd gmres_hessenberg;
-    Eigen::VectorXd gmres_cosine;
-    Eigen::VectorXd gmres_sine;
-    Eigen::VectorXd gmres_least_squares;
-    Eigen::VectorXd gmres_coefficients;
-    std::vector<double> gmres_local_products;
-    std::vector<double> gmres_global_products;
     bool pattern_ready = false;
     bool factorization_succeeded = false;
     bool equation_ready = false;
+    bool spmv_pattern_ready = false;
     int amg_updates_since_factorization = 0;
+    bool amg_ready = false;
+    PerformanceCounters pending_performance;
+    mutable PerformanceCounters current_performance;
 };
 
 DistributedLinearSolver::DistributedLinearSolver(
@@ -753,6 +906,8 @@ SolveResult DistributedLinearSolver::solve(
 {
     if (!m_implementation) throw std::logic_error("distributed solver is moved-from");
     auto& state = *m_implementation;
+    state.current_performance = state.pending_performance;
+    state.pending_performance = {};
     if (!state.pattern_ready || !state.equation_ready || state.matrix.rows() == 0 ||
         b.size() != detail::ownedCellCount(state.mesh)) {
         throw std::invalid_argument("distributed linear system is not prepared");
@@ -765,7 +920,7 @@ SolveResult DistributedLinearSolver::solve(
     const double local_norms[2] = {
         state.residual.squaredNorm(), b.squaredNorm()};
     double global_norms[2]{};
-    state.parallel.sum(local_norms, global_norms, 2);
+    state.sumGlobal(local_norms, global_norms, 2);
     const double initial_residual = std::sqrt(std::max(global_norms[0], 0.0));
     const double rhs_norm = std::sqrt(std::max(global_norms[1], 0.0));
     const double scale = std::max({initial_residual, rhs_norm, 1e-30});
@@ -773,22 +928,22 @@ SolveResult DistributedLinearSolver::solve(
         state.config.absolute_tolerance,
         state.config.relative_tolerance * scale);
     if (initial_residual <= target) {
-        return {
+        SolveResult result{
             SolveStatus::Converged, 0, initial_residual,
             initial_residual, initial_residual / scale,
         };
+        result.performance = state.current_performance;
+        result.performance.linear_solves = 1;
+        return result;
     }
     if (!state.factorization_succeeded) {
-        return {
+        SolveResult result{
             SolveStatus::NumericalFailure, 0, initial_residual,
             initial_residual, initial_residual / scale,
         };
-    }
-    if (state.config.solver == LinearSolverType::AlgebraicMultigrid) {
-        return state.solveAmg(b, x, initial_residual, target, scale);
-    }
-    if (state.config.solver == LinearSolverType::GMRES) {
-        return state.solveGmres(b, x, initial_residual, target, scale);
+        result.performance = state.current_performance;
+        result.performance.linear_solves = 1;
+        return result;
     }
     // 有限精度下可能提前停在近似 breakdown，或递推残差与真实残差不一致。
     // 有进展且预算尚有剩余时，以真实残差重启 Krylov；不增加外迭代，不放宽容差。
@@ -810,6 +965,9 @@ SolveResult DistributedLinearSolver::solve(
         state.residual = b - state.matrix_product;
         previous_residual = result.final_residual;
     }
+    result.performance = state.current_performance;
+    result.performance.linear_solves = 1;
+    result.performance.krylov_iterations = static_cast<std::uint64_t>(completed);
     return result;
 }
 

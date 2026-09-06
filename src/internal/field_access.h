@@ -5,11 +5,22 @@
 namespace babelsim::detail {
 // 存储维护接口，不安装到 Solver SDK。它只提供热路径所需的借用视图，不改变容量。
 struct FieldAccess {
-    template <typename T> static T* data(Field<T>& field) { return field.m_values.data(); }
+    template <typename T> static T* data(Field<T>& field) {
+        field.m_halo_valid = false;
+        return field.m_values.data();
+    }
     template <typename T> static const T* data(const Field<T>& field) { return field.m_values.data(); }
     template <typename T> static const std::vector<T>& values(const Field<T>& field) { return field.m_values; }
+    template <typename T> static bool haloValid(const Field<T>& field) {
+        return field.m_halo_valid;
+    }
+    template <typename T> static void markHaloValid(Field<T>& field) {
+        field.m_halo_valid = true;
+    }
 };
 template <typename T> T* fieldData(Field<T>& field) { return FieldAccess::data(field); }
 template <typename T> const T* fieldData(const Field<T>& field) { return FieldAccess::data(field); }
 template <typename T> const std::vector<T>& fieldValues(const Field<T>& field) { return FieldAccess::values(field); }
+template <typename T> bool haloValid(const Field<T>& field) { return FieldAccess::haloValid(field); }
+template <typename T> void markHaloValid(Field<T>& field) { FieldAccess::markHaloValid(field); }
 }  // babelsim::detail 命名空间

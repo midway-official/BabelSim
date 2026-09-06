@@ -1,7 +1,0 @@
-maxIterations 1200
-velocityRelaxation 0.3
-pressureRelaxation 0.25
-continuityTolerance 1e-8
-velocityTolerance 3e-3
-vectorSolver gmres amg 1e-10 3e-3 1000 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8
-scalarSolver gmres amg 1e-10 3e-3 1000 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8

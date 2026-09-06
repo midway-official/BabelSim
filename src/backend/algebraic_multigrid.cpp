@@ -3,6 +3,7 @@
 #include <Eigen/SparseLU>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -107,9 +108,22 @@ struct AlgebraicMultigrid::Implementation {
         : config(std::move(value))
     {}
 
+    void multiply(
+        const SparseMatrix& matrix,
+        const Eigen::VectorXd& input,
+        Eigen::VectorXd& output)
+    {
+        const auto start = std::chrono::steady_clock::now();
+        output.noalias() = matrix * input;
+        ++last_sparse_matvecs;
+        last_sparse_matvec_seconds += std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - start).count();
+    }
+
     void smooth(Level& level, const Eigen::VectorXd& right_hand_side, Eigen::VectorXd& solution) {
         for (int sweep = 0; sweep < config.amg_smoothing_steps; ++sweep) {
-            level.residual.noalias() = right_hand_side - level.matrix * solution;
+            multiply(level.matrix, solution, level.residual);
+            level.residual = right_hand_side - level.residual;
             solution.noalias() += smoothing_weight *
                 level.inverse_diagonal.cwiseProduct(level.residual);
         }
@@ -125,7 +139,8 @@ struct AlgebraicMultigrid::Implementation {
         solution.noalias() = smoothing_weight *
             level.inverse_diagonal.cwiseProduct(right_hand_side);
         for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
-            level.residual.noalias() = right_hand_side - level.matrix * solution;
+            multiply(level.matrix, solution, level.residual);
+            level.residual = right_hand_side - level.residual;
             solution.noalias() += smoothing_weight *
                 level.inverse_diagonal.cwiseProduct(level.residual);
         }
@@ -139,7 +154,8 @@ struct AlgebraicMultigrid::Implementation {
         }
 
         smoothFromZero(level, right_hand_side, solution);
-        level.residual.noalias() = right_hand_side - level.matrix * solution;
+        multiply(level.matrix, solution, level.residual);
+        level.residual = right_hand_side - level.residual;
         Level& coarse = levels[index + 1U];
         coarse.right_hand_side.noalias() = level.prolongation.transpose() * level.residual;
         coarse.correction.setZero();
@@ -197,6 +213,8 @@ struct AlgebraicMultigrid::Implementation {
     LinearSolverConfig config;
     std::vector<Level> levels;
     bool prepared = false;
+    std::uint64_t last_sparse_matvecs = 0;
+    double last_sparse_matvec_seconds = 0.0;
 };
 
 AlgebraicMultigrid::AlgebraicMultigrid(LinearSolverConfig config)
@@ -228,52 +246,18 @@ bool AlgebraicMultigrid::apply(const Eigen::VectorXd& input, Eigen::VectorXd& ou
         &input == &output) {
         return false;
     }
+    m_implementation->last_sparse_matvecs = 0;
+    m_implementation->last_sparse_matvec_seconds = 0.0;
     output.setZero(input.size());
     return m_implementation->vCycle(0, input, output);
 }
 
-SolveResult AlgebraicMultigrid::solve(
-    const Eigen::VectorXd& right_hand_side,
-    Eigen::VectorXd& solution)
-{
-    if (!ready() || right_hand_side.size() != m_implementation->levels.front().matrix.rows()) {
-        throw std::invalid_argument("AMG linear system is not prepared");
-    }
-    Implementation& state = *m_implementation;
-    if (!state.config.warm_start || solution.size() != right_hand_side.size()) {
-        solution.setZero(right_hand_side.size());
-    }
-    Level& finest = state.levels.front();
-    finest.residual.noalias() = right_hand_side - finest.matrix * solution;
-    const double initial_residual = finest.residual.norm();
-    const double scale = std::max({initial_residual, right_hand_side.norm(), 1e-30});
-    const double target = std::max(
-        state.config.absolute_tolerance, state.config.relative_tolerance * scale);
-    if (!std::isfinite(initial_residual) || !finite(solution)) {
-        return {SolveStatus::NumericalFailure, 0, initial_residual, initial_residual,
-                initial_residual / scale};
-    }
-    for (int iteration = 0; iteration <= state.config.max_iterations; ++iteration) {
-        const double residual = finest.residual.norm();
-        if (!std::isfinite(residual)) {
-            return {SolveStatus::NumericalFailure, iteration, initial_residual, residual, residual / scale};
-        }
-        if (residual <= target) {
-            return {SolveStatus::Converged, iteration, initial_residual, residual, residual / scale};
-        }
-        if (iteration == state.config.max_iterations) break;
-        finest.correction.setZero();
-        // residual 是 smooth 的输出缓冲，不能同时作为 V-cycle 的右端项。
-        finest.right_hand_side = finest.residual;
-        if (!state.vCycle(0, finest.right_hand_side, finest.correction)) {
-            return {SolveStatus::NumericalFailure, iteration, initial_residual, residual, residual / scale};
-        }
-        solution += finest.correction;
-        finest.residual.noalias() = right_hand_side - finest.matrix * solution;
-    }
-    const double residual = finest.residual.norm();
-    return {SolveStatus::MaxIterations, state.config.max_iterations, initial_residual,
-            residual, residual / scale};
+std::uint64_t AlgebraicMultigrid::lastSparseMatvecs() const {
+    return m_implementation ? m_implementation->last_sparse_matvecs : 0;
+}
+
+double AlgebraicMultigrid::lastSparseMatvecSeconds() const {
+    return m_implementation ? m_implementation->last_sparse_matvec_seconds : 0.0;
 }
 
 }  // babelsim::detail 命名空间

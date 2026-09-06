@@ -1,5 +1,8 @@
 # Re=1000、128×128 腔体的 AMG/MPI 性能审查
 
+> 历史基线：本报告描述旧 GMRES 与每 rank 局部 AMG。当前主线已删除 GMRES，
+> 分布式 AMG 具有全局聚合粗网格；原始数据仅用于重构前后对照。
+
 ## 范围与环境
 
 本报告记录 BabelSim 的代数后端与通信热路径优化，不修改 Mesh、Field、`math`/`eqn`、FVM、SIMPLE 或 Solver 开发 API。测试主机为 AMD RYZEN AI MAX+ 392（12 个物理核、24 个逻辑核），使用发布构建选项 `-O3 -march=native -flto -ffast-math`。

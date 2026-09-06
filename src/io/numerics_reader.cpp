@@ -198,12 +198,8 @@ void readLinearSolverLine(
     }
     if (line.tokens[1] == "cg") result.solver = LinearSolverType::ConjugateGradient;
     else if (line.tokens[1] == "bicgstab") result.solver = LinearSolverType::BiCGSTAB;
-    else if (line.tokens[1] == "gmres") result.solver = LinearSolverType::GMRES;
-    else if (line.tokens[1] == "amg") result.solver = LinearSolverType::AlgebraicMultigrid;
     else invalid(path, line, "unknown linear solver " + line.tokens[1]);
-    if (line.tokens[2] == "none") {
-        result.preconditioner = PreconditionerType::None;
-    } else if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
+    if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
         result.preconditioner = PreconditionerType::IncompleteCholesky;
     } else if (line.tokens[2] == "ilut") {
         result.preconditioner = PreconditionerType::ILUT;
@@ -224,9 +220,7 @@ void readLinearSolverLine(
         }
         ConfigLine value_line = line;
         value_line.tokens = {option.substr(0, separator), option.substr(separator + 1)};
-        if (value_line.tokens[0] == "gmresRestart") {
-            result.gmres_restart = integer(path, value_line, 1);
-        } else if (value_line.tokens[0] == "amgMaxLevels") {
+        if (value_line.tokens[0] == "amgMaxLevels") {
             result.amg_max_levels = integer(path, value_line, 1);
         } else if (value_line.tokens[0] == "amgCoarseSize") {
             result.amg_coarse_size = integer(path, value_line, 1);

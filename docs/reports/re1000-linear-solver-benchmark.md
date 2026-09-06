@@ -1,5 +1,8 @@
 # Re=1000 顶盖驱动流：线性后端性能对照
 
+> 历史基线：本报告中的 GMRES 与独立/局部 MPI-AMG 已从当前主线移除。
+> 当前仅保留 CG/BiCGSTAB，AMG 只作为预条件器，并在 MPI 下使用全局聚合粗网格。
+
 ## 实验条件
 
 实验使用 [benchmark-re1000](../../cases/cavity/benchmark-re1000) 案例：`64×64×1`、

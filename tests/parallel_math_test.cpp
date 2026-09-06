@@ -3,6 +3,7 @@
 #include "babelsim/parallel.h"
 #include "babelsim/operators.h"
 #include "internal/field_access.h"
+#include "internal/fvm_execution.h"
 #include "internal/mesh_access.h"
 #include "test_util.h"
 
@@ -23,6 +24,9 @@ double difference(const Tensor3& a, const Tensor3& b) {
 template <typename T>
 void poison(Field<T>& field) {
     const Mesh& mesh = field.mesh();
+    // 维护入口的可写借用会使 halo 在所有 rank 上同时失效；随后只改实际存在的
+    // ghost/重复面，避免 rank 间 validity 分支不一致造成 collective 失配。
+    (void)detail::fieldData(field);
     if (field.location() == FieldLocation::Cell) {
         for (Index cell = 0; cell < mesh.cellCount(); ++cell)
             if (!detail::isOwned(mesh, cell)) detail::fieldData(field)[cell] = T{};
@@ -184,6 +188,18 @@ int main(int argc, char* argv[]) {
             RunTime time = RunTime::forMesh(local, control);
             Fields fields(local);
             exercise(fields, answers, false);
+            const PerformanceCounters before = detail::execution().performance();
+            poison(fields.p);
+            math::evaluate(math::grad(fields.p), fields.gradP);
+            const PerformanceCounters first = detail::execution().performance();
+            math::evaluate(math::grad(fields.p), fields.gradP);
+            const PerformanceCounters second = detail::execution().performance();
+            if (parallel.distributed()) {
+                require(first.halo_exchanges > before.halo_exchanges,
+                        "invalid input did not trigger halo synchronization");
+                require(second.halo_exchanges - first.halo_exchanges == 1,
+                        "valid input was synchronized redundantly");
+            }
         }
         double maximum = 0;
         parallel.maximum(&answers.error, &maximum, 1);

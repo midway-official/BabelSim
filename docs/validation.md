@@ -368,7 +368,10 @@ MPI/Eigen 的记录后端，确认标量/矢量 solve、显式梯度同步和全
 大规模强/弱扩展测试，不能把本轮验收解释为获得了新的性能加速。当前可替换范围是“对既有
 DiscreteEquation 的计算实现”；GPU 后端、动态插件 ABI 和 FVM/FEM 离散后端互换仍未实现。
 
-### 5.2 GMRES 与 AMG 后端回归（2026-09-05）
+### 5.2 旧 GMRES 与局部 AMG 后端回归（历史记录，2026-09-05）
+
+本节是重构前的历史证据。当前主线已删除 GMRES 和独立 AMG，不能再用本节命令复现；
+保留这些数据是为了对照为何优先选择 BiCGSTAB+ILUT，以及为何需要全局粗网格。
 
 默认 Eigen/MPI 后端新增了重启 GMRES 和轻量聚合 AMG，而没有修改 `src/physics`、公开
 `eqn/math/solve` 或 FVM 数值前端。AMG 的聚合、Galerkin 粗矩阵、平滑对角和最粗层分解在
@@ -386,6 +389,28 @@ Re=1000、64² 壁面加密顶盖驱动流的 1/2/4 rank 墙钟对照（基线 I
 见 [线性后端性能报告](reports/re1000-linear-solver-benchmark.md)。该报告明确区分了
 “求解正确”与“本题规模下更快”：当前聚合 AMG 在小规模 SIMPLE 上因为层级更新和同步
 开销慢于 ILUT，后续仍需大规模问题和全局粗网格实现来评估扩展性。
+
+### 5.3 当前 Krylov、halo 与分布式 AMG 回归
+
+当前后端只支持 `CG+IncompleteCholesky/AMG` 和 `BiCGSTAB+ILUT/AMG`，AMG 只作
+预条件器。MPI-AMG 在 distributed fine operator 上平滑，使用全局 ID 聚合粗空间，
+各 rank 归约 `P^T A P` 和粗网格右端，并分别求解同一个小型粗系统；不会汇集全局细矩阵。
+
+`parallel_domain_test` 验证两 rank 扩散方程的 AMG-BiCGSTAB 与 ILUT-BiCGSTAB 解析解，
+并检查 BiCGSTAB 的 halo/SpMV 计数及融合归约上界。`parallel_math_test` 在 1/2/4 rank
+重复污染输入 halo，确认 22 类公开 `math` 运算的同步契约，并额外确认同一有效输入不会
+被连续重复同步。完整 `make test` 与 `make test-mpi` 回归均通过；SIMPLE 1/2/4 rank
+仍严格在 137 次外迭代停止，中心速度均为 `-0.149236`。Heat 的 1/2 rank 最大温差为
+`1.46e-12`。
+
+运行日志的 `BabelSim performance` 行报告 Krylov 迭代、SpMV、halo、Allreduce、装配、
+预条件器和线性求解时间。用 `tools/summarize_performance.py` 可同时输出完成时间与
+每外迭代成本。固定工作量比较必须令各运行实际完成相同外迭代数，并用
+`--require-outer N` 拒绝混入提前收敛或失败的日志；time-to-solution 则保留各方案自然
+收敛所需迭代数，两种指标不能混为一个速度比。
+
+Re=1000、128² 壁面加密腔体的 1/2/4 rank 自然收敛与固定 200 次外迭代数据、计数器
+定义和热点分析见[分布式线性后端与性能观测优化报告](reports/backend-performance-optimization.md)。
 
 ## 6. 当前未完成项
 

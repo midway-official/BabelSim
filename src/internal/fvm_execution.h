@@ -49,6 +49,7 @@ public:
     double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;
     FluxBalance fluxBalance(const ScalarField& face_flux) const;
     bool all(bool local_condition) const;
+    PerformanceCounters performance() const;
 
 
 private:

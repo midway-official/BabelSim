@@ -6,6 +6,7 @@
 #include "babelsim/parallel_writer.h"
 #include "babelsim/runtime.h"
 
+#include <array>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -60,6 +61,52 @@ std::string timeName(double time) {
     std::ostringstream text;
     text << std::setprecision(15) << time;
     return text.str();
+}
+
+PerformanceCounters maximumPerformance(
+    const PerformanceCounters& local,
+    const ParallelContext& parallel)
+{
+    const std::array<double, 16> local_values{
+        static_cast<double>(local.linear_solves),
+        static_cast<double>(local.krylov_iterations),
+        static_cast<double>(local.sparse_matvecs),
+        static_cast<double>(local.halo_exchanges),
+        static_cast<double>(local.global_reductions),
+        static_cast<double>(local.equation_assemblies),
+        static_cast<double>(local.preconditioner_setups),
+        static_cast<double>(local.preconditioner_applications),
+        local.elapsed_seconds,
+        local.assembly_seconds,
+        local.preconditioner_seconds,
+        local.preconditioner_apply_seconds,
+        local.linear_solve_seconds,
+        local.sparse_matvec_seconds,
+        local.halo_seconds,
+        local.global_reduction_seconds,
+    };
+    std::array<double, local_values.size()> global_values{};
+    parallel.maximum(
+        local_values.data(), global_values.data(),
+        detail::mpiCount(global_values.size(), "performance counters"));
+    PerformanceCounters global;
+    global.linear_solves = static_cast<std::uint64_t>(global_values[0]);
+    global.krylov_iterations = static_cast<std::uint64_t>(global_values[1]);
+    global.sparse_matvecs = static_cast<std::uint64_t>(global_values[2]);
+    global.halo_exchanges = static_cast<std::uint64_t>(global_values[3]);
+    global.global_reductions = static_cast<std::uint64_t>(global_values[4]);
+    global.equation_assemblies = static_cast<std::uint64_t>(global_values[5]);
+    global.preconditioner_setups = static_cast<std::uint64_t>(global_values[6]);
+    global.preconditioner_applications = static_cast<std::uint64_t>(global_values[7]);
+    global.elapsed_seconds = global_values[8];
+    global.assembly_seconds = global_values[9];
+    global.preconditioner_seconds = global_values[10];
+    global.preconditioner_apply_seconds = global_values[11];
+    global.linear_solve_seconds = global_values[12];
+    global.sparse_matvec_seconds = global_values[13];
+    global.halo_seconds = global_values[14];
+    global.global_reduction_seconds = global_values[15];
+    return global;
 }
 
 }  // 匿名命名空间
@@ -165,6 +212,7 @@ struct Case::Implementation {
     int last_written_step = -1;
     bool started = false;
     bool finished = false;
+    bool performance_reported = false;
 };
 
 Case::Case(const std::filesystem::path& directory, const std::string& run_name)
@@ -255,6 +303,7 @@ void Case::finish() {
     Implementation& state = *m_implementation;
     if (state.finished) return;
     start();
+    reportPerformance();
     state.writeStep(true);
     if (state.final_directory != state.series_directory / timeName(time()))
         state.write(state.final_directory);
@@ -262,6 +311,34 @@ void Case::finish() {
     if (state.parallel.rank == 0)
         std::cout << "BabelSim result time=" << time()
                   << " steps=" << step() << " saved to " << state.series_directory << '\n';
+}
+
+void Case::reportPerformance() {
+    Implementation& state = *m_implementation;
+    if (state.performance_reported) return;
+    state.performance_reported = true;
+    // 各计数和计时取所有 rank 的最大值，表示并行关键路径；不能用 rank 0
+    // 的局部耗时替代整体性能。该额外归约发生在快照之后，不计入求解工作量。
+    const PerformanceCounters performance = maximumPerformance(
+        state.run_time.performance(), state.parallel);
+    if (state.parallel.rank == 0) {
+        std::cout << "BabelSim performance runtimeElapsed=" << performance.elapsed_seconds
+                  << " linearSolves=" << performance.linear_solves
+                  << " krylovIterations=" << performance.krylov_iterations
+                  << " spmv=" << performance.sparse_matvecs
+                  << " halo=" << performance.halo_exchanges
+                  << " allreduce=" << performance.global_reductions
+                  << " assembly=" << performance.equation_assemblies
+                  << '/' << performance.assembly_seconds
+                  << " preconditionerSetup=" << performance.preconditioner_setups
+                  << '/' << performance.preconditioner_seconds
+                  << " preconditionerApply=" << performance.preconditioner_applications
+                  << '/' << performance.preconditioner_apply_seconds
+                  << " linearSeconds=" << performance.linear_solve_seconds
+                  << " spmvSeconds=" << performance.sparse_matvec_seconds
+                  << " haloSeconds=" << performance.halo_seconds
+                  << " allreduceSeconds=" << performance.global_reduction_seconds << '\n';
+    }
 }
 
 }  // babelsim 命名空间

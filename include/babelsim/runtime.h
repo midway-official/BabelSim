@@ -46,6 +46,9 @@ public:
     static RunTime& current();
 
 private:
+    // 性能快照属于 Case/Application 生命周期观测，不是 Physics Solver API。
+    friend class Case;
+    PerformanceCounters performance() const;
     explicit RunTime(const Mesh& mesh, RuntimeControl control);
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;

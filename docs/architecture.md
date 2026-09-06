@@ -39,7 +39,7 @@
 | 通用离散核 | operators.cpp、internal/boundary_evaluation.h | 梯度/通量/扩散/时间项及边界离散 | Case、SIMPLE、RunTime |
 | FVM 数值前端 | internal/fvm_execution.h、discretization/fvm_execution.cpp | 表达式解释、离散方程、历史与数值工作区；经接口发起同步、归约和求解 | MPI、Eigen、稀疏装配、Case、具体 Physics |
 | 计算后端接口 | internal/compute_backend.h | 定义粗粒度同步、归约和方程求解契约 | 数学表达、离散格式、具体 Physics |
-| 默认计算后端 | backend/eigen_mpi.cpp、backend/algebraic_multigrid.cpp、algebra/ | Halo、LDU 稀疏装配、缓存 Krylov 工作区、串行/分布式 CG/BiCGSTAB/GMRES 与 AMG | Case、方程表达、具体 Physics |
+| 默认计算后端 | backend/eigen_mpi.cpp、backend/algebraic_multigrid.cpp、algebra/ | Halo、LDU 稀疏装配、缓存 Krylov 工作区、串行/分布式 CG/BiCGSTAB 与 AMG 预条件 | Case、方程表达、具体 Physics |
 | 离散方程/装配 | discrete_equation.h、backend/eigen_assembly.cpp | LDU、owned 行及默认稀疏结构 | 温度/压力物理意义 |
 | 代数 | algebra/ | 串行和分布式求解、全局点积 | Case、Physics |
 | 并行 | parallel/ | 分解、halo、归约、MPI 校验 | PDE、算法停止策略 |
@@ -59,12 +59,17 @@ RunTime 创建构建时选定的 ComputeBackend 并把所有权注入 FVM 数值
 FVM 数值前端只接收网格、方法、计算后端和步长，不知道应用时间循环。
 solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manager 类。
 
-默认后端的 AMG 是轻量聚合多重网格：聚合、Galerkin 粗矩阵、对角平滑工作区和最粗层
-分解均在 `compute/factorize` 准备期缓存。串行独立 AMG 是完整 V-cycle 迭代；分布式 AMG
-保持每 rank 局部层级，并由已有 halo matvec 和全局残差组成加性子域迭代。它不假称拥有
-全局粗网格；需要该能力时可在替换 ComputeBackend 时提供。GMRES 使用右预条件，Arnoldi
-点积在每一步融合为一次全局归约，基向量/Hessenberg/Givens 工作区不在热循环重新分配。
-这些都是计算后端细节，`eqn/math/solve`、FVM 和 Physics API 均不改变。
+默认后端的 AMG 只作为 Krylov 预条件器。串行路径使用轻量聚合 V-cycle；MPI 路径在分布式
+细网格上做加权 Jacobi 平滑，通过全局 cell ID 建立确定的几何聚合，把各 rank 的
+`P^T A P` 贡献归约为小型全局粗矩阵，并将粗网格校正延拓回各自 owned 行。粗矩阵只复制到
+各 rank，不复制完整细网格矩阵；其规模由 `amgCoarseSize` 限制。Krylov matvec 先投递第一层
+halo，只打包分区边界 owned 值，再计算内部行、等待通信并计算边界行。BiCGSTAB 将本轮残差
+范数和下一轮 rho 合并到一次归约。上述变化全部位于默认计算后端，`eqn/math/solve`、FVM
+和 Physics API 不变。
+
+Field 的 halo 有效标记同样是后端维护状态：公开 Field 仍表示完整数学场。连续 `math`
+操作会复用已同步输入；任何公开场变换或内部可写借用都会使状态确定地传播或失效。该状态
+不会出现在 Solver API 的方程表达中。
 
 ## Solver 作者的公共框架 API
 

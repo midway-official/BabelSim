@@ -5,5 +5,5 @@ continuityTolerance 1e-8
 # 此案例用于后端吞吐/并行基准，不替代收紧外迭代容差后的精度验证。
 # 该阈值使 1/2/4 rank 均在十分钟内完成，且三个进程数执行近似相同的外迭代工作量。
 velocityTolerance 8e-4
-vectorSolver gmres amg 1e-10 1e-4 1000 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8
-scalarSolver gmres amg 1e-10 1e-4 1000 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8
+vectorSolver bicgstab amg 1e-10 1e-4 1000 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8
+scalarSolver bicgstab amg 1e-10 1e-4 1000 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8

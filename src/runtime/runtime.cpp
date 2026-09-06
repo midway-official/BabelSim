@@ -5,6 +5,7 @@
 #include "internal/fvm_execution.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -20,8 +21,8 @@ struct RunTime::Implementation {
           fvm(mesh_value, control.methods,
               detail::makeComputeBackend(
                   mesh_value, control.scalar_solver, control.vector_solver,
-                  std::move(parallel_value)),
-              control.time.delta_t) {}
+              std::move(parallel_value)),
+              control.time.delta_t), started(std::chrono::steady_clock::now()) {}
     const Mesh* mesh;
     RuntimeControl control;
     bool primary_rank;
@@ -29,6 +30,7 @@ struct RunTime::Implementation {
     double current_time = 0.0;
     double current_delta_t = 0.0;
     int current_step = 0;
+    std::chrono::steady_clock::time_point started;
 };
 
 void RuntimeControl::validate() const {
@@ -89,6 +91,13 @@ double RunTime::time() const { return m_implementation->current_time; }
 double RunTime::deltaT() const { return m_implementation->current_delta_t; }
 int RunTime::step() const { return m_implementation->current_step; }
 bool RunTime::primary() const { return m_implementation->primary_rank; }
+
+PerformanceCounters RunTime::performance() const {
+    PerformanceCounters result = m_implementation->fvm.performance();
+    result.elapsed_seconds = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - m_implementation->started).count();
+    return result;
+}
 
 
 bool RunTime::loop() {

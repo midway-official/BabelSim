@@ -127,7 +127,9 @@ def check_solver(path, text, dependencies):
     code = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"', '', text, flags=re.S)
     assert not re.search(r'\bdetail\s*::|MPI_|ParallelContext|HaloExchange|mutableData|'
                          r'\.(?:data|values|internal)\s*\(|std::vector|SparseAssembly|'
-                         r'\b(?:CSR|LDU|Eigen|owned_cells|owned_faces|ghost|communicator)\b', code), path
+                         r'\b(?:CSR|LDU|Eigen|owned_cells|owned_faces|ghost|communicator|'
+                         r'PerformanceCounters)\b|\.performance\s*\(|'
+                         r'\.reportPerformance\s*\(', code), path
 
 
 for path in files:

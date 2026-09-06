@@ -76,6 +76,10 @@ public:
     void finish();
 
 private:
+    // 应用生命周期观测不是 Solver API。启动器在正常完成和达到迭代上限时调用；
+    // 不写结果，也不改变成功/失败状态。
+    friend int runApplication(int argc, char* argv[]);
+    void reportPerformance();
     void selectOutput(const std::string& name, const void* field, bool enabled);
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;

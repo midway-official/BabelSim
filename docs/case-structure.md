@@ -151,22 +151,20 @@ scalarSolver 配置标量方程，vectorSolver 配置矢量方程，两个条目
 SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySolver/pressureSolver
 需改为这两个通用键。SIMPLE 自身的松弛、最大外迭代和容差仍在此文件，由算法读取。
 
-可选的尾随项采用 `名称=值`，只影响计算后端。例如将 AMG 作为 GMRES 预条件器：
+可选的尾随项采用 `名称=值`，只影响计算后端。例如将 AMG 作为 Krylov 预条件器：
 
 ```text
-scalarSolver gmres amg 1e-14 1e-9 800 gmresRestart=30 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2 amgRefreshInterval=4
+scalarSolver cg amg 1e-14 1e-9 800 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2 amgRefreshInterval=4
 vectorSolver bicgstab amg 1e-12 1e-8 800 amgCoarseSize=64
 ```
 
-支持的组合是 `cg incompleteCholesky`、`bicgstab ilut`、`gmres ilut`、`cg/bicgstab/gmres amg` 与
-`amg none`。最后一种是独立 AMG：串行时执行完整聚合 V-cycle；MPI 时执行每个子域的
-AMG V-cycle、halo 矩阵向量乘与全局残差归约，不会把全局矩阵汇集到单一进程。GMRES 使用
-右预条件且在一个重启周期内缓存 Krylov 基；`gmresRestart` 越大，通常重启越少但本地缓存
-和正交化开销越大。AMG 的层级和粗网格分解在矩阵模式分析阶段构建，后续相同模式的
+支持的组合是 `cg incompleteCholesky`、`bicgstab ilut` 和 `cg/bicgstab amg`。AMG 不可作为
+独立 Solver。串行 AMG 执行聚合 V-cycle；MPI AMG 在分布式细网格上平滑，并对各 rank
+贡献的全局聚合粗矩阵进行粗网格校正，不会汇集或复制完整细网格矩阵。AMG 的层级和粗网格分解在矩阵模式分析阶段构建，后续相同模式的
 factorize 会复用聚合关系。`amgRefreshInterval` 只对“AMG 作为 Krylov 预条件器”生效：
 它每隔指定的方程更新次数重建粗层，期间 Krylov 的矩阵向量乘始终使用当前方程矩阵。
 默认 `1` 最保守；对逐步变化的稳态非线性问题可试验 `2` 到 `8`，并以收敛次数和总墙钟
-时间确认收益。独立 `amg none` 每次都使用当前矩阵，忽略该选项。
+时间确认收益。
 
 `control.bs`：
 

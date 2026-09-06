@@ -5,7 +5,7 @@
 - 网格：`128×128×1`，双曲正切壁面加密（`cluster=1.5`）；
 - 物理：不可压层流，`rho=1`、`mu=0.001`，即 `Re=1000`；
 - 离散：线性中心面插值、最小二乘梯度、二阶线性迎风对流、正交扩散；
-- 线性后端：GMRES(30) 加局部聚合 AMG 预条件器；
+- 线性后端：BiCGSTAB 加 AMG 预条件器；MPI 时包含全局聚合粗网格校正；
 - 终止条件：质量残差 `1e-8`、速度相对变化 `8e-4`。
 
 最后两项刻意面向稳定、可重复的吞吐比较，使 1、2、4 个 MPI rank 都在十分钟内完成近似相同的外迭代工作量。它们不适合替代收紧 `continuityTolerance`、`velocityTolerance` 与线性容差后的精度/网格无关性验证。
@@ -24,4 +24,6 @@ mpirun -np 4 build/babelsim-solve -case cases/cavity/benchmark-re1000-n128 -time
 build/babelsim-post -case cases/cavity/benchmark-re1000-n128 -time throughput-np4 -format vtk tecplot
 ```
 
-本机实测数据、热点和强缩放解释见 `docs/reports/re1000-n128-mpi-performance.md`。
+旧局部 AMG/GMRES 数据见 `docs/reports/re1000-n128-mpi-performance.md`；当前
+BiCGSTAB+ILUT/分布式 AMG 的 time-to-solution、固定外迭代、计数器和热点见
+`docs/reports/backend-performance-optimization.md`。
