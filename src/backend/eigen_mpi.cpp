@@ -24,6 +24,10 @@ double secondsSince(Clock::time_point start) {
     return std::chrono::duration<double>(Clock::now() - start).count();
 }
 
+bool hasPreconditioner(const LinearSolverConfig& config) {
+    return config.preconditioner != PreconditionerType::None;
+}
+
 template <typename Equation>
 void prepare(
     const Eigen::SparseMatrix<double>& matrix,
@@ -56,6 +60,8 @@ public:
           m_vector_assembly(mesh),
           m_scalar_solver(scalar_config),
           m_vector_solver(vector_config),
+          m_scalar_has_preconditioner(hasPreconditioner(scalar_config)),
+          m_vector_has_preconditioner(hasPreconditioner(vector_config)),
           m_scalar_source(Eigen::VectorXd::Zero(ownedCellCount(mesh))),
           m_scalar_solution(Eigen::VectorXd::Zero(ownedCellCount(mesh)))
     {
@@ -117,8 +123,10 @@ public:
         prepare(
             m_scalar_assembly.matrix(), equation, m_scalar_pattern_ready,
             m_scalar_solver, m_scalar_distributed.get());
-        ++m_performance.preconditioner_setups;
-        m_performance.preconditioner_seconds += secondsSince(start);
+        if (m_scalar_has_preconditioner) {
+            ++m_performance.preconditioner_setups;
+            m_performance.preconditioner_seconds += secondsSince(start);
+        }
 
         for (Index cell : meshData(*m_mesh).owned_cells) {
             m_scalar_solution[ownedIndex(*m_mesh, cell)] = fieldData(unknown)[cell];
@@ -150,8 +158,10 @@ public:
         prepare(
             m_vector_assembly.matrix(), equation, m_vector_pattern_ready,
             m_vector_solver, m_vector_distributed.get());
-        ++m_performance.preconditioner_setups;
-        m_performance.preconditioner_seconds += secondsSince(start);
+        if (m_vector_has_preconditioner) {
+            ++m_performance.preconditioner_setups;
+            m_performance.preconditioner_seconds += secondsSince(start);
+        }
 
         for (Index cell : meshData(*m_mesh).owned_cells) {
             for (std::size_t component = 0; component < 3; ++component) {
@@ -209,6 +219,8 @@ private:
     SparseAssembly m_vector_assembly;
     PreparedLinearSolver m_scalar_solver;
     PreparedLinearSolver m_vector_solver;
+    bool m_scalar_has_preconditioner;
+    bool m_vector_has_preconditioner;
     std::unique_ptr<DistributedLinearSolver> m_scalar_distributed;
     std::unique_ptr<DistributedLinearSolver> m_vector_distributed;
     Eigen::VectorXd m_scalar_source;

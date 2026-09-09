@@ -3,6 +3,9 @@
 本文面向框架维护者。普通 Solver 作者先读 [开发指南](solver-development.md)：
 作者组合方程和算法；维护者负责这些数学操作如何离散、存储和并行执行。
 
+> 当前基线（2026-09-09）：框架只支持显式非结构六面体网格。任何规则外形的网格也必须
+> 以顶点、单元连接和 patch 四边形写入；不存在逻辑坐标、方向分区或旧网格读取兼容层。
+
 ## 本轮解决的问题
 
 - 公开 math 曾混有不负责通信的单面内核。现在公开入口统一为整场 evaluate/subtract，
@@ -32,7 +35,7 @@
 
 | 层次 | 主要文件 | 职责 | 禁止依赖/承担 |
 | --- | --- | --- | --- |
-| 几何/拓扑 | mesh.h、core/mesh.cpp | 几何、拓扑、构造校验、固定布局和缓存 | MPI 调用、物理模型 |
+| 几何/拓扑 | mesh.h、core/mesh.cpp | 显式八顶点单元、面匹配、几何缓存和构造校验 | MPI 调用、物理模型 |
 | 场/边界 | field.h | scalar/vector/tensor、位置、数学赋值、边界 | 离散、历史、通信 |
 | 数学描述 | eqn.h、math.h、equation_expression.cpp | 轻量项与 lhs == rhs | 矩阵分配、通信、执行 |
 | 方法 | methods.h | enum 默认格式和按场名覆盖 | 物理算法状态 |
@@ -60,12 +63,18 @@ FVM 数值前端只接收网格、方法、计算后端和步长，不知道应�
 solver_api.cpp 是已有公开函数的绑定实现，不是新增 Facade/Manager 类。
 
 默认后端的 AMG 只作为 Krylov 预条件器。串行路径使用轻量聚合 V-cycle；MPI 路径在分布式
-细网格上做加权 Jacobi 平滑，通过全局 cell ID 建立确定的几何聚合，把各 rank 的
+细网格上做加权 Jacobi 平滑，通过完整单元邻接图建立确定性图聚合，把各 rank 的
 `P^T A P` 贡献归约为小型全局粗矩阵，并将粗网格校正延拓回各自 owned 行。粗矩阵只复制到
-各 rank，不复制完整细网格矩阵；其规模由 `amgCoarseSize` 限制。Krylov matvec 先投递第一层
-halo，只打包分区边界 owned 值，再计算内部行、等待通信并计算边界行。BiCGSTAB 将本轮残差
+各 rank，不复制完整细网格矩阵；其规模由 `amgCoarseSize` 限制。Krylov matvec 根据远程
+cell ID 同步第一层 halo 后施加跨分区耦合。BiCGSTAB 将本轮残差
 范数和下一轮 rho 合并到一次归约。上述变化全部位于默认计算后端，`eqn/math/solve`、FVM
 和 Physics API 不变。
+
+这不是完整的分布式多层 AMG：当前粗矩阵和粗解在各 rank 复制，且粗层最多 2048 行。
+它避免复制细网格矩阵，适合小到中等规模的验证，却不能作为大规模集群可扩展性的承诺。
+真正的全局聚合 AMG 需要继续分布粗层、进程聚合、粗层 halo 和递归 V-cycle。默认构建显式
+使用 `-ffp-contract=off`，避免 FMA 在不同分区的 Krylov 路径上额外放大舍入差异；这不是
+逐位可复现性的承诺，停止判据仍必须用全局量。
 
 Field 的 halo 有效标记同样是后端维护状态：公开 Field 仍表示完整数学场。连续 `math`
 操作会复用已同步输入；任何公开场变换或内部可写借用都会使状态确定地传播或失效。该状态
@@ -160,7 +169,7 @@ FVM、Runtime、并行或线性代数增加 SIMPLE 专用接口。
 | 旧接口/文件 | 当前替代 |
 | --- | --- |
 | Field::data/mutableData/values/at/operator[] | 普通作者用数学场操作；维护者用 internal/field_access.h |
-| Mesh 公开数组、setOwnership/setPatches/addPatchFace、整体赋值 | 只读几何 API；维护者用 internal/mesh_access.h |
+| Mesh 公开数组、分区/patch 修改、整体赋值 | 只读几何 API；维护者用 internal/mesh_access.h |
 | math::integratedNormalGradient 单面函数 | math::evaluate(math::normalGradient(p), result)；局部核留在 operators |
 | SIMPLE 专用求解转发 | solveWithResponse(eq,rAU,relaxed(alpha))；solve(eq,referenceValue(value)) |
 | detail::solve 与 ScalarEquationControl | 公开 EquationControl；矢量装配的可选响应仍是内部实现 |

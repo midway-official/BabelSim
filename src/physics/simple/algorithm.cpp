@@ -80,6 +80,7 @@ void SteadySimpleAlgorithm::checkContinuity() {
         (result.turbulence.healthy() && std::isfinite(result.relative_turbulence_change));
     result.healthy = diagnostics::all(state.m_pressure_healthy && turbulence_healthy &&
         std::isfinite(result.relative_velocity_change) &&
+        std::isfinite(result.relative_pressure_correction) &&
         std::isfinite(result.continuity.relative) && result.velocity.healthy());
     result.linear_converged = diagnostics::all(
         state.m_pressure_converged && result.velocity.converged() &&
@@ -88,6 +89,8 @@ void SteadySimpleAlgorithm::checkContinuity() {
     result.converged = result.healthy && result.linear_converged && diagnostics::all(
         result.continuity.relative <= state.m_control.continuity_tolerance &&
         result.relative_velocity_change <= state.m_control.velocity_tolerance &&
+        result.relative_pressure_correction <=
+            state.m_control.pressure_correction_tolerance &&
         (!result.turbulence_active || result.relative_turbulence_change <=
             rans::tolerance(*state.m_turbulence)));
     state.m_step = State::Step::Complete;
@@ -115,6 +118,7 @@ void SteadySimpleAlgorithm::State::report() const {
     message << "SIMPLE " << m_iteration << std::scientific << std::setprecision(6)
             << " mass=" << m_result.continuity.relative
             << " dU=" << m_result.relative_velocity_change
+            << " dP=" << m_result.relative_pressure_correction
             << " linP=" << m_result.pressure.relative_residual
             << " dTurb=" << m_result.relative_turbulence_change
             << " linear=" << (m_result.linear_converged ? "ok" : "inexact")

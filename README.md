@@ -30,23 +30,23 @@ Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poi
 **Algorithm-driven**，用多个 Equation 与 Correction 直接表达算法流程。两者共享同一套
 Field、`eqn/math`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
 
-当前实现使用统一的三维结构化六面体网格；二维问题是 `nz=1` 的退化三维网格，
+当前实现只使用显式连接的三维非结构六面体网格；薄域问题仍是六面体层，
 不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、
 正交系数、非正交修正向量、偏斜量和插值权重，以少量内存换取迭代热点中的计算速度。
 
 已实现：
 
-- 三维结构化正交/非正交网格、边界 patch、cell/face/vertex 拓扑；
+- 三维非结构六面体网格、边界 patch、cell/face/vertex 拓扑；
 - 连续存储的 scalar/vector/tensor Field 与通用边界条件；
 - Gradient、Interpolation、Flux、Divergence、Convection、Diffusion、Laplacian、
   TimeDerivative 等有限体积算子；
 - 三维非正交/偏斜修正：Least-Squares、修正 Green--Gauss、修正面插值、非正交
   扩散与压力法向梯度，以及面通量和中心对流的一致重构；
 - LDU 方程、稀疏装配、串行与分布式 CG/BiCGSTAB，以及只作为预条件器的 AMG；
-- MPI Krylov 使用通信重叠的 halo matvec 和融合归约；MPI AMG 具有跨 rank 的全局聚合粗网格；
+- MPI Krylov 使用按 global cell ID 的稀疏 halo matvec 和融合归约；MPI AMG 具有跨 rank 的图聚合粗网格；
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
-- 分布式网格读取：rank 0 解析原生 `.mesh`，只发送各 rank 局部几何；不会在每个
-  rank 重复保留全局 Mesh/Field；
+- 分布式网格读取：rank 0 解析原生 `.mesh`，并由并行层按单元邻接图构造每个 rank
+  的 owned+ghost 局部 Mesh；
 - 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
 - 轻量 `eqn/math` 编程模型：方程表达式只在 `solve()` 时离散，场运算按需执行，不复制大矩阵；
 - `heat` 常物性瞬态热传导入口；通用方程 API 同时支持常数或 Field 系数；
@@ -67,8 +67,8 @@ Heat/Transport 不再维护重复的库式入口。`make test-architecture` 自�
 不编译或运行任何测试。测试与验证必须另行显式调用 `make test*` / `make validate*` 的具体目标。
 
 默认优化为 `-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects
--ffast-math -fno-finite-math-only -ffp-contract=fast -DNDEBUG`：启用本机 CPU 优化、
-跨文件优化、浮点重结合与倒数优化、融合乘加，并关闭调试断言。仍使用 double，
+-ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG`：启用本机 CPU 优化、
+跨文件优化、浮点重结合与倒数优化，关闭融合乘加和调试断言。仍使用 double，
 保留 NaN/Inf 检查及显式参数/收敛校验；不保证严格 IEEE 运算顺序或逐位一致。
 快速数学还可能改变极小数、舍入和溢出行为，因此既有数值验证结论不能直接替代本配置的验证。
 这些选项的含义参见 [GCC 优化选项](https://gcc.gnu.org/onlinedocs/gcc-11.4.0/gcc/Optimize-Options.html)。
@@ -121,7 +121,7 @@ python3 tools/compare_parallel_results.py \
 ```text
 cases/poiseuille/
 ├── case.bs                    # 选择求解器与各文件的相对路径
-├── mesh/poiseuille.mesh       # 几何、拓扑尺寸、patch 名称与角色
+├── mesh/poiseuille.mesh       # 显式 Hex 几何、拓扑与 patch 名称和角色
 ├── fields/initial/U.field     # 初值与 U 的边界条件
 ├── fields/initial/p.field     # 初值与 p 的边界条件
 ├── physics/simple.bs          # 密度、黏度等物性
@@ -138,8 +138,9 @@ XML `.vtu` 或 Tecplot `FEBRICK` 文件；`-time all -format vtk` 还会产生
 ParaView 可直接打开的 `post/series.pvd`。
 
 库代码需要从已存在的全局网格分区时仍可使用 `decompose()`；启动器和文件型并行程序
-应使用 `readDistributedMesh(path, parallel)`。该接口在 rank 0 读取网格、广播尺寸和
-patch 元数据、点对点发送局部顶点；接收方只持有本地 owned+ghost 几何和索引映射。
+应使用 `readDistributedMesh(path, parallel)`。该接口在 rank 0 读取网格，Parallel 层
+根据单元邻接关系建立 owned+ghost 几何、processor patch 和 global ID 映射；Physics 与
+方程层不接触该分区细节。
 
 ## 测试与验证
 

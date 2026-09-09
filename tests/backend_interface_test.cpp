@@ -52,7 +52,7 @@ public:
 }  // 匿名命名空间
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
+    const Mesh mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     auto backend = std::make_unique<RecordingBackend>();
     RecordingBackend* recording = backend.get();
     Methods methods;

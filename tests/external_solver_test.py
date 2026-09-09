@@ -110,7 +110,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "mesh_arrays": 'mesh.cell_volumes[0] = 0.0;',
         "mesh_partition": 'auto cells = mesh.ownedCellCount(); (void)cells;',
         "mesh_mutation": 'mesh.setOwnership({1,1,1}, 0, 0, 1, 0);',
-        "mesh_replacement": 'mesh = Mesh::cartesian({2,1,1}, {}, {1,1,1});',
+        "mesh_replacement": 'mesh = explicitHex();',
         "equation_storage": 'auto e = eqn::ddt(field) == 0.0; e.discrete();',
         "face_kernel": 'math::integratedNormalGradient(field, field, 0);',
     }
@@ -120,10 +120,16 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "mesh_mutation": "setOwnership", "mesh_replacement": "operator=",
         "equation_storage": "discrete", "face_kernel": "integratedNormalGradient",
     }
+    mesh_initialization = (
+        'Mesh explicitHex(){ return Mesh::unstructured('
+        '{{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}},'
+        '{{{0,1,2,3,4,5,6,7}}},{{"all",PatchKind::Generic}},'
+        '{{{0,4,7,3},0},{{1,2,6,5},0},{{0,1,5,4},0},{{3,7,6,2},0},'
+        '{{0,3,2,1},0},{{4,5,6,7},0}}); }\n')
     for name, body in negative.items():
         source = work / f"{name}.cpp"
         source.write_text('#include "babelsim/solver.h"\nusing namespace babelsim;\n'
-                          'int main(){ Mesh mesh = Mesh::cartesian({1,1,1}, {}, {1,1,1});\n'
+                          + mesh_initialization + 'int main(){ Mesh mesh = explicitHex();\n'
                           'ScalarField field(mesh, FieldLocation::Cell);\n' + body + '\n}\n')
         failure = run("g++", "-std=c++17", "-Iinclude", "-fsyntax-only", source, cwd=work, success=False)
         assert expected_diagnostics[name] in failure.stderr, (name, failure.stderr)

@@ -4,7 +4,6 @@
 
 #include <array>
 #include <cstdint>
-#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,7 +16,6 @@ constexpr Index invalid_index = -1;
 
 // Mesh 的数组一旦构造完成，其长度决定所有整数索引和 Field 布局。该轻量容器
 // 保留连续 vector 存储和索引性能，但把会改变容量的操作限制为 Mesh 的成员函数。
-// 外部仍可在受控的构造阶段修改元素值，不能通过公开 API resize/clear/push_back。
 template <typename T>
 class MeshStorage {
 public:
@@ -55,15 +53,6 @@ private:
     std::vector<T> m_data;
 };
 
-enum class Side : std::size_t {
-    XMin,
-    XMax,
-    YMin,
-    YMax,
-    ZMin,
-    ZMax,
-};
-
 enum class PatchKind {
     Generic,
     Wall,
@@ -84,26 +73,28 @@ struct BoundaryPatch {
     MeshStorage<Index> faces;
 };
 
-std::array<PatchSpec, 6> defaultPatches();
+// 每个边界四边形通过全局于该 Mesh 的顶点编号及所属 patch 显式给出。
+// 顶点环绕方向可以任选；Mesh 会按 owner 单元的外法向修正面方向。
+struct BoundaryFaceSpec {
+    std::array<Index, 4> vertices{};
+    Index patch = invalid_index;
+};
 
+// 只表示显式连接的非结构六面体网格。Hex 顶点顺序采用 VTK_HEXAHEDRON：
+// (0,1,2,3) 为一侧环，(4,5,6,7) 为对侧对应环。网格没有逻辑坐标、维度
+// 或规则编号；单元、面所有权和 ghost 信息只服务局部并行分区。
 struct Mesh {
 private:
     friend struct detail::MeshAccess;
     struct Storage {
-        std::array<Index, 3> dimensions{};
-        std::array<Index, 3> global_dimensions{};
-        Index global_i_offset = 0;
-        Index owned_i_begin = 0;
-        Index owned_i_end = 0;
+        Index global_cell_count = 0;
         Index ghost_layers = 0;
-        // 网格构造阶段识别的正交几何标志。正交网格无需重复执行偏斜面重构。
         bool orthogonal_geometry = true;
 
-        // 结构化数组形式的拓扑与几何。相同数组同时服务 nx*ny*1 和完整三维网格。
         MeshStorage<Vec3> vertices;
+        MeshStorage<std::array<Index, 8>> cell_vertices;
         MeshStorage<Vec3> cell_centres;
         MeshStorage<double> cell_volumes;
-        // 常用几何量的倒数/归一化缓存，避免算子热路径重复做除法。
         MeshStorage<double> cell_inverse_volumes;
         MeshStorage<std::array<Index, 6>> cell_faces;
         MeshStorage<std::array<Index, 6>> cell_neighbours;
@@ -122,12 +113,14 @@ private:
         MeshStorage<double> face_owner_weights;
         MeshStorage<BoundaryPatch> patches;
 
-        // 局部结构化 cell ID 仍是存储索引。这些紧凑映射选择分布式代数和输出使用的 owned 子集。
         MeshStorage<Index> owned_cells;
-        // 至少连接一个 owned cell 的面。分区后代数装配和物理更新无需扫描 ghost-only 面。
         MeshStorage<Index> owned_faces;
         MeshStorage<Index> cell_owned_indices;
         MeshStorage<Index> cell_global_ids;
+        MeshStorage<Index> cell_owner_ranks;
+        MeshStorage<Index> cell_ghost_depths;
+        MeshStorage<Index> face_global_ids;
+        MeshStorage<Index> face_owner_ranks;
     } m_storage;
 
 public:
@@ -135,53 +128,39 @@ public:
     Mesh(const Mesh&) = default;
     Mesh(Mesh&&) noexcept = default;
 
-    static Mesh structured(
-        std::array<Index, 3> cells,
-        std::vector<Vec3> points,
-        const std::array<PatchSpec, 6>& boundary = defaultPatches());
+    static Mesh unstructured(
+        std::vector<Vec3> vertices,
+        std::vector<std::array<Index, 8>> cells,
+        std::vector<PatchSpec> patches,
+        std::vector<BoundaryFaceSpec> boundary_faces);
 
-    static Mesh cartesian(
-        std::array<Index, 3> cells,
-        Vec3 minimum,
-        Vec3 maximum,
-        const std::array<PatchSpec, 6>& boundary = defaultPatches());
-
-    Index cellCount() const;
+    Index cellCount() const { return static_cast<Index>(m_storage.cell_vertices.size()); }
+    Index globalCellCount() const { return m_storage.global_cell_count; }
     Index faceCount() const { return static_cast<Index>(m_storage.face_owner.size()); }
     Index vertexCount() const { return static_cast<Index>(m_storage.vertices.size()); }
-    Index owner(Index face) const { return m_storage.face_owner[static_cast<std::size_t>(face)]; }
-    Index neighbour(Index face) const {
-        return m_storage.face_neighbour[static_cast<std::size_t>(face)];
+    Index owner(Index face) const { return m_storage.face_owner.at(face); }
+    Index neighbour(Index face) const { return m_storage.face_neighbour.at(face); }
+    const Vec3& faceCentre(Index face) const { return m_storage.face_centres.at(face); }
+    const Vec3& cellCentre(Index cell) const { return m_storage.cell_centres.at(cell); }
+    const Vec3& faceAreaVector(Index face) const { return m_storage.face_area_vectors.at(face); }
+    const std::array<Index, 8>& cellVertices(Index cell) const {
+        return m_storage.cell_vertices.at(cell);
     }
-    const Vec3& faceCentre(Index face) const {
-        return m_storage.face_centres[static_cast<std::size_t>(face)];
+    const std::array<Index, 4>& faceVertices(Index face) const {
+        return m_storage.face_vertices.at(face);
     }
-    const Vec3& cellCentre(Index cell) const {
-        return m_storage.cell_centres[static_cast<std::size_t>(cell)];
-    }
-    const Vec3& faceAreaVector(Index face) const {
-        return m_storage.face_area_vectors[static_cast<std::size_t>(face)];
-    }
-    double faceArea(Index face) const { return m_storage.face_areas[static_cast<std::size_t>(face)]; }
+    double faceArea(Index face) const { return m_storage.face_areas.at(face); }
     double faceOrthogonalCoefficient(Index face) const {
-        return m_storage.face_orthogonal_coefficients[static_cast<std::size_t>(face)];
+        return m_storage.face_orthogonal_coefficients.at(face);
     }
     const Vec3& faceNonOrthogonal(Index face) const {
-        return m_storage.face_non_orthogonal[static_cast<std::size_t>(face)];
+        return m_storage.face_non_orthogonal.at(face);
     }
-    double faceOwnerWeight(Index face) const {
-        return m_storage.face_owner_weights[static_cast<std::size_t>(face)];
-    }
+    double faceOwnerWeight(Index face) const { return m_storage.face_owner_weights.at(face); }
     bool orthogonalGeometry() const { return m_storage.orthogonal_geometry; }
-    bool boundaryFace(Index face) const {
-        return m_storage.face_neighbour[static_cast<std::size_t>(face)] == invalid_index;
-    }
-    Vec3 faceNormal(Index face) const {
-        return m_storage.face_normals[static_cast<std::size_t>(face)];
-    }
+    bool boundaryFace(Index face) const { return m_storage.face_neighbour.at(face) == invalid_index; }
+    Vec3 faceNormal(Index face) const { return m_storage.face_normals.at(face); }
 
-    Index cellId(Index i, Index j, Index k) const;
-    Index vertexId(Index i, Index j, Index k) const;
     Index patchCount() const { return static_cast<Index>(m_storage.patches.size()); }
     const std::string& patchName(Index patch) const { return m_storage.patches.at(patch).name; }
     PatchKind patchKind(Index patch) const { return m_storage.patches.at(patch).kind; }
@@ -194,18 +173,20 @@ private:
     bool isOwned(Index cell) const;
     Index ownedIndex(Index cell) const;
     Index globalCellId(Index cell) const;
+    Index globalFaceId(Index face) const;
+    Index cellOwnerRank(Index cell) const;
+    Index faceOwnerRank(Index face) const;
     Mesh& operator=(const Mesh&) = default;
     Mesh& operator=(Mesh&&) noexcept = default;
-    void setOwnership(
-        std::array<Index, 3> global_cells,
-        Index global_x_offset,
-        Index owned_x_begin,
-        Index owned_x_end,
-        Index halo_layers);
-    // 仅用于构造/分区阶段一次性替换 patch 拓扑；调用后应立即 validate()。
-    void setPatches(std::vector<BoundaryPatch> patches);
-    // 受控地登记一个边界面，避免调用者直接改变 patch 面列表容量。
-    void addPatchFace(Index patch, Index face);
+    void setPartition(
+        Index global_cells,
+        Index layers,
+        std::vector<Index> cell_ids,
+        std::vector<Index> cell_owners,
+        std::vector<Index> cell_depths,
+        std::vector<Index> face_ids,
+        std::vector<Index> face_owners,
+        Index local_rank);
 };
 
 }  // babelsim 命名空间

@@ -84,7 +84,7 @@ int main() {
     run_control.scalar_solver.relative_tolerance = 1e-10;
 
     RunTime run_time = RunTime::forMesh(mesh, run_control);
-    const Mesh other_mesh = Mesh::cartesian({2, 2, 1}, {}, {1, 1, 1});
+    const Mesh other_mesh = makeHexBox({2, 2, 1}, {}, {1, 1, 1});
     IncompressibleFields other_fields(other_mesh);
     rejected = false;
     try { SteadySimpleAlgorithm wrong_mesh(other_fields, {1.0, 0.01}, control); }
@@ -107,6 +107,9 @@ int main() {
     require(
         result.continuity.relative <= control.continuity_tolerance,
         "SIMPLE converged without satisfying continuity");
+    require(
+        result.relative_pressure_correction <= control.pressure_correction_tolerance,
+        "SIMPLE converged without satisfying pressure-correction tolerance");
 
     double maximum_z_velocity = 0.0;
     for (const Vec3& velocity : detail::fieldValues(fields.velocity)) {

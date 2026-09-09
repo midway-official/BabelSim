@@ -8,7 +8,7 @@
 using namespace babelsim;
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
+    const Mesh mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     RuntimeControl control;
     control.time.delta_t = 0.1;
     control.time.end_time = 0.1;

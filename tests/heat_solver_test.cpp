@@ -12,7 +12,7 @@
 using namespace babelsim;
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0});
+    const Mesh mesh = makeHexBox({1, 1, 1}, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0});
     ScalarField temperature(mesh, FieldLocation::Cell, "T", 1.0);
     for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         temperature.setBoundary(patch, BoundaryCondition<double>::fixedValue(0.0));

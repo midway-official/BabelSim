@@ -25,25 +25,25 @@ int main(int argc, char* argv[]) {
             parallel.size == 1 || parallel.size == 2 || parallel.size == 4,
             "parallel_simple_test supports one, two, or four MPI ranks");
         constexpr Index n = 12;
-        auto patches = defaultPatches();
-        for (Side side : {Side::XMin, Side::XMax, Side::YMin, Side::YMax}) {
+        auto patches = boxPatches();
+        for (Index side : {0, 1, 2, 3}) {
             patches[static_cast<std::size_t>(side)].kind = PatchKind::Wall;
         }
-        patches[static_cast<std::size_t>(Side::ZMin)].kind = PatchKind::Symmetry;
-        patches[static_cast<std::size_t>(Side::ZMax)].kind = PatchKind::Symmetry;
-        const Mesh global = Mesh::cartesian(
+        patches[static_cast<std::size_t>(4)].kind = PatchKind::Symmetry;
+        patches[static_cast<std::size_t>(5)].kind = PatchKind::Symmetry;
+        const Mesh global = makeHexBox(
             {n, n, 1}, {0, 0, 0}, {1, 1, 1}, patches);
         const Mesh mesh = decompose(global, parallel);
         IncompressibleFields fields(mesh);
-        for (Side side : {Side::XMin, Side::XMax, Side::YMin}) {
+        for (Index side : {0, 1, 2}) {
             fields.velocity.setBoundary(
                 static_cast<Index>(side),
                 BoundaryCondition<Vec3>::fixedValue({}));
         }
         fields.velocity.setBoundary(
-            static_cast<Index>(Side::YMax),
+            static_cast<Index>(3),
             BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
-        for (Side side : {Side::ZMin, Side::ZMax}) {
+        for (Index side : {4, 5}) {
             fields.velocity.setBoundary(
                 static_cast<Index>(side),
                 BoundaryCondition<Vec3>::symmetry());
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
             minimum_iterations == maximum_iterations,
             "MPI ranks stopped SIMPLE at different outer iterations");
 
-        const Index centre_global = global.cellId(n / 2 - 1, n / 2 - 1, 0);
+        const Index centre_global = hexCellIndex(n / 2 - 1, n / 2 - 1, 0, n, n);
         double local_centre_u = 0.0;
         double local_maximum_z = 0.0;
         for (Index cell : detail::meshData(mesh).owned_cells) {

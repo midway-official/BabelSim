@@ -132,15 +132,9 @@ void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultD
     for (const Vec3& point : detail::meshData(mesh).vertices) output << point.x << ' ' << point.y << ' ' << point.z << '\n';
     output << "</DataArray></Points>\n<Cells>\n"
               "<DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
-    for (Index k = 0; k < detail::meshData(mesh).dimensions[2]; ++k) {
-        for (Index j = 0; j < detail::meshData(mesh).dimensions[1]; ++j) {
-            for (Index i = 0; i < detail::meshData(mesh).dimensions[0]; ++i) {
-                output << mesh.vertexId(i, j, k) << ' ' << mesh.vertexId(i + 1, j, k) << ' '
-                       << mesh.vertexId(i + 1, j + 1, k) << ' ' << mesh.vertexId(i, j + 1, k) << ' '
-                       << mesh.vertexId(i, j, k + 1) << ' ' << mesh.vertexId(i + 1, j, k + 1) << ' '
-                       << mesh.vertexId(i + 1, j + 1, k + 1) << ' ' << mesh.vertexId(i, j + 1, k + 1) << '\n';
-            }
-        }
+    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+        for (Index vertex : mesh.cellVertices(cell)) output << vertex << ' ';
+        output << '\n';
     }
     output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << 8LL * (cell + 1) << '\n';
@@ -182,15 +176,9 @@ void writeTecplot(const std::filesystem::path& path, const Mesh& mesh, const Res
             }
         }
     }
-    for (Index k = 0; k < detail::meshData(mesh).dimensions[2]; ++k) {
-        for (Index j = 0; j < detail::meshData(mesh).dimensions[1]; ++j) {
-            for (Index i = 0; i < detail::meshData(mesh).dimensions[0]; ++i) {
-                output << mesh.vertexId(i, j, k) + 1 << ' ' << mesh.vertexId(i + 1, j, k) + 1 << ' '
-                       << mesh.vertexId(i + 1, j + 1, k) + 1 << ' ' << mesh.vertexId(i, j + 1, k) + 1 << ' '
-                       << mesh.vertexId(i, j, k + 1) + 1 << ' ' << mesh.vertexId(i + 1, j, k + 1) + 1 << ' '
-                       << mesh.vertexId(i + 1, j + 1, k + 1) + 1 << ' ' << mesh.vertexId(i, j + 1, k + 1) + 1 << '\n';
-            }
-        }
+    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+        for (Index vertex : mesh.cellVertices(cell)) output << vertex + 1 << ' ';
+        output << '\n';
     }
     output.close();
     if (!output) throw std::runtime_error("cannot flush Tecplot output");
@@ -213,8 +201,8 @@ int run(const Arguments& arguments) {
     bool writes_vtk = false;
     for (const auto& directory : time_directories) {
         const ResultData results = readParallelResults(directory, mesh.cellCount());
-        if (results.global_dimensions != detail::meshData(mesh).dimensions)
-            throw std::runtime_error("result global dimensions do not match the case mesh");
+        if (results.global_cell_count != mesh.globalCellCount())
+            throw std::runtime_error("result global cell count does not match the case mesh");
         const std::string name = directory.filename().string();
         double actual, expected;
         if (all && (!numericalTime(results.time_name, actual) || !numericalTime(name, expected) ||

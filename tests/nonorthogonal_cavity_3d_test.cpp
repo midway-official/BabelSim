@@ -36,11 +36,11 @@ Mesh warpedCavity(Index n) {
             }
         }
     }
-    auto patches = defaultPatches();
+    auto patches = boxPatches();
     for (auto& patch : patches) {
         patch.kind = PatchKind::Wall;
     }
-    return Mesh::structured({n, n, n}, std::move(points), patches);
+    return makeHexFromVertices({n, n, n}, std::move(points), patches);
 }
 
 }  // 匿名命名空间
@@ -72,7 +72,7 @@ int main() {
             patch, BoundaryCondition<Vec3>::fixedValue({}));
     }
     fields.velocity.setBoundary(
-        static_cast<Index>(Side::YMax),
+        static_cast<Index>(3),
         BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
 
     RuntimeControl run_control;
@@ -107,7 +107,7 @@ int main() {
     }
     require(result.converged, "3D non-orthogonal cavity did not converge");
 
-    const Index centre = mesh.cellId(n / 2, n / 2, n / 2);
+    const Index centre = hexCellIndex(n / 2, n / 2, n / 2, n, n);
     require(
         detail::fieldData(fields.velocity)[centre].x < -0.015,
         "3D non-orthogonal cavity primary vortex is missing");

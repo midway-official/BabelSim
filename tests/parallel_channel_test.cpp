@@ -111,6 +111,8 @@ int main(int argc, char* argv[]) {
             }
         }
         require(result.converged, "distributed channel SIMPLE did not converge");
+        require(result.relative_pressure_correction <= control.pressure_correction_tolerance,
+                "distributed channel SIMPLE converged with an unresolved pressure correction");
 
         Vec3 local_sum{};
         double local_max = 0.0;
@@ -130,6 +132,7 @@ int main(int argc, char* argv[]) {
                       << " iterations=" << iterations
                       << " mass=" << result.continuity.relative
                       << " dU=" << result.relative_velocity_change
+                      << " dP=" << result.relative_pressure_correction
                       << " sumU=(" << global_sum_values[0] << ','
                       << global_sum_values[1] << ',' << global_sum_values[2]
                       << ") maxU=" << global_max << '\n';

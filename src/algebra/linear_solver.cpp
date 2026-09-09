@@ -26,6 +26,10 @@ bool usesAmg(const LinearSolverConfig& config) {
     return config.preconditioner == PreconditionerType::AlgebraicMultigrid;
 }
 
+bool hasPreconditioner(const LinearSolverConfig& config) {
+    return config.preconditioner != PreconditionerType::None;
+}
+
 struct KrylovWorkspace {
     Eigen::VectorXd residual;
     Eigen::VectorXd product;
@@ -65,7 +69,10 @@ struct PreparedLinearSolver::Implementation {
     bool precondition(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
         const Clock::time_point start = Clock::now();
         bool success = false;
-        if (usesAmg(config)) {
+        if (!hasPreconditioner(config)) {
+            output = input;
+            success = true;
+        } else if (usesAmg(config)) {
             success = amg && amg->apply(input, output);
             if (amg) {
                 current_performance.sparse_matvecs += amg->lastSparseMatvecs();
@@ -79,8 +86,10 @@ struct PreparedLinearSolver::Implementation {
             output = ilut.solve(input);
             success = ilut.info() == Eigen::Success;
         }
-        ++current_performance.preconditioner_applications;
-        current_performance.preconditioner_apply_seconds += secondsSince(start);
+        if (hasPreconditioner(config)) {
+            ++current_performance.preconditioner_applications;
+            current_performance.preconditioner_apply_seconds += secondsSince(start);
+        }
         return success && output.allFinite();
     }
 
@@ -238,7 +247,7 @@ void LinearSolverConfig::validate() const {
         amg_smoothing_steps <= 0 || amg_refresh_interval <= 0) {
         throw std::invalid_argument("linear solver configuration is invalid");
     }
-    const bool supported =
+    const bool supported = preconditioner == PreconditionerType::None ||
         (solver == LinearSolverType::ConjugateGradient &&
          (preconditioner == PreconditionerType::IncompleteCholesky ||
           preconditioner == PreconditionerType::AlgebraicMultigrid)) ||
@@ -270,6 +279,11 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& matrix) {
     state.workspace.resize(state.matrix.rows());
     state.pattern_analyzed = false;
     state.factorization_succeeded = false;
+    if (!hasPreconditioner(state.config)) {
+        state.pattern_analyzed = true;
+        state.factorization_succeeded = true;
+        return;
+    }
     if (usesAmg(state.config)) {
         state.amg = std::make_unique<detail::AlgebraicMultigrid>(state.config);
         state.amg->compute(state.matrix);
@@ -300,6 +314,10 @@ void PreparedLinearSolver::factorize(const Eigen::SparseMatrix<double>& matrix) 
     }
     state.matrix = matrix;
     state.factorization_succeeded = false;
+    if (!hasPreconditioner(state.config)) {
+        state.factorization_succeeded = true;
+        return;
+    }
     if (usesAmg(state.config)) {
         if (++state.amg_updates_since_factorization >= state.config.amg_refresh_interval) {
             state.amg->factorize(state.matrix);

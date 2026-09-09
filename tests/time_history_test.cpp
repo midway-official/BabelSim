@@ -8,7 +8,7 @@
 using namespace babelsim;
 
 void checkHistory(TimeMethod method) {
-    const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
+    const Mesh mesh = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
     ScalarField T(mesh, FieldLocation::Cell, "T", 0.0);
     VectorField U(mesh, FieldLocation::Cell, "U", {});
     RuntimeControl control;
@@ -33,7 +33,7 @@ int main() {
     checkHistory(TimeMethod::Euler);
     checkHistory(TimeMethod::BDF2);
     {
-        const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
+        const Mesh mesh = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
         ScalarField T(mesh, FieldLocation::Cell, "T", 0.0);
         RuntimeControl control;
         control.methods.time = TimeMethod::Euler;
@@ -55,7 +55,7 @@ int main() {
     } catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "variable-step BDF2 must not silently use uniform-step coefficients");
     {
-        const Mesh mesh = Mesh::cartesian({6, 5, 1}, {0, 0, 0}, {1, 1, 1});
+        const Mesh mesh = makeHexBox({6, 5, 1}, {0, 0, 0}, {1, 1, 1});
         VectorField U(mesh, FieldLocation::Cell, "U");
         for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch)
             U.boundary(patch) = fixedValue(Vec3{});

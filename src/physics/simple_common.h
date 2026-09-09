@@ -30,6 +30,9 @@ struct SimpleControl {
     double pressure_relaxation = 0.3;
     double continuity_tolerance = 1e-8;
     double velocity_tolerance = 1e-7;
+    // p' 是本轮用于更新 p 的未松弛压力修正。仅检查速度变化会让不同
+    // 分区在压力仍变化时过早停止，因此它必须有独立的外迭代门槛。
+    double pressure_correction_tolerance = 1e-6;
 
     void validate() const {
         if (max_iterations <= 0 || non_orthogonal_corrections < 0 ||
@@ -37,7 +40,9 @@ struct SimpleControl {
             !(velocity_relaxation > 0.0 && velocity_relaxation <= 1.0) ||
             !(pressure_relaxation > 0.0 && pressure_relaxation <= 1.0) ||
             !(continuity_tolerance > 0.0) || !std::isfinite(continuity_tolerance) ||
-            !(velocity_tolerance > 0.0) || !std::isfinite(velocity_tolerance)) {
+            !(velocity_tolerance > 0.0) || !std::isfinite(velocity_tolerance) ||
+            !(pressure_correction_tolerance > 0.0) ||
+            !std::isfinite(pressure_correction_tolerance)) {
             throw std::invalid_argument("SIMPLE controls are invalid");
         }
     }
@@ -52,6 +57,8 @@ inline SimpleControl readSimpleControl(const Parameters& settings) {
     result.pressure_relaxation = settings.number("pressureRelaxation", result.pressure_relaxation);
     result.continuity_tolerance = settings.number("continuityTolerance", result.continuity_tolerance);
     result.velocity_tolerance = settings.number("velocityTolerance", result.velocity_tolerance);
+    result.pressure_correction_tolerance = settings.number(
+        "pressureCorrectionTolerance", result.pressure_correction_tolerance);
     result.validate();
     return result;
 }

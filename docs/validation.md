@@ -276,18 +276,17 @@ make test-mpi-poiseuille
 
 `test-mpi` 验证的不是 SIMPLE 外层包装，而是通用并行基础：
 
-- `Mesh` 的 owned/ghost/global-ID 映射和两层 halo；
+- 显式非结构六面体 `Mesh` 的图分区、owned/ghost/global-ID 映射和两层 halo；
 - cell scalar/vector/tensor 与 interface face field 的 HaloExchange；
 - 分区接口处的修正插值、通量、散度、中心对流和非正交扩散；
 - 仅生成 owned 行的 SparseAssembly；
 - halo matvec、全局点积/范数的分布式 Krylov 求解；
-- 1/2/4 rank 二维腔体、2 rank 原生网格通道流、2 rank 三维腔体，以及 1/2 rank 热传导。
+- 1/2/4 rank 二维腔体、2 rank 非结构通道流、2 rank 三维腔体，以及 1/2 rank 热传导。
 - 2 rank 对流--扩散标量输运；该 Solver 与串行版本使用完全相同的 `eqn::ddt +
   eqn::div == eqn::laplacian + source` 源码。
 
-文件型启动器还通过 `readDistributedMesh()` 验证根 rank 解析、尺寸/patch 广播、
-局部顶点点对点传输和接收端重建；`parallel_channel_test` 使用该入口，不再先在
-每个进程创建全局 Mesh。uniform `.field` 初值直接绑定各 rank 的局部 Field，因而
+文件型启动器由 rank 0 读取一次非结构网格、广播显式拓扑并做确定性图分区，再为每个 rank
+提取 owned/ghost 局部 Mesh；`parallel_channel_test` 使用该入口。uniform `.field` 初值直接绑定各 rank 的局部 Field，因而
 求解阶段不存在全局 Field 副本。
 
 12 × 12 × 1 腔体结果：
@@ -306,13 +305,13 @@ global ID 比较通用 rank 结果：
 
 | 比较 | 迭代 | 最大 `U` 差异 | 最大 `p` 差异 | 比较容差 |
 |---|---:|---:|---:|---|
-| 1 rank 与 2 rank | 865 / 865 | `6.15e-7` | `1.54e-6` | `atol=rtol=5e-6` |
-| 1 rank 与 4 rank | 865 / 865 | `6.17e-7` | `1.53e-6` | `atol=rtol=5e-6` |
+| 1 rank 与 2 rank | 973 / 973 | `6.17e-7` | `1.48e-6` | `atol=rtol=5e-6` |
+| 1 rank 与 4 rank | 973 / 973 | `5.69e-7` | `1.47e-6` | `atol=rtol=5e-6` |
 
-Poiseuille 案例的压力方程使用 BiCGSTAB+ILUT，使分区后的内层线性方程也满足其全局残差
-容差；因此 `SimpleIterationResult::converged` 只会在所有速度分量、所有压力非正交循环
-均线性收敛，且连续性/速度外迭代判据同时满足时变为真。SIMPLE 外迭代的连续性、速度变化量
-和健康状态由 `MPI_Allreduce` 的全局值共同决定，因此 1/2/4 rank 在该算例的停止点一致，
+Poiseuille 案例的速度方程使用 BiCGSTAB+ILUT、压力修正方程使用 CG+IncompleteCholesky；
+因此 `SimpleIterationResult::converged` 只会在所有速度分量、所有压力非正交循环均线性收敛，
+且连续性/速度/压力修正外迭代判据同时满足时变为真。SIMPLE 外迭代的连续性、速度变化量、
+压力修正量和健康状态由 `MPI_Allreduce` 的全局值共同决定，因此 1/2/4 rank 在该算例的停止点一致，
 结果差异仅来自分区矩阵乘法、归约顺序和局部预条件器的浮点误差。所有比较前
 会检查 global ID 无重复、无遗漏。随后 `babelsim-post` 读取 rank 文件并生成原始
 六面体 VTK/Tecplot 文件，验证结果格式独立于求解器内存。
@@ -417,7 +416,7 @@ Re=1000、128² 壁面加密腔体的 1/2/4 rank 自然收敛与固定 200 次�
 - 更高分辨率三维腔体的外部基准比较与网格收敛研究；
 - 非正交流动算例的独立精度基准；
 - 瞬态全流程的时间阶验证；
-- xyz/图分区、vertex halo、可扩展全局预条件器与 MPI-IO；
-- 任意非结构化网格和 GPU 后端。
+- 可扩展全局预条件器与 MPI-IO；
+- 非六面体单元、通用面、GPU 后端。
 
-这些是扩展方向，不影响当前已验证的三维结构化有限体积与框架级 MPI 基础。
+这些是扩展方向，不影响当前已验证的显式非结构六面体有限体积与框架级 MPI 基础。

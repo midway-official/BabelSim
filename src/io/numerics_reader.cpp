@@ -199,7 +199,9 @@ void readLinearSolverLine(
     if (line.tokens[1] == "cg") result.solver = LinearSolverType::ConjugateGradient;
     else if (line.tokens[1] == "bicgstab") result.solver = LinearSolverType::BiCGSTAB;
     else invalid(path, line, "unknown linear solver " + line.tokens[1]);
-    if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
+    if (line.tokens[2] == "none" || line.tokens[2] == "off") {
+        result.preconditioner = PreconditionerType::None;
+    } else if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
         result.preconditioner = PreconditionerType::IncompleteCholesky;
     } else if (line.tokens[2] == "ilut") {
         result.preconditioner = PreconditionerType::ILUT;

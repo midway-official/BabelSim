@@ -30,10 +30,9 @@ void poison(Field<T>& field) {
     if (field.location() == FieldLocation::Cell) {
         for (Index cell = 0; cell < mesh.cellCount(); ++cell)
             if (!detail::isOwned(mesh, cell)) detail::fieldData(field)[cell] = T{};
-    } else if (detail::meshData(mesh).global_i_offset > 0) {
-        for (Index cell : detail::meshData(mesh).owned_cells) {
-            if (cell % detail::meshData(mesh).dimensions[0] == detail::meshData(mesh).owned_i_begin)
-                detail::fieldData(field)[detail::meshData(mesh).cell_faces[cell][0]] = T{};
+    } else {
+        for (Index face = 0; face < mesh.faceCount(); ++face) {
+            if (!detail::isOwned(mesh, mesh.owner(face))) detail::fieldData(field)[face] = T{};
         }
     }
 }
@@ -167,7 +166,7 @@ int main(int argc, char* argv[]) {
                 const double x = i/16.0, y = j/4.0, z = k/3.0;
                 points.push_back({x+0.2*y, y+0.15*z, z+0.1*x});
             }
-    const Mesh global = Mesh::structured({16, 4, 3}, std::move(points));
+    const Mesh global = makeHexFromVertices({16, 4, 3}, std::move(points));
     Answers answers;
     for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
                                    DiffusionMethod::LimitedCorrected}) {

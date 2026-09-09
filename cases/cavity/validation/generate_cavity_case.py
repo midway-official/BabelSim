@@ -71,24 +71,40 @@ def main() -> int:
     xy = coordinates(args.cells, args.cluster)
     mesh = args.output / "mesh/cavity.mesh"
     with mesh.open("w", encoding="utf-8") as output:
-        output.write(
-            "BABELSIM_MESH 1\n"
-            f"dimensions {args.cells} {args.cells} 1\n")
-        if args.cluster == 0.0:
-            output.write("geometry cartesian\nbounds 0 0 0 1 1 1\n")
-        else:
-            output.write("geometry vertices\n")
-            for z in (0.0, 1.0):
-                for y in xy:
-                    for x in xy:
-                        output.write(f"{x:.17g} {y:.17g} {z:.17g}\n")
-        output.write(
-            "patch xmin cavity_left wall\n"
-            "patch xmax cavity_right wall\n"
-            "patch ymin cavity_bottom wall\n"
-            "patch ymax lid wall\n"
-            "patch zmin front symmetry\n"
-            "patch zmax back symmetry\nend\n")
+        count = args.cells
+        def vertex(i: int, j: int, k: int) -> int:
+            return i + (count + 1) * (j + (count + 1) * k)
+        points = [(x, y, z) for z in (0.0, 1.0) for y in xy for x in xy]
+        cells = []
+        boundaries = [[] for _ in range(6)]
+        for k in range(1):
+            for j in range(count):
+                for i in range(count):
+                    cell = (vertex(i, j, k), vertex(i + 1, j, k),
+                            vertex(i + 1, j + 1, k), vertex(i, j + 1, k),
+                            vertex(i, j, k + 1), vertex(i + 1, j, k + 1),
+                            vertex(i + 1, j + 1, k + 1), vertex(i, j + 1, k + 1))
+                    cells.append(cell)
+                    if i == 0: boundaries[0].append((cell[0], cell[4], cell[7], cell[3]))
+                    if i + 1 == count: boundaries[1].append((cell[1], cell[2], cell[6], cell[5]))
+                    if j == 0: boundaries[2].append((cell[0], cell[1], cell[5], cell[4]))
+                    if j + 1 == count: boundaries[3].append((cell[3], cell[7], cell[6], cell[2]))
+                    boundaries[4].append((cell[0], cell[3], cell[2], cell[1]))
+                    boundaries[5].append((cell[4], cell[5], cell[6], cell[7]))
+        output.write(f"BABELSIM_MESH 2\nvertices {len(points)}\n")
+        for point in points:
+            output.write(" ".join(f"{value:.17g}" for value in point) + "\n")
+        output.write(f"cells {len(cells)}\n")
+        for cell in cells:
+            output.write(" ".join(map(str, cell)) + "\n")
+        output.write("patches 6\n")
+        for name, kind, faces in zip(
+                ("cavity_left", "cavity_right", "cavity_bottom", "lid", "front", "back"),
+                ("wall", "wall", "wall", "wall", "symmetry", "symmetry"), boundaries):
+            output.write(f"patch {name} {kind} {len(faces)}\n")
+            for face in faces:
+                output.write(" ".join(map(str, face)) + "\n")
+        output.write("end\n")
     return 0
 
 

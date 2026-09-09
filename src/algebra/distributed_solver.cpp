@@ -31,107 +31,40 @@ struct RemoteCoupling {
     double coefficient = 0.0;
 };
 
-// Krylov 向量只包含 owned 行。该内部通信器直接从分区边界 owned 元素打包，
-// 不再为每次 SpMV 构造 cellCount 大小的完整场；请求存活期严格限制在 apply() 内。
+// Krylov 向量只包含 owned 行。把它投影到局部 cell 布局后复用拓扑无关的
+// HaloExchange；这使远程矩阵耦合只依赖 global cell ID，而非空间方向。
 class KrylovHalo {
 public:
     KrylovHalo(const Mesh& mesh, ParallelContext parallel)
-        : m_parallel(parallel),
-          m_ghost_values(static_cast<std::size_t>(mesh.cellCount()), 0.0)
-    {
-        const auto& data = detail::meshData(mesh);
-        m_left = parallel.rank == 0 ? MPI_PROC_NULL : parallel.rank - 1;
-        m_right = parallel.rank + 1 == parallel.size
-            ? MPI_PROC_NULL : parallel.rank + 1;
-        const auto append = [&](Index cell_i, std::vector<Index>& owned,
-                                std::vector<Index>& ghosts, Index ghost_i) {
-            for (Index k = 0; k < data.dimensions[2]; ++k) {
-                for (Index j = 0; j < data.dimensions[1]; ++j) {
-                    owned.push_back(detail::ownedIndex(mesh, mesh.cellId(cell_i, j, k)));
-                    ghosts.push_back(mesh.cellId(ghost_i, j, k));
-                }
-            }
-        };
-        if (m_left != MPI_PROC_NULL) {
-            append(data.owned_i_begin, m_send_left_indices, m_receive_left_cells,
-                   data.owned_i_begin - 1);
-        }
-        if (m_right != MPI_PROC_NULL) {
-            append(data.owned_i_end - 1, m_send_right_indices, m_receive_right_cells,
-                   data.owned_i_end);
-        }
-        m_send_left.resize(m_send_left_indices.size());
-        m_send_right.resize(m_send_right_indices.size());
-        m_receive_left.resize(m_receive_left_cells.size());
-        m_receive_right.resize(m_receive_right_cells.size());
-    }
+        : m_mesh(&mesh), m_exchange(mesh, parallel),
+          m_values(static_cast<std::size_t>(mesh.cellCount()), 0.0) {}
 
     void begin(const Eigen::VectorXd& owned_values) {
         if (m_active) throw std::logic_error("Krylov halo exchange is already active");
-        for (std::size_t i = 0; i < m_send_left.size(); ++i) {
-            m_send_left[i] = owned_values[m_send_left_indices[i]];
+        if (owned_values.size() != detail::ownedCellCount(*m_mesh)) {
+            throw std::invalid_argument("Krylov vector does not match owned cells");
         }
-        for (std::size_t i = 0; i < m_send_right.size(); ++i) {
-            m_send_right[i] = owned_values[m_send_right_indices[i]];
+        std::fill(m_values.begin(), m_values.end(), 0.0);
+        for (Index cell : detail::meshData(*m_mesh).owned_cells) {
+            m_values[static_cast<std::size_t>(cell)] = owned_values[detail::ownedIndex(*m_mesh, cell)];
         }
-        detail::checkMpi(MPI_Irecv(
-            m_receive_right.empty() ? &m_dummy : m_receive_right.data(),
-            detail::mpiCount(m_receive_right.size(), "Krylov right halo"), MPI_DOUBLE,
-            m_right, 301, m_parallel.communicator, &m_requests[0]),
-            "MPI_Irecv(Krylov right halo)");
-        detail::checkMpi(MPI_Irecv(
-            m_receive_left.empty() ? &m_dummy : m_receive_left.data(),
-            detail::mpiCount(m_receive_left.size(), "Krylov left halo"), MPI_DOUBLE,
-            m_left, 302, m_parallel.communicator, &m_requests[1]),
-            "MPI_Irecv(Krylov left halo)");
-        detail::checkMpi(MPI_Isend(
-            m_send_left.empty() ? &m_dummy : m_send_left.data(),
-            detail::mpiCount(m_send_left.size(), "Krylov left halo"), MPI_DOUBLE,
-            m_left, 301, m_parallel.communicator, &m_requests[2]),
-            "MPI_Isend(Krylov left halo)");
-        detail::checkMpi(MPI_Isend(
-            m_send_right.empty() ? &m_dummy : m_send_right.data(),
-            detail::mpiCount(m_send_right.size(), "Krylov right halo"), MPI_DOUBLE,
-            m_right, 302, m_parallel.communicator, &m_requests[3]),
-            "MPI_Isend(Krylov right halo)");
+        m_exchange.exchangeFirstLayer(m_values);
         m_active = true;
     }
 
     void finish() {
         if (!m_active) throw std::logic_error("Krylov halo exchange is not active");
-        detail::checkMpi(
-            MPI_Waitall(4, m_requests.data(), MPI_STATUSES_IGNORE),
-            "MPI_Waitall(Krylov halo)");
         m_active = false;
-        for (std::size_t i = 0; i < m_receive_left.size(); ++i) {
-            m_ghost_values[static_cast<std::size_t>(m_receive_left_cells[i])] =
-                m_receive_left[i];
-        }
-        for (std::size_t i = 0; i < m_receive_right.size(); ++i) {
-            m_ghost_values[static_cast<std::size_t>(m_receive_right_cells[i])] =
-                m_receive_right[i];
-        }
     }
 
     double value(Index ghost_cell) const {
-        return m_ghost_values[static_cast<std::size_t>(ghost_cell)];
+        return m_values.at(static_cast<std::size_t>(ghost_cell));
     }
 
 private:
-    ParallelContext m_parallel;
-    int m_left = MPI_PROC_NULL;
-    int m_right = MPI_PROC_NULL;
-    std::vector<Index> m_send_left_indices;
-    std::vector<Index> m_send_right_indices;
-    std::vector<Index> m_receive_left_cells;
-    std::vector<Index> m_receive_right_cells;
-    std::vector<double> m_send_left;
-    std::vector<double> m_send_right;
-    std::vector<double> m_receive_left;
-    std::vector<double> m_receive_right;
-    std::vector<double> m_ghost_values;
-    std::array<MPI_Request, 4> m_requests{};
-    double m_dummy = 0.0;
+    const Mesh* m_mesh;
+    HaloExchange m_exchange;
+    std::vector<double> m_values;
     bool m_active = false;
 };
 
@@ -141,6 +74,10 @@ bool invalid(double value) {
 
 bool usesAmg(const LinearSolverConfig& config) {
     return config.preconditioner == PreconditionerType::AlgebraicMultigrid;
+}
+
+bool hasPreconditioner(const LinearSolverConfig& config) {
+    return config.preconditioner != PreconditionerType::None;
 }
 
 }  // 匿名命名空间
@@ -259,7 +196,9 @@ struct DistributedLinearSolver::Implementation {
 
     void computePreconditioner() {
         factorization_succeeded = false;
-        if (usesAmg(config)) {
+        if (!hasPreconditioner(config)) {
+            factorization_succeeded = true;
+        } else if (usesAmg(config)) {
             factorization_succeeded = updateDistributedAmg(true);
             amg_updates_since_factorization = 0;
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
@@ -272,7 +211,9 @@ struct DistributedLinearSolver::Implementation {
             ilut.compute(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }
-        factorization_succeeded = globallyReady(factorization_succeeded);
+        if (hasPreconditioner(config)) {
+            factorization_succeeded = globallyReady(factorization_succeeded);
+        }
         pattern_ready = true;
     }
 
@@ -282,7 +223,9 @@ struct DistributedLinearSolver::Implementation {
                 "distributed pattern must be computed before factorization");
         }
         factorization_succeeded = false;
-        if (usesAmg(config)) {
+        if (!hasPreconditioner(config)) {
+            factorization_succeeded = true;
+        } else if (usesAmg(config)) {
             const bool refresh =
                 ++amg_updates_since_factorization >= config.amg_refresh_interval;
             if (refresh) {
@@ -299,7 +242,9 @@ struct DistributedLinearSolver::Implementation {
             ilut.factorize(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }
-        factorization_succeeded = globallyReady(factorization_succeeded);
+        if (hasPreconditioner(config)) {
+            factorization_succeeded = globallyReady(factorization_succeeded);
+        }
     }
 
     bool globallyReady(bool local_ready) {
@@ -318,39 +263,78 @@ struct DistributedLinearSolver::Implementation {
     }
 
     int coarseIndex(Index global_cell) const {
-        const auto& global = detail::meshData(mesh).global_dimensions;
-        const Index i = global_cell % global[0];
-        const Index j = (global_cell / global[0]) % global[1];
-        const Index k = global_cell / (global[0] * global[1]);
-        return static_cast<int>(
-            i / amg_stride[0] + amg_dimensions[0] *
-            (j / amg_stride[1] + amg_dimensions[1] * (k / amg_stride[2])));
+        if (global_cell < 0 || static_cast<std::size_t>(global_cell) >= amg_cell_to_coarse.size()) {
+            throw std::out_of_range("AMG aggregate cell id is invalid");
+        }
+        return amg_cell_to_coarse[static_cast<std::size_t>(global_cell)];
     }
 
     void buildCoarseMapping() {
-        const auto& global = detail::meshData(mesh).global_dimensions;
-        amg_stride = {1, 1, 1};
-        amg_dimensions = global;
-        auto count = [&]() -> std::int64_t {
-            return static_cast<std::int64_t>(amg_dimensions[0]) *
-                amg_dimensions[1] * amg_dimensions[2];
-        };
+        const Index global_cells = mesh.globalCellCount();
+        std::vector<int> adjacency(static_cast<std::size_t>(global_cells) * 6U, invalid_index);
+        // 每个 owned cell 恰由一个 rank 发布其图邻接。MAX 归约在 -1 哨兵与合法
+        // 非负 global ID 之间得到唯一结果，随后每个 rank 都拥有相同的粗化图。
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            const Index global_cell = detail::globalCellId(mesh, cell);
+            for (Index slot = 0; slot < 6; ++slot) {
+                const Index neighbour = detail::meshData(mesh).cell_neighbours[static_cast<std::size_t>(cell)]
+                    [static_cast<std::size_t>(slot)];
+                adjacency[6U * static_cast<std::size_t>(global_cell) + static_cast<std::size_t>(slot)] =
+                    neighbour == invalid_index ? invalid_index : detail::globalCellId(mesh, neighbour);
+            }
+        }
+        std::vector<int> global_adjacency(adjacency.size(), invalid_index);
+        const Clock::time_point adjacency_start = Clock::now();
+        detail::checkMpi(MPI_Allreduce(
+            adjacency.data(), global_adjacency.data(),
+            detail::mpiCount(adjacency.size(), "AMG graph adjacency"), MPI_INT, MPI_MAX,
+            parallel.communicator), "MPI_Allreduce(AMG graph adjacency)");
+        ++pending_performance.global_reductions;
+        pending_performance.global_reduction_seconds += secondsSince(adjacency_start);
+
+        amg_cell_to_coarse.resize(static_cast<std::size_t>(global_cells));
+        for (Index cell = 0; cell < global_cells; ++cell) {
+            amg_cell_to_coarse[static_cast<std::size_t>(cell)] = cell;
+        }
+        int groups = global_cells;
         int levels = 1;
-        while (count() > config.amg_coarse_size && levels < config.amg_max_levels) {
-            int selected = -1;
-            for (int dimension = 0; dimension < 3; ++dimension) {
-                if (amg_dimensions[dimension] > 1 &&
-                    (selected < 0 || amg_dimensions[dimension] > amg_dimensions[selected])) {
-                    selected = dimension;
+        while (groups > config.amg_coarse_size && levels < config.amg_max_levels) {
+            std::vector<std::vector<int>> graph(static_cast<std::size_t>(groups));
+            for (Index cell = 0; cell < global_cells; ++cell) {
+                const int source = amg_cell_to_coarse[static_cast<std::size_t>(cell)];
+                for (Index slot = 0; slot < 6; ++slot) {
+                    const int neighbour = global_adjacency[
+                        6U * static_cast<std::size_t>(cell) + static_cast<std::size_t>(slot)];
+                    if (neighbour == invalid_index) continue;
+                    const int target = amg_cell_to_coarse[static_cast<std::size_t>(neighbour)];
+                    if (target != source) graph[static_cast<std::size_t>(source)].push_back(target);
                 }
             }
-            if (selected < 0) break;
-            amg_stride[selected] *= 2;
-            amg_dimensions[selected] =
-                (global[selected] + amg_stride[selected] - 1) / amg_stride[selected];
+            for (auto& links : graph) {
+                std::sort(links.begin(), links.end());
+                links.erase(std::unique(links.begin(), links.end()), links.end());
+            }
+            std::vector<int> next(static_cast<std::size_t>(groups), invalid_index);
+            int next_groups = 0;
+            for (int group = 0; group < groups; ++group) {
+                if (next[static_cast<std::size_t>(group)] != invalid_index) continue;
+                next[static_cast<std::size_t>(group)] = next_groups;
+                for (int neighbour : graph[static_cast<std::size_t>(group)]) {
+                    if (next[static_cast<std::size_t>(neighbour)] == invalid_index) {
+                        next[static_cast<std::size_t>(neighbour)] = next_groups;
+                        break;
+                    }
+                }
+                ++next_groups;
+            }
+            if (next_groups >= groups) break;
+            for (int& aggregate : amg_cell_to_coarse) {
+                aggregate = next[static_cast<std::size_t>(aggregate)];
+            }
+            groups = next_groups;
             ++levels;
         }
-        const std::int64_t coarse_count = count();
+        const std::int64_t coarse_count = groups;
         // 当前全局粗矩阵在每个 rank 复制，以避免 root 串行通信。限制实际行数，
         // 防止错误配置把 coarse_count² 的准备缓冲膨胀为不可控内存。
         constexpr std::int64_t maximum_replicated_coarse_rows = 2048;
@@ -549,7 +533,10 @@ struct DistributedLinearSolver::Implementation {
     {
         const Clock::time_point start = Clock::now();
         bool local_success = false;
-        if (usesAmg(config)) {
+        if (!hasPreconditioner(config)) {
+            output = input;
+            local_success = true;
+        } else if (usesAmg(config)) {
             local_success = applyDistributedAmg(input, output);
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
             output = incomplete_cholesky.solve(input);
@@ -558,8 +545,10 @@ struct DistributedLinearSolver::Implementation {
             output = ilut.solve(input);
             local_success = ilut.info() == Eigen::Success;
         }
-        ++current_performance.preconditioner_applications;
-        current_performance.preconditioner_apply_seconds += secondsSince(start);
+        if (hasPreconditioner(config)) {
+            ++current_performance.preconditioner_applications;
+            current_performance.preconditioner_apply_seconds += secondsSince(start);
+        }
         if (!local_success || !output.allFinite()) {
             // 失败 rank 仍需参加下一次全局归约；零向量避免把 NaN 传播给其他 rank。
             output.setZero();
@@ -806,8 +795,7 @@ struct DistributedLinearSolver::Implementation {
     std::vector<RemoteCoupling> remote;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
-    std::array<Index, 3> amg_stride{1, 1, 1};
-    std::array<Index, 3> amg_dimensions{1, 1, 1};
+    std::vector<int> amg_cell_to_coarse;
     std::vector<int> amg_aggregate;
     std::vector<double> amg_local_coarse;
     std::vector<double> amg_global_coarse;

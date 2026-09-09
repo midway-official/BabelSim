@@ -9,15 +9,14 @@ using namespace babelsim;
 
 int main() {
     const Mesh mesh = readMeshFile("tests/data/babelsim_channel.mesh");
-    require(detail::meshData(mesh).dimensions == std::array<Index, 3>{{3, 3, 1}},
-            "native mesh dimensions are incorrect");
     require(mesh.cellCount() == 9, "native mesh cell count is incorrect");
+    require(mesh.globalCellCount() == 9, "native mesh global cell count is incorrect");
     require(detail::meshData(mesh).patches.size() == 6, "native mesh patch count is incorrect");
     for (double volume : detail::meshData(mesh).cell_volumes) {
         require(near(volume, 1.0), "native mesh cell volume is incorrect");
     }
     require(
-        near(detail::meshData(mesh).cell_centres[static_cast<std::size_t>(mesh.cellId(0, 0, 0))],
+        near(detail::meshData(mesh).cell_centres[0],
              {0.5, 0.5, 0.5}),
         "native mesh cell centre is incorrect");
 

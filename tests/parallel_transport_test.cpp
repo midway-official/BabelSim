@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
     if (MPI_Init(&argc, &argv) != MPI_SUCCESS) return 1;
     const ParallelContext parallel = ParallelContext::world();
     try {
-        const Mesh global = Mesh::cartesian({8, 2, 1}, {0, 0, 0}, {1, 1, 1});
+        const Mesh global = makeHexBox({8, 2, 1}, {0, 0, 0}, {1, 1, 1});
         const Mesh mesh = decompose(global, parallel);
         ScalarField concentration(mesh, FieldLocation::Cell, "C", 0.0);
         ScalarField flux(mesh, FieldLocation::Face, "phi", 0.0);

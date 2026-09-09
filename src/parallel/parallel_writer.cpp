@@ -134,8 +134,7 @@ void writeOwnedResultMetadata(
            << "time " << time_name << '\n'
            << "rank " << parallel.rank << '\n'
            << "ranks " << parallel.size << '\n'
-           << "global_dimensions " << detail::meshData(mesh).global_dimensions[0] << ' '
-           << detail::meshData(mesh).global_dimensions[1] << ' ' << detail::meshData(mesh).global_dimensions[2] << '\n'
+           << "global_cell_count " << mesh.globalCellCount() << '\n'
            << "owned_cells " << detail::ownedCellCount(mesh) << '\n';
     for (const FieldOutputInfo& field : fields) {
         if (field.name.empty() || field.type.empty()) {

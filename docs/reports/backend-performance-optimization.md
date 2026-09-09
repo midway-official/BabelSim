@@ -1,9 +1,19 @@
 # 分布式线性后端与性能观测优化报告
 
-本报告记录 2026-09-06 完成的线性后端优化及其回归证据。修改限定在 Field 的内部
-halo 状态、默认 Eigen/MPI 计算后端、代数求解器、应用生命周期观测、测试和文档；
-`src/physics` 没有修改，`eqn/math/solve`、离散前端以及 Heat、Transport、稳态/瞬态
-SIMPLE 的编程接口保持不变。
+本报告记录 2026-09-06 的线性后端性能快照。其原始数值属于当时的构建与网格版本，
+不可作为当前版本的性能结论；当前接口、网格格式和验收结果以
+[架构](../architecture.md) 与 [验证](../validation.md) 为准。
+
+## 2026-09-09 当前修订
+
+- 网格唯一格式为显式非结构六面体；规则形状仅是离线生成器的输入，不是求解器数据模型。
+- 默认构建使用 `-ffp-contract=off`；这减少 FMA 对不同分区 Krylov 路径的额外舍入放大，
+  但不承诺逐位相同。
+- SIMPLE 收敛新增 `pressureCorrectionTolerance`；质量、速度、压力修正与线性求解必须同时满足。
+- Poiseuille 在 1/2/4 rank 均于第 973 次外迭代收敛。默认 ILUT/IC 配置的 1→4 rank
+  最大差为 `U=5.69e-7`、`p=1.47e-6`。关闭两个线性预条件器的诊断运行仍在第 973 次
+  收敛，1→4 rank 差为 `U=2.73e-14`、`p=3.23e-14`，且
+  `preconditionerSetup=0/0`、`preconditionerApply=0/0`。
 
 ## 1. 性能指标的定义
 
@@ -30,11 +40,12 @@ SpMV、halo 和粗网格归约。因此这些子项会重叠，不能相加后�
 
 - BiCGSTAB 把一轮末尾的残差范数和下一轮 `rho` 合并到同一个全局归约；停止条件仍使用
   全局量，所有 rank 执行相同分支和相同迭代次数。
-- 分布式 SpMV 预先把本地矩阵分成内部行和分区边界行。每次乘法先投递非阻塞 halo，
-  计算内部行，再等待通信并计算边界行和跨分区 face 系数。
+- 分布式 SpMV 预先把本地矩阵分成内部行和分区边界行。每次乘法同步第一层 halo，
+  再计算内部行、边界行和跨分区 face 系数。当前 HaloExchange 正确但仍是阻塞实现；
+  真正的通信计算重叠是后续性能工作，不应被本报告提前宣称。
 - Krylov halo 只打包分区边界 owned 值，不再为每次 SpMV 复制完整的
   `owned + ghost` Field。稀疏模式、通信索引和缓冲均在准备期建立并复用。
-- 所有新增 MPI 调用均通过统一返回码检查；非阻塞请求的生命周期完整限制在一次 SpMV 内。
+- 所有 MPI 调用均通过统一返回码检查；当前 Krylov halo 的阻塞通信没有未完成请求生命周期。
 
 ### 2.2 Field halo 有效性
 
@@ -50,7 +61,7 @@ Field 增加私有 halo 有效标记。常量填充和按几何位置求值会�
 旧的“每个 rank 独立做局部 AMG”已删除。当前 MPI AMG：
 
 1. 在 distributed fine operator 上做加权 Jacobi 平滑；
-2. 依据稳定 global cell ID 建立跨 rank 一致的结构化聚合；
+2. 依据稳定 global cell ID 与显式单元邻接建立跨 rank 一致的图聚合；
 3. 将各 rank 的局部 `P^T A P` 贡献归约成同一个小型全局粗矩阵；
 4. 归约粗网格残差，各 rank 求解相同粗系统，再把校正延拓到本地 owned 行；
 5. 用当前完整分布式算子做后平滑。
@@ -67,7 +78,7 @@ AMG 只能作为 CG/BiCGSTAB 的预条件器，独立 AMG 求解模式已经删�
 
 - CPU：AMD Ryzen AI MAX+ 392，12 个物理核、24 个逻辑线程；
 - 使用 1、2、4 个 MPI rank，每 rank 固定 `OMP_NUM_THREADS=1`；
-- 发布构建：`-O3 -march=native -flto -ffast-math`；
+- 当时的发布构建：`-O3 -march=native -flto -ffast-math`；当前默认另显式关闭 FMA 融合；
 - Case：`cases/cavity/benchmark-re1000-n128`；
 - 网格：`128 x 128 x 1`，双曲正切壁面加密，Re=1000；
 - 离散：最小二乘梯度、线性面插值、二阶线性迎风对流、正交扩散；

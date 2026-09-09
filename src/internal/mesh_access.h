@@ -13,15 +13,23 @@ struct MeshAccess {
     static Index ownedIndex(const Mesh& mesh, Index cell) { return mesh.ownedIndex(cell); }
     static Index globalCellId(const Mesh& mesh, Index cell) { return mesh.globalCellId(cell); }
     static void replace(Mesh& target, Mesh source) { target = std::move(source); }
-    static void setOwnership(Mesh& mesh, std::array<Index, 3> global_cells,
-                             Index offset, Index begin, Index end, Index layers) {
-        mesh.setOwnership(global_cells, offset, begin, end, layers);
-    }
-    static void setPatches(Mesh& mesh, std::vector<BoundaryPatch> patches) {
-        mesh.setPatches(std::move(patches));
-    }
-    static void addPatchFace(Mesh& mesh, Index patch, Index face) {
-        mesh.addPatchFace(patch, face);
+    static Index globalFaceId(const Mesh& mesh, Index face) { return mesh.globalFaceId(face); }
+    static Index cellOwnerRank(const Mesh& mesh, Index cell) { return mesh.cellOwnerRank(cell); }
+    static Index faceOwnerRank(const Mesh& mesh, Index face) { return mesh.faceOwnerRank(face); }
+    static void setPartition(
+        Mesh& mesh,
+        Index global_cells,
+        Index layers,
+        std::vector<Index> cell_ids,
+        std::vector<Index> cell_owners,
+        std::vector<Index> cell_depths,
+        std::vector<Index> face_ids,
+        std::vector<Index> face_owners,
+        Index local_rank)
+    {
+        mesh.setPartition(global_cells, layers, std::move(cell_ids), std::move(cell_owners),
+                          std::move(cell_depths), std::move(face_ids),
+                          std::move(face_owners), local_rank);
     }
 };
 
@@ -31,5 +39,8 @@ inline Index ownedCellCount(const Mesh& mesh) { return MeshAccess::ownedCellCoun
 inline bool isOwned(const Mesh& mesh, Index cell) { return MeshAccess::isOwned(mesh, cell); }
 inline Index ownedIndex(const Mesh& mesh, Index cell) { return MeshAccess::ownedIndex(mesh, cell); }
 inline Index globalCellId(const Mesh& mesh, Index cell) { return MeshAccess::globalCellId(mesh, cell); }
+inline Index globalFaceId(const Mesh& mesh, Index face) { return MeshAccess::globalFaceId(mesh, face); }
+inline Index cellOwnerRank(const Mesh& mesh, Index cell) { return MeshAccess::cellOwnerRank(mesh, cell); }
+inline Index faceOwnerRank(const Mesh& mesh, Index face) { return MeshAccess::faceOwnerRank(mesh, face); }
 
 }  // babelsim::detail 命名空间

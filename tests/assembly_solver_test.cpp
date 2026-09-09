@@ -10,22 +10,22 @@
 using namespace babelsim;
 
 int main() {
-    auto patches = defaultPatches();
-    patches[static_cast<std::size_t>(Side::YMin)].kind = PatchKind::Symmetry;
-    patches[static_cast<std::size_t>(Side::YMax)].kind = PatchKind::Symmetry;
-    patches[static_cast<std::size_t>(Side::ZMin)].kind = PatchKind::Symmetry;
-    patches[static_cast<std::size_t>(Side::ZMax)].kind = PatchKind::Symmetry;
-    const Mesh mesh = Mesh::cartesian(
+    auto patches = boxPatches();
+    patches[static_cast<std::size_t>(2)].kind = PatchKind::Symmetry;
+    patches[static_cast<std::size_t>(3)].kind = PatchKind::Symmetry;
+    patches[static_cast<std::size_t>(4)].kind = PatchKind::Symmetry;
+    patches[static_cast<std::size_t>(5)].kind = PatchKind::Symmetry;
+    const Mesh mesh = makeHexBox(
         {8, 1, 1}, {0, 0, 0}, {1, 1, 1}, patches);
 
     ScalarField phi(mesh, FieldLocation::Cell, "phi", 0.0);
     phi.setBoundary(
-        static_cast<Index>(Side::XMin),
+        static_cast<Index>(0),
         BoundaryCondition<double>::fixedValue(0.0));
     phi.setBoundary(
-        static_cast<Index>(Side::XMax),
+        static_cast<Index>(1),
         BoundaryCondition<double>::fixedValue(1.0));
-    for (Side side : {Side::YMin, Side::YMax, Side::ZMin, Side::ZMax}) {
+    for (Index side : {2, 3, 4, 5}) {
         phi.setBoundary(
             static_cast<Index>(side),
             BoundaryCondition<double>::symmetry());
@@ -57,6 +57,18 @@ int main() {
             std::abs(solution[static_cast<Eigen::Index>(cell)] - exact));
     }
     require(maximum_error < 1e-11, "assembled linear diffusion solution is incorrect");
+
+    LinearSolverConfig no_preconditioner_config = config;
+    no_preconditioner_config.preconditioner = PreconditionerType::None;
+    Eigen::VectorXd no_preconditioner_solution;
+    const SolveResult no_preconditioner_result = solve(
+        system.A, system.b, no_preconditioner_solution, no_preconditioner_config);
+    require(
+        no_preconditioner_result.converged() &&
+            (no_preconditioner_solution - solution).norm() < 1e-11 &&
+            no_preconditioner_result.performance.preconditioner_applications == 0 &&
+            no_preconditioner_result.performance.preconditioner_apply_seconds == 0.0,
+        "unpreconditioned CG did not remain an identity preconditioner");
 
     PreparedLinearSolver prepared(config);
     prepared.compute(system.A);
@@ -194,20 +206,20 @@ int main() {
 
     ScalarField scalar_neumann(mesh, FieldLocation::Cell, "scalarNeumann");
     scalar_neumann.setBoundary(
-        static_cast<Index>(Side::XMax),
+        static_cast<Index>(1),
         BoundaryCondition<double>::fixedGradient(2.0));
     ScalarDiscreteEquation scalar_neumann_equation(mesh);
     addDiffusion(
         scalar_neumann_equation, 3.0, scalar_neumann,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
-    const Index last = mesh.cellId(7, 0, 0);
+    const Index last = hexCellIndex(7, 0, 0, 8, 1);
     require(
         near(scalar_neumann_equation.source[static_cast<std::size_t>(last)], 6.0),
         "scalar outward Neumann flux has the wrong equation sign");
 
     VectorField vector_neumann(mesh, FieldLocation::Cell, "vectorNeumann");
     vector_neumann.setBoundary(
-        static_cast<Index>(Side::XMax),
+        static_cast<Index>(1),
         BoundaryCondition<Vec3>::fixedGradient({2.0, -1.0, 0.5}));
     VectorDiscreteEquation vector_neumann_equation(mesh);
     addDiffusion(

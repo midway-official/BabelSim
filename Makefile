@@ -4,11 +4,12 @@
 CXX := mpic++
 AR := gcc-ar
 
-# 面向本机计算速度：跨文件优化、矢量化、浮点重结合/倒数优化与融合乘加。
+# 面向本机计算速度：跨文件优化、矢量化与浮点重结合/倒数优化。
+# 显式关闭融合乘加，避免它在不同分区的 Krylov 路径上额外放大舍入差异。
 # 保留 NaN/Inf 检查，不能让非法输入或发散结果被视为正常收敛。
 # fat LTO 同时保存机器码，允许外部 Solver 不启用 LTO 时链接静态库。
 OPTFLAGS ?= -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
-            -ffast-math -fno-finite-math-only -ffp-contract=fast -DNDEBUG
+            -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
 CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow \
             -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
 CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
@@ -46,7 +47,8 @@ SOLVER_SOURCES := $(wildcard src/physics/*/main.cpp)
 SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
 
-TEST_SOURCES := tests/mesh_geometry_test.cpp \
+TEST_SOURCES := tests/unstructured_mesh_test.cpp \
+                tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
                 tests/operators_test.cpp \
                 tests/math_runtime_test.cpp \
@@ -69,7 +71,7 @@ TESTS := $(patsubst tests/%.cpp,$(BUILD)/%,$(TEST_SOURCES))
 MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
              $(BUILD)/parallel_math_test \
              $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test \
-             $(BUILD)/parallel_transport_test
+             $(BUILD)/parallel_transport_test $(BUILD)/parallel_unstructured_test
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
 all: $(LIB) $(APPS)
@@ -128,6 +130,7 @@ test-mpi: $(MPI_TESTS)
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_domain_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_unstructured_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
 		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output
 	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output

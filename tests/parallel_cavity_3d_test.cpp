@@ -23,11 +23,11 @@ int main(int argc, char* argv[]) {
     try {
         require(parallel.size == 2, "parallel_cavity_3d_test requires two MPI ranks");
         constexpr Index n = 6;
-        auto patches = defaultPatches();
+        auto patches = boxPatches();
         for (auto& patch : patches) {
             patch.kind = PatchKind::Wall;
         }
-        const Mesh global = Mesh::cartesian(
+        const Mesh global = makeHexBox(
             {n, n, n}, {0, 0, 0}, {1, 1, 1}, patches);
         const Mesh mesh = decompose(global, parallel);
         IncompressibleFields fields(mesh);
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
                 patch, BoundaryCondition<Vec3>::fixedValue({}));
         }
         fields.velocity.setBoundary(
-            static_cast<Index>(Side::YMax),
+            static_cast<Index>(3),
             BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
 
         RuntimeControl run_control;
@@ -72,8 +72,8 @@ int main(int argc, char* argv[]) {
         }
         require(result.converged, "distributed 3D cavity did not converge");
 
-        const Index lower_global = global.cellId(n / 2 - 1, n / 2 - 1, n / 2 - 1);
-        const Index upper_global = global.cellId(n / 2 - 1, n / 2 - 1, n / 2);
+        const Index lower_global = hexCellIndex(n / 2 - 1, n / 2 - 1, n / 2 - 1, n, n);
+        const Index upper_global = hexCellIndex(n / 2 - 1, n / 2 - 1, n / 2, n, n);
         Vec3 lower{};
         Vec3 upper{};
         double local_maximum_z = 0.0;

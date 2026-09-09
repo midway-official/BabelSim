@@ -146,7 +146,7 @@ Euler/BDF2 的场历史由已有 FVM 时间离散处理。同一物理时间步�
 2. 根据速度、压力梯度和 `rAU` 构造同位网格预测面通量 `phiHbyA`；
 3. 求压力修正方程；
 4. 修正压力、速度和面通量；
-5. 计算全局连续性和速度变化。
+5. 计算全局连续性、速度相对变化和未松弛压力修正相对量。
 
 预测通量使用公开数学积木组合：
 
@@ -187,10 +187,15 @@ solve(
 
 - `healthy`：数值有限，线性过程没有数值失败；
 - `linear_converged`：动量分量和全部压力修正线性求解均达到线性容差；
-- `converged`：前两项成立，并且全局连续性和速度相对变化达到 SIMPLE 外迭代容差。
+- `converged`：前两项成立，并且全局连续性、速度相对变化和未松弛压力修正相对量分别达到
+  `continuityTolerance`、`velocityTolerance` 和 `pressureCorrectionTolerance`。
 
 这些状态不能互相替代。所有停止依据通过 `diagnostics` 做全局归约，因此所有 rank
 执行相同数量的校正，不允许由本地残差分别决定流程。
+
+`pressureCorrectionTolerance` 的默认值是 `1e-6`。省略它会采用该默认值；显式写入 Case
+更适合可复现实验。只检查质量和速度会让压力仍在缓慢漂移的不同 Krylov 路径过早停止，
+因而不是合法的 SIMPLE 收敛定义。
 
 ## 8. 用户如何运行
 

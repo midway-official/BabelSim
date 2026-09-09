@@ -13,11 +13,11 @@ using namespace babelsim;
 
 int main() {
     constexpr Index n = 6;
-    auto patches = defaultPatches();
+    auto patches = boxPatches();
     for (auto& patch : patches) {
         patch.kind = PatchKind::Wall;
     }
-    const Mesh mesh = Mesh::cartesian(
+    const Mesh mesh = makeHexBox(
         {n, n, n}, {0, 0, 0}, {1, 1, 1}, patches);
     IncompressibleFields fields(mesh);
     for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
@@ -25,7 +25,7 @@ int main() {
             patch, BoundaryCondition<Vec3>::fixedValue({}));
     }
     fields.velocity.setBoundary(
-        static_cast<Index>(Side::YMax),
+        static_cast<Index>(3),
         BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
 
     RuntimeControl run_control;
@@ -60,8 +60,8 @@ int main() {
     }
     require(result.converged, "3D cavity SIMPLE did not converge");
 
-    const Index lower_centre = mesh.cellId(n / 2 - 1, n / 2 - 1, n / 2 - 1);
-    const Index upper_centre = mesh.cellId(n / 2 - 1, n / 2 - 1, n / 2);
+    const Index lower_centre = hexCellIndex(n / 2 - 1, n / 2 - 1, n / 2 - 1, n, n);
+    const Index upper_centre = hexCellIndex(n / 2 - 1, n / 2 - 1, n / 2, n, n);
     const Vec3 lower = detail::fieldData(fields.velocity)[lower_centre];
     const Vec3 upper = detail::fieldData(fields.velocity)[upper_centre];
     require(

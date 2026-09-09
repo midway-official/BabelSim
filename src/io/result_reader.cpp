@@ -3,7 +3,6 @@
 #include "babelsim/config.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <fstream>
 #include <map>
@@ -18,7 +17,7 @@ namespace {
 struct Metadata {
     std::string time_name;
     int ranks = 0;
-    std::array<Index, 3> dimensions{};
+    Index global_cell_count = 0;
     std::vector<FieldOutputInfo> fields;
 };
 
@@ -55,7 +54,7 @@ Metadata readMetadata(const std::filesystem::path& path) {
     bool format = false;
     bool time = false;
     bool ranks = false;
-    bool dimensions = false;
+    bool global_cell_count = false;
     for (const ConfigLine& line : readConfigLines(path)) {
         const std::string& key = line.tokens.front();
         if (key == "format" && line.tokens.size() == 3 && !format &&
@@ -67,11 +66,9 @@ Metadata readMetadata(const std::filesystem::path& path) {
         } else if (key == "ranks" && line.tokens.size() == 2 && !ranks) {
             result.ranks = integer(line.tokens[1], path);
             ranks = true;
-        } else if (key == "global_dimensions" && line.tokens.size() == 4 && !dimensions) {
-            result.dimensions = {
-                integer(line.tokens[1], path), integer(line.tokens[2], path),
-                integer(line.tokens[3], path)};
-            dimensions = true;
+        } else if (key == "global_cell_count" && line.tokens.size() == 2 && !global_cell_count) {
+            result.global_cell_count = integer(line.tokens[1], path);
+            global_cell_count = true;
         } else if (key == "field" && line.tokens.size() == 4) {
             const FieldOutputInfo info{line.tokens[1], line.tokens[2], location(line.tokens[3], path)};
             if (info.location != FieldLocation::Cell || components(info.type, path) == 0) {
@@ -87,7 +84,8 @@ Metadata readMetadata(const std::filesystem::path& path) {
             invalid(path, "invalid metadata record at line " + std::to_string(line.number));
         }
     }
-    if (!format || !time || !ranks || !dimensions || result.ranks <= 0 || result.fields.empty()) {
+    if (!format || !time || !ranks || !global_cell_count || result.ranks <= 0 ||
+        result.global_cell_count <= 0 || result.fields.empty()) {
         invalid(path, "metadata is incomplete");
     }
     return result;
@@ -141,9 +139,12 @@ ResultData readParallelResults(
     if (static_cast<int>(rank_directories.size()) != first.ranks) {
         invalid(time_directory, "rank directory count does not match metadata");
     }
+    if (first.global_cell_count != global_cell_count) {
+        invalid(time_directory, "metadata cell count does not match the case mesh");
+    }
     ResultData result;
     result.time_name = first.time_name;
-    result.global_dimensions = first.dimensions;
+    result.global_cell_count = first.global_cell_count;
     result.fields.reserve(first.fields.size());
     std::vector<std::vector<bool>> seen;
     for (const FieldOutputInfo& info : first.fields) {
@@ -156,7 +157,8 @@ ResultData readParallelResults(
     for (const auto& rank_directory : rank_directories) {
         const Metadata metadata = readMetadata(rank_directory / "metadata.bs");
         if (metadata.time_name != first.time_name || metadata.ranks != first.ranks ||
-            metadata.dimensions != first.dimensions || !sameFields(metadata.fields, first.fields)) {
+            metadata.global_cell_count != first.global_cell_count ||
+            !sameFields(metadata.fields, first.fields)) {
             invalid(rank_directory, "metadata does not match the other ranks");
         }
         for (std::size_t field = 0; field < result.fields.size(); ++field) {

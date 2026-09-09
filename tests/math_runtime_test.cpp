@@ -10,7 +10,7 @@
 using namespace babelsim;
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
+    const Mesh mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     RuntimeControl control;
     control.methods.interpolation = InterpolationMethod::Linear;
     control.methods.gradient = GradientMethod::GreenGauss;
@@ -19,8 +19,8 @@ int main() {
     RunTime run_time = RunTime::forMesh(mesh, control);
 
     ScalarField scalar(mesh, FieldLocation::Cell, "T");
-    detail::fieldData(scalar)[mesh.cellId(0, 0, 0)] = 1.0;
-    detail::fieldData(scalar)[mesh.cellId(1, 0, 0)] = 3.0;
+    detail::fieldData(scalar)[hexCellIndex(0, 0, 0, 2, 1)] = 1.0;
+    detail::fieldData(scalar)[hexCellIndex(1, 0, 0, 2, 1)] = 3.0;
     for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         scalar.boundary(patch) = zeroGradient();
     }
@@ -97,7 +97,7 @@ int main() {
     rejects([&] { math::subtract(math::flux(face_coefficient, scalar), face_coefficient); });
     rejects([&] { math::evaluate(math::flux(face_coefficient, math::reconstruct(scalar, face_response)), projected); });
     rejects([&] { math::add(math::flux(face_response), projected, static_cast<math::FaceRegion>(-1)); });
-    const Mesh other_mesh = Mesh::cartesian({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
+    const Mesh other_mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     VectorField other_face(other_mesh, FieldLocation::Face);
     rejects([&] { math::evaluate(math::flux(other_face), projected); });
 

@@ -12,30 +12,30 @@
 using namespace babelsim;
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
+    const Mesh mesh = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
     ScalarField scalar(mesh, FieldLocation::Cell, "phi", 2.0);
     require(scalar.size() == 1 && detail::fieldData(scalar) != nullptr, "cell field is not contiguous");
     scalar.setBoundary(
-        static_cast<Index>(Side::XMin),
+        static_cast<Index>(0),
         BoundaryCondition<double>::fixedValue(5.0));
     scalar.setBoundary(
-        static_cast<Index>(Side::XMax),
+        static_cast<Index>(1),
         BoundaryCondition<double>::fixedGradient(3.0));
     scalar.setBoundary(
-        static_cast<Index>(Side::YMin),
+        static_cast<Index>(2),
         BoundaryCondition<double>::zeroGradient());
     scalar.setBoundary(
-        static_cast<Index>(Side::YMax),
+        static_cast<Index>(3),
         BoundaryCondition<double>::inletOutlet(7.0));
     scalar.setBoundary(
-        static_cast<Index>(Side::ZMin),
+        static_cast<Index>(4),
         BoundaryCondition<double>::symmetry());
 
-    const Index xmin = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::XMin)].faces.front();
-    const Index xmax = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::XMax)].faces.front();
-    const Index ymin = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::YMin)].faces.front();
-    const Index ymax = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::YMax)].faces.front();
-    const Index zmin = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::ZMin)].faces.front();
+    const Index xmin = detail::meshData(mesh).patches[static_cast<std::size_t>(0)].faces.front();
+    const Index xmax = detail::meshData(mesh).patches[static_cast<std::size_t>(1)].faces.front();
+    const Index ymin = detail::meshData(mesh).patches[static_cast<std::size_t>(2)].faces.front();
+    const Index ymax = detail::meshData(mesh).patches[static_cast<std::size_t>(3)].faces.front();
+    const Index zmin = detail::meshData(mesh).patches[static_cast<std::size_t>(4)].faces.front();
     require(near(boundaryFaceValue(scalar, xmin), 5.0), "fixedValue failed");
     require(near(boundaryFaceValue(scalar, xmax), 3.5), "fixedGradient failed");
     require(near(boundaryFaceValue(scalar, ymin), 2.0), "zeroGradient failed");
@@ -47,22 +47,22 @@ int main() {
     const bool has_fixed_value = setHomogeneousCorrectionBoundaries(correction, scalar);
     require(has_fixed_value, "fixed scalar boundary was not detected");
     require(
-        correction.boundary(static_cast<Index>(Side::XMin)).type == BoundaryType::FixedValue &&
-        near(correction.boundary(static_cast<Index>(Side::XMin)).value, 0.0),
+        correction.boundary(static_cast<Index>(0)).type == BoundaryType::FixedValue &&
+        near(correction.boundary(static_cast<Index>(0)).value, 0.0),
         "fixed correction boundary is not homogeneous");
     require(
-        correction.boundary(static_cast<Index>(Side::ZMin)).type == BoundaryType::Symmetry,
+        correction.boundary(static_cast<Index>(4)).type == BoundaryType::Symmetry,
         "symmetry correction boundary changed type");
     require(
-        correction.boundary(static_cast<Index>(Side::XMax)).type == BoundaryType::ZeroGradient &&
-        correction.boundary(static_cast<Index>(Side::YMax)).type == BoundaryType::ZeroGradient,
+        correction.boundary(static_cast<Index>(1)).type == BoundaryType::ZeroGradient &&
+        correction.boundary(static_cast<Index>(3)).type == BoundaryType::ZeroGradient,
         "non-value correction boundary is not zeroGradient");
 
     VectorField vector(mesh, FieldLocation::Cell, "U", {1.0, 2.0, 3.0});
     vector.setBoundary(
-        static_cast<Index>(Side::ZMax),
+        static_cast<Index>(5),
         BoundaryCondition<Vec3>::symmetry());
-    const Index zmax = detail::meshData(mesh).patches[static_cast<std::size_t>(Side::ZMax)].faces.front();
+    const Index zmax = detail::meshData(mesh).patches[static_cast<std::size_t>(5)].faces.front();
     require(
         near(boundaryFaceValue(vector, zmax), {1.0, 2.0, 0.0}),
         "vector symmetry did not remove the normal component");
@@ -86,13 +86,13 @@ int main() {
             }
         }
     }
-    const Mesh skewed = Mesh::structured({1, 1, 1}, std::move(skewed_points));
+    const Mesh skewed = makeHexFromVertices({1, 1, 1}, std::move(skewed_points));
     ScalarField skewed_scalar(skewed, FieldLocation::Cell, "skewedPhi", 2.0);
     skewed_scalar.setBoundary(
-        static_cast<Index>(Side::XMax),
+        static_cast<Index>(1),
         BoundaryCondition<double>::fixedGradient(3.0));
     const Index skewed_xmax =
-        detail::meshData(skewed).patches[static_cast<std::size_t>(Side::XMax)].faces.front();
+        detail::meshData(skewed).patches[static_cast<std::size_t>(1)].faces.front();
     const double normal_distance = boundaryNormalDistance(skewed, skewed_xmax);
     require(
         near(

@@ -9,7 +9,7 @@
 using namespace babelsim;
 
 int main() {
-    const Mesh planar = Mesh::cartesian({2, 3, 1}, {0, 0, 0}, {2, 3, 1});
+    const Mesh planar = makeHexBox({2, 3, 1}, {0, 0, 0}, {2, 3, 1});
     require(planar.orthogonalGeometry(), "Cartesian mesh was not recognized as orthogonal");
     require(planar.cellCount() == 6, "nz=1 cell count is incorrect");
     require(planar.faceCount() == 29, "nz=1 face count is incorrect");
@@ -54,7 +54,7 @@ int main() {
             }
         }
     }
-    const Mesh skewed = Mesh::structured(dimensions, std::move(points));
+    const Mesh skewed = makeHexFromVertices(dimensions, std::move(points));
     double maximum_non_orthogonal = 0.0;
     double maximum_skewness = 0.0;
     double total_volume = 0.0;

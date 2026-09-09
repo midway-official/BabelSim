@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     const ParallelContext parallel = ParallelContext::world();
     try {
         require(parallel.size == 2, "parallel_domain_test requires two MPI ranks");
-        const Mesh global = Mesh::cartesian(
+        const Mesh global = makeHexBox(
             {8, 3, 2}, {0, 0, 0}, {2, 1, 0.5});
         const Mesh local = decompose(global, parallel);
         require(
@@ -82,36 +82,22 @@ int main(int argc, char* argv[]) {
             static_cast<double>(parallel.rank + 10),
             static_cast<double>(parallel.rank + 20)});
         halo.exchange(face_vector);
-        for (Index cell : detail::meshData(local).owned_cells) {
-            const Index i = cell % detail::meshData(local).dimensions[0];
-            if (i == detail::meshData(local).owned_i_begin && parallel.rank > 0) {
-                const Index face = detail::meshData(local).cell_faces[static_cast<std::size_t>(cell)]
-                    [static_cast<std::size_t>(Side::XMin)];
-                require(
-                    near(detail::fieldData(face_field)[face], 0.0),
-                    "face-centred halo exchange failed on the left interface");
-                require(
-                    near(detail::fieldData(face_vector)[face], {0.0, 10.0, 20.0}),
-                    "vector face halo exchange failed on the left interface");
-            }
-            if (i == detail::meshData(local).owned_i_end - 1 && parallel.rank + 1 < parallel.size) {
-                const Index face = detail::meshData(local).cell_faces[static_cast<std::size_t>(cell)]
-                    [static_cast<std::size_t>(Side::XMax)];
-                require(
-                    near(detail::fieldData(face_field)[face], 0.0),
-                    "face-centred owner-authoritative exchange changed the owner");
-                require(
-                    near(detail::fieldData(face_vector)[face], {0.0, 10.0, 20.0}),
-                    "vector face owner-authoritative exchange changed the owner");
-            }
+        for (Index face : detail::meshData(local).owned_faces) {
+            const double publisher = detail::faceOwnerRank(local, face);
+            require(
+                near(detail::fieldData(face_field)[face], publisher),
+                "face-centred halo exchange did not preserve the topology owner value");
+            require(
+                near(detail::fieldData(face_vector)[face], {publisher, publisher + 10.0, publisher + 20.0}),
+                "vector face halo exchange did not preserve the topology owner value");
         }
 
         ScalarField affine(local, FieldLocation::Cell, "affine");
         affine.setBoundary(
-            static_cast<Index>(Side::XMin),
+            static_cast<Index>(0),
             BoundaryCondition<double>::fixedValue(1.0));
         affine.setBoundary(
-            static_cast<Index>(Side::XMax),
+            static_cast<Index>(1),
             BoundaryCondition<double>::fixedValue(5.0));
         for (Index cell : detail::meshData(local).owned_cells) {
             detail::fieldData(affine)[cell] = 2.0 *
@@ -214,10 +200,10 @@ int main(int argc, char* argv[]) {
 
         ScalarField diffusion(local, FieldLocation::Cell, "diffusion");
         diffusion.setBoundary(
-            static_cast<Index>(Side::XMin),
+            static_cast<Index>(0),
             BoundaryCondition<double>::fixedValue(0.0));
         diffusion.setBoundary(
-            static_cast<Index>(Side::XMax),
+            static_cast<Index>(1),
             BoundaryCondition<double>::fixedValue(2.0));
         ScalarDiscreteEquation diffusion_equation(local);
         addDiffusion(
@@ -315,7 +301,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        const Mesh skew_global = Mesh::structured(
+        const Mesh skew_global = makeHexFromVertices(
             skew_dimensions, std::move(skew_points));
         const Mesh skew = decompose(skew_global, parallel);
         HaloExchange skew_halo(skew, parallel);

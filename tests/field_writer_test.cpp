@@ -21,7 +21,7 @@ const ResultField& field(const ResultData& data, const std::string& name) {
 }  // 匿名命名空间
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({2, 2, 1}, {0, 0, 0}, {2, 2, 1});
+    const Mesh mesh = makeHexBox({2, 2, 1}, {0, 0, 0}, {2, 2, 1});
     ScalarField pressure(mesh, FieldLocation::Cell, "p");
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     TensorField tensor(mesh, FieldLocation::Cell, "gradU");

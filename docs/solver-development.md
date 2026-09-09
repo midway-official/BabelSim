@@ -116,8 +116,8 @@ Solver 编译不需要 MPI/Eigen 头或 `-Isrc`；最终用 MPI 链接器解决�
 `solution.bs` 必须同时包含 `scalarSolver` 和 `vectorSolver` 的完整配置，即使新 PDE
 只使用其中一类。通用 Case 读取两项，不需要 Solver 自己处理；漏项会直接报错。
 
-线性后端支持 `cg incompleteCholesky`、`bicgstab ilut`、`cg amg` 和
-`bicgstab amg`。AMG 只作为 Krylov 预条件器，例如：
+线性后端支持 `cg/bicgstab none`、`cg incompleteCholesky`、`bicgstab ilut`、`cg amg` 和
+`bicgstab amg`。`none` 是恒等预条件器，只应用于基准与诊断；AMG 只作为 Krylov 预条件器，例如：
 
 ```text
 scalarSolver cg amg 1e-14 1e-9 800 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2 amgRefreshInterval=4
@@ -126,10 +126,12 @@ vectorSolver bicgstab amg 1e-12 1e-8 800 amgMaxLevels=12 amgCoarseSize=48 amgSmo
 
 这些是 Case 的计算后端选择，不是 Solver 代码中的对象。AMG 层级、Krylov 工作区和
 全局归约由默认后端管理；新增 PDE 只需要组合 `eqn`/`math`/`solve`，不需要修改或调用
-线性代数 API。MPI AMG 的细网格平滑、halo matvec、全局粗网格和粗校正都在后端内完成；
+线性代数 API。MPI AMG 的细网格平滑、halo matvec、全局聚合粗网格和粗校正都在后端内完成；
 若要开发 GPU AMG，应替换 ComputeBackend，而不是在 Physics 中加入通信代码。
 `amgRefreshInterval` 是 AMG 预条件器的性能调节项：它不缓存方程矩阵，也不改变 PDE；
-仅对变化缓慢的连续方程复用若干次已构造的 AMG 层级。默认值 `1` 保持每次更新。
+仅对变化缓慢的连续方程复用若干次已构造的 AMG 层级。默认值 `1` 保持每次更新。当前 MPI
+粗矩阵是各 rank 复制的小型粗层，不是完整可伸缩的分布式多层 AMG；不要在 Physics 中尝试
+补通信，若需该能力应整体替换 ComputeBackend。
 
 移除新 Solver 不读取的旧物性/算法参数。`Parameters` 会检查重复键、非有限数字、
 缺少项和未消费项，避免拼错参数后悄悄使用默认值。它不是新的物性模型，只是命名配置的读取器。

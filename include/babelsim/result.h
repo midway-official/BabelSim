@@ -2,7 +2,6 @@
 
 #include "babelsim/field.h"
 
-#include <array>
 #include <string>
 #include <vector>
 
@@ -23,7 +22,7 @@ struct ResultField {
 
 struct ResultData {
     std::string time_name;
-    std::array<Index, 3> global_dimensions{};
+    Index global_cell_count = 0;
     std::vector<ResultField> fields;
 };
 }  // babelsim 命名空间

@@ -1,10 +1,8 @@
 #include "babelsim/mesh_io.h"
 
-#include <array>
 #include <cmath>
 #include <fstream>
 #include <limits>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -12,32 +10,23 @@
 namespace babelsim {
 namespace {
 
-[[noreturn]] void invalidFile(
-    const std::filesystem::path& path,
-    const std::string& message)
-{
-    throw std::runtime_error("invalid BabelSim mesh file " + path.string() +
-                             ": " + message);
+[[noreturn]] void invalidFile(const std::filesystem::path& path, const std::string& message) {
+    throw std::runtime_error("invalid BabelSim mesh file " + path.string() + ": " + message);
 }
 
 template <typename T>
 T read(std::istream& input, const std::filesystem::path& path, const char* what) {
     T value{};
-    if (!(input >> value)) {
-        invalidFile(path, std::string("missing ") + what);
-    }
+    if (!(input >> value)) invalidFile(path, std::string("missing ") + what);
     return value;
 }
 
-Index sideIndex(const std::string& name, const std::filesystem::path& path) {
-    static constexpr std::array<const char*, 6> names = {
-        "xmin", "xmax", "ymin", "ymax", "zmin", "zmax"};
-    for (Index side = 0; side < static_cast<Index>(names.size()); ++side) {
-        if (name == names[static_cast<std::size_t>(side)]) {
-            return side;
-        }
+Index count(std::istream& input, const std::filesystem::path& path, const char* what) {
+    const Index value = read<Index>(input, path, what);
+    if (value <= 0 || value == std::numeric_limits<Index>::max()) {
+        invalidFile(path, std::string(what) + " must be positive");
     }
-    invalidFile(path, "unknown logical side " + name);
+    return value;
 }
 
 PatchKind patchKind(const std::string& name, const std::filesystem::path& path) {
@@ -50,94 +39,73 @@ PatchKind patchKind(const std::string& name, const std::filesystem::path& path) 
     invalidFile(path, "unknown patch kind " + name);
 }
 
-}  // 匿名命名空间
+}  // namespace
 
 Mesh readMeshFile(const std::filesystem::path& path) {
     std::ifstream input(path);
-    if (!input) {
-        throw std::runtime_error("cannot open BabelSim mesh file: " + path.string());
-    }
+    if (!input) throw std::runtime_error("cannot open BabelSim mesh file: " + path.string());
 
     const std::string magic = read<std::string>(input, path, "file header");
     const int version = read<int>(input, path, "format version");
-    if (magic != "BABELSIM_MESH" || version != 1) {
-        invalidFile(path, "expected BABELSIM_MESH version 1");
+    if (magic != "BABELSIM_MESH" || version != 2) {
+        invalidFile(path, "only BABELSIM_MESH version 2 is supported");
+    }
+    if (read<std::string>(input, path, "vertices keyword") != "vertices") {
+        invalidFile(path, "expected vertices");
+    }
+    const Index vertex_count = count(input, path, "vertex count");
+    std::vector<Vec3> vertices(static_cast<std::size_t>(vertex_count));
+    for (Vec3& vertex : vertices) {
+        vertex = {read<double>(input, path, "vertex x"), read<double>(input, path, "vertex y"),
+                  read<double>(input, path, "vertex z")};
+        if (!isFinite(vertex)) invalidFile(path, "vertex must be finite");
     }
 
-    if (read<std::string>(input, path, "dimensions keyword") != "dimensions") {
-        invalidFile(path, "expected dimensions");
+    if (read<std::string>(input, path, "cells keyword") != "cells") {
+        invalidFile(path, "expected cells");
     }
-    std::array<Index, 3> dimensions = {
-        read<Index>(input, path, "nx"),
-        read<Index>(input, path, "ny"),
-        read<Index>(input, path, "nz")};
-    if (dimensions[0] <= 0 || dimensions[1] <= 0 || dimensions[2] <= 0 ||
-        dimensions[0] == std::numeric_limits<Index>::max() ||
-        dimensions[1] == std::numeric_limits<Index>::max() ||
-        dimensions[2] == std::numeric_limits<Index>::max()) {
-        invalidFile(path, "dimensions must be positive");
+    const Index cell_count = count(input, path, "cell count");
+    std::vector<std::array<Index, 8>> cells(static_cast<std::size_t>(cell_count));
+    for (auto& cell : cells) {
+        for (Index& vertex : cell) vertex = read<Index>(input, path, "cell vertex index");
     }
 
-    if (read<std::string>(input, path, "geometry keyword") != "geometry") {
-        invalidFile(path, "expected geometry");
+    if (read<std::string>(input, path, "patches keyword") != "patches") {
+        invalidFile(path, "expected patches");
     }
-    const std::string geometry = read<std::string>(input, path, "geometry type");
-    std::vector<Vec3> vertices;
-    Vec3 minimum{};
-    Vec3 maximum{};
-    if (geometry == "cartesian") {
-        if (read<std::string>(input, path, "bounds keyword") != "bounds") {
-            invalidFile(path, "expected bounds after cartesian geometry");
-        }
-        minimum = {
-            read<double>(input, path, "minimum x"),
-            read<double>(input, path, "minimum y"),
-            read<double>(input, path, "minimum z")};
-        maximum = {
-            read<double>(input, path, "maximum x"),
-            read<double>(input, path, "maximum y"),
-            read<double>(input, path, "maximum z")};
-    } else if (geometry == "vertices") {
-        const std::size_t count =
-            static_cast<std::size_t>(dimensions[0] + 1) *
-            static_cast<std::size_t>(dimensions[1] + 1) *
-            static_cast<std::size_t>(dimensions[2] + 1);
-        vertices.resize(count);
-        for (Vec3& vertex : vertices) {
-            vertex = {
-                read<double>(input, path, "vertex x"),
-                read<double>(input, path, "vertex y"),
-                read<double>(input, path, "vertex z")};
-        }
-    } else {
-        invalidFile(path, "geometry must be cartesian or vertices");
-    }
-
-    std::array<PatchSpec, 6> patches{};
-    std::array<bool, 6> seen{};
-    for (Index record = 0; record < 6; ++record) {
+    const Index patch_count = count(input, path, "patch count");
+    std::vector<PatchSpec> patches;
+    std::vector<BoundaryFaceSpec> boundary_faces;
+    patches.reserve(static_cast<std::size_t>(patch_count));
+    for (Index patch = 0; patch < patch_count; ++patch) {
         if (read<std::string>(input, path, "patch keyword") != "patch") {
-            invalidFile(path, "expected six patch records");
+            invalidFile(path, "expected patch");
         }
-        const std::string side_name = read<std::string>(input, path, "patch side");
         const std::string name = read<std::string>(input, path, "patch name");
-        const std::string kind = read<std::string>(input, path, "patch kind");
-        const Index side = sideIndex(side_name, path);
-        if (seen[static_cast<std::size_t>(side)] || name.empty()) {
-            invalidFile(path, "duplicate side or empty patch name");
+        const PatchKind kind = patchKind(read<std::string>(input, path, "patch kind"), path);
+        const Index face_count = count(input, path, "patch face count");
+        if (name.empty()) invalidFile(path, "patch name must not be empty");
+        patches.push_back({name, kind});
+        for (Index face = 0; face < face_count; ++face) {
+            BoundaryFaceSpec boundary;
+            boundary.patch = patch;
+            for (Index& vertex : boundary.vertices) {
+                vertex = read<Index>(input, path, "boundary face vertex index");
+            }
+            boundary_faces.push_back(boundary);
         }
-        seen[static_cast<std::size_t>(side)] = true;
-        patches[static_cast<std::size_t>(side)] = {name, patchKind(kind, path)};
     }
-
-    Mesh mesh = geometry == "cartesian"
-        ? Mesh::cartesian(dimensions, minimum, maximum, patches)
-        : Mesh::structured(dimensions, std::move(vertices), patches);
+    const std::string end = read<std::string>(input, path, "end marker");
+    if (end != "end") invalidFile(path, "expected end");
     std::string trailing;
-    if (input >> trailing && trailing != "end") {
-        invalidFile(path, "unexpected trailing token " + trailing);
+    if (input >> trailing) invalidFile(path, "unexpected trailing token " + trailing);
+
+    try {
+        return Mesh::unstructured(std::move(vertices), std::move(cells), std::move(patches),
+                                  std::move(boundary_faces));
+    } catch (const std::exception& error) {
+        invalidFile(path, error.what());
     }
-    return mesh;
 }
 
-}  // babelsim 命名空间
+}  // namespace babelsim

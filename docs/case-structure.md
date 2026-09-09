@@ -84,8 +84,36 @@ const double k = problem.physics().nonnegative("conductivity");
 
 ## 网格和场
 
-网格仍使用 BABELSIM_MESH 1，存尺寸、笛卡尔边界或显式顶点、patch。
-统一三维结构化六面体，二维是 nz=1。各 patch 名必须唯一。
+网格使用 `BABELSIM_MESH 2`，只接受显式非结构六面体连接：顶点坐标、每个
+单元的八个顶点，以及每个 patch 的边界四边形。内部面由单元连接自动匹配，
+各 patch 名必须唯一。旧版网格文件不被读取。
+
+```text
+BABELSIM_MESH 2
+vertices 8
+0 0 0
+1 0 0
+1 1 0
+0 1 0
+0 0 1
+1 0 1
+1 1 1
+0 1 1
+cells 1
+0 1 2 3 4 5 6 7
+patches 1
+patch boundary generic 6
+0 4 7 3
+1 2 6 5
+0 1 5 4
+3 7 6 2
+0 3 2 1
+4 5 6 7
+end
+```
+
+八顶点次序与 VTK `HEXAHEDRON` 一致。离线网格生成器可以产生规则外形的
+输入，但求解器内部没有规则坐标、逻辑索引或方向分区概念。
 
 实际可读取的场语法是花括号形式，不是旧文档中的简写：
 
@@ -142,6 +170,12 @@ convection C upwind
 ```text
 scalarSolver bicgstab ilut 1e-14 1e-10 1000
 vectorSolver bicgstab ilut 1e-12 1e-8 1000
+maxIterations 1200
+velocityRelaxation 0.5
+pressureRelaxation 0.3
+continuityTolerance 1e-7
+velocityTolerance 1e-6
+pressureCorrectionTolerance 1e-6
 ```
 
 每行在配置名后依次填写方法、预条件器、绝对容差、相对容差、最大迭代数。
@@ -150,6 +184,8 @@ scalarSolver 配置标量方程，vectorSolver 配置矢量方程，两个条目
 即使 Heat/Transport 当前只求标量，也必须提供两项；配置矢量求解器不会创建或求解额外矢量方程。
 SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySolver/pressureSolver
 需改为这两个通用键。SIMPLE 自身的松弛、最大外迭代和容差仍在此文件，由算法读取。
+其中 `pressureCorrectionTolerance` 约束未松弛压力修正相对量；它与质量残差、速度相对变化
+一起决定外迭代收敛，缺省值为 `1e-6`。
 
 可选的尾随项采用 `名称=值`，只影响计算后端。例如将 AMG 作为 Krylov 预条件器：
 
@@ -158,7 +194,8 @@ scalarSolver cg amg 1e-14 1e-9 800 amgMaxLevels=12 amgCoarseSize=48 amgSmoothing
 vectorSolver bicgstab amg 1e-12 1e-8 800 amgCoarseSize=64
 ```
 
-支持的组合是 `cg incompleteCholesky`、`bicgstab ilut` 和 `cg/bicgstab amg`。AMG 不可作为
+支持的组合是 `cg/bicgstab none`、`cg incompleteCholesky`、`bicgstab ilut` 和
+`cg/bicgstab amg`。`none` 是恒等预条件器，适合基准测试而非默认工程配置。AMG 不可作为
 独立 Solver。串行 AMG 执行聚合 V-cycle；MPI AMG 在分布式细网格上平滑，并对各 rank
 贡献的全局聚合粗矩阵进行粗网格校正，不会汇集或复制完整细网格矩阵。AMG 的层级和粗网格分解在矩阵模式分析阶段构建，后续相同模式的
 factorize 会复用聚合关系。`amgRefreshInterval` 只对“AMG 作为 Krylov 预条件器”生效：

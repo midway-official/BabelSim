@@ -12,6 +12,7 @@ enum class LinearSolverType {
 };
 
 enum class PreconditionerType {
+    None,
     IncompleteCholesky,
     ILUT,
     AlgebraicMultigrid,

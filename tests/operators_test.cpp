@@ -27,7 +27,7 @@ Mesh affineSkewedMesh() {
             }
         }
     }
-    return Mesh::structured(dimensions, std::move(points));
+    return makeHexFromVertices(dimensions, std::move(points));
 }
 
 Mesh warpedThreeDimensionalMesh() {
@@ -51,7 +51,7 @@ Mesh warpedThreeDimensionalMesh() {
             }
         }
     }
-    return Mesh::structured({n, n, n}, std::move(points));
+    return makeHexFromVertices({n, n, n}, std::move(points));
 }
 
 double linearValue(const Vec3& point) {
@@ -69,7 +69,7 @@ Vec3 linearVectorValue(const Vec3& point) {
 }  // 匿名命名空间
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({3, 3, 3}, {0, 0, 0}, {3, 3, 3});
+    const Mesh mesh = makeHexBox({3, 3, 3}, {0, 0, 0}, {3, 3, 3});
     ScalarField linear(mesh, FieldLocation::Cell, "linear");
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     ScalarField quadratic(mesh, FieldLocation::Cell, "quadratic");
@@ -80,7 +80,7 @@ int main() {
         detail::fieldData(quadratic)[cell] = squaredNorm(centre);
     }
 
-    const Index centre_cell = mesh.cellId(1, 1, 1);
+    const Index centre_cell = hexCellIndex(1, 1, 1, 3, 3);
     VectorField gg(mesh, FieldLocation::Cell, "gradGG");
     VectorField ls(mesh, FieldLocation::Cell, "gradLS");
     gradient(linear, gg, GradientMethod::GreenGauss);
@@ -109,7 +109,7 @@ int main() {
         detail::fieldData(skewed_linear)[cell] = linearValue(
             detail::meshData(skewed).cell_centres[static_cast<std::size_t>(cell)]);
     }
-    const Index skewed_centre = skewed.cellId(2, 2, 2);
+    const Index skewed_centre = hexCellIndex(2, 2, 2, 5, 5);
     VectorField skewed_gradient(skewed, FieldLocation::Cell, "grad");
     gradient(skewed_linear, skewed_gradient, GradientMethod::LeastSquares);
     require(
@@ -159,7 +159,7 @@ int main() {
         "least-squares vector gradient is not exact on an affine skew mesh");
 
     const Mesh warped = warpedThreeDimensionalMesh();
-    const Index warped_centre = warped.cellId(3, 3, 3);
+    const Index warped_centre = hexCellIndex(3, 3, 3, 7, 7);
     ScalarField warped_linear(warped, FieldLocation::Cell, "warpedLinear");
     VectorField warped_vector(warped, FieldLocation::Cell, "warpedVector");
     for (Index cell = 0; cell < warped.cellCount(); ++cell) {

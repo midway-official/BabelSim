@@ -9,7 +9,7 @@
 using namespace babelsim;
 
 int main() {
-    const Mesh mesh = Mesh::cartesian({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
+    const Mesh mesh = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
     ScalarField concentration(mesh, FieldLocation::Cell, "C", 0.0);
     ScalarField flux(mesh, FieldLocation::Face, "phi", 0.0);
     for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
