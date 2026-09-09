@@ -420,3 +420,25 @@ Re=1000、128² 壁面加密腔体的 1/2/4 rank 自然收敛与固定 200 次�
 - 非六面体单元、通用面、GPU 后端。
 
 这些是扩展方向，不影响当前已验证的显式非结构六面体有限体积与框架级 MPI 基础。
+
+## 7. 稳态/瞬态 SIMPLE 的 1/2/4 rank 对照
+
+```bash
+make test-simple-parallel
+```
+
+该目标依次运行原 64×64 方腔、原 Poiseuille 通道、三维方腔、非仿射扭曲三维方腔，
+以及四层 ghost 的扭曲方腔；每种配置覆盖 steady、Euler 和 BDF2，各使用 1/2/4 rank。
+瞬态从静止速度开始，dt=.01，计算五步并比较每个物理时间的 U/p，不仅比较最终别名。
+每次必须退出 0 且每步内迭代收敛；还检查 global ID 完整性、分片数、几何及真实时间。
+默认逐分量误差阈值为 5e-6 + 5e-6*max(abs(reference),abs(candidate))，同时报告绝对差、
+RMS 和相对 L2。所有运行保留在打印的临时目录，脚本不会覆写原 case。
+
+单独选择范围可运行：
+
+```bash
+python3 tests/simple_parallel_consistency_test.py --cases cube warped --modes euler bdf2
+```
+
+这是并行一致性检查，不证明连续方程精度、长时间稳定性或时间收敛阶。
+本轮实际结果见 [2026-09-10 报告](reports/simple-parallel-consistency-2026-09-10.md)。

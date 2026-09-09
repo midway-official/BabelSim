@@ -1,0 +1,24 @@
+RANS model: Spalart-Allmaras
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.448694e-02 rTurb=2.983017e-02 linear=ok converged=false
+Transient SIMPLE 81 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.101132e-11 rTurb=9.909897e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.418799e-02 rTurb=2.757138e-02 linear=ok converged=false
+Transient SIMPLE 78 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.533000e-11 rTurb=8.359654e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.390067e-02 rTurb=2.559435e-02 linear=ok converged=false
+Transient SIMPLE 75 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.386127e-11 rTurb=7.703773e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.362452e-02 rTurb=2.385179e-02 linear=ok converged=false
+Transient SIMPLE 72 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.607081e-11 rTurb=7.729086e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.335908e-02 rTurb=2.230625e-02 linear=ok converged=false
+Transient SIMPLE 69 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.237508e-11 rTurb=8.414886e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.310387e-02 rTurb=2.092766e-02 linear=ok converged=false
+Transient SIMPLE 66 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.425807e-11 rTurb=9.910743e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.285847e-02 rTurb=1.969167e-02 linear=ok converged=false
+Transient SIMPLE 64 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.255587e-11 rTurb=9.282136e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.262243e-02 rTurb=1.857834e-02 linear=ok converged=false
+Transient SIMPLE 62 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.417954e-11 rTurb=9.179881e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.239535e-02 rTurb=1.757120e-02 linear=ok converged=false
+Transient SIMPLE 60 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.845719e-11 rTurb=9.454124e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.217391e-02 rTurb=1.664923e-02 linear=ok converged=false
+Transient SIMPLE 59 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.560196e-11 rTurb=7.428131e-11 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.0976771 linearSolves=3430 krylovIterations=686 spmv=4802 halo=0 allreduce=6860 assembly=2058/0.000336872 preconditionerSetup=2058/0.00327798 preconditionerApply=686/0.000320504 linearSeconds=0.00133323 spmvSeconds=0.000513639 haloSeconds=0 allreduceSeconds=0.000317031
+BabelSim result time=0.1 steps=10 saved to "/tmp/babelsim-rans-validation-psw4qltp/decay-SA-euler-0.01/results/serial"
+BabelSim timeToSolution=0.328788

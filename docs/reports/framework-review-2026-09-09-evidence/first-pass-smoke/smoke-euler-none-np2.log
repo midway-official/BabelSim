@@ -1,0 +1,4 @@
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.00176887 linearSolves=4 krylovIterations=0 spmv=4 halo=24 allreduce=13 assembly=2/7.01e-07 preconditionerSetup=2/6.2711e-05 preconditionerApply=0/0 linearSeconds=8.095e-06 spmvSeconds=4.529e-06 haloSeconds=0.000138319 allreduceSeconds=4.6341e-05
+BabelSim result time=0.001 steps=1 saved to "/tmp/babelsim-review-20260909/smoke-euler-none/results/np2"
+BabelSim timeToSolution=0.229799

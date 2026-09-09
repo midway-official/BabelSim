@@ -1,0 +1,2 @@
+fixedValue converged=1 C=0.6 expectedInflowSolution=0.6
+inletOutlet converged=1 C=0.333333 expectedInflowSolution=0.6

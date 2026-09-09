@@ -5,6 +5,9 @@
 #include "babelsim/methods.h"
 
 namespace babelsim {
+// 维护层局部核；公开 math 入口负责输入/输出同步。
+void divergence(const TensorField& tensor, VectorField& result,
+    InterpolationMethod interpolation, GradientMethod gradient);
 
 // 算子是局部有限体积核。分区运行时，调用方在调用算子前用 HaloExchange 同步每个输入
 // 单元/面场；算子不会读取隐藏的全局场，也不会执行 MPI 集体通信。

@@ -1,0 +1,5 @@
+density 1
+dynamicViscosity 0.001
+turbulenceModel kEpsilon
+kMin 0.001
+epsilonMin 0.001

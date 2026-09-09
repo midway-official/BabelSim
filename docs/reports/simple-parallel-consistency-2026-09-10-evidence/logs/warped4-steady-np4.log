@@ -1,0 +1,6 @@
+SIMPLE 1 mass=6.830086e-04 dU=1.000000e+00 rU=5.865393e-01 dP=3.333333e+00 linP=3.894437e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=9.088929e-10 dU=1.357497e-06 rU=2.081324e-06 dP=5.249382e-06 linP=6.654013e-09 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 158 mass=1.598796e-12 dU=2.375361e-09 rU=3.661150e-09 dP=9.272158e-09 linP=5.544690e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.296193 linearSolves=948 krylovIterations=24189 spmv=28915 halo=32708 allreduce=79349 assembly=632/0.000430899 preconditionerSetup=632/0.0249936 preconditionerApply=27021/0.0328682 linearSeconds=0.146295 spmvSeconds=0.0634583 haloSeconds=0.0689958 allreduceSeconds=0.0667047
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-simple-mpi-uif5hk6d/warped4-steady/results/np4"
+BabelSim timeToSolution=0.538961

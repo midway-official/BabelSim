@@ -51,9 +51,13 @@ public:
           m_fw(problem.scalarField("ransFw", 0.0)),
           m_diffusivity(problem.scalarField("ransDiffusivityNuTilda", 0.0)),
           m_source(problem.scalarField("ransSourceNuTilda", 0.0)),
+          m_sink(problem.scalarField("ransSinkNuTilda", 0.0)),
           m_work1(problem.scalarField("ransWork1", 0.0)),
           m_work2(problem.scalarField("ransWork2", 0.0))
     {
+        for (ScalarField* field : {&m_mut, &m_vorticity_magnitude, &m_gradient_squared, &m_chi, &m_fv1, &m_fv2, &m_ft2, &m_inverse_distance_squared, &m_stilda, &m_r, &m_fw, &m_diffusivity, &m_source, &m_sink, &m_work1, &m_work2})
+            field->useCalculatedBoundary();
+        m_nu_tilda_gradient.useCalculatedBoundary();
         boundField();
         updateKinematics();
         updateFunctions();
@@ -68,10 +72,11 @@ public:
         updateKinematics();
         updateEquationFields();
         const SolveResult result = solveTransport(
-            m_nu_tilda, m_diffusivity, m_source);
+            m_nu_tilda, m_diffusivity, m_source, &m_sink);
         boundField();
-        updateFunctions();
+        updateEquationFields();
         updateViscosity();
+        m_relative_residual = transportResidual(m_nu_tilda, m_diffusivity, m_source, &m_sink);
         m_relative_change = diagnostics::relativeChange(
             m_nu_tilda, m_previous_nu_tilda);
         return result;
@@ -81,6 +86,7 @@ public:
 
 private:
     void boundField() {
+        m_nu_tilda.setBoundaryFlux(m_face_flux);
         m_nu_tilda.evaluate(m_nu_tilda, [this](double value) {
             return std::max(value, m_nu_tilda_min);
         });
@@ -144,18 +150,18 @@ private:
             return squaredNorm(gradient);
         });
 
-        // cb1(1-ft2) S~ nu~
+        // Split the signed reaction coefficient without changing the positive-variable PDE.
+        // a = cb1*(1-ft2)*S~ - (cw1*fw-cb1*ft2/kappa^2)*nu~/d^2.
         m_work1.evaluate(m_ft2, [](double value) { return 1.0 - value; });
-        m_source.assignProduct(m_stilda, m_nu_tilda);
-        m_source.assignProduct(m_work1, m_source);
+        m_source.assignProduct(m_stilda, m_work1);
         m_source.assignScaled(m_cb1, m_source);
-
-        // -[cw1 fw - cb1 ft2/kappa^2] (nu~/d)^2
-        m_work1.assignProduct(m_nu_tilda, m_nu_tilda);
-        m_work1.assignProduct(m_inverse_distance_squared, m_work1);
+        m_work1.assignProduct(m_nu_tilda, m_inverse_distance_squared);
         m_work2.assignScaled(m_cw1, m_fw);
         m_work2.addScaled(-m_cb1 / (m_kappa * m_kappa), m_ft2);
         m_source.addProduct(-1.0, m_work2, m_work1);
+        m_sink.evaluate(m_source, [this](double a) { return m_density * std::max(-a, 0.0); });
+        m_source.evaluate(m_source, [](double a) { return std::max(a, 0.0); });
+        m_source.assignProduct(m_nu_tilda, m_source);
         m_source.addScaled(m_cb2 / m_sigma, m_gradient_squared);
         m_source.assignScaled(m_density, m_source);
 
@@ -194,6 +200,7 @@ private:
     ScalarField& m_fw;
     ScalarField& m_diffusivity;
     ScalarField& m_source;
+    ScalarField& m_sink;
     ScalarField& m_work1;
     ScalarField& m_work2;
     double m_relative_change = 0.0;

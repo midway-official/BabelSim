@@ -47,7 +47,8 @@ SOLVER_SOURCES := $(wildcard src/physics/*/main.cpp)
 SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
 
-TEST_SOURCES := tests/unstructured_mesh_test.cpp \
+TEST_SOURCES := tests/numerical_contract_test.cpp \
+                tests/unstructured_mesh_test.cpp \
                 tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
                 tests/operators_test.cpp \
@@ -125,7 +126,16 @@ test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)
 	$(BUILD)/time_history_test
 	python3 tests/solver_workflow_test.py
 
-test-mpi: $(MPI_TESTS)
+test-rans: $(BUILD)/babelsim-solve $(BUILD)/rans_equations_test
+	python3 tests/rans_validation_test.py
+
+test-simple-parallel: $(BUILD)/babelsim-solve
+	python3 tests/simple_parallel_consistency_test.py
+
+test-mpi: $(MPI_TESTS) $(BUILD)/numerical_contract_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/numerical_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/numerical_contract_test 4
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test 4
 	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test
@@ -185,7 +195,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all test test-architecture test-external test-workflow test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all test test-architecture test-external test-workflow test-rans test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

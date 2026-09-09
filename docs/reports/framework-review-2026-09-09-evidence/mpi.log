@@ -1,0 +1,40 @@
+TMPDIR=/tmp mpirun -np 1 build/parallel_math_test
+parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build/parallel_math_test
+parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 4 build/parallel_math_test
+parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=2.84217e-14
+TMPDIR=/tmp mpirun -np 2 build/parallel_domain_test build/mpi-output
+parallel_domain_test: global_cells=48 ranks=2 ghost_layers=2 pcg_iterations=15
+TMPDIR=/tmp mpirun -np 2 build/parallel_unstructured_test
+parallel_unstructured_test: scrambled hex graph partition and halo passed
+TMPDIR=/tmp mpirun -np 2 build/parallel_channel_test \
+	cases/poiseuille/mesh/poiseuille.mesh build/mpi-output
+parallel_channel_test: ranks=2 iterations=973 mass=2.62652e-15 dU=2.58684e-07 dP=9.95223e-07 sumU=(4339.07,-2.38484e-06,0) maxU=1.49884
+TMPDIR=/tmp mpirun -np 1 build/parallel_simple_test build/mpi-output
+parallel_simple_test: ranks=1 iterations=153 mass=1.32207e-14 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build/parallel_simple_test build/mpi-output
+parallel_simple_test: ranks=2 iterations=153 mass=1.24627e-14 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 4 build/parallel_simple_test build/mpi-output
+parallel_simple_test: ranks=4 iterations=153 mass=8.61835e-15 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build/parallel_cavity_3d_test build/mpi-output
+parallel_cavity_3d_test: ranks=2 iterations=66 mass=2.4032e-15 centreU=-0.114134 maxW=0.0192033
+TMPDIR=/tmp mpirun -np 2 build/parallel_transport_test
+parallel_transport_test: ranks=2 max_error=0
+make test-mpi-heat
+make[1]: Entering directory '/home/midway/BabelSim'
+TMPDIR=/tmp mpirun -np 1 build/babelsim-solve \
+	-case cases/heat -time mpi-np1
+BabelSim performance runtimeElapsed=0.0081817 linearSolves=5 krylovIterations=5 spmv=15 halo=0 allreduce=0 assembly=5/2.955e-06 preconditionerSetup=5/3.688e-05 preconditionerApply=5/5.77e-06 linearSeconds=1.9885e-05 spmvSeconds=3.145e-06 haloSeconds=0 allreduceSeconds=0
+BabelSim result time=0.05 steps=5 saved to "/home/midway/BabelSim/cases/heat/results/mpi-np1"
+BabelSim timeToSolution=0.23246
+TMPDIR=/tmp mpirun -np 2 build/babelsim-solve \
+	-case cases/heat -time mpi-np2
+BabelSim performance runtimeElapsed=0.00263768 linearSolves=5 krylovIterations=16 spmv=38 halo=43 allreduce=76 assembly=5/1.632e-06 preconditionerSetup=5/4.4335e-05 preconditionerApply=27/8.787e-06 linearSeconds=7.842e-05 spmvSeconds=4.0356e-05 haloSeconds=3.8135e-05 allreduceSeconds=4.2614e-05
+BabelSim result time=0.05 steps=5 saved to "/home/midway/BabelSim/cases/heat/results/mpi-np2"
+BabelSim timeToSolution=0.22394
+python3 tools/compare_parallel_results.py \
+	cases/heat/results/mpi-np1 cases/heat/results/mpi-np2 \
+	--atol 1e-9 --rtol 1e-9
+T: cells=32 max_abs_difference=4.1218644e-12
+make[1]: Leaving directory '/home/midway/BabelSim'

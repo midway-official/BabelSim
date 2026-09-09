@@ -1,6 +1,6 @@
 # 稳态与瞬态 SIMPLE 求解器
 
-本文说明两个内置层流不可压缩求解器的代码边界、数学流程和维护方法。
+本文说明两个内置不可压缩层流/RANS 求解器的代码边界、数学流程和维护方法。
 
 - `solver simple`：稳态 SIMPLE；
 - `solver transientSimple`：瞬态 SIMPLE，每个物理时间步内迭代压力速度耦合。
@@ -44,8 +44,7 @@ src/physics/
 ```
 
 没有 `simple_discretization.cpp` 放在通用离散层，也没有 SIMPLE 专用 Runtime、MPI、
-Matrix 或 Case reader。`simple_common.h` 位于 Physics 内且不随公共头发布；它只是消除
-两个 SIMPLE 求解器之间完全相同的四个小数据类型，不包含数值执行实现。
+Matrix 或 Case reader。`simple_common.h` 位于 Physics 内且不随公共头发布；它共享物性/控制、模型接口和完整偏应力的物理表达，不包含底层数值执行实现。
 
 ## 3. 稳态入口就是 SIMPLE 外迭代
 
@@ -60,6 +59,7 @@ int runSimple(Case& problem) {
         simple.solvePressure();
         simple.correctVelocity();
         simple.correctFlux();
+        simple.correctTurbulence();
         simple.checkContinuity();
     }
     return simple.converged() ? 0 : 2;
@@ -104,6 +104,7 @@ int runTransientSimple(Case& problem) {
             simple.solvePressure();
             simple.correctVelocity();
             simple.correctFlux();
+            simple.correctTurbulence();
             simple.checkContinuity();
         }
         if (!simple.converged()) return 2;
@@ -180,15 +181,17 @@ solve(
 | LDU、线性工作向量 | Algebra/FVM |
 | owned/ghost、halo buffer、MPI communicator | Parallel/Runtime |
 
-算法对象必须比它借用的 Case/Field 更早析构。所有工作 Field 在构造时分配一次，
-校正循环只更新数值，不重复创建整场临时数组。
+算法对象必须比它借用的 Case/Field 更早析构。算法持有的工作 Field 在构造时分配一次；通用算子及原方程残差装配仍有内部临时分配，
+不承诺整条计算路径零分配。
 
 ## 7. 收敛语义
 
 - `healthy`：数值有限，线性过程没有数值失败；
 - `linear_converged`：动量分量和全部压力修正线性求解均达到线性容差；
 - `converged`：前两项成立，并且全局连续性、速度相对变化和未松弛压力修正相对量分别达到
-  `continuityTolerance`、`velocityTolerance` 和 `pressureCorrectionTolerance`。
+  `continuityTolerance`、`velocityTolerance` 和 `pressureCorrectionTolerance`；更新后的原动量
+  方程残差还须满足 `momentumTolerance`。启用湍流时，所有输运线性求解成功，且 dTurb、
+  更新/裁剪后的 rTurb 均须满足 `turbulenceTolerance`。
 
 这些状态不能互相替代。所有停止依据通过 `diagnostics` 做全局归约，因此所有 rank
 执行相同数量的校正，不允许由本地残差分别决定流程。
@@ -238,3 +241,25 @@ BabelSim 学习的是“主程序体现算法、动量和压力方程有清晰�
 
 因此，BabelSim 的 main 仍能直接读出 SIMPLE 步骤，但具体算法类不对外发布，公共概念面
 保持为 Field、Boundary、eqn、math、solve、Case 和 diagnostics。
+
+
+## 11. RANS 动量与压力约定
+
+未启用模型时，两个 `State::momentumEquation()` 保留上述恒定分子黏度 NS 动量式。
+启用模型后令 \(\mu_e=\mu+\mu_t\)，物理层调用通用数学操作构造：
+
+\[
+\rho\partial_t U+\nabla\cdot(\rho U\otimes U)
+=-\nabla p_*+\nabla\cdot\{\mu_e[\nabla U+(\nabla U)^T-\tfrac23(\nabla\cdot U)I]\}.
+\]
+
+稳态去掉时间项。分量 Laplacian 隐式处理，剩余偏应力的张量散度显式迭代；两部分
+共同进入更新后的原动量残差。转置项在变涡黏度时不能省略，即使连续速度无散。
+该公式与模型调用仅位于 `src/physics`，FVM 不知道 RANS、muEffective 或模型名称。
+
+这里 p 文件单位为压力。层流为通常压力；两方程 RANS 以各向同性湍动应力吸收入
+\(p_*=\bar p+2\rho k/3\) 的压力约定解释。在需要物理平均压力、压力边界或压力载荷时，
+必须使用同一约定，必要时由物理层恢复 \(\bar p=p_*-2\rho k/3\)。当前没有自动转换输出。
+Wilcox 路径保持既有 Wilcox1988m 生产项约定。SA 不提供 k，不据此构造额外 k 压力。
+
+模型版本、常数、数值保护和公开来源见 [RANS 方程验收](reports/rans-equation-verification.md)。

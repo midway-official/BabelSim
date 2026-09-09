@@ -1,0 +1,15 @@
+field wallDistance
+{
+    type scalar
+    location cell
+    internal uniform (0.1)
+    boundary
+    {
+        hot { type fixedValue value (0) }
+        cold { type fixedValue value (0) }
+        lower { type symmetry }
+        upper { type symmetry }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

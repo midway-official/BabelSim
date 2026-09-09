@@ -1,0 +1,3 @@
+density 1
+dynamicViscosity 0.001
+turbulenceModel SA

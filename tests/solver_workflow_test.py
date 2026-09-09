@@ -101,6 +101,33 @@ with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
                 compare(heat / "results/np1" / f"{time:g}", directory / f"{time:g}", "T")
     check_pvd(heat, "np4", [0.02, 0.04, 0.05])
 
+    # Results must be tied to the actual vertex geometry, not just the cell count.
+    mesh_path = heat / "mesh/heat.mesh"
+    original_mesh = mesh_path.read_text()
+    lines = original_mesh.splitlines()
+    count = int(lines[1].split()[1])
+    for i in range(2, 2 + count):
+        xyz = list(map(float, lines[i].split()))
+        xyz[0] += 10.0
+        lines[i] = " ".join(map(str, xyz))
+    mesh_path.write_text("\n".join(lines) + "\n")
+    mismatch = run(ROOT / "build/babelsim-post", "-case", heat, "-time", "np4/all",
+                   "-format", "vtk", success=False)
+    assert "mesh provenance" in mismatch.stderr
+    mesh_path.write_text(original_mesh)
+
+    ghost = clone_case(base, "ghost-config", "heat")
+    entry = ghost / "case.bs"
+    original_entry = entry.read_text()
+    for invalid_layers in ("0", "1", "2", "-1", "3.5", "invalid", "3\nghostLayers 4"):
+        entry.write_text(original_entry + "\nghostLayers " + invalid_layers + "\n")
+        error = run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", ghost, success=False)
+        assert "ghostLayers" in error.stderr
+    for layers in (3, 4):
+        entry.write_text(original_entry + f"\nghostLayers {layers}\n")
+        run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", ghost, "-time", f"layers{layers}")
+    compare(ghost / "results/layers3", ghost / "results/layers4", "T")
+
     transport = clone_case(base, "transport", "transport")
     for count in (1, 2, 4):
         run("mpirun", "-np", count, ROOT / "build/babelsim-solve",

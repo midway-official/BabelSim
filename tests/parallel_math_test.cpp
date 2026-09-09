@@ -67,16 +67,17 @@ struct Fields {
           gradU(mesh, FieldLocation::Cell), phi(mesh, FieldLocation::Face),
           scalar(mesh, FieldLocation::Cell), vector(mesh, FieldLocation::Cell),
           faceScalar(mesh, FieldLocation::Face), faceVector(mesh, FieldLocation::Face) {
-        p.evaluate([](Vec3 x) { return 1 + 2*x.x - 0.7*x.y + 0.3*x.z; });
+        gradU.useCalculatedBoundary();
+        p.evaluate([](Vec3 x) { return 1 + 2*x.x*x.x - 0.7*x.y + 0.3*x.z; });
         k.evaluate([](Vec3 x) { return 2 + 0.2*x.x; });
         U.evaluate([](Vec3 x) { return Vec3{x.x + 0.3*x.y, -x.y + 0.1*x.z, 0.5*x.z}; });
         for (Index patch = 0; patch < mesh.patchCount(); ++patch) {
             if (mesh.patchKind(patch) == PatchKind::Processor) continue;
             if (detail::meshData(mesh).patches[patch].faces.empty()) continue;
-            const Vec3 n = mesh.faceNormal(detail::meshData(mesh).patches[patch].faces.front());
-            p.boundary(patch) = fixedGradient(dot(Vec3{2, -0.7, 0.3}, n));
-            k.boundary(patch) = fixedGradient(0.2*n.x);
-            U.boundary(patch) = fixedGradient(Vec3{n.x+0.3*n.y, -n.y+0.1*n.z, 0.5*n.z});
+            // Identical physical constraints on every partition, including curved patches.
+            p.boundary(patch) = BoundaryCondition<double>::zeroGradient();
+            k.boundary(patch) = BoundaryCondition<double>::zeroGradient();
+            U.boundary(patch) = BoundaryCondition<Vec3>::zeroGradient();
         }
     }
     ScalarField p, k;
@@ -154,24 +155,27 @@ void exercise(Fields& f, Answers& answers, bool record) {
     }
     poison(f.faceScalar); poison(f.p); poison(f.gradP);
     math::evaluate(math::flux(f.faceScalar, math::reconstruct(f.p, f.gradP)), f.phi); check(f.phi);
+    poison(f.gradU); math::evaluate(math::div(f.gradU), f.vector); check(f.vector);
 }
 }  // 匿名命名空间
 
 int main(int argc, char* argv[]) {
-    // 仿射倾斜三维网格同时覆盖非正交面、第二层 halo 和分区交界。
+    // 非仿射三维扭曲网格、非线性场和组合梯度覆盖三层 halo 依赖。
     std::vector<Vec3> points;
     for (int k = 0; k <= 3; ++k)
         for (int j = 0; j <= 4; ++j)
             for (int i = 0; i <= 16; ++i) {
                 const double x = i/16.0, y = j/4.0, z = k/3.0;
-                points.push_back({x+0.2*y, y+0.15*z, z+0.1*x});
+                points.push_back({x+0.2*y+0.05*x*y, y+0.15*z+0.03*y*z, z+0.1*x});
             }
     const Mesh global = makeHexFromVertices({16, 4, 3}, std::move(points));
     Answers answers;
+    for (GradientMethod gradient : {GradientMethod::LeastSquares, GradientMethod::GreenGauss})
     for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
                                    DiffusionMethod::LimitedCorrected}) {
         RuntimeControl control;
         control.methods.diffusion = method;
+        control.methods.gradient = gradient;
         RunTime time = RunTime::forMesh(global, control);
         Fields serial(global);
         exercise(serial, answers, true);
@@ -179,11 +183,13 @@ int main(int argc, char* argv[]) {
     detail::checkMpi(MPI_Init(&argc, &argv), "MPI_Init");
     try {
         const ParallelContext parallel = ParallelContext::world();
-        const Mesh local = decompose(global, parallel);
+        const Mesh local = decompose(global, parallel, argc > 1 ? std::stoi(argv[1]) : 3);
+        for (GradientMethod gradient : {GradientMethod::LeastSquares, GradientMethod::GreenGauss})
         for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
                                        DiffusionMethod::LimitedCorrected}) {
             RuntimeControl control;
             control.methods.diffusion = method;
+            control.methods.gradient = gradient;
             RunTime time = RunTime::forMesh(local, control);
             Fields fields(local);
             exercise(fields, answers, false);
@@ -203,7 +209,7 @@ int main(int argc, char* argv[]) {
         double maximum = 0;
         parallel.maximum(&answers.error, &maximum, 1);
         require(maximum < 1e-9, "public math synchronization differs from serial oracle");
-        if (parallel.rank == 0) std::cout << "parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=" << maximum << '\n';
+        if (parallel.rank == 0) std::cout << "parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=" << maximum << '\n';
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         detail::checkMpi(MPI_Abort(MPI_COMM_WORLD, 1), "MPI_Abort");

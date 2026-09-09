@@ -1,0 +1,13 @@
+RANS model: Wilcox1988m k-omega
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.880379e-04 rTurb=1.620926e-04 linear=ok converged=false
+SIMPLE 100 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=2.357622e-05 rTurb=2.003640e-05 linear=ok converged=false
+SIMPLE 200 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=3.056981e-06 rTurb=2.595168e-06 linear=ok converged=false
+SIMPLE 300 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=3.959536e-07 rTurb=3.360900e-07 linear=ok converged=false
+SIMPLE 400 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.127539e-08 rTurb=4.352232e-08 linear=ok converged=false
+SIMPLE 500 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.639499e-09 rTurb=5.635559e-09 linear=ok converged=false
+SIMPLE 600 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=8.596646e-10 rTurb=7.296765e-10 linear=ok converged=false
+SIMPLE 700 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.112987e-10 rTurb=9.446944e-11 linear=ok converged=false
+SIMPLE 706 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.845076e-11 rTurb=8.356413e-11 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.0709836 linearSolves=4236 krylovIterations=2824 spmv=9884 halo=33184 allreduce=26828 assembly=2824/0.000248514 preconditionerSetup=2824/0.00483923 preconditionerApply=4236/0.000962852 linearSeconds=0.0101946 spmvSeconds=0.00472581 haloSeconds=0.0173567 allreduceSeconds=0.00742871
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-rans-validation-psw4qltp/steady-kOmega/results/np2"
+BabelSim timeToSolution=0.292328

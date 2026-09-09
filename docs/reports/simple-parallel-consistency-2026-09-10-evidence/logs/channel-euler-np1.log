@@ -1,0 +1,14 @@
+Transient SIMPLE 1 mass=3.900472e-13 dU=1.000000e+00 rU=2.649429e-01 dP=3.333333e+00 linP=8.513012e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 79 mass=3.028726e-16 dU=7.592172e-11 rU=5.143056e-09 dP=8.599807e-09 linP=1.539979e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=1.344879e-13 dU=2.435798e-02 rU=2.828183e-01 dP=8.237575e-01 linP=9.807294e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 100 mass=2.928199e-16 dU=1.386468e-12 rU=9.040585e-11 dP=1.339441e-08 linP=9.545243e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 102 mass=2.701680e-16 dU=8.993193e-13 rU=5.854613e-11 dP=8.556144e-09 linP=1.413794e-04 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=1.280964e-14 dU=1.045138e-02 rU=1.304626e-02 dP=1.111940e-01 linP=9.759711e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 78 mass=2.574575e-16 dU=5.306207e-12 rU=1.171562e-10 dP=9.118040e-09 linP=7.305819e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=3.691241e-15 dU=7.278963e-03 rU=8.074268e-03 dP=7.047498e-02 linP=6.463390e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 76 mass=2.379974e-16 dU=2.674561e-12 rU=5.574877e-11 dP=9.992796e-09 linP=1.169338e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=2.851854e-15 dU=5.669158e-03 rU=6.031116e-03 dP=4.869170e-02 linP=9.349703e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 75 mass=2.509961e-16 dU=1.486605e-12 rU=4.004069e-11 dP=9.394553e-09 linP=1.537061e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=17.8949 linearSolves=1640 krylovIterations=318138 spmv=322811 halo=0 allreduce=3280 assembly=820/0.0301922 preconditionerSetup=820/0.627216 preconditionerApply=319776/11.698 linearSeconds=16.3953 spmvSeconds=3.65017 haloSeconds=0 allreduceSeconds=0.00250172
+BabelSim result time=0.05 steps=5 saved to "/tmp/babelsim-simple-mpi-uif5hk6d/channel-euler/results/np1"
+BabelSim timeToSolution=18.1739

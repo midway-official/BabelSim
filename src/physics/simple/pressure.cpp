@@ -57,6 +57,7 @@ void SteadySimpleAlgorithm::correctTurbulence() {
     if (state.m_turbulence) {
         result.turbulence = rans::correct(*state.m_turbulence);
         result.relative_turbulence_change = rans::relativeChange(*state.m_turbulence);
+        result.relative_turbulence_residual = rans::relativeResidual(*state.m_turbulence);
     } else {
         result.turbulence = {SolveStatus::Converged, 0, 0.0, 0.0, 0.0};
         result.relative_turbulence_change = 0.0;

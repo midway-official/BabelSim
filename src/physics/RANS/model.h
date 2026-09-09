@@ -22,12 +22,18 @@ public:
     virtual SolveResult correct() = 0;
     virtual double relativeChange() const = 0;
     double tolerance() const { return m_tolerance; }
+    double relativeResidual() const { return m_relative_residual; }
 
 protected:
     SolveResult solveTransport(
         ScalarField& variable,
         const ScalarField& diffusivity,
-        const ScalarField& source) const;
+        const ScalarField& source, const ScalarField* sink = nullptr) const;
+    double transportResidual(ScalarField& variable, const ScalarField& diffusivity,
+        const ScalarField& source, const ScalarField* sink = nullptr) const;
+    ScalarEquationDefinition transportEquation(ScalarField& variable,
+        const ScalarField& diffusivity, const ScalarField& source,
+        const ScalarField* sink) const;
     void updateKinematics();
     void setEddyViscosity(const ScalarField& turbulent_viscosity);
     static SolveResult combine(const SolveResult& first, const SolveResult& second);
@@ -42,6 +48,7 @@ protected:
     double m_tolerance;
     TensorField& m_velocity_gradient;
     ScalarField& m_strain_measure;
+    double m_relative_residual = std::numeric_limits<double>::infinity();
 };
 
 double positiveSetting(const Parameters& settings, const char* key, double fallback);

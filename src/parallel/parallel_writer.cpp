@@ -126,11 +126,26 @@ void writeOwnedResultMetadata(
     }
     ensureDirectory(time_directory, parallel);
     const auto path = rankDirectory(time_directory, parallel.rank) / "metadata.bs";
+    std::ofstream geometry(rankDirectory(time_directory, parallel.rank) / "mesh.geometry");
+    if (parallel.maximum(geometry ? 0 : 1) != 0)
+        throw std::runtime_error("cannot create result mesh provenance");
+    geometry << std::setprecision(17);
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        geometry << detail::globalCellId(mesh, cell);
+        for (Index vertex : mesh.cellVertices(cell)) {
+            const Vec3& value = mesh.vertex(vertex);
+            geometry << ',' << value.x << ',' << value.y << ',' << value.z;
+        }
+        geometry << '\n';
+    }
+    geometry.close();
+    if (parallel.maximum(geometry ? 0 : 1) != 0)
+        throw std::runtime_error("cannot flush result mesh provenance");
     std::ofstream output(path);
     if (parallel.maximum(output ? 0 : 1) != 0) {
         throw std::runtime_error("cannot create result metadata: " + path.string());
     }
-    output << "format babelsim_result 1\n"
+    output << "format babelsim_result 2\n"
            << "time " << time_name << '\n'
            << "rank " << parallel.rank << '\n'
            << "ranks " << parallel.size << '\n'

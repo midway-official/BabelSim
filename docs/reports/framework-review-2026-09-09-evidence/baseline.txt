@@ -1,0 +1,7 @@
+HEAD e112e597172b7fca5956504c4905e19add13d252
+Source tree clean before report creation.
+Review date 2026-09-09
+Commands completed with exit 0:
+make -j4 test test-workflow test-external
+make -j4 test-mpi
+make -j2 validate-cavity validate-poiseuille

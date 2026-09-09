@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -87,6 +88,8 @@ public:
     // 该检查在 MPI halo、算子和输出入口调用，尽早捕获生命周期/越界错误。
     void validateStorage() const {
         if (m_mesh == nullptr || m_values.size() != entityCount(*m_mesh, m_location) ||
+            (m_calculated_boundary && m_boundary_trace.size() != static_cast<std::size_t>(m_mesh->faceCount())) ||
+            (!m_boundary_flux.empty() && m_boundary_flux.size() != static_cast<std::size_t>(m_mesh->faceCount())) ||
             (m_location == FieldLocation::Cell &&
              m_boundaries.size() != static_cast<std::size_t>(m_mesh->patchCount()))) {
             throw std::logic_error("field storage invariant is violated");
@@ -98,6 +101,7 @@ public:
     Field& operator=(const Field&) = delete;
     Field& operator=(Field&&) = delete;
     void fill(const T& value) {
+        updateBoundaryTrace([&](Index) { return value; });
         std::fill(m_values.begin(), m_values.end(), value);
         // owned 与 ghost 同时被同一常量覆盖，不需要再进行 halo 交换。
         m_halo_valid = true;
@@ -108,6 +112,7 @@ public:
     template <typename Function>
     void evaluate(Function function) {
         validateStorage();
+        updateBoundaryTrace([&](Index face) { return function(m_mesh->faceCentre(face)); });
         for (Index index = 0; index < static_cast<Index>(m_values.size()); ++index) {
             const Vec3& position = m_location == FieldLocation::Cell
                 ? m_mesh->cellCentre(index)
@@ -127,6 +132,7 @@ public:
         source.validateStorage();
         if (m_mesh != source.m_mesh || m_location != source.m_location)
             throw std::invalid_argument("field evaluation requires the same mesh and location");
+        updateBoundaryTrace([&](Index face) { return function(source.boundaryTrace(face)); });
         for (std::size_t index = 0; index < m_values.size(); ++index)
             m_values[index] = function(source.m_values[index]);
         m_halo_valid = source.m_halo_valid;
@@ -136,6 +142,7 @@ public:
     // 已知物性变换，避免 Solver 接触底层连续存储或重新分配容器。
     void assign(const Field& source) {
         requireCompatible(source, "field assignment");
+        updateBoundaryTrace([&](Index face) { return source.boundaryTrace(face); });
         std::copy(source.m_values.begin(), source.m_values.end(), m_values.begin());
         m_halo_valid = source.m_halo_valid;
     }
@@ -145,6 +152,7 @@ public:
             throw std::invalid_argument("field scale factor must be finite");
         }
         requireCompatible(source, "field scaling");
+        updateBoundaryTrace([&](Index face) { return factor * source.boundaryTrace(face); });
         std::transform(
             source.m_values.begin(), source.m_values.end(), m_values.begin(),
             [factor](const T& value) { return factor * value; });
@@ -156,6 +164,9 @@ public:
             throw std::invalid_argument("field scale factor must be finite");
         }
         requireCompatible(source, "field scaled addition");
+        updateBoundaryTrace([&](Index face) {
+            return boundaryTrace(face) + factor * source.boundaryTrace(face);
+        });
         for (std::size_t index = 0; index < m_values.size(); ++index) {
             m_values[index] += factor * source.m_values[index];
         }
@@ -171,6 +182,9 @@ public:
             throw std::invalid_argument(
                 "field product requires fields on the same mesh and location");
         }
+        updateBoundaryTrace([&](Index face) {
+            return coefficient.boundaryTrace(face) * source.boundaryTrace(face);
+        });
         for (std::size_t index = 0; index < m_values.size(); ++index) {
             m_values[index] = coefficient.m_values[index] *
                 source.m_values[index];
@@ -192,6 +206,9 @@ public:
             throw std::invalid_argument(
                 "field product requires fields on the same mesh and location");
         }
+        updateBoundaryTrace([&](Index face) {
+            return boundaryTrace(face) + factor * coefficient.boundaryTrace(face) * source.boundaryTrace(face);
+        });
         for (std::size_t index = 0; index < m_values.size(); ++index) {
             m_values[index] += factor * coefficient.m_values[index] *
                 source.m_values[index];
@@ -201,14 +218,17 @@ public:
 
     void setBoundary(Index patch, BoundaryCondition<T> condition) {
         requireCellBoundary(patch);
+        if (m_calculated_boundary) throw std::logic_error("calculated field has boundary traces, not equation constraints");
         m_boundaries[static_cast<std::size_t>(patch)] = std::move(condition);
     }
     BoundaryCondition<T>& boundary(Index patch) {
         requireCellBoundary(patch);
+        if (m_calculated_boundary) throw std::logic_error("calculated field has per-face traces, not patch constraints");
         return m_boundaries[static_cast<std::size_t>(patch)];
     }
     const BoundaryCondition<T>& boundary(Index patch) const {
         requireCellBoundary(patch);
+        if (m_calculated_boundary) throw std::logic_error("calculated field has per-face traces, not patch constraints");
         return m_boundaries[static_cast<std::size_t>(patch)];
     }
     BoundaryCondition<T>& boundary(std::string_view patch_name) {
@@ -217,6 +237,66 @@ public:
     const BoundaryCondition<T>& boundary(std::string_view patch_name) const {
         return boundary(findPatch(patch_name));
     }
+
+    // 未知场的值更新保留其边界约束。已知/派生场可显式选择 calculated 模式：
+    // 所有逐点代数同时作用于单元值和边界迹，不推断字段名或物理意义。
+    // 迹是当前操作的快照，不保留源字段或用户函数的悬空引用。
+    void useCalculatedBoundary() {
+        if (m_location != FieldLocation::Cell || m_calculated_boundary) return;
+        std::vector<T> values(m_mesh->faceCount());
+        for (Index f = 0; f < m_mesh->faceCount(); ++f)
+            if (m_mesh->boundaryFace(f)) values[f] = boundaryTrace(f);
+        m_boundary_trace = std::move(values);
+        m_calculated_boundary = true;
+    }
+    bool calculatedBoundary() const { return m_calculated_boundary; }
+
+    // inletOutlet 是依赖面通量符号的混合数学约束。保存求值上下文的快照；
+    // eqn 的对流项自动提供它，独立数学操作也可由调用者显式设置。
+    void setBoundaryFlux(const Field<double>& flux) {
+        if (m_location != FieldLocation::Cell || &flux.mesh() != m_mesh ||
+            flux.location() != FieldLocation::Face)
+            throw std::invalid_argument("boundary flux must be a face field on the same mesh");
+        m_boundary_flux = flux.m_values;
+    }
+
+private:
+    BoundaryCondition<T> faceCondition(Index face,
+        double outward_flux = std::numeric_limits<double>::quiet_NaN()) const {
+        if (!m_mesh->boundaryFace(face)) throw std::invalid_argument("expected boundary face");
+        if (m_calculated_boundary) return BoundaryCondition<T>::fixedValue(m_boundary_trace.at(face));
+        auto condition = boundary(m_mesh->boundaryPatch(face));
+        if (condition.type == BoundaryType::InletOutlet) {
+            if (!std::isfinite(outward_flux)) {
+                if (m_boundary_flux.empty())
+                    throw std::invalid_argument("inletOutlet requires a boundary flux context");
+                outward_flux = m_boundary_flux.at(face);
+            }
+            if (!std::isfinite(outward_flux)) throw std::invalid_argument("nonfinite boundary flux");
+            return outward_flux < 0.0 ? BoundaryCondition<T>::fixedValue(condition.value)
+                                     : BoundaryCondition<T>::zeroGradient();
+        }
+        return condition;
+    }
+    T boundaryTrace(Index face,
+        double outward_flux = std::numeric_limits<double>::quiet_NaN()) const {
+        const auto condition = faceCondition(face, outward_flux);
+        const T& owner = m_values.at(m_mesh->owner(face));
+        if (condition.type == BoundaryType::FixedValue) return condition.value;
+        if (condition.type == BoundaryType::FixedGradient)
+            return owner + dot(m_mesh->faceCentre(face) - m_mesh->cellCentre(m_mesh->owner(face)),
+                               m_mesh->faceNormal(face)) * condition.value;
+        if (condition.type == BoundaryType::Symmetry)
+            return symmetricBoundaryValue(owner, m_mesh->faceNormal(face));
+        return owner;
+    }
+    template <typename Function> void updateBoundaryTrace(Function function) {
+        if (!m_calculated_boundary) return;
+        // 每个面的计算先于单元值更新，因此支持 f.assignProduct(a,f) 等原位代数。
+        for (Index face = 0; face < m_mesh->faceCount(); ++face)
+            if (m_mesh->boundaryFace(face)) m_boundary_trace[face] = function(face);
+    }
+public:
 
 private:
     void requireCompatible(const Field& source, const char* operation) const {
@@ -264,6 +344,9 @@ private:
     std::string m_name;
     std::vector<T> m_values;
     std::vector<BoundaryCondition<T>> m_boundaries;
+    bool m_calculated_boundary = false;
+    std::vector<T> m_boundary_trace;
+    std::vector<double> m_boundary_flux;
     // 仅由 Field 与计算后端维护。Solver 看见的仍是完整数学场，不接触 ghost 状态。
     bool m_halo_valid = false;
 };

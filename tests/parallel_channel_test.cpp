@@ -92,7 +92,8 @@ int main(int argc, char* argv[]) {
         control.continuity_tolerance = 1e-7;
         control.velocity_tolerance = 1e-6;
         run_control.vector_solver.absolute_tolerance = 1e-14;
-        run_control.vector_solver.relative_tolerance = 1e-7;
+        // Inner momentum accuracy must resolve the original-equation stopping target.
+        run_control.vector_solver.relative_tolerance = 1e-9;
         run_control.vector_solver.max_iterations = 300;
         run_control.scalar_solver.absolute_tolerance = 1e-14;
         run_control.scalar_solver.relative_tolerance = 1e-7;
@@ -110,6 +111,12 @@ int main(int argc, char* argv[]) {
                 break;
             }
         }
+        if (!result.converged && parallel.rank == 0)
+            std::cerr << "channel stopping diagnostics: mass=" << result.continuity.relative
+                      << " dU=" << result.relative_velocity_change
+                      << " rU=" << result.relative_momentum_residual
+                      << " dP=" << result.relative_pressure_correction
+                      << " linear=" << result.linear_converged << '\n';
         require(result.converged, "distributed channel SIMPLE did not converge");
         require(result.relative_pressure_correction <= control.pressure_correction_tolerance,
                 "distributed channel SIMPLE converged with an unresolved pressure correction");
@@ -132,6 +139,7 @@ int main(int argc, char* argv[]) {
                       << " iterations=" << iterations
                       << " mass=" << result.continuity.relative
                       << " dU=" << result.relative_velocity_change
+                      << " rU=" << result.relative_momentum_residual
                       << " dP=" << result.relative_pressure_correction
                       << " sumU=(" << global_sum_values[0] << ','
                       << global_sum_values[1] << ',' << global_sum_values[2]

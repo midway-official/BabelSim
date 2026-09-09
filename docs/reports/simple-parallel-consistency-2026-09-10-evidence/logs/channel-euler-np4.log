@@ -1,0 +1,20 @@
+Transient SIMPLE 1 mass=4.283433e-13 dU=1.000000e+00 rU=2.649429e-01 dP=3.333333e+00 linP=9.735065e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 79 mass=2.918626e-16 dU=7.592173e-11 rU=5.142981e-09 dP=8.599807e-09 linP=1.551768e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=1.297143e-13 dU=2.435798e-02 rU=2.828183e-01 dP=8.237575e-01 linP=9.836035e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+linear solve failed at time=0.02 iterations=1127 initial=0.029343 final=2.97707e-13 relative=1.01458e-11 healthy=1
+linear solve failed at time=0.02 iterations=1128 initial=0.0241325 final=2.43367e-13 relative=1.00846e-11 healthy=1
+linear solve failed at time=0.02 iterations=1125 initial=0.0194587 final=2.06404e-13 relative=1.06073e-11 healthy=1
+linear solve failed at time=0.02 iterations=1130 initial=0.00318403 final=3.28357e-14 relative=1.03126e-11 healthy=1
+linear solve failed at time=0.02 iterations=1129 initial=0.000413188 final=4.17946e-15 relative=1.01152e-11 healthy=1
+linear solve failed at time=0.02 iterations=1126 initial=0.000133313 final=1.34739e-15 relative=1.01069e-11 healthy=1
+Transient SIMPLE 100 mass=2.708562e-16 dU=1.386467e-12 rU=9.036849e-11 dP=1.339440e-08 linP=9.076704e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 102 mass=2.936166e-16 dU=8.993218e-13 rU=5.841171e-11 dP=8.556129e-09 linP=1.384215e-04 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=1.343280e-14 dU=1.045138e-02 rU=1.304626e-02 dP=1.111940e-01 linP=9.303326e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 78 mass=2.743678e-16 dU=5.306207e-12 rU=1.174455e-10 dP=9.118042e-09 linP=7.594780e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=4.823951e-15 dU=7.278963e-03 rU=8.074268e-03 dP=7.047498e-02 linP=7.799816e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 76 mass=2.281405e-16 dU=2.674560e-12 rU=5.596871e-11 dP=9.992791e-09 linP=1.026366e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=2.854474e-15 dU=5.669158e-03 rU=6.031116e-03 dP=4.869170e-02 linP=8.720128e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 75 mass=2.654098e-16 dU=1.486611e-12 rU=4.007018e-11 dP=9.394543e-09 linP=1.690420e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=9.90094 linearSolves=1640 krylovIterations=408379 spmv=415302 halo=423503 allreduce=1236710 assembly=820/0.0114739 preconditionerSetup=820/0.255606 preconditionerApply=412211/4.16703 linearSeconds=9.1762 spmvSeconds=3.01033 haloSeconds=1.43993 allreduceSeconds=2.17553
+BabelSim result time=0.05 steps=5 saved to "/tmp/babelsim-simple-mpi-uif5hk6d/channel-euler/results/np4"
+BabelSim timeToSolution=10.2017

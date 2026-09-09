@@ -1,0 +1,13 @@
+RANS model: standard k-epsilon
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=2.550950e-02 rTurb=2.129286e-02 linear=ok converged=false
+SIMPLE 100 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.484452e-04 rTurb=3.135694e-04 linear=ok converged=false
+SIMPLE 200 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.289906e-05 rTurb=2.903007e-05 linear=ok converged=false
+SIMPLE 300 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.385206e-06 rTurb=2.956289e-06 linear=ok converged=false
+SIMPLE 400 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.488164e-07 rTurb=3.024489e-07 linear=ok converged=false
+SIMPLE 500 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.592610e-08 rTurb=3.094745e-08 linear=ok converged=false
+SIMPLE 600 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.699309e-09 rTurb=3.166631e-09 linear=ok converged=false
+SIMPLE 700 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.808465e-10 rTurb=3.240183e-10 linear=ok converged=false
+SIMPLE 769 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.974409e-11 rTurb=6.721252e-11 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.0788912 linearSolves=4614 krylovIterations=1538 spmv=7690 halo=0 allreduce=9228 assembly=3076/0.000402779 preconditionerSetup=3076/0.00423131 preconditionerApply=1538/0.00058886 linearSeconds=0.00185703 spmvSeconds=0.00061376 haloSeconds=0 allreduceSeconds=0.000341957
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-rans-validation-psw4qltp/steady-kEpsilon/results/np1"
+BabelSim timeToSolution=0.304469

@@ -1,0 +1,113 @@
+scale-build exit= 0
+
+scale exit= 0
+solver=0 converged=1 iterations=0 x=0 expected=1 relativeResidual=1
+solver=1 converged=1 iterations=0 x=0 expected=1 relativeResidual=1
+
+rans-build exit= 0
+
+rans exit= 0
+iteration=0 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=1 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=2 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=3 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=4 converged=1 dTurb=0 k=0.001 epsilon=0.001
+post-clipping k PDE residual per volume=-0.001
+
+sa-boundary-build exit= 0
+
+sa-boundary exit= 0
+muEffectiveBoundary=0.00836425 expected=0.001 because nuTilda_wall=0
+
+gg-build exit= 0
+
+gg exit= 0
+813e-08
+vectorCheck=9 error=8.16407e-08
+scalarCheck=23 error=0.000114355
+scalarCheck=22 error=1.01953e-07
+vectorCheck=9 error=8.34175e-08
+scalarCheck=23 error=0.000117201
+scalarCheck=22 error=1.01953e-07
+vectorCheck=9 error=8.34175e-08
+scalarCheck=23 error=0.000117201
+scalarCheck=22 error=1.01953e-07
+vectorCheck=9 error=8.34175e-08
+scalarCheck=23 error=0.000117201
+scalarCheck=24 error=0.000246513
+scalarCheck=24 error=0.000237776
+scalarCheck=24 error=0.000246513
+scalarCheck=24 error=0.000246513
+scalarCheck=33 error=4.55897e-10
+scalarCheck=33 error=4.55897e-10
+scalarCheck=34 error=8.51989e-08
+scalarCheck=35 error=8.23239e-08
+scalarCheck=34 error=8.33842e-08
+scalarCheck=35 error=7.88478e-08
+scalarCheck=34 error=8.51989e-08
+scalarCheck=35 error=8.23239e-08
+scalarCheck=34 error=8.51989e-08
+scalarCheck=35 error=8.23239e-08
+scalarCheck=36 error=5.5384e-09
+scalarCheck=36 error=5.5384e-09
+scalarCheck=36 error=1.87471e-10
+scalarCheck=36 error=1.87471e-10
+vectorCheck=12 error=2.42474e-08
+vectorCheck=12 error=2.42474e-08
+vectorCheck=12 error=4.91323e-10
+scalarCheck=38 error=9.97813e-08
+vectorCheck=14 error=8.16407e-08
+scalarCheck=39 error=0.000112977
+scalarCheck=38 error=1.01953e-07
+vectorCheck=14 error=8.34175e-08
+scalarCheck=39 error=0.000112977
+scalarCheck=38 error=1.01953e-07
+vectorCheck=14 error=8.34175e-08
+scalarCheck=39 error=0.000112977
+scalarCheck=38 error=1.01953e-07
+vectorCheck=14 error=8.34175e-08
+scalarCheck=39 error=0.000112977
+scalarCheck=40 error=0.000234909
+scalarCheck=40 error=0.000234909
+scalarCheck=40 error=0.000234909
+scalarCheck=40 error=0.000234909
+REVIEW GG maximum=0.000246513
+REVIEW GG maximum=0.000246513
+REVIEW GG maximum=0.000246513
+REVIEW GG maximum=0.000246513
+parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=0.000246513
+
+gg3-build exit= 0
+
+gg3 exit= 0
+REVIEW GG maximum=0
+parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=0
+REVIEW GG maximum=0
+REVIEW GG maximum=0
+REVIEW GG maximum=0
+
+ls-build exit= 0
+
+ls exit= 0
+REVIEW GG maximum=8.88178e-16
+parallel_math_test: 22 operations x 3 diffusion methods, poisoned halos, maxError=8.88178e-16
+REVIEW GG maximum=8.88178e-16
+REVIEW GG maximum=8.88178e-16
+REVIEW GG maximum=8.88178e-16
+
+inletoutlet-build exit= 0
+
+inletoutlet exit= 0
+fixedValue converged=1 C=0.6 expectedInflowSolution=0.6
+inletOutlet converged=1 C=0.333333 expectedInflowSolution=0.6
+
+transient-build exit= 0
+
+transient exit= 0
+method=1 steps=3 maxDiscreteODEError=8.93574e-12
+method=2 steps=3 maxDiscreteODEError=6.75826e-12
+
+post exit= 0
+BabelSim postprocessed 1 time set(s) into "/tmp/babelsim-review-reproduce-5b__knby/post-case/post/"
+
+Evidence: /tmp/babelsim-review-reproduce-5b__knby

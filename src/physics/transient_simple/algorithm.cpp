@@ -89,11 +89,13 @@ void TransientSimpleAlgorithm::checkContinuity() {
     result.relative_velocity_change = diagnostics::relativeChange(state.m_U, state.m_previous_velocity);
     result.relative_pressure_correction = diagnostics::relativeMagnitude(state.m_p_prime, state.m_p);
     result.continuity = diagnostics::fluxBalance(state.m_phi);
+    result.relative_momentum_residual = diagnostics::residual(state.momentumEquation()).relative();
 
     const bool turbulence_healthy = !result.turbulence_active ||
-        (result.turbulence.healthy() && std::isfinite(result.relative_turbulence_change));
+        (result.turbulence.healthy() && (std::isfinite(result.relative_turbulence_change) && std::isfinite(result.relative_turbulence_residual)));
     result.healthy = diagnostics::all(state.m_pressure_healthy && turbulence_healthy &&
         std::isfinite(result.relative_velocity_change) &&
+        std::isfinite(result.relative_momentum_residual) &&
         std::isfinite(result.relative_pressure_correction) &&
         std::isfinite(result.continuity.relative) && result.velocity.healthy());
     result.linear_converged = diagnostics::all(
@@ -102,10 +104,12 @@ void TransientSimpleAlgorithm::checkContinuity() {
     result.converged = result.healthy && result.linear_converged && diagnostics::all(
         result.continuity.relative <= state.m_control.continuity_tolerance &&
         result.relative_velocity_change <= state.m_control.velocity_tolerance &&
+        result.relative_momentum_residual <= state.m_control.momentum_tolerance &&
         result.relative_pressure_correction <=
             state.m_control.pressure_correction_tolerance &&
-        (!result.turbulence_active || result.relative_turbulence_change <=
-            rans::tolerance(*state.m_turbulence)));
+        (!result.turbulence_active ||
+            (result.relative_turbulence_change <= rans::tolerance(*state.m_turbulence) &&
+             result.relative_turbulence_residual <= rans::tolerance(*state.m_turbulence))));
     state.m_step = State::Step::Complete;
     ++state.m_iteration;
     state.report();
@@ -132,9 +136,11 @@ void TransientSimpleAlgorithm::State::report() const {
             << std::scientific << std::setprecision(6)
             << " mass=" << m_result.continuity.relative
             << " dU=" << m_result.relative_velocity_change
+            << " rU=" << m_result.relative_momentum_residual
             << " dP=" << m_result.relative_pressure_correction
             << " linP=" << m_result.pressure.relative_residual
             << " dTurb=" << m_result.relative_turbulence_change
+            << " rTurb=" << m_result.relative_turbulence_residual
             << " linear=" << (m_result.linear_converged ? "ok" : "inexact")
             << " converged=" << (m_result.converged ? "true" : "false");
     diagnostics::report(message.str());

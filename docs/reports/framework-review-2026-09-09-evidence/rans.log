@@ -1,0 +1,6 @@
+iteration=0 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=1 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=2 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=3 converged=1 dTurb=0 k=0.001 epsilon=0.001
+iteration=4 converged=1 dTurb=0 k=0.001 epsilon=0.001
+post-clipping k PDE residual per volume=-0.001

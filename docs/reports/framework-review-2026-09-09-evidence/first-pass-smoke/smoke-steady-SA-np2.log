@@ -1,0 +1,13 @@
+RANS model: Spalart-Allmaras
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.093705e-03 linear=ok converged=false
+SIMPLE 100 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.307215e-03 linear=ok converged=false
+SIMPLE 200 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=2.061675e-04 linear=ok converged=false
+SIMPLE 300 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=3.013986e-05 linear=ok converged=false
+SIMPLE 400 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.354553e-06 linear=ok converged=false
+SIMPLE 500 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.280551e-07 linear=ok converged=false
+SIMPLE 600 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.056156e-08 linear=ok converged=false
+SIMPLE 700 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.305793e-08 linear=ok converged=false
+SIMPLE 714 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.956907e-09 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.0282736 linearSolves=3570 krylovIterations=1428 spmv=6426 halo=23564 allreduce=17136 assembly=2142/0.000179278 preconditionerSetup=2142/0.00305037 preconditionerApply=2142/0.000431271 linearSeconds=0.00556649 spmvSeconds=0.0025365 haloSeconds=0.00759254 allreduceSeconds=0.00427516
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-review-20260909/smoke-steady-SA/results/np2"
+BabelSim timeToSolution=0.251088

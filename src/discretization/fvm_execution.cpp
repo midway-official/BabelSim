@@ -1,6 +1,7 @@
 #include "internal/compute_backend.h"
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
+#include "internal/boundary_evaluation.h"
 #include "internal/fvm_execution.h"
 
 #include "babelsim/discrete_equation.h"
@@ -12,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <type_traits>
 #include <vector>
 
 namespace babelsim {
@@ -78,6 +80,8 @@ struct FvmExecution::Implementation {
           delta_t(initial_delta_t)
     {
         mesh->validate();
+        if (meshData(*mesh).ghost_layers != 0 && meshData(*mesh).ghost_layers < 3)
+            throw std::invalid_argument("FVM composite operators require ghostLayers >= 3");
         if (!backend) throw std::invalid_argument("FVM execution requires a compute backend");
     }
 
@@ -113,6 +117,33 @@ struct FvmExecution::Implementation {
             detail::fieldData(target)[face] += factor * detail::fieldData(face_flux_workspace)[face];
         }
         synchronize(target);
+    }
+
+    template <typename T>
+    EquationResidual measure(const DiscreteEquation<T>& equation, Field<T>& unknown) {
+        synchronize(unknown);
+        const auto* x = fieldData(static_cast<const Field<T>&>(unknown));
+        std::vector<T> ax(mesh->cellCount());
+        for (Index cell : meshData(*mesh).owned_cells)
+            ax[cell] = equation.diagonal[cell] * x[cell];
+        for (Index face = 0; face < mesh->faceCount(); ++face) {
+            const Index owner = mesh->owner(face), neighbour = mesh->neighbour(face);
+            if (neighbour == invalid_index) continue;
+            if (isOwned(*mesh, owner)) ax[owner] += equation.upper[face] * x[neighbour];
+            if (isOwned(*mesh, neighbour)) ax[neighbour] += equation.lower[face] * x[owner];
+        }
+        double local[3]{}, global[3]{};
+        const auto squared = [](const auto& value) {
+            if constexpr (std::is_same_v<std::decay_t<decltype(value)>, double>) return value * value;
+            else return squaredNorm(value);
+        };
+        for (Index cell : meshData(*mesh).owned_cells) {
+            local[0] += squared(ax[cell] - equation.source[cell]);
+            local[1] += squared(ax[cell]);
+            local[2] += squared(equation.source[cell]);
+        }
+        backend->sum(local, global, 3);
+        return {std::sqrt(global[0]), std::sqrt(global[1]) + std::sqrt(global[2])};
     }
 
     const Mesh* mesh;
@@ -276,7 +307,7 @@ void addVectorSource(
 
 SolveResult FvmExecution::solve(
     const ScalarEquationDefinition& expression,
-    EquationControl equation_control)
+    EquationControl equation_control, EquationResidual* residual_result)
 {
     Implementation& state = *m_implementation;
     if (!(equation_control.relaxation > 0.0 && equation_control.relaxation <= 1.0) ||
@@ -299,6 +330,24 @@ SolveResult FvmExecution::solve(
     }
     ScalarField& unknown = const_cast<ScalarField&>(*unknown_pointer);
     requireCellField(unknown, *state.mesh, "scalar unknown");
+    if (unknown.calculatedBoundary())
+        throw std::invalid_argument("calculated boundary traces cannot constrain an unknown equation");
+    const ScalarField* boundary_flux = nullptr;
+    const auto inspect_flux = [&](const auto& terms) {
+        for (const auto& term : terms) if (term.kind == EquationTermKind::Convection) {
+            if (boundary_flux && boundary_flux != term.flux)
+                throw std::invalid_argument("one equation requires one boundary flux context");
+            boundary_flux = term.flux;
+        }
+    };
+    inspect_flux(expression.lhs.m_terms);
+    inspect_flux(expression.rhs.m_terms);
+    if (boundary_flux) {
+        requireFaceField(*boundary_flux, *state.mesh, "boundary flux");
+        state.synchronize(const_cast<ScalarField&>(*boundary_flux));
+        unknown.setBoundaryFlux(*boundary_flux);
+    }
+
     ScalarDiscreteEquation equation(*state.mesh);
 
     const auto add = [&](const std::vector<ScalarEquationTerm>& terms, bool lhs) {
@@ -376,6 +425,17 @@ SolveResult FvmExecution::solve(
                             state.methods.diffusionFor(unknown.name()));
                     }
                     break;
+                case EquationTermKind::LinearSource: {
+                    if (term.coefficient_field)
+                        requireCellField(*term.coefficient_field, *state.mesh, "linear coefficient");
+                    for (Index cell : meshData(*state.mesh).owned_cells) {
+                        const double value = term.coefficient * (term.coefficient_field
+                            ? fieldData(*term.coefficient_field)[cell] : 1.0);
+                        if (!std::isfinite(value)) throw std::invalid_argument("nonfinite linear coefficient");
+                        equation.diagonal[cell] += canonical * value * state.mesh->cellVolume(cell);
+                    }
+                    break;
+                }
                 case EquationTermKind::Source:
                     addScalarSource(equation, *state.mesh, term, canonical);
                     break;
@@ -386,6 +446,11 @@ SolveResult FvmExecution::solve(
     };
     add(expression.lhs.m_terms, true);
     add(expression.rhs.m_terms, false);
+    if (residual_result) {
+        *residual_result = state.measure(equation, unknown);
+        return {};
+    }
+
 
     if (equation_control.relaxation != 1.0) {
         for (Index cell : detail::meshData(*state.mesh).owned_cells) {
@@ -413,7 +478,7 @@ SolveResult FvmExecution::solve(
 
 std::array<SolveResult, 3> FvmExecution::solve(
     const VectorEquationDefinition& expression,
-    VectorEquationControl equation_control)
+    VectorEquationControl equation_control, EquationResidual* residual_result)
 {
     Implementation& state = *m_implementation;
     if (!(equation_control.relaxation > 0.0 &&
@@ -445,6 +510,24 @@ std::array<SolveResult, 3> FvmExecution::solve(
     }
     VectorField& unknown = const_cast<VectorField&>(*unknown_pointer);
     requireCellField(unknown, *state.mesh, "vector unknown");
+    if (unknown.calculatedBoundary())
+        throw std::invalid_argument("calculated boundary traces cannot constrain an unknown equation");
+    const ScalarField* boundary_flux = nullptr;
+    const auto inspect_flux = [&](const auto& terms) {
+        for (const auto& term : terms) if (term.kind == EquationTermKind::Convection) {
+            if (boundary_flux && boundary_flux != term.flux)
+                throw std::invalid_argument("one equation requires one boundary flux context");
+            boundary_flux = term.flux;
+        }
+    };
+    inspect_flux(expression.lhs.m_terms);
+    inspect_flux(expression.rhs.m_terms);
+    if (boundary_flux) {
+        requireFaceField(*boundary_flux, *state.mesh, "boundary flux");
+        state.synchronize(const_cast<ScalarField&>(*boundary_flux));
+        unknown.setBoundaryFlux(*boundary_flux);
+    }
+
     VectorDiscreteEquation equation(*state.mesh);
 
     const auto add = [&](const std::vector<VectorEquationTerm>& terms, bool lhs) {
@@ -539,6 +622,17 @@ std::array<SolveResult, 3> FvmExecution::solve(
                             detail::fieldData(state.gradient_workspace)[cell];
                     }
                     break;
+                case EquationTermKind::LinearSource: {
+                    if (term.coefficient_field)
+                        requireCellField(*term.coefficient_field, *state.mesh, "linear coefficient");
+                    for (Index cell : meshData(*state.mesh).owned_cells) {
+                        const double value = term.coefficient * (term.coefficient_field
+                            ? fieldData(*term.coefficient_field)[cell] : 1.0);
+                        if (!std::isfinite(value)) throw std::invalid_argument("nonfinite linear coefficient");
+                        equation.diagonal[cell] += canonical * value * state.mesh->cellVolume(cell);
+                    }
+                    break;
+                }
                 case EquationTermKind::Source:
                     addVectorSource(equation, *state.mesh, term, canonical);
                     break;
@@ -547,6 +641,11 @@ std::array<SolveResult, 3> FvmExecution::solve(
     };
     add(expression.lhs.m_terms, true);
     add(expression.rhs.m_terms, false);
+    if (residual_result) {
+        *residual_result = state.measure(equation, unknown);
+        return {};
+    }
+
 
     if (equation_control.relaxation != 1.0) {
         for (Index face : detail::meshData(*state.mesh).owned_faces) {
@@ -576,6 +675,17 @@ std::array<SolveResult, 3> FvmExecution::solve(
     return state.backend->solve(equation, unknown);
 }
 
+EquationResidual FvmExecution::residual(const ScalarEquationDefinition& equation) {
+    EquationResidual result;
+    solve(equation, {}, &result);
+    return result;
+}
+EquationResidual FvmExecution::residual(const VectorEquationDefinition& equation) {
+    EquationResidual result;
+    solve(equation, {}, &result);
+    return result;
+}
+
 void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result) {
     Implementation& state = *m_implementation;
     requireCellField(operation.field, *state.mesh, "gradient input");
@@ -583,6 +693,22 @@ void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result)
     state.synchronize(const_cast<ScalarField&>(operation.field));
     gradient(operation.field, result, state.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
+    if (result.calculatedBoundary()) {
+        for (Index face = 0; face < state.mesh->faceCount(); ++face) {
+            if (!state.mesh->boundaryFace(face)) continue;
+            const Index owner = state.mesh->owner(face);
+            const Vec3 n = state.mesh->faceNormal(face);
+            const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
+            Vec3 g = fieldData(static_cast<const VectorField&>(result))[owner];
+            const auto bc = FieldAccess::condition(operation.field, face);
+            const double sn = bc.type == BoundaryType::FixedValue
+                ? (bc.value - fieldData(operation.field)[owner] - dot(g, d - dot(d,n)*n)) / dot(d,n)
+                : bc.type == BoundaryType::FixedGradient ? bc.value : 0.0;
+            g += (sn - dot(g,n)) * n;
+            FieldAccess::setTrace(result, face, g);
+        }
+    }
+
 }
 
 void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result) {
@@ -592,6 +718,26 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
     state.synchronize(const_cast<VectorField&>(operation.field));
     gradient(operation.field, result, state.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
+    if (result.calculatedBoundary()) {
+        for (Index face = 0; face < state.mesh->faceCount(); ++face) {
+            if (!state.mesh->boundaryFace(face)) continue;
+            const Index owner = state.mesh->owner(face);
+            const Vec3 n = state.mesh->faceNormal(face);
+            const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
+            Tensor3 g = fieldData(static_cast<const TensorField&>(result))[owner];
+            const auto bc = FieldAccess::condition(operation.field, face);
+            if (bc.type == BoundaryType::Symmetry) g = symmetricBoundaryValue(g, n);
+            else for (int component = 0; component < 3; ++component) {
+                const double sn = bc.type == BoundaryType::FixedValue
+                    ? (bc.value[component] - fieldData(operation.field)[owner][component] -
+                       dot(g[component], d - dot(d,n)*n)) / dot(d,n)
+                    : bc.type == BoundaryType::FixedGradient ? bc.value[component] : 0.0;
+                g[component] += (sn - dot(g[component],n)) * n;
+            }
+            FieldAccess::setTrace(result, face, g);
+        }
+    }
+
 }
 
 void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
@@ -602,6 +748,8 @@ void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
          state.methods.interpolationFor(operation.velocity.name()),
          state.methods.gradientFor(operation.velocity.name()));
     state.synchronize(result);
+    if (operation.velocity.location() == FieldLocation::Cell)
+        const_cast<VectorField&>(operation.velocity).setBoundaryFlux(result);
 }
 
 void FvmExecution::evaluate(math::FaceDivergence operation, ScalarField& result) {
@@ -611,6 +759,7 @@ void FvmExecution::evaluate(math::FaceDivergence operation, ScalarField& result)
     state.synchronize(const_cast<ScalarField&>(operation.flux));
     divergence(operation.flux, result);
     state.synchronize(result);
+    FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::evaluate(math::VectorDivergence operation, ScalarField& result) {
@@ -622,6 +771,18 @@ void FvmExecution::evaluate(math::VectorDivergence operation, ScalarField& resul
         operation.field, result, state.methods.interpolationFor(operation.field.name()),
         state.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
+    FieldAccess::extrapolateTrace(result);
+}
+
+void FvmExecution::evaluate(math::TensorDivergence operation, VectorField& result) {
+    Implementation& state = *m_implementation;
+    requireCellField(operation.field, *state.mesh, "tensor divergence input");
+    requireCellField(result, *state.mesh, "tensor divergence result");
+    state.synchronize(const_cast<TensorField&>(operation.field));
+    divergence(operation.field, result, state.methods.interpolationFor(operation.field.name()),
+               state.methods.gradientFor(operation.field.name()));
+    state.synchronize(result);
+    FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& result) {
@@ -631,6 +792,7 @@ void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& resul
     requireCellField(operation.field, *state.mesh, "convection field");
     requireCellField(result, *state.mesh, "convection result");
     state.synchronize(const_cast<ScalarField&>(operation.flux));
+    const_cast<ScalarField&>(operation.field).setBoundaryFlux(operation.flux);
     state.synchronize(const_cast<ScalarField&>(operation.field));
     convection(
         operation.flux, operation.field, result,
@@ -638,6 +800,7 @@ void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& resul
         state.methods.interpolationFor(operation.field.name()),
         state.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
+    FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::evaluate(math::VectorConvection operation, VectorField& result) {
@@ -647,6 +810,7 @@ void FvmExecution::evaluate(math::VectorConvection operation, VectorField& resul
     requireCellField(operation.field, *state.mesh, "convection field");
     requireCellField(result, *state.mesh, "convection result");
     state.synchronize(const_cast<ScalarField&>(operation.flux));
+    const_cast<VectorField&>(operation.field).setBoundaryFlux(operation.flux);
     state.synchronize(const_cast<VectorField&>(operation.field));
     convection(
         operation.flux, operation.field, result,
@@ -654,6 +818,7 @@ void FvmExecution::evaluate(math::VectorConvection operation, VectorField& resul
         state.methods.interpolationFor(operation.field.name()),
         state.methods.gradientFor(operation.field.name()));
     state.synchronize(result);
+    FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::evaluate(math::ScalarInterpolation operation, ScalarField& result) {
@@ -742,6 +907,7 @@ void FvmExecution::evaluate(math::ScalarLaplacian operation, ScalarField& result
         }
     }
     state.synchronize(result);
+    FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::subtract(
@@ -755,10 +921,8 @@ void FvmExecution::subtract(
     requireCellField(target, *state.mesh, "gradient correction target");
     state.synchronize(const_cast<ScalarField&>(coefficient));
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    gradient(
-        operation.field, state.gradient_workspace,
-        state.methods.gradientFor(operation.field.name()));
-    state.synchronize(state.gradient_workspace);
+    state.gradient_workspace.useCalculatedBoundary();
+    evaluate(operation, state.gradient_workspace);
     target.addProduct(-1.0, coefficient, state.gradient_workspace);
     state.synchronize(target);
 }

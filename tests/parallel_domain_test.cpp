@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
             parallel.sum(detail::ownedCellCount(local)) == global.cellCount(),
             "owned cell counts do not cover the global mesh");
         require(
-            detail::ownedCellCount(local) == 24 && detail::meshData(local).ghost_layers == 2,
+            detail::ownedCellCount(local) == 24 && detail::meshData(local).ghost_layers == 3,
             "unexpected local ownership or halo width");
 
         HaloExchange halo(local, parallel);

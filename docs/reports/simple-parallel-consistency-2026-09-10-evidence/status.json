@@ -1,0 +1,12 @@
+{
+  "matrix_exit": 0,
+  "rans_exit": 0,
+  "matrix_runs": 45,
+  "converged_states": 165,
+  "field_comparisons": 110,
+  "ghost_comparisons": 33,
+  "terminal_residual_audit": "passed",
+  "binary_sha256": "cd5ccffb4d80d88c24187539cba77123843fe18b0c23743bca20ef4dee36c7d7",
+  "full_results": "/tmp/babelsim-simple-mpi-uif5hk6d",
+  "rans_full_results": "/tmp/babelsim-rans-validation-psw4qltp"
+}

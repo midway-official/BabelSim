@@ -1,0 +1,44 @@
+RANS model: standard k-epsilon
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.429132e-03 rTurb=2.059087e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.085129e-11 rTurb=2.201025e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.404938e-03 rTurb=2.049658e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.051650e-11 rTurb=2.186137e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.380959e-03 rTurb=2.040314e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.018560e-11 rTurb=2.171406e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.357193e-03 rTurb=2.031054e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.985813e-11 rTurb=2.156845e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.333635e-03 rTurb=2.021876e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.953437e-11 rTurb=2.142442e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.310285e-03 rTurb=2.012780e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.921421e-11 rTurb=2.128198e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.287138e-03 rTurb=2.003764e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.889733e-11 rTurb=2.114115e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.264193e-03 rTurb=1.994828e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.858398e-11 rTurb=2.100187e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.241447e-03 rTurb=1.985969e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.827400e-11 rTurb=2.086414e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.218896e-03 rTurb=1.977189e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.796734e-11 rTurb=2.072785e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.196539e-03 rTurb=1.968484e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.766397e-11 rTurb=2.059310e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.174374e-03 rTurb=1.959855e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.736371e-11 rTurb=2.045975e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.152397e-03 rTurb=1.951299e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.706677e-11 rTurb=2.032786e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.130606e-03 rTurb=1.942818e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.677278e-11 rTurb=2.019731e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.108999e-03 rTurb=1.934409e-03 linear=ok converged=false
+Transient SIMPLE 24 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=4.648192e-11 rTurb=2.006826e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.087574e-03 rTurb=1.926071e-03 linear=ok converged=false
+Transient SIMPLE 23 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.978872e-11 rTurb=4.305056e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.066328e-03 rTurb=1.917804e-03 linear=ok converged=false
+Transient SIMPLE 23 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.918340e-11 rTurb=4.278183e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.045259e-03 rTurb=1.909607e-03 linear=ok converged=false
+Transient SIMPLE 23 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.858430e-11 rTurb=4.251599e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.024366e-03 rTurb=1.901478e-03 linear=ok converged=false
+Transient SIMPLE 23 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.799120e-11 rTurb=4.225295e-11 linear=ok converged=true
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=5.003644e-03 rTurb=1.893418e-03 linear=ok converged=false
+Transient SIMPLE 23 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.740411e-11 rTurb=4.199253e-11 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.0749781 linearSolves=2850 krylovIterations=2850 spmv=9500 halo=25177 allreduce=23750 assembly=1900/0.000153563 preconditionerSetup=1900/0.00487973 preconditionerApply=5700/0.000724997 linearSeconds=0.020711 spmvSeconds=0.0104359 haloSeconds=0.0316946 allreduceSeconds=0.0159302
+BabelSim result time=0.1 steps=20 saved to "/tmp/babelsim-rans-validation-psw4qltp/decay-kEpsilon-euler-0.005/results/np4"
+BabelSim timeToSolution=0.32403

@@ -24,5 +24,8 @@ struct ResultData {
     std::string time_name;
     Index global_cell_count = 0;
     std::vector<ResultField> fields;
+    // Version 2: ordered hexahedron vertices at output time, indexed by global cell id.
+    // Empty for legacy version 1 files, which cannot prove geometric provenance.
+    std::vector<std::array<Vec3, 8>> cell_vertices;
 };
 }  // babelsim 命名空间

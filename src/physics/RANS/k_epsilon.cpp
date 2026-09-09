@@ -5,8 +5,7 @@
 namespace babelsim::rans {
 namespace {
 
-// 标准高雷诺数 k-epsilon（线性涡黏性、不可压缩形式）。破坏项采用上一轮
-// 湍流场显式 Picard 线性化，避免把模型专用反应项加入通用 Equation API。
+// 标准高雷诺数 k-epsilon。破坏项以通用 Sp 表达隐式 Picard 线性化。
 class KEpsilon final : public Model {
 public:
     KEpsilon(
@@ -39,8 +38,12 @@ public:
           m_diffusivity_epsilon(problem.scalarField("ransDiffusivityEpsilon", 0.0)),
           m_source_k(problem.scalarField("ransSourceK", 0.0)),
           m_source_epsilon(problem.scalarField("ransSourceEpsilon", 0.0)),
+          m_sink_k(problem.scalarField("ransSinkK", 0.0)),
+          m_sink_second(problem.scalarField("ransSinkSecond", 0.0)),
           m_work(problem.scalarField("ransWork", 0.0))
     {
+        for (ScalarField* field : {&m_mut, &m_inverse_k, &m_inverse_epsilon, &m_k_squared, &m_production, &m_diffusivity_k, &m_diffusivity_epsilon, &m_source_k, &m_source_epsilon, &m_sink_k, &m_sink_second, &m_work})
+            field->useCalculatedBoundary();
         boundFields();
         updateKinematics();
         updateViscosity();
@@ -55,11 +58,14 @@ public:
         updateKinematics();
         updateSourcesAndDiffusivities();
 
-        const SolveResult k_result = solveTransport(m_k, m_diffusivity_k, m_source_k);
+        const SolveResult k_result = solveTransport(m_k, m_diffusivity_k, m_source_k, &m_sink_k);
         const SolveResult epsilon_result = solveTransport(
-            m_epsilon, m_diffusivity_epsilon, m_source_epsilon);
+            m_epsilon, m_diffusivity_epsilon, m_source_epsilon, &m_sink_second);
         boundFields();
-        updateViscosity();
+        updateSourcesAndDiffusivities();
+        m_relative_residual = std::max(
+            transportResidual(m_k, m_diffusivity_k, m_source_k, &m_sink_k),
+            transportResidual(m_epsilon, m_diffusivity_epsilon, m_source_epsilon, &m_sink_second));
         m_relative_change = std::max(
             diagnostics::relativeChange(m_k, m_previous_k),
             diagnostics::relativeChange(m_epsilon, m_previous_epsilon));
@@ -70,6 +76,8 @@ public:
 
 private:
     void boundFields() {
+        m_k.setBoundaryFlux(m_face_flux);
+        m_epsilon.setBoundaryFlux(m_face_flux);
         m_k.evaluate(m_k, [this](double value) { return std::max(value, m_k_min); });
         m_epsilon.evaluate(m_epsilon, [this](double value) {
             return std::max(value, m_epsilon_min);
@@ -91,7 +99,7 @@ private:
         m_production.assignProduct(m_mut, m_strain_measure);
 
         m_source_k.assign(m_production);
-        m_source_k.addScaled(-m_density, m_epsilon);
+
 
         m_inverse_k.evaluate(m_k, [this](double value) {
             return 1.0 / std::max(value, m_k_min);
@@ -101,7 +109,9 @@ private:
         m_source_epsilon.assignScaled(m_c1, m_work);
         m_work.assignProduct(m_epsilon, m_epsilon);
         m_work.assignProduct(m_inverse_k, m_work);
-        m_source_epsilon.addScaled(-m_c2 * m_density, m_work);
+        m_sink_second.assignProduct(m_epsilon, m_inverse_k);
+        m_sink_k.assignScaled(m_density, m_sink_second);
+        m_sink_second.assignScaled(m_c2 * m_density, m_sink_second);
 
         m_diffusivity_k.fill(m_molecular_viscosity);
         m_diffusivity_k.addScaled(1.0 / m_sigma_k, m_mut);
@@ -129,6 +139,8 @@ private:
     ScalarField& m_diffusivity_epsilon;
     ScalarField& m_source_k;
     ScalarField& m_source_epsilon;
+    ScalarField& m_sink_k;
+    ScalarField& m_sink_second;
     ScalarField& m_work;
     double m_relative_change = 0.0;
 };

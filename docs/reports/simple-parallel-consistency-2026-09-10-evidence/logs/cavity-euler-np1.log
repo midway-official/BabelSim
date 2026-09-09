@@ -1,0 +1,13 @@
+Transient SIMPLE 1 mass=1.044481e-12 dU=1.000000e+00 rU=4.304939e-01 dP=3.333333e+00 linP=6.913765e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 78 mass=1.575874e-14 dU=4.573930e-10 rU=8.516146e-09 dP=6.818094e-09 linP=1.845283e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=5.621813e-14 dU=1.642879e-01 rU=1.130710e-01 dP=1.416329e-01 linP=9.245772e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 73 mass=9.219293e-15 dU=1.340718e-10 rU=2.289126e-09 dP=9.919033e-09 linP=3.971511e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=1.002401e-14 dU=7.063060e-02 rU=5.349644e-02 dP=1.086598e-01 linP=7.834158e-12 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 72 mass=7.834053e-15 dU=5.132244e-11 rU=1.011912e-09 dP=8.642461e-09 linP=9.414608e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=6.260758e-15 dU=4.186133e-02 rU=3.255201e-02 dP=8.087593e-02 linP=1.130505e-11 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 70 mass=5.583387e-15 dU=3.771105e-11 rU=8.218608e-10 dP=9.805024e-09 linP=9.831443e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+Transient SIMPLE 1 mass=5.161385e-15 dU=2.930091e-02 rU=2.312717e-02 dP=6.119568e-02 linP=1.678870e-11 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+Transient SIMPLE 69 mass=4.734589e-15 dU=2.699896e-11 rU=6.136793e-10 dP=8.991047e-09 linP=1.271294e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=4.74516 linearSolves=1448 krylovIterations=64257 spmv=68959 halo=0 allreduce=2896 assembly=724/0.023972 preconditionerSetup=724/0.499714 preconditionerApply=66426/2.37599 linearSeconds=3.35646 spmvSeconds=0.766989 haloSeconds=0 allreduceSeconds=0.00134893
+BabelSim result time=0.05 steps=5 saved to "/tmp/babelsim-simple-mpi-uif5hk6d/cavity-euler/results/np1"
+BabelSim timeToSolution=5.01085

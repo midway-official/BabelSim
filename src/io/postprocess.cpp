@@ -203,6 +203,18 @@ int run(const Arguments& arguments) {
         const ResultData results = readParallelResults(directory, mesh.cellCount());
         if (results.global_cell_count != mesh.globalCellCount())
             throw std::runtime_error("result global cell count does not match the case mesh");
+        if (results.cell_vertices.empty())
+            throw std::runtime_error("legacy results lack mesh provenance; regenerate results before geometric export");
+        for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+            for (int vertex = 0; vertex < 8; ++vertex) {
+                const Vec3& expected_vertex = mesh.vertex(mesh.cellVertices(cell)[vertex]);
+                const Vec3& saved = results.cell_vertices[cell][vertex];
+                if (saved.x != expected_vertex.x || saved.y != expected_vertex.y ||
+                    saved.z != expected_vertex.z)
+                    throw std::runtime_error("result mesh provenance does not match the case mesh at cell " +
+                                             std::to_string(cell));
+            }
+        }
         const std::string name = directory.filename().string();
         double actual, expected;
         if (all && (!numericalTime(results.time_name, actual) || !numericalTime(name, expected) ||

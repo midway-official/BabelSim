@@ -1,0 +1,4 @@
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.000278271 linearSolves=4 krylovIterations=0 spmv=4 halo=0 allreduce=8 assembly=2/7.47e-07 preconditionerSetup=2/3.1478e-05 preconditionerApply=0/0 linearSeconds=1.878e-06 spmvSeconds=6.2e-07 haloSeconds=0 allreduceSeconds=7.17e-07
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-rans-validation-r9320laj/steady-none/results/np1"
+BabelSim timeToSolution=0.256725

@@ -1,0 +1,34 @@
+SIMPLE 1 mass=1.367835e-09 dU=1.000000e+00 rU=4.823304e-01 dP=3.333333e+00 linP=9.570673e-09 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=1.494807e-13 dU=3.321871e-03 rU=5.809065e-03 dP=8.770111e-03 linP=8.231684e-09 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 200 mass=5.346603e-14 dU=1.514353e-03 rU=2.985873e-03 dP=3.982293e-03 linP=9.798072e-09 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=1.925331e-14 dU=9.124662e-04 rU=1.902666e-03 dP=2.332247e-03 linP=7.535332e-09 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 400 mass=1.272099e-14 dU=6.107426e-04 rU=1.315906e-03 dP=1.556230e-03 linP=9.272375e-09 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 500 mass=1.296891e-14 dU=4.316233e-04 rU=9.503668e-04 dP=1.125166e-03 linP=1.521184e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 600 mass=1.182602e-14 dU=3.138936e-04 rU=7.018989e-04 dP=8.454221e-04 linP=2.120904e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 700 mass=1.376654e-14 dU=2.313915e-04 rU=5.233855e-04 dP=6.439425e-04 linP=3.406943e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=1.163830e-14 dU=1.715183e-04 rU=3.913348e-04 dP=4.913404e-04 linP=4.128961e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 900 mass=1.409239e-14 dU=1.273555e-04 rU=2.924946e-04 dP=3.737354e-04 linP=6.846390e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1000 mass=1.117419e-14 dU=9.457795e-05 rU=2.183098e-04 dP=2.829496e-04 linP=7.357125e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1100 mass=1.154748e-14 dU=7.021229e-05 rU=1.626888e-04 dP=2.132095e-04 linP=9.925960e-08 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1200 mass=1.292783e-14 dU=5.210212e-05 rU=1.210766e-04 dP=1.600042e-04 linP=1.515689e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1300 mass=1.197872e-14 dU=3.864968e-05 rU=9.001286e-05 dP=1.196843e-04 linP=1.895582e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1400 mass=1.149181e-14 dU=2.866345e-05 rU=6.686637e-05 dP=8.930217e-05 linP=2.438284e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1500 mass=1.102787e-14 dU=2.125412e-05 rU=4.964383e-05 dP=6.651086e-05 linP=3.177499e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1600 mass=1.131911e-14 dU=1.575870e-05 rU=3.684262e-05 dP=4.947125e-05 linP=4.331177e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1700 mass=1.353884e-14 dU=1.168371e-05 rU=2.733490e-05 dP=3.676287e-05 linP=7.161523e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1800 mass=1.248548e-14 dU=8.662408e-06 rU=2.027706e-05 dP=2.730134e-05 linP=8.857110e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1900 mass=1.381578e-14 dU=6.422459e-06 rU=1.503973e-05 dP=2.026574e-05 linP=1.311306e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2000 mass=1.319925e-14 dU=4.761818e-06 rU=1.115426e-05 dP=1.503852e-05 linP=1.699673e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2100 mass=1.246400e-14 dU=3.530647e-06 rU=8.272167e-06 dP=1.115716e-05 linP=2.179540e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2200 mass=1.171730e-14 dU=2.617855e-06 rU=6.134571e-06 dP=8.276328e-06 linP=2.751696e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2300 mass=1.132252e-14 dU=1.941090e-06 rU=4.549259e-06 dP=6.138706e-06 linP=3.540034e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2400 mass=1.102804e-14 dU=1.439306e-06 rU=3.373591e-06 dP=4.552866e-06 linP=4.668688e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2500 mass=1.099677e-14 dU=1.067251e-06 rU=2.501740e-06 dP=3.376534e-06 linP=6.288623e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2600 mass=1.343291e-14 dU=7.913791e-07 rU=1.855206e-06 dP=2.504046e-06 linP=1.072055e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2700 mass=1.206374e-14 dU=5.868219e-07 rU=1.375765e-06 dP=1.856961e-06 linP=1.274981e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2800 mass=1.184770e-14 dU=4.351417e-07 rU=1.020237e-06 dP=1.377068e-06 linP=1.693214e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2900 mass=1.174661e-14 dU=3.226689e-07 rU=7.565985e-07 dP=1.021181e-06 linP=2.268105e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2908 mass=1.168079e-14 dU=3.150412e-07 rU=7.387187e-07 dP=9.970441e-07 linP=2.246926e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=24.9146 linearSolves=11632 krylovIterations=516436 spmv=560034 halo=618195 allreduce=1627750 assembly=5816/0.0963098 preconditionerSetup=5816/2.98041 preconditionerApply=539679/9.80594 linearSeconds=18.1559 spmvSeconds=6.01779 haloSeconds=2.61136 allreduceSeconds=1.93085
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-simple-mpi-uif5hk6d/cavity-steady/results/np2"
+BabelSim timeToSolution=25.2291

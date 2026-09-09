@@ -1,0 +1,16 @@
+SIMPLE 1 mass=2.375983e-08 dU=1.000000e+00 rU=7.531780e-01 dP=3.333333e+00 linP=9.789567e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=1.083311e-12 dU=1.075856e-03 rU=5.877351e-02 dP=1.043066e-02 linP=9.264002e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 200 mass=2.520010e-13 dU=4.326636e-04 rU=2.430085e-02 dP=3.295374e-03 linP=9.389942e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=8.444451e-14 dU=1.864243e-04 rU=1.058099e-02 dP=1.285482e-03 linP=8.370837e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 400 mass=4.115128e-14 dU=8.004149e-05 rU=4.561874e-03 dP=5.040881e-04 linP=9.569477e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 500 mass=1.632343e-14 dU=3.386011e-05 rU=1.932993e-03 dP=1.865640e-04 linP=9.996539e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 600 mass=8.185474e-15 dU=1.396924e-05 rU=7.979822e-04 dP=6.179440e-05 linP=9.444685e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 700 mass=3.665447e-15 dU=5.522020e-06 rU=3.155224e-04 dP=1.622830e-05 linP=9.669041e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=2.801833e-15 dU=2.024780e-06 rU=1.157147e-04 dP=2.391255e-06 linP=1.448720e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 900 mass=2.343769e-15 dU=6.560800e-07 rU=3.751300e-05 dP=1.332078e-06 linP=2.128522e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1000 mass=2.493938e-15 dU=1.784772e-07 rU=1.023060e-05 dP=8.090283e-07 linP=3.650576e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1100 mass=2.414323e-15 dU=3.929857e-08 rU=2.303663e-06 dP=2.742364e-07 linP=9.726862e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1155 mass=2.572570e-15 dU=1.552000e-08 rU=9.906259e-07 dP=1.274517e-07 linP=2.074333e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=46.0034 linearSolves=4620 krylovIterations=827100 spmv=839802 halo=0 allreduce=9240 assembly=2310/0.085475 preconditionerSetup=2310/2.1024 preconditionerApply=831718/29.672 linearSeconds=41.9271 spmvSeconds=9.5866 haloSeconds=0 allreduceSeconds=0.00602779
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-simple-mpi-uif5hk6d/channel-steady/results/np1"
+BabelSim timeToSolution=46.2958

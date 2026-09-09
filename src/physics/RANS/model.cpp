@@ -42,6 +42,9 @@ Model::Model(
       m_velocity_gradient(problem.tensorField("ransGradU", Tensor3{})),
       m_strain_measure(problem.scalarField("ransStrain2", 0.0))
 {
+    m_effective_viscosity.useCalculatedBoundary();
+    m_velocity_gradient.useCalculatedBoundary();
+    m_strain_measure.useCalculatedBoundary();
     if (m_relaxation > 1.0) {
         throw std::invalid_argument("turbulenceRelaxation must not exceed one");
     }
@@ -50,22 +53,28 @@ Model::Model(
 SolveResult Model::solveTransport(
     ScalarField& variable,
     const ScalarField& diffusivity,
-    const ScalarField& source) const
+    const ScalarField& source, const ScalarField* sink) const
 {
-    if (numericalMethods().time == TimeMethod::Steady) {
-        return solve(
-            eqn::div(m_density, m_face_flux, variable) ==
-                eqn::laplacian(diffusivity, variable) + eqn::source(source),
-            relaxed(m_relaxation));
-    }
-    return solve(
-        eqn::ddt(m_density, variable) +
-            eqn::div(m_density, m_face_flux, variable) ==
-            eqn::laplacian(diffusivity, variable) + eqn::source(source),
-        relaxed(m_relaxation));
+    return solve(transportEquation(variable, diffusivity, source, sink), relaxed(m_relaxation));
+}
+
+ScalarEquationDefinition Model::transportEquation(ScalarField& variable,
+    const ScalarField& diffusivity, const ScalarField& source, const ScalarField* sink) const
+{
+    ScalarExpression lhs = eqn::div(m_density, m_face_flux, variable);
+    if (numericalMethods().time != TimeMethod::Steady) lhs = eqn::ddt(m_density, variable) + lhs;
+    if (sink) lhs = lhs + eqn::Sp(*sink, variable);
+    return lhs == eqn::laplacian(diffusivity, variable) + eqn::source(source);
+}
+
+double Model::transportResidual(ScalarField& variable, const ScalarField& diffusivity,
+    const ScalarField& source, const ScalarField* sink) const
+{
+    return diagnostics::residual(transportEquation(variable, diffusivity, source, sink)).relative();
 }
 
 void Model::updateKinematics() {
+    const_cast<VectorField&>(m_velocity).setBoundaryFlux(m_face_flux);
     math::evaluate(math::grad(m_velocity), m_velocity_gradient);
     m_strain_measure.evaluate(m_velocity_gradient, strainMeasure);
 }
@@ -156,5 +165,7 @@ SolveResult correct(Model& model) { return model.correct(); }
 double relativeChange(const Model& model) { return model.relativeChange(); }
 double tolerance(const Model& model) { return model.tolerance(); }
 const char* name(const Model& model) { return model.modelName(); }
+
+double relativeResidual(const Model& model) { return model.relativeResidual(); }
 
 }  // babelsim::rans 命名空间

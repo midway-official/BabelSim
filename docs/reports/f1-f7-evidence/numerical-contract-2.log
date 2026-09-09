@@ -1,0 +1,2 @@
+linear solve failed at time=0 iterations=0 initial=inf final=inf relative=-nan healthy=0
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed

@@ -1,0 +1,15 @@
+field k
+{
+    type scalar
+    location cell
+    internal uniform (0.001)
+    boundary
+    {
+        hot { type fixedValue value (0.001) }
+        cold { type fixedValue value (0.001) }
+        lower { type symmetry }
+        upper { type symmetry }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

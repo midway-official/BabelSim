@@ -14,7 +14,7 @@ namespace babelsim::detail {
 namespace {
 
 using SparseMatrix = Eigen::SparseMatrix<double>;
-constexpr double diagonal_tolerance = 1e-30;
+constexpr double diagonal_tolerance = 0.0;
 constexpr double smoothing_weight = 2.0 / 3.0;
 
 bool finite(const Eigen::VectorXd& values) {

@@ -15,7 +15,8 @@
 namespace babelsim {
 namespace {
 
-constexpr double breakdown_tolerance = 1e-30;
+// A nonzero inner product must not be rejected merely because of physical units.
+constexpr double breakdown_tolerance = 0.0;
 using Clock = std::chrono::steady_clock;
 
 double secondsSince(Clock::time_point start) {
@@ -103,16 +104,9 @@ struct PreparedLinearSolver::Implementation {
     {
         apply(solution, workspace.product);
         const double final_residual = (right_hand_side - workspace.product).norm();
-        const double target = std::max(
-            config.absolute_tolerance, config.relative_tolerance * scale);
-        // 当 b-Ax 已达到稀疏乘与向量范数的舍入误差下限时，继续迭代只会
-        // 触发 Krylov breakdown。该阈值不改变正常尺度问题的用户容差。
-        const double roundoff = 64.0 * std::numeric_limits<double>::epsilon() *
-            std::max(1.0, right_hand_side.norm() + matrix.norm() * solution.norm());
-        const double attainable_target = std::max(target, roundoff);
+        const double target = residualTarget(config, scale);
         if (!std::isfinite(final_residual)) status = SolveStatus::NumericalFailure;
-        else if (final_residual <= attainable_target * (1.0 + 1e-10))
-            status = SolveStatus::Converged;
+        else if (residualConverged(final_residual, target)) status = SolveStatus::Converged;
         else if (status == SolveStatus::Converged) status = SolveStatus::MaxIterations;
         SolveResult result{status, iterations, initial_residual, final_residual,
                            final_residual / scale};
@@ -127,7 +121,7 @@ struct PreparedLinearSolver::Implementation {
         Eigen::VectorXd& solution,
         double initial_residual,
         double target,
-        double scale)
+        double scale, int iteration_limit)
     {
         if (!precondition(workspace.residual, workspace.preconditioned_direction)) {
             return finish(SolveStatus::NumericalFailure, 0, initial_residual, scale,
@@ -137,7 +131,7 @@ struct PreparedLinearSolver::Implementation {
         workspace.direction = workspace.preconditioned_direction;
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
-        for (int iteration = 1; iteration <= config.max_iterations; ++iteration) {
+        for (int iteration = 1; iteration <= iteration_limit; ++iteration) {
             apply(workspace.direction, workspace.direction_product);
             const double denominator = workspace.direction.dot(workspace.direction_product);
             if (!std::isfinite(denominator) || denominator <= breakdown_tolerance ||
@@ -171,7 +165,7 @@ struct PreparedLinearSolver::Implementation {
         Eigen::VectorXd& solution,
         double initial_residual,
         double target,
-        double scale)
+        double scale, int iteration_limit)
     {
         workspace.shadow = workspace.residual;
         workspace.direction.setZero();
@@ -181,7 +175,7 @@ struct PreparedLinearSolver::Implementation {
         double omega = 1.0;
         SolveStatus status = SolveStatus::MaxIterations;
         int iterations = 0;
-        for (int iteration = 1; iteration <= config.max_iterations; ++iteration) {
+        for (int iteration = 1; iteration <= iteration_limit; ++iteration) {
             const double rho = workspace.shadow.dot(workspace.residual);
             if (!std::isfinite(rho) || !std::isfinite(omega) ||
                 std::abs(rho) <= breakdown_tolerance ||
@@ -352,11 +346,10 @@ SolveResult PreparedLinearSolver::solve(
     state.apply(solution, state.workspace.product);
     state.workspace.residual = right_hand_side - state.workspace.product;
     const double initial_residual = state.workspace.residual.norm();
-    const double scale = std::max({initial_residual, right_hand_side.norm(), 1e-30});
-    const double target = std::max(
-        state.config.absolute_tolerance, state.config.relative_tolerance * scale);
-    if (initial_residual <= target || !state.factorization_succeeded) {
-        const SolveStatus status = initial_residual <= target
+    const double scale = residualScale(initial_residual, right_hand_side.norm());
+    const double target = residualTarget(state.config, scale);
+    if (!std::isfinite(initial_residual) || residualConverged(initial_residual, target) || !state.factorization_succeeded) {
+        const SolveStatus status = residualConverged(initial_residual, target)
             ? SolveStatus::Converged : SolveStatus::NumericalFailure;
         SolveResult result{status, 0, initial_residual, initial_residual,
                            initial_residual / scale};
@@ -364,9 +357,26 @@ SolveResult PreparedLinearSolver::solve(
         result.performance = state.current_performance;
         return result;
     }
-    return state.config.solver == LinearSolverType::ConjugateGradient
-        ? state.solvePcg(right_hand_side, solution, initial_residual, target, scale)
-        : state.solveBicgstab(right_hand_side, solution, initial_residual, target, scale);
+    SolveResult result;
+    int completed = 0;
+    double previous_residual = initial_residual;
+    while (completed < state.config.max_iterations) {
+        const int remaining = state.config.max_iterations - completed;
+        result = state.config.solver == LinearSolverType::ConjugateGradient
+            ? state.solvePcg(right_hand_side, solution, initial_residual, target, scale, remaining)
+            : state.solveBicgstab(right_hand_side, solution, initial_residual, target, scale, remaining);
+        const int used = result.iterations;
+        completed += used;
+        result.iterations = completed;
+        if (result.converged() || !result.healthy() || used == 0 ||
+            result.final_residual >= previous_residual * (1.0 - 1e-8)) break;
+        state.workspace.residual = right_hand_side - state.workspace.product;
+        previous_residual = result.final_residual;
+    }
+    result.performance = state.current_performance;
+    result.performance.linear_solves = 1;
+    result.performance.krylov_iterations = static_cast<std::uint64_t>(completed);
+    return result;
 }
 
 SolveResult solve(

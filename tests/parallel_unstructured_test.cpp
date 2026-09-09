@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
     const ParallelContext parallel = ParallelContext::world();
     try {
         require(parallel.size == 2, "parallel_unstructured_test requires two MPI ranks");
-        const Mesh local = decompose(checkerboardHexes(), parallel, 1);
+        const Mesh local = decompose(checkerboardHexes(), parallel, 3);
         require(detail::ownedCellCount(local) == 4 && local.cellCount() > 4,
                 "topology partition did not create a balanced owned-plus-ghost mesh");
         std::vector<bool> reached(static_cast<std::size_t>(local.cellCount()), false);

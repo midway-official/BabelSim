@@ -1,0 +1,4 @@
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.000309709 linearSolves=4 krylovIterations=0 spmv=4 halo=24 allreduce=13 assembly=2/4.01e-07 preconditionerSetup=2/2.9067e-05 preconditionerApply=0/0 linearSeconds=7.385e-06 spmvSeconds=2.955e-06 haloSeconds=5.4553e-05 allreduceSeconds=1.9187e-05
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-review-20260909/smoke-steady-none/results/np2"
+BabelSim timeToSolution=0.222011

@@ -17,6 +17,7 @@ enum class EquationTermKind {
     Laplacian,
     Source,
     Gradient,
+    LinearSource,
 };
 
 struct ScalarEquationTerm {
@@ -189,6 +190,15 @@ inline ScalarExpression source(double coefficient, const ScalarField& field) {
     return ScalarExpression({EquationTermKind::Source, 1, coefficient, &field});
 }
 
+// 局部隐式线性项 a(x)*phi；按方程两侧的数学符号装配 a*V 到对角。
+// 例如 div(phi,U) + Sp(a,U) == laplacian(mu,U) + source(b)。
+inline ScalarExpression Sp(const ScalarField& coefficient, const ScalarField& field) {
+    return ScalarExpression({EquationTermKind::LinearSource, 1, 1.0, &field, &coefficient});
+}
+inline ScalarExpression Sp(double coefficient, const ScalarField& field) {
+    return ScalarExpression({EquationTermKind::LinearSource, 1, coefficient, &field});
+}
+
 inline VectorExpression ddt(double density, const VectorField& field) {
     VectorEquationTerm term;
     term.kind = EquationTermKind::TimeDerivative;
@@ -258,6 +268,21 @@ inline VectorExpression source(double coefficient, const VectorField& field) {
 }
 
 inline VectorExpression source(const VectorField& field) { return source(1.0, field); }
+
+inline VectorExpression Sp(const ScalarField& coefficient, const VectorField& field) {
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::LinearSource;
+    term.vector_field = &field;
+    term.coefficient_field = &coefficient;
+    return VectorExpression(term);
+}
+inline VectorExpression Sp(double coefficient, const VectorField& field) {
+    VectorEquationTerm term;
+    term.kind = EquationTermKind::LinearSource;
+    term.vector_field = &field;
+    term.coefficient = coefficient;
+    return VectorExpression(term);
+}
 
 }  // eqn 命名空间
 

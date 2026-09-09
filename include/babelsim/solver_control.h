@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 namespace babelsim {
 
@@ -81,6 +83,37 @@ struct LinearSolverConfig {
     int amg_refresh_interval = 1;
 
     void validate() const;
+};
+
+// 所有后端使用同一合同：原始（未预条件）真残差的全局 L2 范数，
+// ||b-Ax|| <= max(atol, rtol * max(||r0||, ||b||))。
+// 不引入有量纲的隐藏下限，也不把舍入/停滞当作收敛。
+inline double residualScale(double initial, double rhs) {
+    const double value = std::max(initial, rhs);
+    return value > 0.0 ? value : 1.0;
+}
+
+inline double residualTarget(const LinearSolverConfig& config, double scale) {
+    return std::max(config.absolute_tolerance, config.relative_tolerance * scale);
+}
+
+inline bool residualConverged(double residual, double target) {
+    return std::isfinite(residual) && std::isfinite(target) && residual <= target;
+}
+
+struct EquationResidual {
+    // 原方程（无欠松弛、无参考点惩罚）的全局 L2 残差。
+    double norm = 0.0;
+    double scale = 0.0; // ||A*x|| + ||b||，对当前非线性系数重新装配
+    double relative() const {
+        if (!std::isfinite(norm) || !std::isfinite(scale))
+            return std::numeric_limits<double>::infinity();
+        return scale > 0.0 ? norm / scale : norm;
+    }
+    bool converged(double absolute_tolerance, double relative_tolerance) const {
+        return std::isfinite(scale) && residualConverged(norm,
+            std::max(absolute_tolerance, relative_tolerance * scale));
+    }
 };
 
 struct SolveResult {

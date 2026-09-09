@@ -9,19 +9,21 @@ void SteadySimpleAlgorithm::solveMomentum() {
     state.m_previous_velocity.assign(state.m_U);
     // UEqn：求预测速度及对角体积响应。rAU 是当前算法的数学场，
     // 其计算复用公开 solveWithResponse，不让算法接触离散矩阵。
-    VectorField& U = state.m_U;
-    ScalarField& p = state.m_p;
-    ScalarField& phi = state.m_phi;
-    ScalarField& rAU = state.m_rAU;
-    const VectorExpression diffusion = state.m_turbulence
-        ? eqn::laplacian(state.m_effective_viscosity, U)
-        : eqn::laplacian(state.m_fluid.dynamic_viscosity, U);
-
-    state.m_result.velocity = solveWithResponse(
-        eqn::div(state.m_fluid.density, phi, U) ==
-            -math::grad(p) + diffusion,
-        rAU, relaxed(state.m_control.velocity_relaxation));
+    state.m_result.velocity = solveWithResponse(state.momentumEquation(), state.m_rAU,
+        relaxed(state.m_control.velocity_relaxation));
     state.m_step = State::Step::Momentum;
+}
+
+VectorEquationDefinition SteadySimpleAlgorithm::State::momentumEquation() {
+    VectorExpression diffusion = m_turbulence
+        ? eqn::laplacian(m_effective_viscosity, m_U)
+        : eqn::laplacian(m_fluid.dynamic_viscosity, m_U);
+    if (m_turbulence) {
+        evaluateStressCorrection(m_U, m_phi, m_effective_viscosity,
+            m_stress_gradient, m_stress_correction, m_stress_divergence);
+        diffusion = diffusion + eqn::source(m_stress_divergence);
+    }
+    return eqn::div(m_fluid.density, m_phi, m_U) == -math::grad(m_p) + diffusion;
 }
 
 void SteadySimpleAlgorithm::State::predictMomentumFlux() {

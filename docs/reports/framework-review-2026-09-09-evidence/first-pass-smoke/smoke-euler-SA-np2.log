@@ -1,0 +1,6 @@
+RANS model: Spalart-Allmaras
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=3.673556e-04 linear=ok converged=false
+Transient SIMPLE 18 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.970024e-09 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.00238413 linearSolves=90 krylovIterations=36 spmv=162 halo=596 allreduce=432 assembly=54/5.11e-06 preconditionerSetup=54/0.000112932 preconditionerApply=54/1.1502e-05 linearSeconds=0.000134718 spmvSeconds=6.0658e-05 haloSeconds=0.000218486 allreduceSeconds=0.000124823
+BabelSim result time=0.001 steps=1 saved to "/tmp/babelsim-review-20260909/smoke-euler-SA/results/np2"
+BabelSim timeToSolution=0.226863

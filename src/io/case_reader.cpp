@@ -42,6 +42,7 @@ CaseDefinition readCase(const std::filesystem::path& case_directory) {
                                  result.root.string());
     }
 
+    bool has_ghost_layers = false;
     for (const ConfigLine& line : readConfigLines(path)) {
         const std::string& key = line.tokens.front();
         if (key == "solver") {
@@ -49,6 +50,15 @@ CaseDefinition readCase(const std::filesystem::path& case_directory) {
                 invalid(path, line, "expected one unique solver name");
             }
             result.solver = line.tokens[1];
+        } else if (key == "ghostLayers") {
+            if (line.tokens.size() != 2 || has_ghost_layers)
+                invalid(path, line, "expected one unique ghostLayers integer >= 3");
+            std::size_t consumed = 0;
+            try { result.ghost_layers = std::stoi(line.tokens[1], &consumed); }
+            catch (const std::exception&) { invalid(path, line, "invalid ghostLayers integer"); }
+            if (consumed != line.tokens[1].size() || result.ghost_layers < 3)
+                invalid(path, line, "ghostLayers must be an integer >= 3");
+            has_ghost_layers = true;
         } else if (key == "mesh") {
             setPath(path, line, result.mesh_file, result.root);
         } else if (key == "fields") {

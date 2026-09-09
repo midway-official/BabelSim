@@ -15,7 +15,13 @@ def read_result(directory: Path) -> dict[str, dict[int, tuple[float, ...]]]:
         raise ValueError(f"{directory} contains no rank directories")
     fields: dict[str, dict[int, tuple[float, ...]]] = {}
     for rank in ranks:
-        for path in sorted(rank.glob("*.csv")):
+        # Metadata is authoritative; stale output files are not fields of this run.
+        names = [tokens[1] for line in (rank / "metadata.bs").read_text().splitlines()
+                 if (tokens := line.split()) and tokens[0] == "field"]
+        if not names or len(set(names)) != len(names):
+            raise ValueError(f"{rank} has missing or duplicate field declarations")
+        for name in sorted(names):
+            path = rank / (name + ".csv")
             values = fields.setdefault(path.stem, {})
             with path.open(newline="") as stream:
                 reader = csv.DictReader(stream)

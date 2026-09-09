@@ -1,0 +1,9 @@
+RANS model: Spalart-Allmaras
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.766708e-02 rTurb=1.477793e-02 linear=ok converged=false
+SIMPLE 100 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=7.152923e-05 rTurb=2.490927e-05 linear=ok converged=false
+SIMPLE 200 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.349667e-08 rTurb=3.247537e-08 linear=ok converged=false
+SIMPLE 300 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=1.217956e-10 rTurb=4.230467e-11 linear=ok converged=false
+SIMPLE 303 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=9.978767e-11 rTurb=3.466041e-11 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.0563799 linearSolves=1515 krylovIterations=1212 spmv=3939 halo=13637 allreduce=10302 assembly=909/8.3913e-05 preconditionerSetup=909/0.00285512 preconditionerApply=2121/0.000331878 linearSeconds=0.00935604 spmvSeconds=0.00490232 haloSeconds=0.0250629 allreduceSeconds=0.00793545
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-rans-validation-r9320laj/steady-SA/results/np4"
+BabelSim timeToSolution=0.297005

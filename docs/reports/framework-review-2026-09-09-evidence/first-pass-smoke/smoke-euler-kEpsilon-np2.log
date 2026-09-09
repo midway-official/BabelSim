@@ -1,0 +1,6 @@
+RANS model: standard k-epsilon
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=8.909481e-04 linear=ok converged=false
+Transient SIMPLE 20 mass=0.000000e+00 dU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=6.255149e-09 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.00290617 linearSolves=120 krylovIterations=80 spmv=280 halo=782 allreduce=700 assembly=80/1.0039e-05 preconditionerSetup=80/0.000168923 preconditionerApply=120/2.7061e-05 linearSeconds=0.000314521 spmvSeconds=0.000127998 haloSeconds=0.0003341 allreduceSeconds=0.000203216
+BabelSim result time=0.001 steps=1 saved to "/tmp/babelsim-review-20260909/smoke-euler-kEpsilon/results/np2"
+BabelSim timeToSolution=0.227412

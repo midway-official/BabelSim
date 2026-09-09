@@ -1,0 +1,16 @@
+RANS model: standard k-epsilon
+Transient SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=0.000000e+00 rTurb=4.897959e-01 linear=ok converged=false
+Transient SIMPLE 40 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=0.000000e+00 rTurb=4.897959e-01 linear=ok converged=false
+BabelSim performance runtimeElapsed=0.00982133 linearSolves=240 krylovIterations=160 spmv=560 halo=1882 allreduce=1520 assembly=160/1.9615e-05 preconditionerSetup=160/0.000387819 preconditionerApply=240/5.5027e-05 linearSeconds=0.000620874 spmvSeconds=0.000263915 haloSeconds=0.00628047 allreduceSeconds=0.000633147
+BabelSim timeToSolution=0.2443
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[27931,1],1]
+  Exit code:    2
+--------------------------------------------------------------------------

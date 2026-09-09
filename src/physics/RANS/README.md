@@ -1,7 +1,7 @@
 # RANS 物理模块
 
 本目录是不可压缩 SIMPLE 的私有湍流闭合模块，不属于 BabelSim 公共 Solver API。
-它只负责湍流输运变量和有效动力黏度：
+它负责湍流输运变量、派生系数和原输运方程残差；SIMPLE 用有效动力黏度构造完整偏应力：
 
 ```text
 修正后的 U、phi
@@ -87,8 +87,9 @@ epsilonMin 1e-12
 
 模型输运方程含对流项，通常应在 `solution.bs` 为标量方程选择
 `bicgstab`，而不是仅适合对称正定系统的 `cg`。破坏项使用上一轮场值进行
-Picard 显式线性化；它不改变模型方程，但稳定性通常比隐式 sink 线性化更依赖
-欠松弛。
+Picard 隐式 sink 线性化，通过通用 `eqn::Sp(a,F)` 表达。SA 按反应系数符号
+拆分显式生产与隐式耗散，在固定点保持同一正变量 PDE。更新并裁剪后重新计算系数和
+原输运方程残差；dTurb 与 rTurb 均须满足 turbulenceTolerance，不能只依据线性状态。
 
 SA 的 `wallDistance` 必须表示单元中心到最近真实壁面几何的最短距离；不能用
 沿网格线搜索或最近单元中心距离代替。k-omega 的 `omega` 近壁值和标准高雷诺数
@@ -109,3 +110,11 @@ k-epsilon 的壁面处理必须由具体 Case 按所用网格与近壁策略给�
 
 不应修改 Mesh、Field、离散、线性代数、Runtime、MPI，也不应把模型头文件放进
 `include/babelsim`。这样新增闭合模型不会扩大普通 Solver 作者的公共概念面。
+
+派生系数与梯度工作场显式使用 `useCalculatedBoundary()`，按相同数学函数传播面迹；
+未知量的下限裁剪不会把 SA 的固定零壁面改成正值。各向同性 k 应力的压力约定见
+[动量说明](/home/midway/BabelSim/docs/simple-solver.md)，公开论文、公式及实际验收见
+[模型方程报告](/home/midway/BabelSim/docs/reports/rans-equation-verification.md)。
+
+复现：`make test-rans`。测试包含模型系数、非均匀黏度应力、Euler/BDF2 衰减阶、
+完整稳态/瞬态 SIMPLE 的 1/2/4 进程及裁剪拒绝；不等同于自动壁函数或工程壁流验证。

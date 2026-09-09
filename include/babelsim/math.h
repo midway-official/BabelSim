@@ -45,6 +45,9 @@ struct VectorDivergence {
     const VectorField& field;
 };
 
+// 张量按 rows[i][j] 存储；返回 (div T)_i = d T_ij / dx_j。
+struct TensorDivergence { const TensorField& field; };
+
 struct ScalarConvection {
     const ScalarField& flux;
     const ScalarField& field;
@@ -91,6 +94,7 @@ inline ScalarDiffusionFlux flux(
 }
 inline FaceDivergence div(const ScalarField& flux) { return {flux}; }
 inline VectorDivergence div(const VectorField& field) { return {field}; }
+inline TensorDivergence div(const TensorField& field) { return {field}; }
 inline ScalarConvection div(const ScalarField& flux, const ScalarField& field) {
     return {flux, field};
 }
@@ -136,6 +140,7 @@ void evaluate(VectorGradient operation, TensorField& result);
 void evaluate(FaceFlux operation, ScalarField& result);
 void evaluate(FaceDivergence operation, ScalarField& result);
 void evaluate(VectorDivergence operation, ScalarField& result);
+void evaluate(TensorDivergence operation, VectorField& result);
 void evaluate(ScalarConvection operation, ScalarField& result);
 void evaluate(VectorConvection operation, VectorField& result);
 void evaluate(ScalarInterpolation operation, ScalarField& result);

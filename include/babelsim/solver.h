@@ -51,6 +51,9 @@ inline EquationControl referenceValue(double value) { return {1.0, true, value};
 
 
 namespace diagnostics {
+// 在当前字段与时间历史上重新装配原方程，不求解、不推进时间、不欠松弛。
+EquationResidual residual(const ScalarEquationDefinition& equation);
+EquationResidual residual(const VectorEquationDefinition& equation);
 double relativeChange(const VectorField& current, const VectorField& previous);
 double relativeChange(const ScalarField& current, const ScalarField& previous);
 double relativeMagnitude(const ScalarField& value, const ScalarField& reference);

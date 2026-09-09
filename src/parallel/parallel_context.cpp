@@ -271,7 +271,7 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
 }
 
 Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
-    if (size <= 0 || rank < 0 || rank >= size || ghost_layers < 1) {
+    if (size <= 0 || rank < 0 || rank >= size || ghost_layers < 3) {
         throw std::invalid_argument("mesh partition rank, size, or halo width is invalid");
     }
     global.validate();
@@ -509,6 +509,7 @@ Mesh readDistributedMesh(
     Index ghost_layers)
 {
     parallel.validate();
+    if (ghost_layers < 3) throw std::invalid_argument("ghostLayers must be >= 3");
     if (!parallel.distributed()) return readMeshFile(path);
     Mesh global;
     std::string error;

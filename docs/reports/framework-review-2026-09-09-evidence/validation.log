@@ -1,0 +1,57 @@
+TMPDIR=/tmp mpirun -np 4 build/babelsim-solve \
+	-case cases/cavity -time validation-mpi4
+build/babelsim-solve -case cases/poiseuille -time validation
+SIMPLE 1 mass=1.180440e-09 dU=1.000000e+00 dP=3.333333e+00 linP=8.550926e-09 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=1.409132e-13 dU=3.321870e-03 dP=8.770109e-03 linP=7.735955e-09 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 200 mass=4.822952e-14 dU=1.514353e-03 dP=3.982292e-03 linP=8.785501e-09 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=2.313861e-14 dU=9.124662e-04 dP=2.332247e-03 linP=9.000053e-09 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 400 mass=1.630710e-14 dU=6.107427e-04 dP=1.556230e-03 linP=1.133006e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 500 mass=1.325054e-14 dU=4.316233e-04 dP=1.125166e-03 linP=1.471144e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 600 mass=1.117213e-14 dU=3.138936e-04 dP=8.454221e-04 linP=1.953336e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 700 mass=1.403689e-14 dU=2.313915e-04 dP=6.439425e-04 linP=3.338491e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=1.366448e-14 dU=1.715183e-04 dP=4.913403e-04 linP=4.954000e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 900 mass=1.273669e-14 dU=1.273555e-04 dP=3.737354e-04 linP=5.902606e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1000 mass=1.307869e-14 dU=9.457795e-05 dP=2.829497e-04 linP=8.017223e-08 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1100 mass=1.313358e-14 dU=7.021229e-05 dP=2.132095e-04 linP=1.062201e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1200 mass=1.311271e-14 dU=5.210212e-05 dP=1.600042e-04 linP=1.440701e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1300 mass=1.276827e-14 dU=3.864968e-05 dP=1.196843e-04 linP=1.918528e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1400 mass=1.252852e-14 dU=2.866345e-05 dP=8.930216e-05 linP=2.535896e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1500 mass=1.434198e-14 dU=2.125412e-05 dP=6.651085e-05 linP=3.970322e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1600 mass=1.410791e-14 dU=1.575870e-05 dP=4.947125e-05 linP=5.177420e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1700 mass=1.286081e-14 dU=1.168371e-05 dP=3.676286e-05 linP=6.504402e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1800 mass=1.385029e-14 dU=8.662408e-06 dP=2.730133e-05 linP=9.314075e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1900 mass=1.179883e-14 dU=6.422459e-06 dP=2.026573e-05 linP=1.082285e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2000 mass=1.199446e-14 dU=4.761818e-06 dP=1.503851e-05 linP=1.453845e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2100 mass=1.260962e-14 dU=3.530647e-06 dP=1.115716e-05 linP=2.101793e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2200 mass=1.177102e-14 dU=2.617855e-06 dP=8.276328e-06 linP=2.620123e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2300 mass=1.120872e-14 dU=1.941090e-06 dP=6.138705e-06 linP=3.371652e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2400 mass=1.141171e-14 dU=1.439306e-06 dP=4.552865e-06 linP=4.623532e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2500 mass=1.311806e-14 dU=1.067251e-06 dP=3.376534e-06 linP=7.101303e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2600 mass=1.427354e-14 dU=7.913791e-07 dP=2.504046e-06 linP=1.051143e-05 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2700 mass=1.413198e-14 dU=5.868219e-07 dP=1.856961e-06 linP=1.395816e-05 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2800 mass=1.365185e-14 dU=4.351417e-07 dP=1.377069e-06 linP=1.817372e-05 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2900 mass=1.382928e-14 dU=3.226689e-07 dP=1.021182e-06 linP=2.472593e-05 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 2908 mass=1.350446e-14 dU=3.150412e-07 dP=9.970449e-07 linP=2.472579e-05 dTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=16.8353 linearSolves=11632 krylovIterations=528972 spmv=575263 halo=630516 allreduce=1662078 assembly=5816/0.0590224 preconditionerSetup=5816/1.66233 preconditionerApply=554908/5.48581 linearSeconds=13.0869 spmvSeconds=4.06845 haloSeconds=2.40117 allreduceSeconds=3.72352
+BabelSim result time=0 steps=0 saved to "/home/midway/BabelSim/cases/cavity/results/validation-mpi4"
+BabelSim timeToSolution=17.1336
+python3 cases/cavity/validation/validate_cavity.py \
+	cases/cavity/results/validation-mpi4
+Re=100 grid=64x64 u_center=-0.20819973 v_center=0.05739658 u_Linf=0.0041522014 u_L2=0.0017992678 v_Linf=0.0085114402 v_L2=0.0044043179
+SIMPLE 1 mass=2.375983e-08 dU=1.000000e+00 dP=3.333333e+00 linP=9.789567e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=1.083311e-12 dU=1.075856e-03 dP=1.043066e-02 linP=9.264002e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 200 mass=2.520010e-13 dU=4.326636e-04 dP=3.295374e-03 linP=9.389942e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=8.444451e-14 dU=1.864243e-04 dP=1.285482e-03 linP=8.370837e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 400 mass=4.115128e-14 dU=8.004149e-05 dP=5.040881e-04 linP=9.569477e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 500 mass=1.632343e-14 dU=3.386011e-05 dP=1.865640e-04 linP=9.996539e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 600 mass=8.185474e-15 dU=1.396924e-05 dP=6.179440e-05 linP=9.444685e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 700 mass=3.665447e-15 dU=5.522020e-06 dP=1.622830e-05 linP=9.669041e-07 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=2.801833e-15 dU=2.024780e-06 dP=2.391255e-06 linP=1.448720e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 900 mass=2.343769e-15 dU=6.560800e-07 dP=1.332078e-06 linP=2.128522e-06 dTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 973 mass=2.331334e-15 dU=2.586929e-07 dP=9.947959e-07 linP=2.934748e-06 dTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=39.3106 linearSolves=3892 krylovIterations=701766 spmv=712466 halo=0 allreduce=6811 assembly=1946/0.0660405 preconditionerSetup=1946/1.74022 preconditionerApply=705656/25.8928 linearSeconds=36.4436 spmvSeconds=8.28799 haloSeconds=0 allreduceSeconds=0.00377577
+BabelSim result time=0 steps=0 saved to "/home/midway/BabelSim/cases/poiseuille/results/validation"
+BabelSim timeToSolution=39.6588
+python3 tools/validate_poiseuille.py cases/poiseuille/results/validation/rank-0000/U.csv \
+	--y-min 0.0 --y-max 1.0
+outlet_cells=70 u_max=1.49884024 Linf=0.00085364265 L2=0.0004627372

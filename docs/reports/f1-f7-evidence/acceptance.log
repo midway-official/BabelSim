@@ -1,0 +1,187 @@
+python3 tests/architecture_test.py
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/unstructured_mesh_test.cpp build/libbabelsim.a  -o build/unstructured_mesh_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/mesh_geometry_test.cpp build/libbabelsim.a  -o build/mesh_geometry_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/field_boundary_test.cpp build/libbabelsim.a  -o build/field_boundary_test
+architecture_test: 78 sources/headers, acyclic includes and layer boundaries passed
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/operators_test.cpp build/libbabelsim.a  -o build/operators_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/math_runtime_test.cpp build/libbabelsim.a  -o build/math_runtime_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/public_equation_test.cpp build/libbabelsim.a  -o build/public_equation_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/backend_interface_test.cpp build/libbabelsim.a  -o build/backend_interface_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/assembly_solver_test.cpp build/libbabelsim.a  -o build/assembly_solver_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/simple_solver_test.cpp build/libbabelsim.a  -o build/simple_solver_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/mesh_file_test.cpp build/libbabelsim.a  -o build/mesh_file_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/case_lifecycle_test.cpp build/libbabelsim.a  -o build/case_lifecycle_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/case_io_test.cpp build/libbabelsim.a  -o build/case_io_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/field_writer_test.cpp build/libbabelsim.a  -o build/field_writer_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/heat_solver_test.cpp build/libbabelsim.a  -o build/heat_solver_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/time_history_test.cpp build/libbabelsim.a  -o build/time_history_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/transport_solver_test.cpp build/libbabelsim.a  -o build/transport_solver_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/cavity_regression_test.cpp build/libbabelsim.a  -o build/cavity_regression_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/cavity_3d_test.cpp build/libbabelsim.a  -o build/cavity_3d_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/nonorthogonal_cavity_test.cpp build/libbabelsim.a  -o build/nonorthogonal_cavity_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/nonorthogonal_cavity_3d_test.cpp build/libbabelsim.a  -o build/nonorthogonal_cavity_3d_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  src/apps/babelsim_post.cpp build/libbabelsim.a  -o build/babelsim-post
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp build/libbabelsim.a  -o build/case_programming_test
+python3 tests/external_solver_test.py
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_domain_test.cpp build/libbabelsim.a  -o build/parallel_domain_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_simple_test.cpp build/libbabelsim.a  -o build/parallel_simple_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_math_test.cpp build/libbabelsim.a  -o build/parallel_math_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_channel_test.cpp build/libbabelsim.a  -o build/parallel_channel_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_cavity_3d_test.cpp build/libbabelsim.a  -o build/parallel_cavity_3d_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_transport_test.cpp build/libbabelsim.a  -o build/parallel_transport_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/parallel_unstructured_test.cpp build/libbabelsim.a  -o build/parallel_unstructured_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1  tests/rans_equations_test.cpp build/libbabelsim.a  -o build/rans_equations_test
+TMPDIR=/tmp mpirun -np 1 build/babelsim-solve \
+	-case cases/poiseuille -time mpi-np1
+SIMPLE 1 mass=2.375983e-08 dU=1.000000e+00 rU=7.531780e-01 dP=3.333333e+00 linP=9.789567e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+build/time_history_test
+vector equation failed at time=0 worst relative residual=0.01776
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+python3 tests/solver_workflow_test.py
+linear solve failed at time=0 iterations=0 initial=inf final=inf relative=-nan healthy=0
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed
+mesh_geometry_test: cells=18 volume=18.543 max_nonorth=0.383992 max_skew=0.00392164
+field_boundary_test: scalar/vector and mirror conditions passed
+operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed
+math_runtime_test: explicit Field operations passed
+public_equation_test: vector source, response, reference and face operators passed
+backend_interface_test: replaceable coarse-grained backend passed
+assembly_solver_test: iterations=1 residual=2.73755e-15 max_error=1.66533e-16
+simple_solver_test: iterations=62 mass=2.45028e-17 dU=1.20739e-08
+mesh_file_test: cells=9 patches=6
+case_lifecycle_test: stable references and deterministic destruction passed
+case_io_test: SIMPLE, heat-compatible and transport dictionaries passed
+field_writer_test: scalar/vector/tensor owned output passed
+heat_solver_test: T=0.454545 residual=0
+vector equation failed at time=0 worst relative residual=0.01776
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+transport_solver_test: C=0.3
+cavity_regression_test: iterations=153 mass=6.22043e-17 dU=2.62494e-07 centreU=-0.149237 pLin=1.15982e-09
+cavity_3d_test: cells=216 iterations=66 mass=5.61031e-15 centreU=-0.114134 maxW=0.0192033
+nonorthogonal_cavity_test: cells=100 iterations=178 mass=3.58719e-09 centreU=-0.151693 maxKbySf=0.412398
+nonorthogonal_cavity_3d_test: cells=125 iterations=116 mass=2.51341e-10 centreU=-0.0940688 maxW=0.0108375 maxKbySf=0.347666 maxSkew=0.0774395
+TMPDIR=/tmp mpirun -np 2 build/numerical_contract_test
+linear solve failed at time=0 iterations=0 initial=inf final=inf relative=-nan healthy=0
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+TMPDIR=/tmp mpirun -np 4 build/numerical_contract_test 4
+linear solve failed at time=0 iterations=0 initial=inf final=inf relative=-nan healthy=0
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+TMPDIR=/tmp mpirun -np 4 build/parallel_math_test 4
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 1 build/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build/parallel_math_test
+SIMPLE 100 mass=1.083311e-12 dU=1.075856e-03 rU=5.877351e-02 dP=1.043066e-02 linP=9.264002e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 4 build/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build/parallel_domain_test build/mpi-output
+parallel_domain_test: global_cells=48 ranks=2 ghost_layers=3 pcg_iterations=15
+TMPDIR=/tmp mpirun -np 2 build/parallel_unstructured_test
+parallel_unstructured_test: scrambled hex graph partition and halo passed
+TMPDIR=/tmp mpirun -np 2 build/parallel_channel_test \
+	cases/poiseuille/mesh/poiseuille.mesh build/mpi-output
+SIMPLE 200 mass=2.520010e-13 dU=4.326636e-04 rU=2.430085e-02 dP=3.295374e-03 linP=9.389942e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=8.444451e-14 dU=1.864243e-04 rU=1.058099e-02 dP=1.285482e-03 linP=8.370837e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+ParaView: PVD time steps and VTU cell values passed
+solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed
+python3 tests/rans_validation_test.py
+RANS evidence: /tmp/babelsim-rans-validation-r9320laj
+SIMPLE 400 mass=4.115128e-14 dU=8.004149e-05 rU=4.561874e-03 dP=5.040881e-04 linP=9.569477e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+{"model": "SA", "method": "euler", "errors": [0.0040543688782468945, 0.002073946386933395, 0.0010491726308916594], "ratios": [1.9549053455725134, 1.9767446518032141]}
+{"model": "SA", "method": "bdf2", "errors": [0.00037641722925937926, 9.095909066730856e-05, 2.2575814252800974e-05], "ratios": [4.138313460456203, 4.029050276936226]}
+SIMPLE 500 mass=1.632343e-14 dU=3.386011e-05 rU=1.932993e-03 dP=1.865640e-04 linP=9.996539e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+{"model": "kOmega", "method": "euler", "errors": [7.272666749713608e-06, 3.640782386127306e-06, 1.8235648128195336e-06], "ratios": [1.997556013626382, 1.9965193233236675]}
+{"model": "kOmega", "method": "bdf2", "errors": [1.0886228190010172e-06, 2.763105232395091e-07, 7.255276968098912e-08], "ratios": [3.939852909827059, 3.8084076521741705]}
+SIMPLE 600 mass=8.185474e-15 dU=1.396924e-05 rU=7.979822e-04 dP=6.179440e-05 linP=9.444685e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+{"model": "kEpsilon", "method": "euler", "errors": [0.001920966195129381, 0.0009691351351924782, 0.00048676733979724496], "ratios": [1.982144827251425, 1.990961709953991]}
+{"model": "kEpsilon", "method": "bdf2", "errors": [0.0002604317348848806, 6.439522926293684e-05, 1.6018437105524974e-05], "ratios": [4.044270637215885, 4.020069426169302]}
+SIMPLE 700 mass=3.665447e-15 dU=5.522020e-06 rU=3.155224e-04 dP=1.622830e-05 linP=9.669041e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=2.801833e-15 dU=2.024780e-06 rU=1.157147e-04 dP=2.391255e-06 linP=1.448720e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+rans_validation_test: published terms, temporal order, full SIMPLE 1/2/4 ranks and clipping rejection passed
+SIMPLE 900 mass=2.343769e-15 dU=6.560800e-07 rU=3.751300e-05 dP=1.332078e-06 linP=2.128522e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+parallel_channel_test: ranks=2 iterations=1149 mass=2.10908e-15 dU=1.72337e-08 rU=9.83799e-07 dP=1.39284e-07 sumU=(4339.07,-1.05503e-07,0) maxU=1.49895
+TMPDIR=/tmp mpirun -np 1 build/parallel_simple_test build/mpi-output
+parallel_simple_test: ranks=1 iterations=153 mass=1.32207e-14 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build/parallel_simple_test build/mpi-output
+parallel_simple_test: ranks=2 iterations=153 mass=1.24627e-14 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 4 build/parallel_simple_test build/mpi-output
+parallel_simple_test: ranks=4 iterations=153 mass=8.61835e-15 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build/parallel_cavity_3d_test build/mpi-output
+parallel_cavity_3d_test: ranks=2 iterations=66 mass=2.4032e-15 centreU=-0.114134 maxW=0.0192033
+TMPDIR=/tmp mpirun -np 2 build/parallel_transport_test
+parallel_transport_test: ranks=2 max_error=0
+make test-mpi-heat
+make[1]: Entering directory '/home/midway/BabelSim'
+TMPDIR=/tmp mpirun -np 1 build/babelsim-solve \
+	-case cases/heat -time mpi-np1
+SIMPLE 1000 mass=2.493938e-15 dU=1.784772e-07 rU=1.023060e-05 dP=8.090283e-07 linP=3.650576e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+BabelSim performance runtimeElapsed=0.00548976 linearSolves=5 krylovIterations=5 spmv=15 halo=0 allreduce=0 assembly=5/4.169e-06 preconditionerSetup=5/3.2167e-05 preconditionerApply=5/4.15e-06 linearSeconds=1.3107e-05 spmvSeconds=2.925e-06 haloSeconds=0 allreduceSeconds=0
+BabelSim result time=0.05 steps=5 saved to "/home/midway/BabelSim/cases/heat/results/mpi-np1"
+BabelSim timeToSolution=0.246299
+TMPDIR=/tmp mpirun -np 2 build/babelsim-solve \
+	-case cases/heat -time mpi-np2
+BabelSim performance runtimeElapsed=0.015205 linearSolves=5 krylovIterations=16 spmv=39 halo=44 allreduce=77 assembly=5/2.886e-06 preconditionerSetup=5/4.5456e-05 preconditionerApply=28/9.848e-06 linearSeconds=6.9029e-05 spmvSeconds=2.5638e-05 haloSeconds=2.2785e-05 allreduceSeconds=3.6063e-05
+BabelSim result time=0.05 steps=5 saved to "/home/midway/BabelSim/cases/heat/results/mpi-np2"
+BabelSim timeToSolution=0.243215
+python3 tools/compare_parallel_results.py \
+	cases/heat/results/mpi-np1 cases/heat/results/mpi-np2 \
+	--atol 1e-9 --rtol 1e-9
+T: cells=32 max_abs_difference=4.1218644e-12
+make[1]: Leaving directory '/home/midway/BabelSim'
+SIMPLE 1100 mass=2.414323e-15 dU=3.929857e-08 rU=2.303663e-06 dP=2.742364e-07 linP=9.726862e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1155 mass=2.572570e-15 dU=1.552000e-08 rU=9.906259e-07 dP=1.274517e-07 linP=2.074333e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=69.7687 linearSolves=4620 krylovIterations=827100 spmv=839802 halo=0 allreduce=9240 assembly=2310/0.131143 preconditionerSetup=2310/3.06581 preconditionerApply=831718/44.8909 linearSeconds=63.6403 spmvSeconds=14.7563 haloSeconds=0 allreduceSeconds=0.00922912
+BabelSim result time=0 steps=0 saved to "/home/midway/BabelSim/cases/poiseuille/results/mpi-np1"
+BabelSim timeToSolution=70.0623
+TMPDIR=/tmp mpirun -np 2 build/babelsim-solve \
+	-case cases/poiseuille -time mpi-np2
+SIMPLE 1 mass=2.264983e-08 dU=1.000000e+00 rU=7.531780e-01 dP=3.333333e+00 linP=8.757020e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=1.072395e-12 dU=1.075856e-03 rU=5.877348e-02 dP=1.043067e-02 linP=8.771440e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 200 mass=2.716940e-13 dU=4.326640e-04 rU=2.430083e-02 dP=3.295380e-03 linP=9.792471e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=9.550878e-14 dU=1.864247e-04 rU=1.058096e-02 dP=1.285488e-03 linP=9.916400e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 400 mass=4.187442e-14 dU=8.004178e-05 rU=4.561830e-03 dP=5.040914e-04 linP=9.716684e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 500 mass=1.826551e-14 dU=3.386029e-05 rU=1.932946e-03 dP=1.865656e-04 linP=9.829000e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 600 mass=7.890181e-15 dU=1.396935e-05 rU=7.979347e-04 dP=6.179497e-05 linP=9.647688e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 700 mass=3.713157e-15 dU=5.522077e-06 rU=3.154764e-04 dP=1.622838e-05 linP=9.888707e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=2.806411e-15 dU=2.024804e-06 rU=1.156717e-04 dP=2.391275e-06 linP=1.454130e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 900 mass=2.559279e-15 dU=6.560877e-07 rU=3.747376e-05 dP=1.332203e-06 linP=2.162237e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1000 mass=2.307029e-15 dU=1.784785e-07 rU=1.019463e-05 dP=8.090926e-07 linP=3.845324e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1100 mass=2.469613e-15 dU=3.929821e-08 rU=2.269241e-06 dP=2.742627e-07 linP=1.037770e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1153 mass=2.256136e-15 dU=1.607242e-08 rU=9.854747e-07 dP=1.313121e-07 linP=1.954926e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=33.4923 linearSolves=4612 krylovIterations=926070 spmv=942208 halo=965269 allreduce=2807056 assembly=2306/0.0495837 preconditionerSetup=2306/1.74948 preconditionerApply=934138/16.4601 linearSeconds=30.4372 spmvSeconds=10.0097 haloSeconds=3.56506 allreduceSeconds=2.81822
+BabelSim result time=0 steps=0 saved to "/home/midway/BabelSim/cases/poiseuille/results/mpi-np2"
+BabelSim timeToSolution=33.8192
+TMPDIR=/tmp mpirun -np 4 build/babelsim-solve \
+	-case cases/poiseuille -time mpi-np4
+SIMPLE 1 mass=2.639950e-08 dU=1.000000e+00 rU=7.531780e-01 dP=3.333333e+00 linP=9.729864e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 100 mass=1.185728e-12 dU=1.075856e-03 rU=5.877350e-02 dP=1.043067e-02 linP=9.361509e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 200 mass=2.833034e-13 dU=4.326639e-04 rU=2.430084e-02 dP=3.295380e-03 linP=9.971237e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 300 mass=9.427799e-14 dU=1.864246e-04 rU=1.058097e-02 dP=1.285487e-03 linP=8.877992e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 400 mass=4.011735e-14 dU=8.004170e-05 rU=4.561849e-03 dP=5.040906e-04 linP=9.716464e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 500 mass=1.609244e-14 dU=3.386023e-05 rU=1.932965e-03 dP=1.865652e-04 linP=9.238844e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 600 mass=8.511805e-15 dU=1.396931e-05 rU=7.979512e-04 dP=6.179487e-05 linP=9.780650e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 700 mass=3.954164e-15 dU=5.522051e-06 rU=3.154904e-04 dP=1.622842e-05 linP=9.878242e-07 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 800 mass=2.845166e-15 dU=2.024792e-06 rU=1.156835e-04 dP=2.391272e-06 linP=1.444831e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 900 mass=2.194008e-15 dU=6.560841e-07 rU=3.748334e-05 dP=1.332096e-06 linP=2.034251e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1000 mass=2.243308e-15 dU=1.784782e-07 rU=1.020024e-05 dP=8.090387e-07 linP=3.689603e-06 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1100 mass=2.429104e-15 dU=3.929873e-08 rU=2.259885e-06 dP=2.742397e-07 linP=1.035324e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=false
+SIMPLE 1150 mass=2.352872e-15 dU=1.693654e-08 rU=9.987635e-07 dP=1.372499e-07 linP=1.818457e-05 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=35.9778 linearSolves=4600 krylovIterations=1137062 spmv=1156606 halo=1179607 allreduce=3443375 assembly=2300/0.0349609 preconditionerSetup=2300/0.98444 preconditionerApply=1148557/14.3906 linearSeconds=33.5217 spmvSeconds=10.9552 haloSeconds=5.20406 allreduceSeconds=8.87531
+BabelSim result time=0 steps=0 saved to "/home/midway/BabelSim/cases/poiseuille/results/mpi-np4"
+BabelSim timeToSolution=36.2909
+python3 tools/compare_parallel_results.py \
+	cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np2 \
+	--atol 5e-6 --rtol 5e-6
+U: cells=4340 max_abs_difference=6.1548582e-07
+p: cells=4340 max_abs_difference=1.543376e-06
+python3 tools/compare_parallel_results.py \
+	cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np4 \
+	--atol 5e-6 --rtol 5e-6
+U: cells=4340 max_abs_difference=5.6890165e-07
+p: cells=4340 max_abs_difference=1.6263336e-06
+build/babelsim-post -case cases/poiseuille -time mpi-np4 -format vtk tecplot
+BabelSim postprocessed 1 time set(s) into "/home/midway/BabelSim/cases/poiseuille/post/"
+external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed
+external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed

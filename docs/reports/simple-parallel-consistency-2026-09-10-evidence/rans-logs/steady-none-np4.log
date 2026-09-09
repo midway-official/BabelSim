@@ -1,0 +1,4 @@
+SIMPLE 1 mass=0.000000e+00 dU=0.000000e+00 rU=0.000000e+00 dP=0.000000e+00 linP=0.000000e+00 dTurb=0.000000e+00 rTurb=0.000000e+00 linear=ok converged=true
+BabelSim performance runtimeElapsed=0.000292528 linearSolves=4 krylovIterations=0 spmv=4 halo=25 allreduce=14 assembly=2/4.8e-07 preconditionerSetup=2/2.844e-05 preconditionerApply=0/0 linearSeconds=1.2062e-05 spmvSeconds=5.686e-06 haloSeconds=3.3657e-05 allreduceSeconds=2.6099e-05
+BabelSim result time=0 steps=0 saved to "/tmp/babelsim-rans-validation-psw4qltp/steady-none/results/np4"
+BabelSim timeToSolution=0.242783

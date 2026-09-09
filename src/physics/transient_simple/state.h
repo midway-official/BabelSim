@@ -18,6 +18,9 @@ struct TransientSimpleAlgorithm::State {
     FluidProperties m_fluid;
     SimpleControl m_control;
     Methods m_methods;
+    TensorField m_stress_gradient{m_mesh, FieldLocation::Cell, "stressGradU"};
+    TensorField m_stress_correction{m_mesh, FieldLocation::Cell, "stressCorrection"};
+    VectorField m_stress_divergence{m_mesh, FieldLocation::Cell, "stressDivergence"};
     ScalarField m_effective_viscosity{m_mesh, FieldLocation::Cell, "muEffective"};
     std::unique_ptr<rans::Model, void (*)(rans::Model*)> m_turbulence{nullptr, rans::destroy};
 
@@ -42,6 +45,7 @@ struct TransientSimpleAlgorithm::State {
     int m_iteration = -1;
     bool m_log = false;
 
+    VectorEquationDefinition momentumEquation();
     void predictMomentumFlux();
     void report() const;
     void requireStep(Step expected) const;

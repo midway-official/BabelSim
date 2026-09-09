@@ -55,6 +55,7 @@ math::operator  轻量求值描述 → math::evaluate → FVM 数值前端 → �
 | `eqn::div(phi, T/U)` | \(\nabla\cdot(\phi T/U)\) | face scalar 通量、cell 场 |
 | `eqn::div(rho,phi,U)` | \(\nabla\cdot(\rho\phi U)\) | 常数缩放的 face 通量、cell vector 场 |
 | `eqn::laplacian(k, T/U)` | \(\nabla\cdot(k\nabla T/U)\) | 常数、cell 或 face 系数 |
+| `eqn::Sp(a,T/U)` | 隐式线性项 \(aT/aU\)，按有符号系数加入对角 \(aV\) | 常数或 cell scalar 系数，cell scalar/vector 未知量 |
 | `eqn::source(Q)` | 已知体源 \(Q\) | scalar/Vec3 常数或 cell scalar/vector Field |
 | `eqn::source(a,F)` | 已知体源 \(aF\) | 常数系数与 cell scalar/vector Field；不生成临时场 |
 
@@ -210,3 +211,72 @@ FVM 数值前端检查表达式与 Field 位置
 
 这也是 OpenFOAM `UEqn.H`/`pEqn.H` 的设计思想。BabelSim 只保留这一清晰分界，而没有复制
 OpenFOAM 的 `tmp<>`、`fvMatrix` 或对象注册机制。
+
+
+## 场的边界约束与派生边界迹
+
+默认 cell Field 表示可求解未知量，值更新不修改其 patch 约束。历史场的 `assign`
+只复制当前数值，主未知量的 `fill/evaluate` 也不会覆盖固定边界值。
+
+已知系数、点值函数和其他派生量可在声明时调用 `useCalculatedBoundary()`：
+
+```cpp
+auto& coefficient = problem.scalarField("coefficient", 0.0);
+coefficient.useCalculatedBoundary();
+coefficient.evaluate(T, [](double t) { return 1.0 + t*t; });
+// 单元值与每个物理边界面的迹都按同一个函数更新。
+solve(eqn::ddt(T) + eqn::Sp(2.0, T) == eqn::laplacian(coefficient, T));
+```
+
+`fill/evaluate/assign/assignScaled/addScaled/assignProduct/addProduct` 都遵守这个显式模式，
+支持原位点值代数；例如 g=f² 的边界迹为 (trace f)²，而不是自动继承 f 的边界类型。
+模式不依赖字段名称、单位、物性或方程类别。派生迹和通量上下文均为值快照，不持有源场
+或 lambda 的长期引用；输入改变后，应重新执行对应派生计算。
+
+calculated Field 不能作为 `solve` 的未知量，也不能用 `boundary/setBoundary` 访问或
+设置 patch 约束。它的每面迹可通过 `math::interpolate` 使用；无需向 Solver 暴露 face 索引。
+`math::grad` 的 calculated 输出由输入固定值、法向梯度或对称约束修正边界梯度。
+散度、对流散度和 Laplacian 的 calculated 输出采用相邻单元常值外推，因为仅给输入值
+约束不能唯一确定其高阶导数边界。该外推是明确的零阶边界近似，不承诺边界导数的高阶精度。
+执行层先同步结果单元值，再更新边界迹，保证分区上复合算子的输入一致。
+
+`inletOutlet` 是依赖面通量符号的混合约束：外向通量小于 0 时 fixedValue，否则 zeroGradient。
+方程中的对流项在装配任何项之前提供上下文，使梯度、扩散、对流共享同一面条件；同一
+方程不接受相互不同的对流通量对象。独立数学运算可调用 `field.setBoundaryFlux(phi)`；
+没有通量上下文时明确报错。`math::flux(U)` 按目标中的前次通量判定本次边界，然后更新
+U 的上下文，因此迭代调用应复用目标；初次目标通常为零通量。
+
+## 通用张量与隐式线性项
+
+Tensor3 使用行 i 列 j 表示分量。`transpose/trace` 和加减、标量乘法不带物理语义。
+`math::evaluate(math::div(TensorField), vector)` 计算
+\((\operatorname{div}T)_i=\sum_j\partial_j T_{ij}\)，每个面使用 \(T_f S_f\)，
+按行复用现有插值与梯度重构格式；内部面对相邻单元贡献等大反向。
+
+`eqn::Sp(a,F)` 表示隐式乘法算子 aF，放在左侧时增加 aV 对角，移到右侧则改变符号。
+它不自动判定生产或破坏，不自动裁剪负系数。怎样线性化非线性反应项由 Solver 决定；
+对于正的衰减率 a，`Sp(a,F)` 在左侧通常有利于隐式稳定性。
+
+## 残差和成功状态
+
+线性求解器和 MPI 后端共用以下定义（全局 owned 行、未预条件 L2 范数）：
+
+\[
+s=\max(\|b-Ax_0\|_2,\|b\|_2),\quad
+\|b-Ax\|_2\le\max(\mathrm{atol},\mathrm{rtol}\,s).
+\]
+
+只有 s=0 时归一化分母使用 1，此时初始解已满足零残差。最终状态重新计算真残差，
+不因舍入停滞、迭代递推残差较小或绝对内积较小而放宽用户容差。
+有限性失败不能标为收敛；剩余预算允许时串行/MPI 都可从真残差重启 Krylov。
+当前双精度平方和范数仍有极端上溢/下溢范围限制，不等于任意指数范围求解保证。
+
+`diagnostics::residual(equation)` 重装配**原方程**，不施加欠松弛或参考点惩罚，不求解，
+不推进历史。它返回 `EquationResidual{norm,scale}`，其中
+\(norm=\|Ax-b\|_2\)，\(scale=\|Ax\|_2+\|b\|_2\)。
+`relative()` 在非零尺度下为二者之比；零尺度返回 norm，非有限输入返回无穷大。
+`converged(atol,rtol)` 可组合绝对/相对阈值。该尺度用于当前非线性方程，不等同于
+线性求解的初始残差尺度；二者各有明确含义，均不设置隐藏容差下限。
+
+Solver 必须在更新系数、修正未知量或裁剪之后再检查原方程。`SolveResult::Converged`
+只说明刚求解的线性系统满足容差，不能证明之后修改的场仍满足原方程。

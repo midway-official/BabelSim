@@ -20,10 +20,13 @@ public:
     FvmExecution(const FvmExecution&) = delete;
     FvmExecution& operator=(const FvmExecution&) = delete;
     void beginStep(double delta_t);
-    SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control);
+    SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control,
+                      EquationResidual* residual = nullptr);
     std::array<SolveResult, 3> solve(
         const VectorEquationDefinition& equation,
-        VectorEquationControl control);
+        VectorEquationControl control, EquationResidual* residual = nullptr);
+    EquationResidual residual(const ScalarEquationDefinition& equation);
+    EquationResidual residual(const VectorEquationDefinition& equation);
     void evaluate(math::ScalarGradient operation, VectorField& result);
     void evaluate(math::NormalGradient operation, ScalarField& result);
     void evaluate(math::ScalarDiffusionFlux operation, ScalarField& result);
@@ -31,6 +34,7 @@ public:
     void evaluate(math::FaceFlux operation, ScalarField& result);
     void evaluate(math::FaceDivergence operation, ScalarField& result);
     void evaluate(math::VectorDivergence operation, ScalarField& result);
+    void evaluate(math::TensorDivergence operation, VectorField& result);
     void evaluate(math::ScalarConvection operation, ScalarField& result);
     void evaluate(math::VectorConvection operation, VectorField& result);
     void evaluate(math::ScalarInterpolation operation, ScalarField& result);

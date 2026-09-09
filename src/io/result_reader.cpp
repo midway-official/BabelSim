@@ -15,6 +15,7 @@ namespace babelsim {
 namespace {
 
 struct Metadata {
+    int version = 0;
     std::string time_name;
     int ranks = 0;
     Index global_cell_count = 0;
@@ -58,8 +59,10 @@ Metadata readMetadata(const std::filesystem::path& path) {
     for (const ConfigLine& line : readConfigLines(path)) {
         const std::string& key = line.tokens.front();
         if (key == "format" && line.tokens.size() == 3 && !format &&
-            line.tokens[1] == "babelsim_result" && line.tokens[2] == "1") {
+            line.tokens[1] == "babelsim_result" &&
+            (line.tokens[2] == "1" || line.tokens[2] == "2")) {
             format = true;
+            result.version = integer(line.tokens[2], path);
         } else if (key == "time" && line.tokens.size() == 2 && !time) {
             result.time_name = line.tokens[1];
             time = true;
@@ -145,6 +148,8 @@ ResultData readParallelResults(
     ResultData result;
     result.time_name = first.time_name;
     result.global_cell_count = first.global_cell_count;
+    if (first.version == 2) result.cell_vertices.resize(global_cell_count);
+    std::vector<bool> geometry_seen(global_cell_count, false);
     result.fields.reserve(first.fields.size());
     std::vector<std::vector<bool>> seen;
     for (const FieldOutputInfo& info : first.fields) {
@@ -156,10 +161,29 @@ ResultData readParallelResults(
 
     for (const auto& rank_directory : rank_directories) {
         const Metadata metadata = readMetadata(rank_directory / "metadata.bs");
-        if (metadata.time_name != first.time_name || metadata.ranks != first.ranks ||
+        if (metadata.version != first.version ||
+            metadata.time_name != first.time_name || metadata.ranks != first.ranks ||
             metadata.global_cell_count != first.global_cell_count ||
             !sameFields(metadata.fields, first.fields)) {
             invalid(rank_directory, "metadata does not match the other ranks");
+        }
+        if (first.version == 2) {
+            const auto path = rank_directory / "mesh.geometry";
+            std::ifstream geometry(path);
+            if (!geometry) invalid(path, "missing mesh provenance");
+            for (std::string line; std::getline(geometry, line);) {
+                const auto values = csv(line);
+                if (values.size() != 25) invalid(path, "invalid hexahedron provenance");
+                const int id = integer(values[0], path);
+                if (id < 0 || id >= global_cell_count || geometry_seen[id])
+                    invalid(path, "duplicate or out-of-range mesh cell id");
+                geometry_seen[id] = true;
+                for (int vertex = 0; vertex < 8; ++vertex)
+                    result.cell_vertices[id][vertex] = {
+                        number(values[1 + 3 * vertex], path),
+                        number(values[2 + 3 * vertex], path),
+                        number(values[3 + 3 * vertex], path)};
+            }
         }
         for (std::size_t field = 0; field < result.fields.size(); ++field) {
             const ResultField& descriptor = result.fields[field];
@@ -196,6 +220,9 @@ ResultData readParallelResults(
             invalid(time_directory, "rank files do not cover every global cell exactly once");
         }
     }
+    if (first.version == 2 &&
+        std::find(geometry_seen.begin(), geometry_seen.end(), false) != geometry_seen.end())
+        invalid(time_directory, "mesh provenance does not cover every global cell");
     return result;
 }
 

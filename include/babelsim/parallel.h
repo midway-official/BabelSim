@@ -28,19 +28,19 @@ struct ParallelContext {
     void barrier() const;
 };
 
-// 基于单元邻接图的分区。默认两层 ghost，因为修正面扩散可能读取第一层 ghost
-// cell 中重构的梯度。
+// 基于单元邻接图的分区。最少三层 ghost：修正 Green–Gauss 梯度本身需要
+// 两层邻居，复合面算子还会读取第一层 ghost 的该梯度。少于三层明确拒绝。
 Mesh decompose(
     const Mesh& global,
     const ParallelContext& parallel,
-    Index ghost_layers = 2);
+    Index ghost_layers = 3);
 
 // 并行读取原生网格：rank 0 负责磁盘读取，分区细节完全留在 Parallel 层；
 // 返回值始终是当前 rank 的局部 Mesh。串行时退化为 readMeshFile。
 Mesh readDistributedMesh(
     const std::filesystem::path& path,
     const ParallelContext& parallel,
-    Index ghost_layers = 2);
+    Index ghost_layers = 3);
 
 template <typename T>
 void copyBoundaryConditions(const Field<T>& global, Field<T>& local) {

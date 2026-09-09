@@ -16,7 +16,7 @@
 namespace babelsim {
 namespace {
 
-constexpr double breakdown_tolerance = 1e-30;
+constexpr double breakdown_tolerance = 0.0;
 using Clock = std::chrono::steady_clock;
 
 double secondsSince(Clock::time_point start) {
@@ -567,12 +567,10 @@ struct DistributedLinearSolver::Implementation {
     {
         apply(x, matrix_product);
         const double final_residual = normGlobal(b - matrix_product);
-        const double target = std::max(
-            config.absolute_tolerance,
-            config.relative_tolerance * scale);
+        const double target = residualTarget(config, scale);
         if (!std::isfinite(final_residual)) {
             status = SolveStatus::NumericalFailure;
-        } else if (final_residual <= target * (1.0 + 1e-8)) {
+        } else if (residualConverged(final_residual, target)) {
             status = SolveStatus::Converged;
         } else if (status == SolveStatus::Converged) {
             // 递推 Krylov 残差可能偏离真实残差，因此周期性计算实际残差。
@@ -911,11 +909,9 @@ SolveResult DistributedLinearSolver::solve(
     state.sumGlobal(local_norms, global_norms, 2);
     const double initial_residual = std::sqrt(std::max(global_norms[0], 0.0));
     const double rhs_norm = std::sqrt(std::max(global_norms[1], 0.0));
-    const double scale = std::max({initial_residual, rhs_norm, 1e-30});
-    const double target = std::max(
-        state.config.absolute_tolerance,
-        state.config.relative_tolerance * scale);
-    if (initial_residual <= target) {
+    const double scale = residualScale(initial_residual, rhs_norm);
+    const double target = residualTarget(state.config, scale);
+    if (residualConverged(initial_residual, target)) {
         SolveResult result{
             SolveStatus::Converged, 0, initial_residual,
             initial_residual, initial_residual / scale,
@@ -924,7 +920,7 @@ SolveResult DistributedLinearSolver::solve(
         result.performance.linear_solves = 1;
         return result;
     }
-    if (!state.factorization_succeeded) {
+    if (!std::isfinite(initial_residual) || !state.factorization_succeeded) {
         SolveResult result{
             SolveStatus::NumericalFailure, 0, initial_residual,
             initial_residual, initial_residual / scale,

@@ -1,0 +1,32 @@
+python3 tests/architecture_test.py
+python3 tests/external_solver_test.py
+architecture_test: 78 sources/headers, acyclic includes and layer boundaries passed
+build/time_history_test
+unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed
+mesh_geometry_test: cells=18 volume=18.543 max_nonorth=0.383992 max_skew=0.00392164
+field_boundary_test: scalar/vector and mirror conditions passed
+vector equation failed at time=0 worst relative residual=0.01776
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+python3 tests/solver_workflow_test.py
+operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed
+math_runtime_test: explicit Field operations passed
+public_equation_test: vector source, response, reference and face operators passed
+backend_interface_test: replaceable coarse-grained backend passed
+assembly_solver_test: iterations=1 residual=2.73755e-15 max_error=1.66533e-16
+simple_solver_test: iterations=62 mass=2.45028e-17 dU=1.20739e-08
+mesh_file_test: cells=9 patches=6
+case_lifecycle_test: stable references and deterministic destruction passed
+case_io_test: SIMPLE, heat-compatible and transport dictionaries passed
+field_writer_test: scalar/vector/tensor owned output passed
+heat_solver_test: T=0.454545 residual=0
+vector equation failed at time=0 worst relative residual=0.01776
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+transport_solver_test: C=0.3
+cavity_regression_test: iterations=153 mass=7.36235e-16 dU=2.62494e-07 centreU=-0.149237 pLin=1.8528e-08
+cavity_3d_test: cells=216 iterations=66 mass=5.61031e-15 centreU=-0.114134 maxW=0.0192033
+nonorthogonal_cavity_test: cells=100 iterations=178 mass=3.58719e-09 centreU=-0.151693 maxKbySf=0.412398
+nonorthogonal_cavity_3d_test: cells=125 iterations=116 mass=2.51341e-10 centreU=-0.0940688 maxW=0.0108375 maxKbySf=0.347666 maxSkew=0.0774395
+ParaView: PVD time steps and VTU cell values passed
+solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed
+external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed
+external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed

@@ -81,6 +81,9 @@ void evaluate(FaceDivergence operation, ScalarField& result) {
 void evaluate(VectorDivergence operation, ScalarField& result) {
     detail::execution().evaluate(operation, result);
 }
+void evaluate(TensorDivergence operation, VectorField& result) {
+    detail::execution().evaluate(operation, result);
+}
 void evaluate(ScalarConvection operation, ScalarField& result) {
     detail::execution().evaluate(operation, result);
 }
@@ -122,6 +125,12 @@ void subtract(ScalarDiffusionFlux operation, ScalarField& target, FaceRegion reg
 }  // math 命名空间
 
 namespace diagnostics {
+EquationResidual residual(const ScalarEquationDefinition& equation) {
+    return detail::execution().residual(equation);
+}
+EquationResidual residual(const VectorEquationDefinition& equation) {
+    return detail::execution().residual(equation);
+}
 
 void report(std::string_view message) {
     if (RunTime::current().primary()) std::cout << message << '\n';

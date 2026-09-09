@@ -112,12 +112,12 @@ double reconstructedBoundaryValue(
     const ScalarField& field,
     const VectorField& field_gradient,
     Index face,
-    double outward_flux = 0.0)
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
     const Index owner = detail::meshData(mesh).face_owner[f];
-    const auto& condition = field.boundary(detail::meshData(mesh).face_patch[f]);
+    const auto& condition = detail::FieldAccess::condition(field, face, outward_flux);
     if (condition.type == BoundaryType::FixedValue ||
         (condition.type == BoundaryType::InletOutlet && outward_flux < 0.0)) {
         return condition.value;
@@ -136,12 +136,12 @@ Vec3 reconstructedBoundaryValue(
     const VectorField& field,
     const TensorField& field_gradient,
     Index face,
-    double outward_flux = 0.0)
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
     const Mesh& mesh = field.mesh();
     const auto f = static_cast<std::size_t>(face);
     const Index owner = detail::meshData(mesh).face_owner[f];
-    const auto& condition = field.boundary(detail::meshData(mesh).face_patch[f]);
+    const auto& condition = detail::FieldAccess::condition(field, face, outward_flux);
     if (condition.type == BoundaryType::FixedValue ||
         (condition.type == BoundaryType::InletOutlet && outward_flux < 0.0)) {
         return condition.value;
@@ -169,7 +169,7 @@ double correctedFaceValue(
     const ScalarField& field,
     const VectorField& field_gradient,
     Index face,
-    double outward_flux = 0.0)
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
     return field.mesh().boundaryFace(face)
         ? reconstructedBoundaryValue(field, field_gradient, face, outward_flux)
@@ -180,7 +180,7 @@ Vec3 correctedFaceValue(
     const VectorField& field,
     const TensorField& field_gradient,
     Index face,
-    double outward_flux = 0.0)
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
     return field.mesh().boundaryFace(face)
         ? reconstructedBoundaryValue(field, field_gradient, face, outward_flux)
@@ -188,7 +188,7 @@ Vec3 correctedFaceValue(
 }
 
 template <typename T>
-T interpolatedFaceValue(const Field<T>& field, Index face, double flux_value = 0.0) {
+T interpolatedFaceValue(const Field<T>& field, Index face, double flux_value = std::numeric_limits<double>::quiet_NaN()) {
     const Mesh& mesh = field.mesh();
     return mesh.boundaryFace(face)
         ? boundaryFaceValue(field, face, flux_value)
@@ -238,7 +238,7 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
     }
 
     // 用初始高斯梯度把交点面值重构到真实面中心。一次显式修正已能恢复光滑网格上的
-    // 二阶面值，同时只把计算模板扩展到两层邻居，符合当前 MPI halo 宽度。
+    // 二阶面值。单独梯度需要两层邻居，消费 ghost 梯度的复合算子需要三层。
     if (mesh.orthogonalGeometry()) {
         return;
     }
@@ -277,7 +277,7 @@ void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
                     detail::meshData(mesh).cell_centres[c];
                 difference = detail::fieldData(scalar)[other] - detail::fieldData(scalar)[cell];
             } else {
-                const auto type = scalar.boundary(detail::meshData(mesh).face_patch[f]).type;
+                const auto type = detail::FieldAccess::condition(scalar, face).type;
                 const Vec3 offset = detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[c];
                 delta = type == BoundaryType::FixedValue
                     ? 2.0 * offset
@@ -364,7 +364,7 @@ void leastSquaresGradient(const VectorField& vector, TensorField& result) {
                     detail::meshData(mesh).cell_centres[c];
                 difference = detail::fieldData(vector)[other] - detail::fieldData(vector)[cell];
             } else {
-                const auto type = vector.boundary(detail::meshData(mesh).face_patch[f]).type;
+                const auto type = detail::FieldAccess::condition(vector, face).type;
                 const Vec3 offset = detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[c];
                 delta = type == BoundaryType::FixedValue
                     ? 2.0 * offset
@@ -488,6 +488,7 @@ void addConvectionImpl(
     requireEquation(equation, mesh);
     requireField(face_flux, mesh, FieldLocation::Face, "face flux");
     requireField(transported, mesh, FieldLocation::Cell, "transported");
+    const_cast<Field<T>&>(transported).setBoundaryFlux(face_flux);
 
     if (interpolation_method != InterpolationMethod::Linear &&
         interpolation_method != InterpolationMethod::Corrected) {
@@ -547,7 +548,7 @@ void addConvectionImpl(
             continue;
         }
 
-        const auto& condition = transported.boundary(detail::meshData(mesh).face_patch[f]);
+        const auto& condition = detail::FieldAccess::condition(transported, face, F);
         if (method == ConvectionMethod::Upwind ||
             method == ConvectionMethod::LinearUpwind) {
             if (F >= 0.0) {
@@ -820,7 +821,7 @@ double integratedNormalGradient(
             dot(detail::meshData(mesh).face_non_orthogonal[f], face_gradient), method);
     }
 
-    const auto& condition = scalar.boundary(detail::meshData(mesh).face_patch[f]);
+    const auto& condition = detail::FieldAccess::condition(scalar, face);
     if (condition.type == BoundaryType::FixedGradient) {
         return condition.value * detail::meshData(mesh).face_areas[f];
     }
@@ -867,7 +868,7 @@ Vec3 integratedNormalGradient(
         return result;
     }
 
-    const auto& condition = vector.boundary(detail::meshData(mesh).face_patch[f]);
+    const auto& condition = detail::FieldAccess::condition(vector, face);
     if (condition.type == BoundaryType::FixedGradient) {
         return detail::meshData(mesh).face_areas[f] * condition.value;
     }
@@ -915,6 +916,7 @@ void flux(
         method != InterpolationMethod::Corrected) {
         throw std::invalid_argument("unsupported flux interpolation method");
     }
+    const_cast<VectorField&>(velocity).setBoundaryFlux(face_flux);
     std::optional<TensorField> velocity_gradient;
     if (method == InterpolationMethod::Corrected) {
         velocity_gradient.emplace(mesh, FieldLocation::Cell, "grad(" + velocity.name() + ')');
@@ -1126,7 +1128,7 @@ void laplacianImpl(
                     scalar, *cell_gradient, face, diffusion_method);
             }
         } else {
-            const auto& condition = scalar.boundary(detail::meshData(mesh).face_patch[f]);
+            const auto& condition = detail::FieldAccess::condition(scalar, face);
             if (condition.type == BoundaryType::FixedValue) {
                 integrated_flux = detail::meshData(mesh).face_orthogonal_coefficients[f] *
                     (boundaryFaceValue(scalar, face, -1.0) - detail::fieldData(scalar)[owner]);
@@ -1268,7 +1270,7 @@ void addScalarDiffusion(
             continue;
         }
 
-        const auto& condition = scalar.boundary(detail::meshData(mesh).face_patch[f]);
+        const auto& condition = detail::FieldAccess::condition(scalar, face);
         if (condition.type == BoundaryType::FixedValue) {
             equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
             equation.source[static_cast<std::size_t>(owner)] +=
@@ -1340,7 +1342,7 @@ void addVectorDiffusion(
             continue;
         }
 
-        const auto& condition = vector.boundary(detail::meshData(mesh).face_patch[f]);
+        const auto& condition = detail::FieldAccess::condition(vector, face);
         if (condition.type == BoundaryType::FixedValue ||
             condition.type == BoundaryType::Symmetry) {
             const Vec3 boundary_value = boundaryFaceValue(vector, face, -1.0);
@@ -1473,6 +1475,30 @@ void addTimeDerivative(
     const VectorField* older)
 {
     addTimeDerivativeImpl(equation, previous, dt, density, method, older);
+}
+
+void divergence(const TensorField& tensor, VectorField& result,
+    InterpolationMethod interpolation_method, GradientMethod gradient_method) {
+    const Mesh& mesh = tensor.mesh();
+    requireField(tensor, mesh, FieldLocation::Cell, "tensor");
+    requireField(result, mesh, FieldLocation::Cell, "tensor divergence");
+    VectorField row(mesh, FieldLocation::Cell, tensor.name());
+    VectorField face_values(mesh, FieldLocation::Face);
+    row.useCalculatedBoundary();
+    result.fill({});
+    // Reuse the vector reconstruction for each tensor row, including all boundary traces.
+    for (int component = 0; component < 3; ++component) {
+        row.evaluate(tensor, [component](const Tensor3& value) { return value[component]; });
+        interpolate(row, face_values, interpolation_method, gradient_method);
+        for (Index face = 0; face < mesh.faceCount(); ++face) {
+            const Index owner = mesh.owner(face), neighbour = mesh.neighbour(face);
+            const double contribution = dot(detail::fieldData(static_cast<const VectorField&>(face_values))[face],
+                                            mesh.faceAreaVector(face));
+            detail::fieldData(result)[owner][component] += contribution / mesh.cellVolume(owner);
+            if (neighbour != invalid_index)
+                detail::fieldData(result)[neighbour][component] -= contribution / mesh.cellVolume(neighbour);
+        }
+    }
 }
 
 }  // babelsim 命名空间

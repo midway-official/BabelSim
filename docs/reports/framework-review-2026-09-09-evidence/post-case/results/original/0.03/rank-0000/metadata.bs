@@ -1,0 +1,7 @@
+format babelsim_result 1
+time 0.03
+rank 0
+ranks 1
+global_cell_count 32
+owned_cells 32
+field T scalar cell

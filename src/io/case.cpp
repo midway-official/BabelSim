@@ -115,7 +115,8 @@ struct Case::Implementation {
     Implementation(const std::filesystem::path& directory, const std::string& run_name)
         : definition(readCase(directory)), output(readOutputControl(definition)),
           physics(definition.physics_file), solution(definition.solution_file),
-          parallel(activeParallel()), mesh(readDistributedMesh(definition.mesh_file, parallel)),
+          parallel(activeParallel()), mesh(readDistributedMesh(
+              definition.mesh_file, parallel, definition.ghost_layers)),
           run_time(RunTime::forMesh(mesh, runtimeControl(definition, solution)))
     {
         requireRelativePath(output.directory);

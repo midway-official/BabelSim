@@ -140,6 +140,7 @@ public:
     Index vertexCount() const { return static_cast<Index>(m_storage.vertices.size()); }
     Index owner(Index face) const { return m_storage.face_owner.at(face); }
     Index neighbour(Index face) const { return m_storage.face_neighbour.at(face); }
+    Index boundaryPatch(Index face) const { return m_storage.face_patch.at(face); }
     const Vec3& faceCentre(Index face) const { return m_storage.face_centres.at(face); }
     const Vec3& cellCentre(Index cell) const { return m_storage.cell_centres.at(cell); }
     const Vec3& faceAreaVector(Index face) const { return m_storage.face_area_vectors.at(face); }

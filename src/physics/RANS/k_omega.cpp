@@ -37,8 +37,12 @@ public:
           m_diffusivity_omega(problem.scalarField("ransDiffusivityOmega", 0.0)),
           m_source_k(problem.scalarField("ransSourceK", 0.0)),
           m_source_omega(problem.scalarField("ransSourceOmega", 0.0)),
+          m_sink_k(problem.scalarField("ransSinkK", 0.0)),
+          m_sink_second(problem.scalarField("ransSinkSecond", 0.0)),
           m_work(problem.scalarField("ransWork", 0.0))
     {
+        for (ScalarField* field : {&m_mut, &m_inverse_k, &m_inverse_omega, &m_production, &m_diffusivity_k, &m_diffusivity_omega, &m_source_k, &m_source_omega, &m_sink_k, &m_sink_second, &m_work})
+            field->useCalculatedBoundary();
         boundFields();
         updateKinematics();
         updateViscosity();
@@ -53,11 +57,14 @@ public:
         updateKinematics();
         updateSourcesAndDiffusivities();
 
-        const SolveResult k_result = solveTransport(m_k, m_diffusivity_k, m_source_k);
+        const SolveResult k_result = solveTransport(m_k, m_diffusivity_k, m_source_k, &m_sink_k);
         const SolveResult omega_result = solveTransport(
-            m_omega, m_diffusivity_omega, m_source_omega);
+            m_omega, m_diffusivity_omega, m_source_omega, &m_sink_second);
         boundFields();
-        updateViscosity();
+        updateSourcesAndDiffusivities();
+        m_relative_residual = std::max(
+            transportResidual(m_k, m_diffusivity_k, m_source_k, &m_sink_k),
+            transportResidual(m_omega, m_diffusivity_omega, m_source_omega, &m_sink_second));
         m_relative_change = std::max(
             diagnostics::relativeChange(m_k, m_previous_k),
             diagnostics::relativeChange(m_omega, m_previous_omega));
@@ -68,6 +75,8 @@ public:
 
 private:
     void boundFields() {
+        m_k.setBoundaryFlux(m_face_flux);
+        m_omega.setBoundaryFlux(m_face_flux);
         m_k.evaluate(m_k, [this](double value) { return std::max(value, m_k_min); });
         m_omega.evaluate(m_omega, [this](double value) {
             return std::max(value, m_omega_min);
@@ -89,7 +98,7 @@ private:
 
         m_work.assignProduct(m_k, m_omega);
         m_source_k.assign(m_production);
-        m_source_k.addScaled(-m_beta_star * m_density, m_work);
+        m_sink_k.assignScaled(m_beta_star * m_density, m_omega);
 
         m_inverse_k.evaluate(m_k, [this](double value) {
             return 1.0 / std::max(value, m_k_min);
@@ -98,7 +107,7 @@ private:
         m_work.assignProduct(m_inverse_k, m_work);
         m_source_omega.assignScaled(m_gamma, m_work);
         m_work.assignProduct(m_omega, m_omega);
-        m_source_omega.addScaled(-m_beta * m_density, m_work);
+        m_sink_second.assignScaled(m_beta * m_density, m_omega);
 
         m_diffusivity_k.fill(m_molecular_viscosity);
         m_diffusivity_k.addScaled(m_sigma_k, m_mut);
@@ -125,6 +134,8 @@ private:
     ScalarField& m_diffusivity_omega;
     ScalarField& m_source_k;
     ScalarField& m_source_omega;
+    ScalarField& m_sink_k;
+    ScalarField& m_sink_second;
     ScalarField& m_work;
     double m_relative_change = 0.0;
 };

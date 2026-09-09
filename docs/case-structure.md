@@ -26,10 +26,11 @@ methods numerics/methods.bs
 solution numerics/solution.bs
 control control.bs
 output output.bs
+ghostLayers 3
 ```
 
-现有选择是 heat（瞬态热传导）、transport（瞬态对流扩散）、simple（稳态层流 SIMPLE）和
-transientSimple（瞬态层流 SIMPLE）。
+现有选择是 heat（瞬态热传导）、transport（瞬态对流扩散）、simple（稳态不可压缩 SIMPLE）和
+transientSimple（瞬态不可压缩 SIMPLE），两者由 physics 中的 turbulenceModel 选择层流或 RANS。
 不再接受 BabelSim 旧的 heatFoam/simpleFoam/transportFoam 名称。
 它们不代表 OpenFOAM 程序或输入格式。
 
@@ -81,6 +82,10 @@ const double k = problem.physics().nonnegative("conductivity");
 仍保留数值检查、稳定引用和未使用参数检查。
 旧 `Case::properties()` 已改为 `Case::physics()`，不保留别名；外部 Solver 需更新调用并重新编译。
 `case.bs` 和各物理参数文件的格式、键名不变，`Parameters` 通用字典类型也不变。
+
+`ghostLayers` 是可选正整数，默认值和最小值均为 **3**，允许配置为 4 或更大。
+读取 Case 和直接调用分区接口都会拒绝小于 3 的值；重复条目和非整数也会拒绝。
+三层满足当前修正 Green–Gauss 复合模板；它是通用数值/并行合同，不按物理模型变更。
 
 ## 网格和场
 
@@ -176,6 +181,7 @@ pressureRelaxation 0.3
 continuityTolerance 1e-7
 velocityTolerance 1e-6
 pressureCorrectionTolerance 1e-6
+momentumTolerance 1e-6
 ```
 
 每行在配置名后依次填写方法、预条件器、绝对容差、相对容差、最大迭代数。
@@ -185,7 +191,9 @@ scalarSolver 配置标量方程，vectorSolver 配置矢量方程，两个条目
 SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySolver/pressureSolver
 需改为这两个通用键。SIMPLE 自身的松弛、最大外迭代和容差仍在此文件，由算法读取。
 其中 `pressureCorrectionTolerance` 约束未松弛压力修正相对量；它与质量残差、速度相对变化
-一起决定外迭代收敛，缺省值为 `1e-6`。
+以及更新后的原动量方程相对残差共同决定外迭代收敛，缺省值为 `1e-6`。
+`momentumTolerance` 默认 `1e-6`；启用湍流还必须同时满足变量变化和原输运方程残差，
+两者使用 physics 中的 `turbulenceTolerance`。详见 [收敛合同](eqn-math.md#残差和成功状态)。
 
 可选的尾随项采用 `名称=值`，只影响计算后端。例如将 AMG 作为 Krylov 预条件器：
 
@@ -236,7 +244,11 @@ results/
 ```
 
 每个 rank 只写 owned cell。输入场自动输出，中间数学场和面通量不自动输出。
-metadata 的 time 记录真实物理时间。当前不支持 checkpoint/restart。
+metadata 的 time 记录真实物理时间。结果格式为 `format babelsim_result 2`，每个 rank
+另写 `mesh.geometry`：按 global ID 保存该单元有序八顶点的 24 个坐标分量（17 位精度）。
+后处理逐单元核对当前网格的完整顶点几何；仅单元数、编号或中心相同仍不算匹配。
+reader 可读取版本 1 的旧字段，但旧数据缺少几何来源，不能直接用于几何导出；须重新运行
+生成版本 2 结果。当前不支持 checkpoint/restart。
 可用 problem.output(derived) 选择派生 cell 场输出，或 output(input,false) 关闭输入场输出；
 场必须属于当前 Case，face 场暂不支持保存。各进程必须以相同逻辑修改输出选择，建议在声明阶段完成。
 

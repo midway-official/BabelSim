@@ -19,6 +19,9 @@ struct SteadySimpleAlgorithm::State {
     SimpleControl m_control;
     Methods m_methods;
     // RANS 只更新有效动力黏度；速度、压力和面通量仍由 SIMPLE 独立拥有。
+    TensorField m_stress_gradient{m_mesh, FieldLocation::Cell, "stressGradU"};
+    TensorField m_stress_correction{m_mesh, FieldLocation::Cell, "stressCorrection"};
+    VectorField m_stress_divergence{m_mesh, FieldLocation::Cell, "stressDivergence"};
     ScalarField m_effective_viscosity{m_mesh, FieldLocation::Cell, "muEffective"};
     std::unique_ptr<rans::Model, void (*)(rans::Model*)> m_turbulence{nullptr, rans::destroy};
 
@@ -44,6 +47,7 @@ struct SteadySimpleAlgorithm::State {
     Step m_step = Step::Ready;
     int m_iteration = 0;
     bool m_log = false;
+    VectorEquationDefinition momentumEquation();
     void predictMomentumFlux();
     void report() const;
     void requireStep(Step expected) const;

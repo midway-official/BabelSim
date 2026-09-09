@@ -21,6 +21,7 @@ struct CaseDefinition {
     std::filesystem::path solution_file;
     std::filesystem::path control_file;
     std::filesystem::path output_file;
+    Index ghost_layers = 3;
 };
 
 struct OutputControl {
