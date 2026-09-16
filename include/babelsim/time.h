@@ -5,7 +5,7 @@
 
 namespace babelsim {
 
-// 时间控制只描述案例需要的时间区间和步长；历史场和并行同步属于 Runtime 内部。
+// Physical time configuration; histories are explicit time::History values.
 struct TimeControl {
     double start_time = 0.0;
     double end_time = 1.0;
@@ -24,6 +24,7 @@ class Case;
 class TimeStepper {
 public:
     explicit TimeStepper(Case&);
+    void advance();
     double value() const { return value_; }
     double end() const { return options_.end_time; }
     double dt() const { return dt_; }
@@ -35,9 +36,9 @@ private:
     TimeControl options_;
     double value_, dt_;
     int step_=0;
-    friend void advance(TimeStepper&);
 };
-TimeStepper enableTime(Case&);
-void advance(TimeStepper&);
+namespace time {
+TimeStepper start(Case&);
+}
 
 }  // babelsim 命名空间

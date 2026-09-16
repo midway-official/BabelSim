@@ -41,9 +41,9 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         'void gradient(const ScalarField& p, VectorField& result){ math::evaluate(math::grad(p),result); }\n')
     (work / "equ_api.cpp").write_text(
         '#include "babelsim/equ.h"\n#include "babelsim/math.h"\nusing namespace babelsim;\n'
-        'auto heat(ScalarField& T){ auto A=equ::matrix(T); equ::laplacian(A,1.0,-1.0); equ::source(A,2.0); return A; }\n'
+        'auto heat(ScalarField& T){ auto A=equ::createEquation(T); equ::laplacian(A,1.0, -1); equ::source(A,2.0); return A; }\n'
         'auto momentum(ScalarField& phi,VectorField& U,ScalarField& p){\n'
-        ' auto A=equ::matrix(U); equ::div(A,phi); equ::source(A,-math::grad(p)); equ::laplacian(A,0.1,-1.0); return A; }\n')
+        ' auto A=equ::createEquation(U); equ::div(A,phi); equ::source(A,-math::grad(p)); equ::laplacian(A,0.1, -1); return A; }\n')
     for name in ("math_api.cpp", "equ_api.cpp"):
         run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
             "-fsyntax-only", name, cwd=work)
@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     print("external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed")
 
     (work / "single.cpp").write_text(
-        '#include "babelsim/application.h"\nint solveCase(babelsim::Case&){return 0;}\n'
+        '#include "babelsim/application.h"\nbabelsim::SolverResult solveCase(babelsim::Case&){return babelsim::SolverResult::completed();}\n'
         'const babelsim::SolverRegistration single("single",solveCase);\n'
         'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv); }\n')
     run("g++", "-std=c++17", "-Iinclude", "-fsyntax-only", "single.cpp", cwd=work)
@@ -186,14 +186,14 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
                     assert [float(row[f"value{i}"]) for i in range(9)] == list(range(1, 10))
                 assert not list(result.rglob("force.csv"))
 
-    # 这是启动器的负向夹具，故意模拟不一致返回码；不是普通 Solver 编程示例。
+    # 启动器负向夹具：某个 rank 失败不能被其他 rank 的成功状态掩盖。
     (work / "failure.cpp").write_text(
         '#include "babelsim/application.h"\n#include "babelsim/case.h"\n#include <cstdlib>\n#include <iostream>\n'
-        'int failure(babelsim::Case& problem){\n'
+        'babelsim::SolverResult failure(babelsim::Case& problem){\n'
         ' (void)problem.physics().number("strength");\n'
-        ' auto& field=problem.scalarField("failed",0.0); problem.output(field);\n'
+        ' auto& field=problem.createScalarField("failed",0.0); problem.output(field);\n'
         ' const char* rank=std::getenv("OMPI_COMM_WORLD_RANK");\n'
-        ' return rank && rank[0]==\'0\' ? -1 : 0; }\n'
+        ' return rank && rank[0]==\'0\' ? babelsim::SolverResult::numericalFailure() : babelsim::SolverResult::completed(); }\n'
         '#if defined(TEST_EMPTY)\n'
         '#elif defined(TEST_NULL)\n'
         ' const babelsim::SolverRegistration entry(nullptr,failure);\n'
@@ -210,7 +210,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         ' [](const char* message){ std::cerr << message << "\\n"; }); }\n')
     # 重名来自另一个源文件，确保错误检查不依赖翻译单元的静态初始化顺序。
     (work / "duplicate.cpp").write_text(
-        '#include "babelsim/application.h"\nint failure(babelsim::Case&);\n'
+        '#include "babelsim/application.h"\nbabelsim::SolverResult failure(babelsim::Case&);\n'
         'const babelsim::SolverRegistration duplicate("vector_extension",failure);\n')
     run("g++", "-std=c++17", "-Iinclude", "-c", "duplicate.cpp", "-o", "duplicate.o", cwd=work)
     for name, definition, expected in (("negative", "TEST_NEGATIVE", None),
@@ -226,6 +226,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         failure = run("mpirun", "-np", 2, work / name, "-case", case, "-time", name, cwd=work, success=False)
         if expected:
             assert expected in failure.stderr
+        else:
+            assert failure.returncode == 2, (name, failure.returncode, failure.stderr)
         assert not (case / "results" / name).exists(), "failed application wrote successful output"
 
 print("external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed")

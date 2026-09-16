@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace babelsim {
 namespace {
@@ -24,9 +25,14 @@ ParallelContext activeParallel() {
     return ParallelContext::world();
 }
 
-RuntimeControl runtimeControl(const CaseDefinition& definition, const Parameters& solution) {
+bool listed(const std::vector<std::string>& names, const std::string& value) {
+    return std::find(names.begin(), names.end(), value) != names.end();
+}
+
+RuntimeControl runtimeControl(const CaseDefinition& definition, const Parameters& solution,
+                              const Methods& methods) {
     RuntimeControl result;
-    result.methods = readMethodsFile(definition.methods_file);
+    result.methods = methods;
     result.time = readTimeControlFile(definition.control_file);
     // Case 必须显式选择两类线性求解器；缺项由 Parameters 给出文件路径和键名。
     readLinearSolverLine(definition.solution_file, solution.entry("scalarSolver"), result.scalar_solver);
@@ -116,7 +122,8 @@ struct Case::Implementation {
           physics(definition.physics_file), solution(definition.solution_file),
           parallel(activeParallel()), mesh(readDistributedMesh(
               definition.mesh_file, parallel, definition.ghost_layers)),
-          run_time(RunTime::forMesh(mesh, runtimeControl(definition, solution)))
+          run_time(RunTime::forMesh(mesh, runtimeControl(
+              definition, solution, readMethodsFile(definition.methods_file))))
     {
         requireRelativePath(output.directory);
         requireRunName(output.time_name);
@@ -133,20 +140,48 @@ struct Case::Implementation {
                     bool read_file = true, T initial = T{}) {
         requireName(name);
         for (const auto& value : fields) {
-            if (value->name() == name && value->location() == location) return *value;
+            if (value->name() == name && value->location() == location) {
+                if (!read_file) {
+                    throw std::logic_error("field " + name +
+                        " was already created; initialization is only accepted on the first create*Field call");
+                }
+                for (const auto& source : field_sources) {
+                    if (source.first != name || source.second == read_file) continue;
+                    throw std::logic_error("field " + name + " was already " +
+                        (source.second ? "loaded; use scalarField/vectorField/tensorField" :
+                                         "created; use the create*Field API"));
+                }
+                return *value;
+            }
         }
         for (const auto& info : field_names) {
             if (info == name) throw std::invalid_argument("field name reused with another type/location: " + name);
         }
         if (started) throw std::logic_error("create fields before starting the time/algorithm loop");
         auto value = std::make_unique<Field<T>>(mesh, location, name, initial);
-        if (location == FieldLocation::Cell && read_file) {
-            readFieldFile(definition.fields_directory / (name + ".field"), *value);
-            output_names.push_back(name);
+        if (location == FieldLocation::Cell) {
+            if (read_file)
+                readFieldFile(definition.fields_directory / (name + ".field"), *value);
+            // File fields follow the default all-fields policy. A program field
+            // is opt-in, unless output.bs explicitly lists it in writeFields.
+            if (((read_file && output.write_fields.empty()) ||
+                 listed(output.write_fields, name)) &&
+                !listed(output.exclude_fields, name)) output_names.push_back(name);
         }
         fields.push_back(std::move(value));
         field_names.push_back(name);
+        field_sources.push_back({name, read_file});
         return *fields.back();
+    }
+
+    template <typename T>
+    Field<T>& existing(std::vector<std::unique_ptr<Field<T>>>& fields,
+                       const std::string& name, FieldLocation location) {
+        requireName(name);
+        for (const auto& value : fields)
+            if (value->name() == name && value->location() == location) return *value;
+        throw std::logic_error("field " + name +
+            " has not been declared; use the load or create API first");
     }
 
     template <typename T>
@@ -162,6 +197,22 @@ struct Case::Implementation {
     }
 
     void write(const std::filesystem::path& directory) {
+        const auto cellField = [&](const std::string& name) {
+            const auto hasCell = [&](const auto& fields) {
+                for (const auto& field : fields)
+                    if (field->name() == name && field->location() == FieldLocation::Cell) return true;
+                return false;
+            };
+            return hasCell(scalars) || hasCell(vectors) || hasCell(tensors);
+        };
+        for (const auto& name : output.write_fields) {
+            if (!cellField(name))
+                throw std::invalid_argument("output writeFields requires an available cell field: " + name);
+        }
+        for (const auto& name : output.exclude_fields) {
+            if (!cellField(name))
+                throw std::invalid_argument("output excludeFields requires an available cell field: " + name);
+        }
         // 不删除旧实验，也不把不同分区数量写进同一结果集。预检结果必须全局一致，
         // 否则某个进程抛异常、其他进程进入 writer 的 collective 会造成死锁。
         int incompatible = 0;
@@ -204,6 +255,7 @@ struct Case::Implementation {
     std::vector<std::unique_ptr<VectorField>> vectors;
     std::vector<std::unique_ptr<TensorField>> tensors;
     std::vector<std::string> field_names;
+    std::vector<std::pair<std::string, bool>> field_sources;
     std::vector<std::string> output_names;
     std::filesystem::path series_directory;
     std::filesystem::path final_directory;
@@ -222,6 +274,7 @@ const std::string& Case::solver() const { return m_implementation->definition.so
 const Mesh& Case::mesh() const { return m_implementation->mesh; }
 const Parameters& Case::physics() const { return m_implementation->physics; }
 const Parameters& Case::solution() const { return m_implementation->solution; }
+const Methods& Case::methods() const { return m_implementation->run_time.methods(); }
 double Case::time() const { return m_implementation->run_time.time(); }
 int Case::step() const { return m_implementation->run_time.step(); }
 
@@ -231,31 +284,44 @@ ScalarField& Case::scalarField(const std::string& name) {
 VectorField& Case::vectorField(const std::string& name) {
     return m_implementation->field(m_implementation->vectors, name, FieldLocation::Cell);
 }
-ScalarField& Case::scalarField(const std::string& name, double initial) {
+ScalarField& Case::existingScalarField(const std::string& name) {
+    return m_implementation->existing(m_implementation->scalars, name, FieldLocation::Cell);
+}
+VectorField& Case::existingVectorField(const std::string& name) {
+    return m_implementation->existing(m_implementation->vectors, name, FieldLocation::Cell);
+}
+ScalarField& Case::createScalarField(const std::string& name, double initial) {
     return m_implementation->field(m_implementation->scalars, name, FieldLocation::Cell, false, initial);
 }
-VectorField& Case::vectorField(const std::string& name, Vec3 initial) {
+VectorField& Case::createVectorField(const std::string& name, Vec3 initial) {
     return m_implementation->field(m_implementation->vectors, name, FieldLocation::Cell, false, initial);
 }
 TensorField& Case::tensorField(const std::string& name) {
     return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell);
 }
-TensorField& Case::tensorField(const std::string& name, Tensor3 initial) {
+TensorField& Case::existingTensorField(const std::string& name) {
+    return m_implementation->existing(m_implementation->tensors, name, FieldLocation::Cell);
+}
+TensorField& Case::createTensorField(const std::string& name, Tensor3 initial) {
     return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell, false, initial);
 }
-ScalarField& Case::faceField(const std::string& name) {
-    return m_implementation->field(m_implementation->scalars, name, FieldLocation::Face);
+ScalarField& Case::createFaceField(const std::string& name) {
+    return m_implementation->field(m_implementation->scalars, name, FieldLocation::Face, false);
 }
-VectorField& Case::faceVectorField(const std::string& name) {
-    return m_implementation->field(m_implementation->vectors, name, FieldLocation::Face);
+VectorField& Case::createFaceVectorField(const std::string& name) {
+    return m_implementation->field(m_implementation->vectors, name, FieldLocation::Face, false);
 }
-TensorField& Case::faceTensorField(const std::string& name) {
-    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Face);
+TensorField& Case::createFaceTensorField(const std::string& name) {
+    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Face, false);
 }
-ScalarField& Case::faceFlux(const std::string& name, const VectorField& velocity) {
-    ScalarField& result = faceField(name);
-    math::evaluate(math::flux(velocity), result);
-    return result;
+ScalarField& Case::existingFaceField(const std::string& name) {
+    return m_implementation->existing(m_implementation->scalars, name, FieldLocation::Face);
+}
+VectorField& Case::existingFaceVectorField(const std::string& name) {
+    return m_implementation->existing(m_implementation->vectors, name, FieldLocation::Face);
+}
+TensorField& Case::existingFaceTensorField(const std::string& name) {
+    return m_implementation->existing(m_implementation->tensors, name, FieldLocation::Face);
 }
 
 void Case::selectOutput(const std::string& name, const void* field, bool enabled) {
@@ -287,14 +353,14 @@ void Case::start() {
 }
 
 const Methods& Case::loadMethods() {
-    m_implementation->run_time.setMethods(readMethodsFile(m_implementation->definition.methods_file));
-    return m_implementation->run_time.methods();
+    return methods();
 }
 const Methods& loadMethods(Case& problem) { return problem.loadMethods(); }
 TimeStepper::TimeStepper(Case& problem):case_(&problem),options_(problem.timeControl()),
     value_(options_.start_time),dt_(options_.delta_t) { options_.validate(); }
-TimeStepper enableTime(Case& problem) { return TimeStepper(problem); }
-void advance(TimeStepper& time) {
+TimeStepper time::start(Case& problem) { return TimeStepper(problem); }
+void TimeStepper::advance() {
+    auto& time = *this;
     if(time.finished()) throw std::logic_error("cannot advance beyond endTime");
     const double tolerance=32*std::numeric_limits<double>::epsilon()*
         std::max({std::abs(time.options_.start_time),std::abs(time.options_.end_time),time.options_.delta_t});
@@ -313,16 +379,32 @@ void write(Case& problem,const TimeStepper& time) {
 }
 
 LinearSolverConfig Case::linearControl(bool vector) const { return m_implementation->run_time.linearControl(vector); }
+
+LinearSolverConfig fieldLinearControl(const Case& problem, const std::string& fieldName, bool vector) {
+    const auto& settings = problem.solution();
+    const std::string prefix = vector ? "vectorSolver." : "scalarSolver.";
+    const std::string key = prefix + fieldName;
+    if (!settings.contains(key)) return problem.linearControl(vector);
+    ConfigLine line = settings.entry(key);
+    // `scalarSolver.p bicgstab ...` is normalized to the existing parser shape.
+    // The field selector stays in the dictionary key, so it is consumed exactly once.
+    line.tokens.erase(line.tokens.begin());
+    line.tokens.insert(line.tokens.begin(), vector ? "vectorSolver" : "scalarSolver");
+    LinearSolverConfig result;
+    readLinearSolverLine(settings.sourcePath(), line, result);
+    result.validate();
+    return result;
+}
 TimeOptions readTimeControl(const Case& problem) {
     const auto& c=problem.timeControl(); return {c.start_time,c.end_time,c.delta_t};
 }
 LinearSolverConfig readLinearControl(const Case& problem,const ScalarField& field) {
     if(&field.mesh()!=&problem.mesh()) throw std::invalid_argument("linear control field belongs to a different case");
-    return problem.linearControl(false);
+    return fieldLinearControl(problem, field.name(), false);
 }
 LinearSolverConfig readLinearControl(const Case& problem,const VectorField& field) {
     if(&field.mesh()!=&problem.mesh()) throw std::invalid_argument("linear control field belongs to a different case");
-    return problem.linearControl(true);
+    return fieldLinearControl(problem, field.name(), true);
 }
 int readWriteInterval(const Case& problem) { return problem.outputControl().write_interval; }
 void setTime(Case& problem,double value) {

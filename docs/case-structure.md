@@ -1,294 +1,175 @@
-# Case：问题配置、运行与结果
+# BabelSim Case 配置与场生命周期
 
-Case 描述“问题是什么”，Solver 描述“方程和算法是什么”。BabelSim 保留初值、物性、
-数值控制分离的思想，不照搬 OpenFOAM 的全部字典结构。
+Case 描述问题数据和运行控制；Solver 描述 PDE 和算法。配置解析、场所有权、时间元数据和结果
+写出由 Case/运行时提供，Physics 只用类型安全的只读接口。
 
-```text
-cases/heat/
+## 1. 目录
+
+~~~text
+cases/mySolver/
 ├── case.bs
-├── mesh/heat.mesh
+├── mesh/mesh.mesh
 ├── fields/initial/T.field
-├── physics/thermal.bs
+├── physics/physics.bs
 ├── numerics/methods.bs
 ├── numerics/solution.bs
 ├── control.bs
 └── output.bs
-```
+~~~
 
-## 入口与名称
+case.bs 必须为每个路径提供一个值：
 
-```text
-solver heat
-mesh mesh/heat.mesh
+~~~text
+solver mySolver
+mesh mesh/mesh.mesh
 fields fields/initial
-physics physics/thermal.bs
+physics physics/physics.bs
 methods numerics/methods.bs
 solution numerics/solution.bs
 control control.bs
 output output.bs
-ghostLayers 3
-```
+~~~
 
-现有选择是 heat（瞬态热传导）、transport（瞬态对流扩散）、simple（稳态不可压缩 SIMPLE）和
-transientSimple（瞬态不可压缩 SIMPLE），两者由 physics 中的 turbulenceModel 选择层流或 RANS。
-不再接受 BabelSim 旧的 heatFoam/simpleFoam/transportFoam 名称。
-它们不代表 OpenFOAM 程序或输入格式。
+路径相对于案例根目录。未知键、重复键、绝对输出路径和不完整 case 会在构造时拒绝。
+ghostLayers（若提供）必须是至少 3 的整数。
 
-普通 Solver 由 Case 取得命名场、物性和算法参数；不用实现自己的 reader。
-启动器只调用 runApplication，由框架初始化运行、构造 Case、选择已注册的 Solver 并处理成功/失败。
-每个 Solver 在自己的源文件注册名称和函数；不修改启动器或 Case reader。
+## 2. 配置职责
 
-### solver 名称如何对应 C++ 函数
+### physics/physics.bs
 
-`case.bs` 的 `solver heat` 只保存字符串 `heat`，不会自动查找名为 `runHeat` 的函数。
-对应关系在求解器自己的 `src/physics/heat/main.cpp` 中声明：
+放物性、模型选择和模型常数，例如：
 
-```cpp
-const SolverRegistration heat("heat", runHeat);
-```
+~~~text
+density 1.0
+dynamicViscosity 0.001
+turbulenceModel none
+~~~
 
-这一行放在 `namespace babelsim` 中、`runHeat` 函数外，并包含 `babelsim/application.h`。
-SIMPLE 与 Transport 分别只注册自己。通用启动器不再维护对应表：
+### numerics/methods.bs
 
-```cpp
-#include "babelsim/application.h"
-int main(int argc, char* argv[]) {
-    return babelsim::runApplication(argc, argv);
-}
-```
+离散格式只在这里定义，并由 Case 构造时读取一次：
 
-`readCase()` 把配置名称交给 `Case::solver()`；`runApplication()` 比较已注册名称，
-找到 `heat` 后调用对应的 `runHeat(problem)`。函数必须在构建时链接到可执行程序；
-这不是动态插件、文件名查找或自动命名规则。没有注册、未知名称、重名或空函数会报错。
-注册对象只记录名称与函数，启动前不调用 MPI；实际检查与分派仍由框架完成。
-外部 Solver 使用相同的一行注册和通用 main，无需维护另一套表。
-
-注册只负责把 Case 中的名称连接到求解函数，不会把具体 Solver 变成公共类。
-`include/babelsim/` 不提供 Heat、Transport 或 SIMPLE 头文件；Case 用户只选择名称，
-Solver 作者只依赖公共 Framework API。内置求解器的实现全部留在各自的 `src/physics/` 目录。
-
-### physics 条目与 physics() 接口
-
-`problem.physics()` 返回 `case.bs` 的 `physics` 条目所指向的参数字典。
-例如 `physics physics/thermal.bs` 对应：
-
-```cpp
-const double rho = problem.physics().positive("density");
-const double k = problem.physics().nonnegative("conductivity");
-```
-
-它与 `problem.solution()` 的命名规则一致：接口直接对应配置条目。路径可以更换，
-无需修改读取参数的 Solver。字典在 Case 构造时读取，调用接口时复用同一对象，
-仍保留数值检查、稳定引用和未使用参数检查。
-旧 `Case::properties()` 已改为 `Case::physics()`，不保留别名；外部 Solver 需更新调用并重新编译。
-`case.bs` 和各物理参数文件的格式、键名不变，`Parameters` 通用字典类型也不变。
-
-`ghostLayers` 是可选正整数，默认值和最小值均为 **3**，允许配置为 4 或更大。
-读取 Case 和直接调用分区接口都会拒绝小于 3 的值；重复条目和非整数也会拒绝。
-三层满足当前修正 Green–Gauss 复合模板；它是通用数值/并行合同，不按物理模型变更。
-
-## 网格和场
-
-网格使用 `BABELSIM_MESH 2`，只接受显式非结构六面体连接：顶点坐标、每个
-单元的八个顶点，以及每个 patch 的边界四边形。内部面由单元连接自动匹配，
-各 patch 名必须唯一。旧版网格文件不被读取。
-
-```text
-BABELSIM_MESH 2
-vertices 8
-0 0 0
-1 0 0
-1 1 0
-0 1 0
-0 0 1
-1 0 1
-1 1 1
-0 1 1
-cells 1
-0 1 2 3 4 5 6 7
-patches 1
-patch boundary generic 6
-0 4 7 3
-1 2 6 5
-0 1 5 4
-3 7 6 2
-0 3 2 1
-4 5 6 7
-end
-```
-
-八顶点次序与 VTK `HEXAHEDRON` 一致。离线网格生成器可以产生规则外形的
-输入，但求解器内部没有规则坐标、逻辑索引或方向分区概念。
-
-实际可读取的场语法是花括号形式，不是旧文档中的简写：
-
-```text
-field T
-{
-    type scalar
-    location cell
-    internal uniform (0)
-    boundary
-    {
-        hot   { type fixedValue value (1) }
-        cold  { type fixedValue value (0) }
-        lower { type symmetry }
-        upper { type symmetry }
-        front { type symmetry }
-        back  { type symmetry }
-    }
-}
-```
-
-每个物理 patch 都必须配置。标量值也写括号；vector 是三个分量，tensor 是行优先九个分量。
-目前读取支持 cell 场和 uniform 初值；面通量由数学算子生成，不读取 face 初值文件。
-支持 fixedValue、fixedGradient、zeroGradient、inletOutlet、symmetry/mirror。
-
-## 物理与数值分开
-
-`physics/thermal.bs`：
-
-```text
-density 1
-heatCapacity 1
-conductivity 0.1
-source 0
-```
-
-`numerics/methods.bs`：
-
-```text
+~~~text
 interpolation linear
-gradient greenGauss
-convection linearUpwind
-diffusion orthogonal
+gradient leastSquares
+convection upwind
+diffusion corrected
 time euler
-convection C upwind
-```
+gradient T greenGauss
+diffusion p orthogonal
+~~~
 
-三列条目覆盖某个 Field 的默认方法。对流可选一阶 `upwind`、二阶
-`linearUpwind` 和 `central`；`linearUpwind` 使用迎风单元梯度重构面值，隐式部分仍保留
-一阶迎风基底。非正交问题使用 corrected 插值/扩散、适当梯度；Solver 不手写几何修正。
+前五项是默认格式；带字段名的行是覆盖。运行时通过 problem.methods() 提供只读的
+Methods，不允许 Solver 自己重新读取或改变它。
 
-`numerics/solution.bs`：
+### numerics/solution.bs
 
-```text
+这里放线性系统、算法迭代和模型数值控制：
+
+~~~text
 scalarSolver bicgstab ilut 1e-14 1e-10 1000
 vectorSolver bicgstab ilut 1e-12 1e-8 1000
-maxIterations 1200
-velocityRelaxation 0.5
+maxIterations 1000
+velocityRelaxation 0.7
 pressureRelaxation 0.3
-continuityTolerance 1e-7
-velocityTolerance 1e-6
-pressureCorrectionTolerance 1e-6
-momentumTolerance 1e-6
-```
+continuityTolerance 1e-8
+~~~
 
-每行在配置名后依次填写方法、预条件器、绝对容差、相对容差、最大迭代数。
-scalarSolver 配置标量方程，vectorSolver 配置矢量方程，两个条目均为必填，不能省略。
-缺少任意一个都会在 Case 创建时报告 solution.bs 路径和缺失键名，不再回退到默认值。
-即使 Heat/Transport 当前只求标量，也必须提供两项；配置矢量求解器不会创建或求解额外矢量方程。
-SIMPLE 的压力使用 scalarSolver、速度使用 vectorSolver；旧 velocitySolver/pressureSolver
-需改为这两个通用键。SIMPLE 自身的松弛、最大外迭代和容差仍在此文件，由算法读取。
-其中 `pressureCorrectionTolerance` 约束未松弛压力修正相对量；它与质量残差、速度相对变化
-以及更新后的原动量方程相对残差共同决定外迭代收敛，缺省值为 `1e-6`。
-`momentumTolerance` 默认 `1e-6`；启用湍流还必须同时满足变量变化和原输运方程残差，
-两者使用 physics 中的 `turbulenceTolerance`。详见 [收敛合同](eqn-math.md#残差和成功状态)。
+单个未知量可以覆盖默认线性配置：
 
-可选的尾随项采用 `名称=值`，只影响计算后端。例如将 AMG 作为 Krylov 预条件器：
+~~~text
+scalarSolver.T cg incompleteCholesky 1e-13 2e-9 321
+vectorSolver.U bicgstab ilut 1e-13 1e-9 500
+~~~
 
-```text
-scalarSolver cg amg 1e-14 1e-9 800 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2 amgRefreshInterval=4
-vectorSolver bicgstab amg 1e-12 1e-8 800 amgCoarseSize=64
-```
+通过 readLinearControl(problem, field) 读取；调用者不接触 token。
 
-支持的组合是 `cg/bicgstab none`、`cg incompleteCholesky`、`bicgstab ilut` 和
-`cg/bicgstab amg`。`none` 是恒等预条件器，适合基准测试而非默认工程配置。AMG 不可作为
-独立 Solver。串行 AMG 执行聚合 V-cycle；MPI AMG 在分布式细网格上平滑，并对各 rank
-贡献的全局聚合粗矩阵进行粗网格校正，不会汇集或复制完整细网格矩阵。AMG 的层级和粗网格分解在矩阵模式分析阶段构建，后续相同模式的
-factorize 会复用聚合关系。`amgRefreshInterval` 只对“AMG 作为 Krylov 预条件器”生效：
-它每隔指定的方程更新次数重建粗层，期间 Krylov 的矩阵向量乘始终使用当前方程矩阵。
-默认 `1` 最保守；对逐步变化的稳态非线性问题可试验 `2` 到 `8`，并以收敛次数和总墙钟
-时间确认收益。
+### control.bs
 
-`control.bs`：
-
-```text
+~~~text
 startTime 0
-endTime 0.05
+endTime 1
 deltaT 0.01
-```
+~~~
 
-Euler 的最后一步可缩短到 endTime，不越过终点。BDF2 首步 Euler、后续等步长；
-不支持以非整数步数终止的 BDF2。稳态 simple 使用算法外循环，不把迭代次数冒充物理时间。
-瞬态 transientSimple 使用 `problem.loop()` 推进物理时间，并在每个时间步内部完成 SIMPLE
-压力速度校正；其 `methods.bs` 必须选择 `euler` 或 `bdf2`，不能选择 `steady`。
+TimeStepper 校验有限值、正时间步和结束时间。BDF2 要求等步长且时间区间包含整数步。
 
-## 自动输出
+### output.bs
 
-```text
+~~~text
 directory results
 timeName final
-writeInterval 2
-```
+writeInterval 5
+writeFields T U derived
+excludeFields U
+~~~
 
-writeInterval 是正整数步数，省略时为 1。上例时间设置输出 0.02、0.04、0.05，
-末时刻不因未落在间隔上而丢失。timeName 只是最终结果别名，不是伪造的物理时间。
+writeFields 和 excludeFields 是可选列表。默认策略是写出文件加载的 cell 场；程序创建的
+cell 场必须列入 writeFields 或由 problem.output(field) 显式选入。Face 场当前用于离散中间
+量，不能直接写到结果格式。字段名称在实际 write 时确认已经声明。
 
-```text
-results/
-├── 0.02/rank-0000/T.csv + metadata.bs
-├── 0.04/rank-0000/...
-├── 0.05/rank-0000/...
-└── final/rank-0000/...      最终状态的兼容入口
-```
+## 3. 参数读取和有效配置
 
-每个 rank 只写 owned cell。输入场自动输出，中间数学场和面通量不自动输出。
-metadata 的 time 记录真实物理时间。结果格式为 `format babelsim_result 2`，每个 rank
-另写 `mesh.geometry`：按 global ID 保存该单元有序八顶点的 24 个坐标分量（17 位精度）。
-后处理逐单元核对当前网格的完整顶点几何；仅单元数、编号或中心相同仍不算匹配。
-reader 可读取版本 1 的旧字段，但旧数据缺少几何来源，不能直接用于几何导出；须重新运行
-生成版本 2 结果。当前不支持 checkpoint/restart。
-可用 problem.output(derived) 选择派生 cell 场输出，或 output(input,false) 关闭输入场输出；
-场必须属于当前 Case，face 场暂不支持保存。各进程必须以相同逻辑修改输出选择，建议在声明阶段完成。
+~~~cpp
+const auto& physics = problem.physics();
+const double rho = physics.positive("density");
+const double nu = physics.nonnegative("dynamicViscosity", 0.0);
+const std::string model = physics.word("turbulenceModel", "none");
 
-Case::validate() 只校验参数；start() 和首次 loop() 才关闭声明阶段。
-SIMPLE 构造不再隐式关闭声明，便于组合热/流体等算法。输入和中间场都在开始计算前创建，
-scalar/vector/tensor 中间场可指定初值；面场支持 scalar/vector/tensor 三种值类型。
-非均匀初值可在 Solver 中用 Field::evaluate(位置函数) 定义，但文件 reader 仍只接受 uniform。
+const auto& solution = problem.solution();
+const bool clip = solution.boolean("clipTurbulence", false);
+const int maxIter = solution.integer("maxIterations", 1000, 1, 1000000);
+~~~
 
-为独立实验指定名称：
+Parameters 统一处理缺失值、默认值、类型、有限值和范围。positive、nonnegative、fraction
+和 integer(min,max) 在读取点完成校验。inspect(key) 返回 configured、consumed 和行号，
+用于调试生效配置。problem.validate() 会调用 physics/solution 的 requireAllUsed；它只校验，
+不推进时间，不写结果，不关闭声明阶段。
 
-```bash
-mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
-```
+## 4. 场的三种明确操作
 
-此时序列放在 results/mpi4/<物理时间>/，最终状态仍可从 results/mpi4/rank-*/ 读取。
-不同进程数、网格和参数的实验请使用不同名称或 output.directory，避免旧时间目录混入新实验；
-当前不会自动清理已有结果，也不保证同一路径并发写入安全。
-不同 rank 数量的旧结果会在写入前被拒绝；请换一个标签。标签和 timeName 不可为数字、all 或 latest，
-以免覆盖物理时间目录或与后处理选择冲突。-time 是运行标签，不是重启时刻。
+~~~cpp
+auto& T = problem.scalarField("T");             // 读取 fields/initial/T.field
+auto& U = problem.vectorField("U");             // 读取 U.field
+auto& phi = problem.createFaceField("phi");     // 创建面场，不读文件
+auto& k = problem.createScalarField("k", 0.0);  // 创建 cell 场
+auto& same = problem.existingScalarField("k");  // 查找已声明场
+~~~
 
-## 独立后处理
+命名场由 Case 绑定当前 Mesh 和边界。加载 API 只加载 cell 文件；create API 只创建程序
+场。第一次 create 的初值生效，重复 create 或 load/create 混用会报错，不会静默忽略。
+声明阶段结束后不能增加 Case 场；局部 math 返回值可继续使用。
 
-```bash
-# 默认序列
-build/babelsim-post -case cases/heat -time all -format vtk tecplot
-# 命名运行的序列
-build/babelsim-post -case cases/heat -time mpi4/all -format vtk tecplot
-# 最晚物理时间，按数值而不是字典序选择
-build/babelsim-post -case cases/heat -time mpi4/latest -format vtk
-# 只处理最终别名
-build/babelsim-post -case cases/heat -time mpi4 -format vtk tecplot
-```
+压力修正等齐次边界场使用：
 
--format vtk 现在生成 XML UnstructuredGrid 的 .vtu，PVD 引用 .vtu；不再用 legacy .vtk
-作为时间集合的子文件。ParaView 打开 post/series.pvd 或 post/mpi4/series.pvd。
-Tecplot 仍输出 FEBRICK .dat，每个时刻独立文件。
+~~~cpp
+auto pPrime = field::homogeneousLike(p);
+~~~
 
-all/latest 只扫描数值目录，忽略 final 和实验标签；all 遇到缺 rank、缺全局 ID、
-网格不匹配或元数据时间不一致会报错，不能静默跳过坏时间步并生成看似完整的动画。
-旧手工保存的非数值标签仍可用 -time <标签> 单独处理。
+它为给定 cell 场生成同网格、同位置、对应齐次边界类型的场，不修改原场。函数名应由
+调用者给出清楚的物理含义。
 
-这条工作流由 make test-workflow 验证，包括 1/2/4 进程、时间间隔、短末步、
-数值排序和可用时的真实 ParaView PVDReader。
+## 5. 时间和输出生命周期
+
+~~~cpp
+auto time = time::start(problem);
+auto history = time::history(T);
+problem.validate();
+
+while (time.value() < time.end()) {
+    time.advance();
+    history.save(T, time.dt());
+    // 组装、求解、收敛判断
+    if (time.step() % readWriteInterval(problem) == 0 || time.finished())
+        write(problem, time);
+}
+~~~
+
+TimeStepper 只负责推进和末步截断；History 由 Solver 明确保存；运行时不判断物理收敛、不
+打印。稳态 Solver 使用自己的 for 循环，不调用 Case::loop。
+
+## 6. 结果结构
+
+每个写出时间目录包含按 rank 分区的 cell 场文件和 metadata。使用不同进程数重跑同一结果
+目录会被拒绝，应用应通过 run name 隔离实验。Case::write() 只写已经选择的字段，不宣称
+求解成功；SolverResult 的成功与否由 application 处理。

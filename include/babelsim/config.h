@@ -20,6 +20,14 @@ struct ConfigToken {
     std::string text;
 };
 
+// Read-only metadata used by diagnostics and configuration reports.  Querying
+// this state never marks an entry as consumed.
+struct ParameterInfo {
+    bool configured = false;
+    bool consumed = false;
+    std::size_t line = 0;
+};
+
 // token 形式只用于嵌套值能显著提高可读性的场合（当前为 Field 文件），不是通用脚本层。
 std::vector<ConfigToken> readConfigTokens(const std::filesystem::path& path);
 
@@ -29,13 +37,21 @@ class Parameters {
 public:
     explicit Parameters(const std::filesystem::path& path);
     bool contains(const std::string& key) const;
+    const std::filesystem::path& sourcePath() const { return m_path; }
+    ParameterInfo inspect(const std::string& key) const;
+    std::string word(const std::string& key) const;
+    std::string word(const std::string& key, const std::string& fallback) const;
+    bool boolean(const std::string& key) const;
+    bool boolean(const std::string& key, bool fallback) const;
     double number(const std::string& key) const;
     double number(const std::string& key, double fallback) const;
     double positive(const std::string& key) const;
     double positive(const std::string& key, double fallback) const;
     double fraction(const std::string& key, double fallback) const;
     double nonnegative(const std::string& key) const;
+    double nonnegative(const std::string& key, double fallback) const;
     int integer(const std::string& key, int fallback) const;
+    int integer(const std::string& key) const;
     int integer(const std::string& key, int fallback, int minimum, int maximum) const;
     void requireAllUsed() const;
 

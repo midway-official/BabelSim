@@ -118,14 +118,24 @@ template<class T> void evaluate(const Field<T>& value, Field<T>& output) { outpu
 inline VectorField grad(const ScalarField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"grad",ScalarGradient{f}); }
 inline TensorField grad(const VectorField& f) { return computed<Tensor3>(f.mesh(),FieldLocation::Cell,"grad",VectorGradient{f}); }
 inline ScalarField normalGradient(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"normalGradient",NormalGradient{f}); }
+// Oriented, area-integrated face flux: vector value dot Sf. A cell vector is
+// interpolated first; an already face-centred vector is used directly.
 inline ScalarField flux(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"flux",FaceFlux{f}); }
+// Positive mathematical diffusive flux k*grad(f).Sf, NOT -k*grad(f).Sf.
+// k may be cell- or face-centred. f must be cell-centred. The optional cell
+// gradient supplies the deferred nonorthogonal correction; no Rhie-Chow here.
 inline ScalarField flux(const ScalarField& k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f}); }
 inline ScalarField flux(const ScalarField& k,const ScalarField& f,const VectorField& gradient) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f,&gradient}); }
+// Scalar input is an oriented integrated FACE flux: sum(outward flux)/cell V.
+// A scalar cell field is rejected; it is not silently interpreted as a flux.
 inline ScalarField div(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",FaceDivergence{f}); }
 inline ScalarField div(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",VectorDivergence{f}); }
 inline VectorField div(const TensorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",TensorDivergence{f}); }
+// Explicit div(phi*f): phi is face flux, f is known cell data. Unlike equ::div,
+// these overloads evaluate a field and do not bind or solve for an unknown.
 inline ScalarField div(const ScalarField& phi,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",ScalarConvection{phi,f}); }
 inline VectorField div(const ScalarField& phi,const VectorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",VectorConvection{phi,f}); }
+// Cell-to-face interpolation using the configured interpolation scheme only.
 inline ScalarField interpolate(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"interpolate",ScalarInterpolation{f}); }
 inline VectorField interpolate(const VectorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Face,"interpolate",VectorInterpolation{f}); }
 inline ScalarField reconstruct(const ScalarField& f,const VectorField& g) { return computed<double>(f.mesh(),FieldLocation::Face,"reconstruct",ScalarReconstruction{f,g}); }
@@ -188,18 +198,6 @@ namespace math {
 // Apply a local mathematical function, including to computed boundary traces.
 template<class T, class Function>
 auto map(const Field<T>& field, Function function) { return fieldUnary(field, function); }
-// A correction is an unknown field with homogeneous counterparts of the
-// original physical boundary constraints (e.g. fixed value -> zero correction).
-inline ScalarField createHomogeneousField(const ScalarField& field) {
-    ScalarField result(field.mesh(),FieldLocation::Cell,field.name()+"Prime");
-    setHomogeneousCorrectionBoundaries(result,field);
-    return result;
-}
-// Compatibility spelling. New solver code should name the construction intent.
-inline ScalarField correction(const ScalarField& field) {
-    return createHomogeneousField(field);
-}
-template<class T> Field<T> copy(const Field<T>& x) {return Field<T>(x);}
 inline ScalarField dot(const VectorField& a,const VectorField& b) {
     return fieldBinary(a,b,[](Vec3 x,Vec3 y){return babelsim::dot(x,y);});
 }

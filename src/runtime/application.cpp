@@ -18,7 +18,7 @@ const SolverRegistration*& SolverRegistration::first() noexcept {
     return head;
 }
 
-SolverRegistration::SolverRegistration(const char* name, int (*run)(Case&)) noexcept
+SolverRegistration::SolverRegistration(const char* name, SolverResult (*run)(Case&)) noexcept
     : m_name(name), m_run(run), m_next(first())
 {
     first() = this;
@@ -90,9 +90,11 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
         const SolverRegistration* selected = solvers;
         while (selected != nullptr && problem.solver() != selected->m_name) selected = selected->m_next;
         if (selected == nullptr) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
-        status = selected->m_run(problem);
-        // 任意非零值均是失败；负返回码不能在全局 maximum 中被 0 掩盖。
-        status = ParallelContext::world().maximum(status < 0 ? 1 : status);
+        const SolverResult result = selected->m_run(problem);
+        // Keep the established CLI contract: both nonconvergence and numerical
+        // failure are exit 2; configuration/application errors remain exit 1.
+        status = ParallelContext::world().maximum(
+            result.status == SolveStatus::Converged ? 0 : 2);
     } catch (const std::exception& error) {
         if (onError) onError(error.what());
         // 单个 rank 的 I/O 失败不能让其他 rank 阻塞在后续 halo 交换或集体通信；

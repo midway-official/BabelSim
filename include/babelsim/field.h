@@ -96,6 +96,8 @@ public:
         }
     }
 
+    // Ordinary C++ value copy: independent values and boundary data; shared mesh.
+    // Example: const VectorField previous = U;  (no &, so this is a snapshot).
     Field(const Field&) = default;
     Field(Field&&) noexcept = default;
     // Assignment copies values, never rebinds mesh/name/boundary constraints.
@@ -431,5 +433,16 @@ struct SymmetryBoundary {
 
 inline ZeroGradientBoundary zeroGradient() { return {}; }
 inline SymmetryBoundary symmetry() { return {}; }
+
+namespace field {
+// Zero cell field with homogeneous counterparts of the original constraints:
+// fixed value/gradient -> zero value/gradient; inlet/outlet switching is retained.
+// Preserve the historic Prime name because discretization selection uses it.
+inline ScalarField homogeneousLike(const ScalarField& original) {
+    ScalarField result(original.mesh(), FieldLocation::Cell, original.name() + "Prime");
+    setHomogeneousCorrectionBoundaries(result, original);
+    return result;
+}
+} // namespace field
 
 }  // babelsim 命名空间

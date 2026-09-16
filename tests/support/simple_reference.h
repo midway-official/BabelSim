@@ -147,26 +147,26 @@ SimpleIterationResult solveIncompressible(IncompressibleFields& fields, FluidPro
         0,0,TimeMethod::Steady,false,iterations);
 }
 namespace {
-void assembleMomentum(equ::Matrix<Vec3>& A, VectorField& U,
+void assembleMomentum(equ::Equation<Vec3>& A, VectorField& U,
     const ScalarField& p, const ScalarField& phi, double density, double viscosity,
     const ScalarField& effectiveViscosity, bool turbulent,
     const VectorField* previous, const VectorField* older,
     double dt, double previousDt, TimeMethod timeMethod)
 {
-    equ::clear(A);
+    A.reset();
     if (timeMethod != TimeMethod::Steady) {
         if (!previous) throw std::invalid_argument("transient momentum needs explicit history");
         equ::ddt(A, density, *previous, dt, timeMethod, older, previousDt);
     }
     equ::div(A, phi, density);
     if (turbulent) {
-        equ::laplacian(A, effectiveViscosity, -1.0);
+        equ::laplacian(A, effectiveViscosity, -1);
         TensorField gradient(U.mesh(), FieldLocation::Cell, "stressGradU");
         TensorField stress(U.mesh(), FieldLocation::Cell, "stressCorrection");
         VectorField divergence(U.mesh(), FieldLocation::Cell, "stressDivergence");
         evaluateStressCorrection(U, phi, effectiveViscosity, gradient, stress, divergence);
         equ::source(A, divergence);
-    } else equ::laplacian(A, viscosity, -1.0);
+    } else equ::laplacian(A, viscosity, -1);
     VectorField gradP(U.mesh(), FieldLocation::Cell, "gradP");
     gradP = math::grad(p);
     equ::source(A, gradP, -1.0);
@@ -196,8 +196,8 @@ SimpleIterationResult solveIncompressible(
     VectorField rAUgradPf(mesh,FieldLocation::Face,"rAUGradPFace");
     ScalarField rAUf(mesh,FieldLocation::Face,"rAUFace");
     const bool fixedPressure=setHomogeneousCorrectionBoundaries(pPrime,p);
-    auto A=equ::matrix(U);
-    auto P=equ::matrix(pPrime);
+    auto A=equ::createEquation(U);
+    auto P=equ::createEquation(pPrime);
     const auto& methods=numericalMethods();
     const int corrections=methods.diffusionFor(pPrime.name())==DiffusionMethod::Orthogonal
         ? 1 : control.non_orthogonal_corrections+1;
@@ -209,9 +209,10 @@ SimpleIterationResult solveIncompressible(
             previous,older,dt,previousDt,timeMethod);
         equ::relax(A,previousIteration,control.velocity_relaxation);
         // Preserve the existing SIMPLE row normalization explicitly. This scales
-        // both sides; response() therefore describes precisely the solved matrix.
+        // both sides; volumeScaledInverseDiagonal() therefore describes precisely
+        // the solved matrix.
         equ::scale(A,control.velocity_relaxation);
-        rAU=equ::response(A);
+        rAU=A.volumeScaledInverseDiagonal();
         result.velocity=equ::solve(A,U);
         if (!diagnostics::all(result.velocity.healthy())) { result.healthy=false; result.converged=false; return result; }
 
@@ -227,10 +228,10 @@ SimpleIterationResult solveIncompressible(
         pPrime.fill(0);
         bool pressureHealthy=true, pressureConverged=true;
         for(int correction=0; correction<corrections; ++correction) {
-            equ::clear(P);
-            equ::laplacian(P,rAU,-1.0);
+            P.reset();
+            equ::laplacian(P,rAU, -1);
             equ::source(P,divPhi,-1.0);
-            if(!fixedPressure) equ::reference(P,0,0.0);
+            if(!fixedPressure) P.reference(0, 0.0);
             result.pressure=equ::solve(P,pPrime);
             pressureHealthy=pressureHealthy && result.pressure.healthy();
             pressureConverged=pressureConverged && result.pressure.converged();
@@ -258,7 +259,7 @@ SimpleIterationResult solveIncompressible(
         // separate from the relaxed linear system solved above.
         assembleMomentum(A,U,p,phi,density,viscosity,effectiveViscosity,turbulence,
             previous,older,dt,previousDt,timeMethod);
-        result.relative_momentum_residual=equ::relativeResidual(A,U);
+        result.relative_momentum_residual=diagnostics::relativeResidual(A,U);
         const bool turbulenceHealthy=!turbulence || (result.turbulence.healthy() &&
             std::isfinite(result.relative_turbulence_change) && std::isfinite(result.relative_turbulence_residual));
         result.healthy=diagnostics::all(pressureHealthy && turbulenceHealthy && result.velocity.healthy() &&

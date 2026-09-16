@@ -1,10 +1,8 @@
 density 1.0
 dynamicViscosity 1.0e-5
 turbulenceModel kOmega
-# Strongly damp the k/omega update on startup; the high-Re wall-adjacent
-# omega field otherwise dominates the first transient SIMPLE sweeps.
-turbulenceRelaxation 0.01
-turbulenceTolerance 1.0e-2
+# Closure constants belong to the physics dictionary. Numerical relaxation
+# and stopping criteria are in numerics/solution.bs.
 kOmegaBetaStar 0.09
 kOmegaBeta 0.075
 kOmegaGamma 0.5555555555555556

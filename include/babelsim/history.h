@@ -1,8 +1,8 @@
 #pragma once
 #include "babelsim/field.h"
 
-namespace babelsim::math {
-// A numerical data container, not a time controller. Only saveOld() advances it.
+namespace babelsim::time {
+// Explicit time levels. Only save() advances history, once per physical timestep.
 template<class T> class History {
 public:
     explicit History(const Field<T>& field): previous_(field), older_(field) {}
@@ -22,5 +22,4 @@ private:
     int saved_=0;
 };
 template<class T> History<T> history(const Field<T>& field) {return History<T>(field);}
-template<class T> void saveOld(History<T>& old,const Field<T>& field,double dt) {old.save(field,dt);}
 }

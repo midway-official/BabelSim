@@ -82,10 +82,6 @@ RunTime& RunTime::current() {
 
 const Mesh& RunTime::mesh() const { return *m_implementation->mesh; }
 const Methods& RunTime::methods() const { return m_implementation->control.methods; }
-void RunTime::setMethods(const Methods& methods) {
-    m_implementation->control.methods=methods;
-    m_implementation->fvm.setMethods(methods);
-}
 double RunTime::time() const { return m_implementation->current_time; }
 double RunTime::deltaT() const { return m_implementation->current_delta_t; }
 int RunTime::step() const { return m_implementation->current_step; }

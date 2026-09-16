@@ -65,16 +65,19 @@ public:
     virtual double tolerance() const = 0;
 };
 
-Model* create(Case&, const VectorField&, const ScalarField&, ScalarField&, double, double);
+Model* create(Case&, VectorField&, const ScalarField&, ScalarField&, double, double);
 void destroy(Model*) noexcept;
 using Handle = std::unique_ptr<Model, void(*)(Model*)>;
 
 // SIMPLE-facing coupling: configuration and field ownership, no numerical model.
 class Turbulence {
 public:
-    Turbulence(Case& problem, const VectorField& velocity, const ScalarField& phi);
+    Turbulence(Case& problem, VectorField& velocity, const ScalarField& phi);
     explicit operator bool() const { return bool(model_); }
     const ScalarField& effectiveViscosity() const { return *viscosity_; }
+    // Explicit remainder of the eddy-viscosity deviatoric stress after the
+    // implicit div(muEff*grad(U)) term. Do not add the full stress a second time.
+    TensorField deviatoricStressRemainder(const VectorField& velocity) const;
     void saveOld(double dt) { if (model_) model_->saveOld(dt); }
     TransportResult solveTransport() {
         return model_ ? model_->solveTransport() : TransportResult{};
@@ -86,7 +89,7 @@ private:
     Handle model_;
 };
 
-inline Turbulence load(Case& problem, const VectorField& velocity, const ScalarField& phi) {
+inline Turbulence load(Case& problem, VectorField& velocity, const ScalarField& phi) {
     return Turbulence(problem, velocity, phi);
 }
 

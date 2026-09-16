@@ -24,13 +24,13 @@ double strainSquared(const Tensor3& gradient) {
 // standard k-epsilon; constant-density incompressible transport.
 class KEpsilon final : public Model {
 public:
-    KEpsilon(Case& problem, const VectorField& velocity, const ScalarField& flux,
+    KEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
              ScalarField& effectiveViscosity, double density, double viscosity)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
           k(problem.scalarField("k")), epsilon(problem.scalarField("epsilon")),
-          mut(problem.scalarField("mut", 0.0)),
-          relaxation(problem.physics().fraction("turbulenceRelaxation", 0.7)),
-          residualTolerance(problem.physics().positive("turbulenceTolerance", 1e-6)),
+          mut(problem.createScalarField("mut", 0.0)),
+          relaxation(problem.solution().fraction("turbulenceRelaxation", 0.7)),
+          residualTolerance(problem.solution().positive("turbulenceTolerance", 1e-6)),
           kMin(problem.physics().positive("kMin", 1e-12)),
           epsilonMin(problem.physics().positive("epsilonMin", 1e-12)),
           Cmu(problem.physics().positive("kEpsilonCmu", 0.09)),
@@ -40,7 +40,7 @@ public:
           sigmaEpsilon(problem.physics().positive("kEpsilonSigmaEpsilon", 1.3)),
           kSolver(readLinearControl(problem, k)),
           epsilonSolver(readLinearControl(problem, epsilon)),
-          kHistory(math::history(k)), epsilonHistory(math::history(epsilon))
+          kHistory(time::history(k)), epsilonHistory(time::history(epsilon))
     {
         mut.useCalculatedBoundary();
         muEff.useCalculatedBoundary();
@@ -53,14 +53,14 @@ public:
     double tolerance() const override { return residualTolerance; }
 
     void saveOld(double dt) override {
-        math::saveOld(kHistory, k, dt);
-        math::saveOld(epsilonHistory, epsilon, dt);
+        kHistory.save(k, dt);
+        epsilonHistory.save(epsilon, dt);
     }
 
     TransportResult solveTransport() override {
-        const auto previousK = math::copy(k);
-        const auto previousEpsilon = math::copy(epsilon);
-        const_cast<VectorField&>(U).setBoundaryFlux(phi);
+        const ScalarField previousK = k;
+        const ScalarField previousEpsilon = epsilon;
+        U.setBoundaryFlux(phi);
 
         // Freeze closure coefficients at the current nonlinear iterate.
         updateViscosity();
@@ -76,10 +76,10 @@ public:
         auto kEquation = equ::createEquation(k);
         equ::ddt(kEquation, rho, kHistory);
         equ::div(kEquation, phi, rho);
-        equ::laplacian(kEquation, kDiffusivity, -1.0);
+        equ::laplacian(kEquation, kDiffusivity, -1);
         equ::reaction(kEquation, kDestructionRate);
         equ::source(kEquation, production);
-        const double kResidual = equ::relativeResidual(kEquation, k);
+        const double kResidual = diagnostics::relativeResidual(kEquation, k);
         equ::relax(kEquation, previousK, relaxation);
         const auto kSolve = equ::solve(kEquation, k, kSolver);
         if (!diagnostics::all(kSolve.healthy()))
@@ -89,10 +89,10 @@ public:
         auto epsilonEquation = equ::createEquation(epsilon);
         equ::ddt(epsilonEquation, rho, epsilonHistory);
         equ::div(epsilonEquation, phi, rho);
-        equ::laplacian(epsilonEquation, epsilonDiffusivity, -1.0);
+        equ::laplacian(epsilonEquation, epsilonDiffusivity, -1);
         equ::reaction(epsilonEquation, epsilonDestructionRate);
         equ::source(epsilonEquation, epsilonProduction);
-        const double epsilonResidual = equ::relativeResidual(epsilonEquation, epsilon);
+        const double epsilonResidual = diagnostics::relativeResidual(epsilonEquation, epsilon);
         equ::relax(epsilonEquation, previousEpsilon, relaxation);
         const auto epsilonSolve = equ::solve(epsilonEquation, epsilon, epsilonSolver);
         if (!diagnostics::all(epsilonSolve.healthy()))
@@ -121,7 +121,7 @@ private:
         muEff = mu + mut;
     }
 
-    const VectorField& U;
+    VectorField& U;
     const ScalarField& phi;
     ScalarField& muEff;
     const double rho, mu;
@@ -131,12 +131,12 @@ private:
     const double relaxation, residualTolerance, kMin, epsilonMin;
     const double Cmu, C1, C2, sigmaK, sigmaEpsilon;
     const LinearSolverConfig kSolver, epsilonSolver;
-    math::History<double> kHistory, epsilonHistory;
+    time::History<double> kHistory, epsilonHistory;
 };
 
 } // namespace
 
-Model* makeKEpsilon(Case& problem, const VectorField& velocity, const ScalarField& flux,
+Model* makeKEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
                    ScalarField& effectiveViscosity, double density, double viscosity) {
     return new KEpsilon(problem, velocity, flux, effectiveViscosity, density, viscosity);
 }

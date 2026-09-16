@@ -35,7 +35,6 @@ public:
 
     const Mesh& mesh() const;
     const Methods& methods() const;
-    void setMethods(const Methods&);
     bool loop();
     const TimeControl& timeControl() const;
     const LinearSolverConfig& linearControl(bool vector) const;

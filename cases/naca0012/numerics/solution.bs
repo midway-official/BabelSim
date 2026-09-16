@@ -5,5 +5,9 @@ continuityTolerance 1.0e-2
 velocityTolerance 1.0e-2
 pressureCorrectionTolerance 1.0e-1
 momentumTolerance 1.0e-2
+# Strongly damp the k/omega update on startup; the high-Re wall-adjacent
+# omega field otherwise dominates the first transient SIMPLE sweeps.
+turbulenceRelaxation 0.01
+turbulenceTolerance 1.0e-2
 scalarSolver bicgstab ilut 1.0e-12 1.0e-8 800
 vectorSolver bicgstab ilut 1.0e-12 1.0e-8 800

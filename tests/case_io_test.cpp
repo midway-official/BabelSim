@@ -6,6 +6,9 @@
 #include "test_util.h"
 
 #include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <limits>
 
 using namespace babelsim;
 
@@ -58,6 +61,99 @@ int main() {
             overrides.diffusionFor("C") == DiffusionMethod::Orthogonal &&
             overrides.time == TimeMethod::Euler,
         "method overrides changed the default or time method");
+
+    // Typed dictionary access keeps Physics code away from raw tokens and
+    // exposes whether a value came from the file without consuming it.
+    const auto parameter_path = std::filesystem::temp_directory_path() /
+        "babelsim_parameter_api_test.bs";
+    {
+        std::ofstream file(parameter_path);
+        file << "name kOmega\nactive yes\niterations 12\nstrength 2.5\n";
+    }
+    const Parameters typed(parameter_path);
+    const auto initial_state = typed.inspect("name");
+    require(initial_state.configured && !initial_state.consumed && initial_state.line == 1,
+            "parameter inspection should be read-only");
+    require(typed.word("name") == "kOmega" && typed.boolean("active") &&
+            typed.integer("iterations") == 12 && near(typed.number("strength"), 2.5),
+            "typed parameter access returned an unexpected value");
+    require(typed.inspect("name").consumed, "parameter consumption was not tracked");
+    require(typed.word("missing", "fallback") == "fallback" &&
+            typed.boolean("missingBool", false) == false &&
+            typed.integer("missingInt", 3) == 3 &&
+            near(typed.nonnegative("missingNonnegative", 0.25), 0.25),
+            "typed fallback access failed");
+    bool invalid_default = false;
+    try { (void)typed.number("missingNumber", std::numeric_limits<double>::quiet_NaN()); }
+    catch (const std::invalid_argument&) { invalid_default = true; }
+    require(invalid_default, "non-finite numeric defaults were accepted");
+    typed.requireAllUsed();
+    std::filesystem::remove(parameter_path);
+
+    const auto output_path = std::filesystem::temp_directory_path() /
+        "babelsim_output_selection_test.bs";
+    {
+        std::ofstream file(output_path);
+        file << "directory results\ntimeName final\nwriteInterval 4\n"
+             << "writeFields T p\nexcludeFields p\n";
+    }
+    CaseDefinition output_definition = cavity;
+    output_definition.output_file = output_path;
+    const OutputControl output = readOutputControl(output_definition);
+    require(output.write_interval == 4 && output.write_fields == std::vector<std::string>{"T", "p"} &&
+            output.exclude_fields == std::vector<std::string>{"p"},
+            "output field selection was not parsed");
+    std::filesystem::remove(output_path);
+
+    // A field-specific linear entry is selected by the field overload, while
+    // the base scalarSolver entry remains the runtime default.
+    const auto override_case = std::filesystem::temp_directory_path() /
+        "babelsim_linear_override_case";
+    std::filesystem::remove_all(override_case);
+    std::filesystem::copy("cases/heat", override_case,
+                          std::filesystem::copy_options::recursive);
+    {
+        std::ofstream file(override_case / "numerics/solution.bs", std::ios::app);
+        file << "scalarSolver.T cg incompleteCholesky 1e-13 2e-9 321\n";
+    }
+    {
+        Case custom(override_case);
+        const auto& temperature = custom.scalarField("T");
+        const auto selected = readLinearControl(custom, temperature);
+        require(selected.solver == LinearSolverType::ConjugateGradient &&
+                selected.preconditioner == PreconditionerType::IncompleteCholesky &&
+                near(selected.absolute_tolerance, 1e-13) &&
+                near(selected.relative_tolerance, 2e-9) && selected.max_iterations == 321,
+                "field-specific linear control was not applied");
+    }
+    std::filesystem::remove_all(override_case);
+
+    const auto output_case = std::filesystem::temp_directory_path() /
+        "babelsim_output_selection_case";
+    std::filesystem::remove_all(output_case);
+    std::filesystem::copy("cases/heat", output_case,
+                          std::filesystem::copy_options::recursive);
+    {
+        std::ofstream file(output_case / "output.bs");
+        file << "directory results\ntimeName final\nwriteInterval 1\n"
+             << "writeFields T derived\n";
+    }
+    {
+        Case custom(output_case);
+        custom.physics().positive("density");
+        custom.physics().positive("heatCapacity");
+        custom.physics().nonnegative("conductivity");
+        custom.physics().number("source");
+        custom.scalarField("T");
+        custom.createScalarField("derived", 2.0);
+        custom.write();
+        const auto result_directory = output_case / "results/0/rank-0000";
+        require(std::filesystem::exists(result_directory / "T.csv") &&
+                std::filesystem::exists(result_directory / "derived.csv") &&
+                !std::filesystem::exists(result_directory / "U.csv"),
+                "output.bs field selection did not control the written cell fields");
+    }
+    std::filesystem::remove_all(output_case);
 
     ConfigLine amg_line;
     amg_line.number = 1;

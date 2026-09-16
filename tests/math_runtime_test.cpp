@@ -94,7 +94,7 @@ int main() {
         throw std::runtime_error("invalid public flux operation was accepted");
     };
     rejects([&] { math::add(math::flux(face_response), scalar); });
-    const auto before=math::copy(face_coefficient);
+    const auto before=face_coefficient;
     const auto decrement=math::flux(face_coefficient,scalar);
     math::subtract(math::flux(face_coefficient,scalar),face_coefficient);
     require(near(math::normL2(face_coefficient-(before-decrement)),0),"eager alias subtraction changed result");

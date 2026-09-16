@@ -22,14 +22,14 @@ double vorticityMagnitude(const Tensor3& gradient) {
 // wallDistance is the geometric distance to the nearest wall, supplied by Case.
 class SpalartAllmaras final : public Model {
 public:
-    SpalartAllmaras(Case& problem, const VectorField& velocity, const ScalarField& flux,
+    SpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
                    ScalarField& effectiveViscosity, double density, double viscosity)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
           nuTilda(problem.scalarField("nuTilda")),
           wallDistance(problem.scalarField("wallDistance")),
-          mut(problem.scalarField("mut", 0.0)),
-          relaxation(problem.physics().fraction("turbulenceRelaxation", 0.7)),
-          residualTolerance(problem.physics().positive("turbulenceTolerance", 1e-6)),
+          mut(problem.createScalarField("mut", 0.0)),
+          relaxation(problem.solution().fraction("turbulenceRelaxation", 0.7)),
+          residualTolerance(problem.solution().positive("turbulenceTolerance", 1e-6)),
           nuTildaMin(problem.physics().positive("saNuTildaMin", 1e-14)),
           wallDistanceMin(problem.physics().positive("saWallDistanceMin", 1e-12)),
           cb1(problem.physics().positive("saCb1", 0.1355)),
@@ -44,7 +44,7 @@ public:
           cw1(problem.physics().positive("saCw1",
               cb1 / (kappa * kappa) + (1.0 + cb2) / sigma)),
           nuTildaSolver(readLinearControl(problem, nuTilda)),
-          nuTildaHistory(math::history(nuTilda))
+          nuTildaHistory(time::history(nuTilda))
     {
         mut.useCalculatedBoundary();
         muEff.useCalculatedBoundary();
@@ -57,12 +57,12 @@ public:
     double tolerance() const override { return residualTolerance; }
 
     void saveOld(double dt) override {
-        math::saveOld(nuTildaHistory, nuTilda, dt);
+        nuTildaHistory.save(nuTilda, dt);
     }
 
     TransportResult solveTransport() override {
-        const auto previousNuTilda = math::copy(nuTilda);
-        const_cast<VectorField&>(U).setBoundaryFlux(phi);
+        const ScalarField previousNuTilda = nuTilda;
+        U.setBoundaryFlux(phi);
 
         // Closure functions, evaluated at the current nonlinear iterate.
         const double nu = mu / rho;
@@ -104,10 +104,10 @@ public:
         auto nuTildaEquation = equ::createEquation(nuTilda);
         equ::ddt(nuTildaEquation, rho, nuTildaHistory);
         equ::div(nuTildaEquation, phi, rho);
-        equ::laplacian(nuTildaEquation, diffusivity, -1.0);
+        equ::laplacian(nuTildaEquation, diffusivity, -1);
         equ::reaction(nuTildaEquation, implicitDestruction);
         equ::source(nuTildaEquation, explicitSource);
-        const double transportResidual = equ::relativeResidual(nuTildaEquation, nuTilda);
+        const double transportResidual = diagnostics::relativeResidual(nuTildaEquation, nuTilda);
         equ::relax(nuTildaEquation, previousNuTilda, relaxation);
         const auto nuTildaSolve = equ::solve(nuTildaEquation, nuTilda, nuTildaSolver);
         if (!diagnostics::all(nuTildaSolve.healthy()))
@@ -137,7 +137,7 @@ private:
         muEff = mu + mut;
     }
 
-    const VectorField& U;
+    VectorField& U;
     const ScalarField& phi;
     ScalarField& muEff;
     const double rho, mu;
@@ -147,12 +147,12 @@ private:
     const double relaxation, residualTolerance, nuTildaMin, wallDistanceMin;
     const double cb1, cb2, sigma, kappa, cw2, cw3, cv1, ct3, ct4, cw1;
     const LinearSolverConfig nuTildaSolver;
-    math::History<double> nuTildaHistory;
+    time::History<double> nuTildaHistory;
 };
 
 } // namespace
 
-Model* makeSpalartAllmaras(Case& problem, const VectorField& velocity, const ScalarField& flux,
+Model* makeSpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
                           ScalarField& effectiveViscosity, double density, double viscosity) {
     return new SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity);
 }

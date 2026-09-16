@@ -23,7 +23,6 @@ public:
     // Internal bridge for the immediate procedural assembler.
     ComputeBackend& backend();
     const Mesh& mesh() const;
-    void setMethods(const Methods&);
     SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control,
                       EquationResidual* residual = nullptr);
     std::array<SolveResult, 3> solve(

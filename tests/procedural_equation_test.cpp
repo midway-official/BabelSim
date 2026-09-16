@@ -14,43 +14,58 @@ int main() {
     equ::ddt(a,capacity,old,0.5);
     equ::source(a,6.0);
     capacity.fill(99); old.fill(99); // Assembled coefficients must be frozen.
-    auto d=equ::diagonal(a); auto b=equ::rhs(a);
+    auto d=a.diagonal(); auto b=a.rhs();
     require(near(detail::fieldData(d)[0],12),"integrated time diagonal");
     require(near(detail::fieldData(b)[0],24),"source sign/volume or frozen history");
     require(equ::solve(a,x).converged(),"procedural solve");
     require(near(detail::fieldData(x)[0],2),"frozen system changed during solve");
     auto r=equ::residual(a,x);
     require(near(detail::fieldData(r)[0],0),"b-Ax residual");
-    auto saved=equ::copy(a);
-    equ::reset(a);
+    auto saved=a.copy();
+    a.reset();
     equ::add(a,saved,2); equ::scale(a,0.5);
-    auto mobility=equ::response(a);
+    auto mobility=a.volumeScaledInverseDiagonal();
     require(near(detail::fieldData(mobility)[0],1.0/6),"V/aP response");
     equ::relax(a,x,0.5);
-    auto relaxed=equ::response(a);
+    auto relaxed=a.volumeScaledInverseDiagonal();
     require(near(detail::fieldData(relaxed)[0],1.0/12),"relaxed response");
     require(equ::solve(a,x).converged() && near(detail::fieldData(x)[0],2),"relax fixed point");
 
     // Variable-step BDF2 differentiates a quadratic exactly.
     old.fill(1); ScalarField older(x); older.fill(0);
-    equ::reset(a); equ::ddt(a,1.0,old,0.5,TimeMethod::BDF2,&older,1.0);
+    a.reset(); equ::ddt(a,1.0,old,0.5,TimeMethod::BDF2,&older,1.0);
     equ::source(a,3.0);
     require(equ::solve(a,x).converged() && near(detail::fieldData(x)[0],2.25),"variable-step BDF2");
 
     // Known linear diffusion solution verifies boundary RHS and laplacian sign.
     x.fill(0); x.boundary("minus_x")=fixedValue(0.0); x.boundary("plus_x")=fixedValue(4.0);
-    equ::reset(a); equ::laplacian(a,1.0,-1.0);
+    a.reset(); equ::laplacian(a,1.0, -1);
     require(equ::solve(a,x).converged(),"diffusion solve");
     require(near(detail::fieldData(x)[0],1) && near(detail::fieldData(x)[1],3),"diffusion boundary/sign");
 
+    // Public sign means the mathematical sign, including boundary RHS terms.
+    auto negative = a.copy();
+    a.reset(); equ::laplacian(a, 1.0, +1);
+    require(near(math::normL2(a.diagonal() + negative.diagonal()), 0), "laplacian LHS sign");
+    require(near(math::normL2(a.rhs() + negative.rhs()), 0), "laplacian boundary RHS sign");
+    const auto before = x;
+    const auto diagonalBefore = a.diagonal();
+    const auto rhsBefore = a.rhs();
+    require(diagnostics::relativeResidual(a, x) < 1e-12, "assembled residual");
+    require(near(math::normL2(x - before), 0), "diagnostic changed unknown");
+    require(near(math::normL2(a.diagonal() - diagonalBefore), 0)
+        && near(math::normL2(a.rhs() - rhsBefore), 0), "diagnostic changed equation");
+    auto independent = x; independent.fill(99);
+    require(near(math::normL2(x - before), 0), "field copy aliases original");
+
     // Correction boundaries inherit homogeneous constraints. An already anchored
     // pressure matrix must not acquire an additional interior reference.
-    auto correction = math::createHomogeneousField(x);
+    auto correction = field::homogeneousLike(x);
     auto pressure = equ::createEquation(correction);
-    equ::laplacian(pressure, 1.0, -1.0);
-    const auto anchored = equ::diagonal(pressure);
-    equ::reference(pressure, 7.0);
-    const auto unchanged = equ::diagonal(pressure);
+    equ::laplacian(pressure, 1.0, -1);
+    const auto anchored = pressure.diagonal();
+    pressure.referenceIfUnanchored(7.0);
+    const auto unchanged = pressure.diagonal();
     require(near(detail::fieldData(anchored)[0], detail::fieldData(unchanged)[0]),
             "anchored pressure received a redundant reference");
     correction.fill(2.0);
@@ -59,8 +74,8 @@ int main() {
 
     ScalarField freePressure(mesh, FieldLocation::Cell, "freePressure");
     auto freeSystem = equ::createEquation(freePressure);
-    equ::laplacian(freeSystem, 1.0, -1.0);
-    equ::reference(freeSystem, 3.0);
+    equ::laplacian(freeSystem, 1.0, -1);
+    freeSystem.referenceIfUnanchored(3.0);
     require(equ::solve(freeSystem, freePressure).converged(), "unanchored pressure solve");
     require(near(detail::fieldData(freePressure)[0], 3.0) &&
             near(detail::fieldData(freePressure)[1], 3.0), "pressure reference value");

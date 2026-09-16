@@ -4,6 +4,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <set>
 #include <utility>
 
 namespace babelsim {
@@ -92,22 +93,25 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
     bool has_directory = false;
     bool has_time = false;
     bool has_interval = false;
+    bool has_write_fields = false;
+    bool has_exclude_fields = false;
     for (const ConfigLine& line : readConfigLines(definition.output_file)) {
         const std::string& key = line.tokens.front();
-        if (line.tokens.size() != 2) {
-            invalid(definition.output_file, line, "expected one value for " + key);
-        }
+        if (line.tokens.size() < 2) invalid(definition.output_file, line, "expected a value for " + key);
         if (key == "directory") {
+            if (line.tokens.size() != 2) invalid(definition.output_file, line, "directory expects one value");
             if (has_directory) invalid(definition.output_file, line, "duplicate directory");
             result.directory = line.tokens[1];
             has_directory = true;
         } else if (key == "timeName" || key == "time_name") {
+            if (line.tokens.size() != 2) invalid(definition.output_file, line, "timeName expects one value");
             if (has_time || line.tokens[1].empty()) {
                 invalid(definition.output_file, line, "duplicate or empty time_name");
             }
             result.time_name = line.tokens[1];
             has_time = true;
         } else if (key == "writeInterval") {
+            if (line.tokens.size() != 2) invalid(definition.output_file, line, "writeInterval expects one value");
             if (has_interval) invalid(definition.output_file, line, "duplicate writeInterval");
             std::size_t consumed = 0;
             try { result.write_interval = std::stoi(line.tokens[1], &consumed); }
@@ -115,6 +119,24 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
             if (consumed != line.tokens[1].size() || result.write_interval <= 0)
                 invalid(definition.output_file, line, "writeInterval must be a positive integer");
             has_interval = true;
+        } else if (key == "writeFields" || key == "fields") {
+            if (has_write_fields) invalid(definition.output_file, line, "duplicate writeFields");
+            result.write_fields.assign(line.tokens.begin() + 1, line.tokens.end());
+            std::set<std::string> names;
+            for (const auto& name : result.write_fields) {
+                if (name.empty() || !names.insert(name).second)
+                    invalid(definition.output_file, line, "duplicate or empty write field name");
+            }
+            has_write_fields = true;
+        } else if (key == "excludeFields" || key == "exclude") {
+            if (has_exclude_fields) invalid(definition.output_file, line, "duplicate excludeFields");
+            result.exclude_fields.assign(line.tokens.begin() + 1, line.tokens.end());
+            std::set<std::string> names;
+            for (const auto& name : result.exclude_fields) {
+                if (name.empty() || !names.insert(name).second)
+                    invalid(definition.output_file, line, "duplicate or empty excluded field name");
+            }
+            has_exclude_fields = true;
         } else {
             invalid(definition.output_file, line, "unknown entry " + key);
         }

@@ -1,4 +1,5 @@
 #include "babelsim/case.h"
+#include "internal/field_access.h"
 #include "support/simple_reference.h"
 #include "test_util.h"
 
@@ -19,19 +20,32 @@ int main() {
         problem.validate();
         ScalarField& first = problem.scalarField("T");
         for (int i = 0; i < 64; ++i)
-            problem.vectorField("scratch" + std::to_string(i), Vec3{});
+            problem.createVectorField("scratch" + std::to_string(i), Vec3{});
         require(&first == &problem.scalarField("T"), "Case invalidated a Field reference");
         bool rejected = false;
-        try { problem.vectorField("T", Vec3{}); }
+        try { problem.createVectorField("T", Vec3{}); }
         catch (const std::invalid_argument&) { rejected = true; }
         require(rejected, "Case accepted one name for different Field types");
-        TensorField& tensor = problem.tensorField("gradient", Tensor3{});
+        TensorField& tensor = problem.createTensorField("gradient", Tensor3{});
+        ScalarField& initialized = problem.createScalarField("initialized", 1.0);
+        bool initialization_rejected = false;
+        try { problem.createScalarField("initialized", 2.0); }
+        catch (const std::logic_error&) { initialization_rejected = true; }
+        require(initialization_rejected,
+                "a repeated create call silently ignored its initialization value");
+        bool load_create_rejected = false;
+        try { problem.scalarField("initialized"); }
+        catch (const std::logic_error&) { load_create_rejected = true; }
+        require(load_create_rejected,
+                "a created field was silently treated as a file-loaded field");
+        require(near(detail::fieldData(initialized)[0], 1.0),
+                "created field initialization was not applied");
         problem.output(tensor);
         problem.output(first, false);
-        problem.faceVectorField("faceVector");
-        problem.faceTensorField("faceTensor");
+        problem.createFaceVectorField("faceVector");
+        problem.createFaceTensorField("faceTensor");
         rejected = false;
-        try { problem.output(problem.faceField("faceScalar")); }
+        try { problem.output(problem.createFaceField("faceScalar")); }
         catch (const std::invalid_argument&) { rejected = true; }
         require(rejected, "unsupported face output was silently accepted");
         ScalarField copy(first);
@@ -42,16 +56,16 @@ int main() {
     }
     {
         Case problem("cases/cavity", "lifecycle-simple");
-        problem.vectorField("U"); problem.scalarField("p"); problem.faceField("phi");
+        problem.vectorField("U"); problem.scalarField("p"); problem.createFaceField("phi");
         problem.physics().positive("density");
         problem.physics().positive("dynamicViscosity");
         readSimpleControl(problem.solution());
-        problem.scalarField("couplingState", 0.0);
+        problem.createScalarField("couplingState", 0.0);
         problem.validate();
-        problem.scalarField("afterValidation", 0.0);
+        problem.createScalarField("afterValidation", 0.0);
         problem.start();
         bool rejected = false;
-        try { problem.scalarField("tooLate", 0.0); }
+        try { problem.createScalarField("tooLate", 0.0); }
         catch (const std::logic_error&) { rejected = true; }
         require(rejected, "Case start did not close declarations");
     }

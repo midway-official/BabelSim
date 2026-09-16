@@ -24,13 +24,13 @@ double strainSquared(const Tensor3& gradient) {
 // Wilcox1988m k-omega; constant-density incompressible transport.
 class KOmega final : public Model {
 public:
-    KOmega(Case& problem, const VectorField& velocity, const ScalarField& flux,
+    KOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
              ScalarField& effectiveViscosity, double density, double viscosity)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
           k(problem.scalarField("k")), omega(problem.scalarField("omega")),
-          mut(problem.scalarField("mut", 0.0)),
-          relaxation(problem.physics().fraction("turbulenceRelaxation", 0.7)),
-          residualTolerance(problem.physics().positive("turbulenceTolerance", 1e-6)),
+          mut(problem.createScalarField("mut", 0.0)),
+          relaxation(problem.solution().fraction("turbulenceRelaxation", 0.7)),
+          residualTolerance(problem.solution().positive("turbulenceTolerance", 1e-6)),
           kMin(problem.physics().positive("kMin", 1e-12)),
           omegaMin(problem.physics().positive("omegaMin", 1e-12)),
           betaStar(problem.physics().positive("kOmegaBetaStar", 0.09)),
@@ -40,7 +40,7 @@ public:
           sigmaOmega(problem.physics().positive("kOmegaSigmaOmega", 0.5)),
           kSolver(readLinearControl(problem, k)),
           omegaSolver(readLinearControl(problem, omega)),
-          kHistory(math::history(k)), omegaHistory(math::history(omega))
+          kHistory(time::history(k)), omegaHistory(time::history(omega))
     {
         mut.useCalculatedBoundary();
         muEff.useCalculatedBoundary();
@@ -53,14 +53,14 @@ public:
     double tolerance() const override { return residualTolerance; }
 
     void saveOld(double dt) override {
-        math::saveOld(kHistory, k, dt);
-        math::saveOld(omegaHistory, omega, dt);
+        kHistory.save(k, dt);
+        omegaHistory.save(omega, dt);
     }
 
     TransportResult solveTransport() override {
-        const auto previousK = math::copy(k);
-        const auto previousOmega = math::copy(omega);
-        const_cast<VectorField&>(U).setBoundaryFlux(phi);
+        const ScalarField previousK = k;
+        const ScalarField previousOmega = omega;
+        U.setBoundaryFlux(phi);
 
         // Freeze closure coefficients at the current nonlinear iterate.
         updateViscosity();
@@ -75,10 +75,10 @@ public:
         auto kEquation = equ::createEquation(k);
         equ::ddt(kEquation, rho, kHistory);
         equ::div(kEquation, phi, rho);
-        equ::laplacian(kEquation, kDiffusivity, -1.0);
+        equ::laplacian(kEquation, kDiffusivity, -1);
         equ::reaction(kEquation, kDestructionRate);
         equ::source(kEquation, production);
-        const double kResidual = equ::relativeResidual(kEquation, k);
+        const double kResidual = diagnostics::relativeResidual(kEquation, k);
         equ::relax(kEquation, previousK, relaxation);
         const auto kSolve = equ::solve(kEquation, k, kSolver);
         if (!diagnostics::all(kSolve.healthy()))
@@ -88,10 +88,10 @@ public:
         auto omegaEquation = equ::createEquation(omega);
         equ::ddt(omegaEquation, rho, omegaHistory);
         equ::div(omegaEquation, phi, rho);
-        equ::laplacian(omegaEquation, omegaDiffusivity, -1.0);
+        equ::laplacian(omegaEquation, omegaDiffusivity, -1);
         equ::reaction(omegaEquation, omegaDestructionRate);
         equ::source(omegaEquation, omegaProduction);
-        const double omegaResidual = equ::relativeResidual(omegaEquation, omega);
+        const double omegaResidual = diagnostics::relativeResidual(omegaEquation, omega);
         equ::relax(omegaEquation, previousOmega, relaxation);
         const auto omegaSolve = equ::solve(omegaEquation, omega, omegaSolver);
         if (!diagnostics::all(omegaSolve.healthy()))
@@ -120,7 +120,7 @@ private:
         muEff = mu + mut;
     }
 
-    const VectorField& U;
+    VectorField& U;
     const ScalarField& phi;
     ScalarField& muEff;
     const double rho, mu;
@@ -130,12 +130,12 @@ private:
     const double relaxation, residualTolerance, kMin, omegaMin;
     const double betaStar, beta, gamma, sigmaK, sigmaOmega;
     const LinearSolverConfig kSolver, omegaSolver;
-    math::History<double> kHistory, omegaHistory;
+    time::History<double> kHistory, omegaHistory;
 };
 
 } // namespace
 
-Model* makeKOmega(Case& problem, const VectorField& velocity, const ScalarField& flux,
+Model* makeKOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
                    ScalarField& effectiveViscosity, double density, double viscosity) {
     return new KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity);
 }

@@ -47,7 +47,7 @@ implementation_headers = {
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
 for name in ("case.h", "solver.h", "math.h", "equ.h", "eqn.h", "application.h", "postprocess.h",
-             "result_reader.h"):
+             "result_reader.h", "monitor.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)
         assert not re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path]), path
@@ -160,6 +160,8 @@ for module in ("simple", "transient_simple"):
     text = texts[ROOT / "src/physics" / module / "main.cpp"]
     assert "equ::solve" in text and "for (int iter" in text
     assert "solveIncompressible" not in text
+    assert "math::interpolate(rAU * gradP)" in text  # Rhie-Chow is local to each solver.
+    assert "coupling::" not in text
 assert "while (time.value() < time.end())" in texts[ROOT / "src/physics/transient_simple/main.cpp"]
 # The model contract has no data or transport implementation.
 model_api = texts[ROOT / "src/physics/RANS/api.h"]
@@ -173,12 +175,17 @@ for name in ("thermal.h", "transport.h", "simple.h", "simple_control.h",
              "transient_simple.h", "equation.h", "solvers.h"):
     assert not (ROOT / "include/babelsim" / name).exists(), name
 
-# Runtime provides data/execution only; solver programs own printing and loops.
+# Runtime is silent; Physics chooses when to call an opt-in IO reporter.
 for path in (ROOT / "src/runtime").glob("*.cpp"):
     assert not re.search(r'std::(?:cout|cerr|clog)|\b(?:printf|fprintf|puts)\s*\(', texts[path]), path
 assert not re.search(r'std::(?:cout|cerr|clog)|reportPerformance', texts[ROOT / "src/io/case.cpp"])
+for path in (ROOT / "include/babelsim/monitor.h", ROOT / "src/io/monitor.cpp"):
+    assert not re.search(r'SimpleProgress|SimpleControl|rans::|relativeResidual|tolerance|\.converged\(',
+                         re.sub(r'//[^\n]*', '', texts[path])), path
 for path in (ROOT / "src/physics").rglob("*.cpp"):
     assert not re.search(r'\beqn::|\.loop\s*\(|diagnostics::report', texts[path]), path
+    assert not re.search(r'std::(?:cout|cerr|clog)|primaryProcess\s*\(|return\s+[02]\s*;', texts[path]), path
+    assert not re.search(r'math::(?:copy|history|saveOld|createHomogeneousField)|equ::response', texts[path]), path
 for name in ("procedural_equation.cpp", "field_math.cpp"):
     dependencies = closures[ROOT / "src/discretization" / name]
     assert all(path.name not in {"runtime.h", "parallel.h", "mpi_support.h", "assembly.h"}

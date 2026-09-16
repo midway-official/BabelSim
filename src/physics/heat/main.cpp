@@ -2,10 +2,11 @@
 #include "babelsim/case.h"
 #include "babelsim/equ.h"
 #include "babelsim/solver.h"
-#include <iostream>
+#include "babelsim/monitor.h"
 
 namespace babelsim {
-int runHeat(Case& problem) {
+SolverResult runHeat(Case& problem) {
+    const monitor::Reporter reporter("heat");
     auto& T = problem.scalarField("T");
     const auto& physical = problem.physics();
     const double rho = physical.positive("density");
@@ -13,31 +14,27 @@ int runHeat(Case& problem) {
     const double k = physical.nonnegative("conductivity");
     const double Q = physical.number("source");
 
-    loadMethods(problem);
     const auto linearOptions = readLinearControl(problem, T);
     const int writeInterval = readWriteInterval(problem);
-    auto time = enableTime(problem);
-    auto T_old = math::history(T);
+    auto time = time::start(problem);
+    auto T_old = time::history(T);
     auto temperatureEquation = equ::createEquation(T);
-    problem.output(T);
     problem.validate();
 
     while (time.value() < time.end()) {
-        advance(time);
-        math::saveOld(T_old, T, time.dt());
-        equ::reset(temperatureEquation);
+        time.advance();
+        T_old.save(T, time.dt());
+        temperatureEquation.reset();
         equ::ddt(temperatureEquation, rho * cp, T_old);
-        equ::laplacian(temperatureEquation, k, -1.0);
+        equ::laplacian(temperatureEquation, k, -1);
         equ::source(temperatureEquation, Q);
         const auto result = equ::solve(temperatureEquation, T, linearOptions);
 
-        if (primaryProcess())
-            std::cout << "heat time=" << time.value()
-                      << " residual=" << result.relative_residual << '\n';
-        if (!result.converged()) return 2;
+        reporter.record({{"time", time.value()}, {"residual", result.relative_residual}});
+        if (!result.converged()) return SolverResult{result.status};
         if (time.step() % writeInterval == 0 || time.finished()) write(problem, time);
     }
-    return 0;
+    return SolverResult::completed();
 }
 const SolverRegistration heat("heat", runHeat);
 }

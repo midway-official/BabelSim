@@ -12,9 +12,11 @@ Field     空间中存放什么数据
 Operator  数据之间进行什么数学运算
 Method    该运算采用什么离散方式
 Equation  表达要求解的数学方程
-eqn       构造待求解方程的项，包括隐式项与已知源项
+equ       向绑定未知场的 Equation 立即加入离散项；显式组装后求解
 math      描述并计算已有场上的数学量
-Case      提供命名场、物性、时间循环与自动结果序列
+Case      提供命名场、物性、配置与显式结果写出
+time      显式时间推进和历史场；求解器使用普通 C++ 循环
+monitor   通用观测值报告、输出进程和打印周期；不判断收敛
 RunTime   内部时间推进、运行域与计算后端生命周期；普通 Solver 不构造它
 FVM       数值前端：表达式解释、时间历史、离散方程与数值工作区
 Backend   计算后端：整场同步、全局归约、稀疏装配和线性求解
@@ -28,7 +30,8 @@ MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；FVM 只经粗粒度 Comput
 Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
 采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE 和耦合算法采用
 **Algorithm-driven**，用多个 Equation 与 Correction 直接表达算法流程。两者共享同一套
-Field、`eqn/math`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
+Field、`equ/math`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
+稳态与瞬态 SIMPLE 各自在独立 main.cpp 展开所有算法步骤和 Rhie–Chow，不共享 SIMPLE 实现。
 
 当前实现只使用显式连接的三维非结构六面体网格；薄域问题仍是六面体层，
 不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、
@@ -48,14 +51,15 @@ Field、`eqn/math`、离散、线性代数和 MPI Runtime，不建立两套 Fram
 - 分布式网格读取：rank 0 解析原生 `.mesh`，并由并行层按单元邻接图构造每个 rank
   的 owned+ghost 局部 Mesh；
 - 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
-- 轻量 `eqn/math` 编程模型：方程表达式只在 `solve()` 时离散，场运算按需执行，不复制大矩阵；
+- 过程式 `equ/math` 编程模型：离散项立即组装、场运算立即求值，solve 只求解已组装方程；
 - `heat` 常物性瞬态热传导入口；通用方程 API 同时支持常数或 Field 系数；
-- `transport` 瞬态对流-扩散 Solver，复用标量 Field、`eqn::ddt/div/laplacian` 与边界；
+- `transport` 瞬态对流-扩散 Solver，使用标量 Field、`equ::ddt/div/laplacian` 与边界；
 - 对流支持一阶迎风、梯度重构的二阶 `linearUpwind` 和中心格式，扩散保持中心型有限体积离散；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
 
-维护者以 [架构与文件边界](docs/architecture.md) 为准：数学 EquationDefinition 与
-DiscreteEquation 存储分开，SIMPLE 状态只归算法，线性控制只归运行配置。
+本轮 [DSL 审计、迁移表与验证](docs/design/dsl-api-audit.md) 说明最新接口和数值不变量。
+维护者同时参考 [架构与文件边界](docs/architecture.md)：公开 Equation 只描述绑定未知量和
+离散项，内部离散存储与 Physics 分开，SIMPLE 状态只归算法，线性控制只归运行配置。
 Heat/Transport 不再维护重复的库式入口。`make test-architecture` 自动检查项目头依赖和分层约束。
 
 ## 构建与运行
@@ -128,7 +132,7 @@ cases/poiseuille/
 ├── numerics/methods.bs        # 算子默认格式及可选的 Field 覆盖
 ├── numerics/solution.bs       # SIMPLE/线性求解控制
 ├── control.bs                 # 时间区间与步长
-├── output.bs                  # 结果目录与时刻名
+├── output.bs                  # 结果目录、时刻名与可选字段筛选
 └── results/<time>/rank-0000/  # 运行生成，不纳入 Git
 ```
 
@@ -169,7 +173,8 @@ Heat、transport 的完整入口各自是一个短函数；SIMPLE 主循环明�
 输入场、命名中间场及其生命周期由 Case 管理，`solver.h` 不包含 Runtime/MPI/代数实现头。
 矢量场源、方程欠松弛、标量参考规范和动量对角响应均有公开数学入口。
 Field 原始指针/索引及 Mesh 缓存/分区修改已限制到内部维护接口；按位置定义场可用 evaluate。
-Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通过 output(field) 选择输出。
+Case 的 validate 只校验，start/loop 才关闭声明；文件加载场默认输出，程序创建的场使用
+`create*Field`，已创建场使用 `existing*Field`，派生 cell 场可通过 output(field) 选择输出。
 公开 math 统一为整场同步契约，结果读取头和实现均不再要求 MPI。
 
 默认瞬态结果按 `output.bs` 中 `writeInterval` 保存（省略时每步写出），最终时刻总会保存。
@@ -177,13 +182,11 @@ Case 的 validate 只校验，start/loop 才关闭声明；派生 cell 场可通
 案例名称现为 `heat/simple/transport`，线性配置统一为 `scalarSolver/vectorSolver`。
 所有 Case 的 `solution.bs` 必须同时填写这两项，缺项报错，不使用隐式默认选择。
 
-详细设计与数据结构见 [架构说明](docs/architecture.md)，新增物理模型/求解器的流程
-见 [Solver 开发指南](docs/solver-development.md)，数学表达规则见
-[eqn/math 说明](docs/eqn-math.md)，两个内置 Solver 的对照说明见
-[热传导](docs/heat-solver.md)、[SIMPLE](docs/simple-solver.md)，案例组织见
-[Case 结构](docs/case-structure.md)，两种 Solver 组织模式见
-[Solver Programming Model](docs/solver-programming-model.md)，数值验证结果见
-[验证说明](docs/validation.md)；多 Reynolds 数、网格无关性、格式与 MPI 对照见
+当前 DSL 的完整开发入口是 [新物理求解器开发指南](docs/dsl-solver-guide.md)；详细架构见
+[架构说明](docs/architecture.md)，API 语义见 [过程式 DSL 参考](docs/procedural-dsl.md)，
+案例组织见 [Case 结构](docs/case-structure.md)，Heat/Transport 见 [标量 Solver](docs/heat-solver.md)，
+SIMPLE/RANS 见 [SIMPLE Solver](docs/simple-solver.md)，维护验收见 [验证说明](docs/validation.md)。
+多 Reynolds 数、网格无关性、格式与 MPI 对照见
 [Ghia 方腔验证报告](docs/reports/cavity-ghia-validation.md)及其
 [PDF 版本](docs/reports/cavity-ghia-validation.pdf)；线性后端 Re=1000 性能对照见
 [当前分布式后端报告](docs/reports/backend-performance-optimization.md)和

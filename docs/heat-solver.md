@@ -1,85 +1,62 @@
-# 瞬态热传导：最小方程驱动 Solver
+# Heat 与 Transport 求解器
 
-BabelSim 的求解器名称是 `heat`，不是 heatFoam。完整用户入口只有
-`src/physics/heat/main.cpp` 一个函数：
+Heat 和 Transport 是两个独立的单文件 Solver。它们不依赖 SIMPLE 或 RANS，也不把时间
+推进隐藏在运行时循环中。
 
-```cpp
-int runHeat(Case& problem) {
-    ScalarField& T = problem.scalarField("T");
-    const double rho = problem.physics().positive("density");
-    const double cp = problem.physics().positive("heatCapacity");
-    const double k = problem.physics().nonnegative("conductivity");
-    const double Q = problem.physics().number("source");
+## Heat
 
-    while (problem.loop()) {
-        if (!solve(eqn::ddt(rho * cp, T) ==
-                   eqn::laplacian(k, T) + eqn::source(Q)).converged()) return 2;
-    }
-    return 0;
-}
-const SolverRegistration heat("heat", runHeat);
-```
+仓库实现位于 [src/physics/heat/main.cpp](../src/physics/heat/main.cpp)。主流程对应：
 
-Heat 没有对应的公共头文件或求解器类。它是一个使用公共 `Case + Field + eqn + solve`
-接口编写的应用；Case 用户通过名称选择它，其他 Solver 也不应依赖它的实现文件。
-
-直接对应
-\[
+$$
 \rho c_p\partial_tT=\nabla\cdot(k\nabla T)+Q.
-\]
+$$
 
-作者无需写 Case reader、构造 RunTime、配置线性对象、维护历史或编写输出。
-Case 的 `numerics/solution.bs` 仍必须显式填写 `scalarSolver` 与 `vectorSolver`；
-Heat 实际只使用标量配置，不会因填写矢量配置而增加矢量方程。
-`problem.physics()` 读取 `case.bs` 中 `physics` 指向的字典，本例是 `physics/thermal.bs`；
-它不是固定读取某个文件名。`solver heat` 通过本文件的 `SolverRegistration` 选择此函数，
-名称与函数的对应关系见 [Case 入口与分派](case-structure.md#入口与名称)。
-注册声明需要包含 `babelsim/application.h`。独立开发时再加上调用 `runApplication(argc, argv)`
-的通用 main 即可，内置启动器与外部启动器都不需要 Solver 对应表。
-原始存储不属于公开 Field API；非均匀源可通过 Field::evaluate(位置函数) 定义。
-中间或派生单元场需保存时使用 problem.output(field)。
-Case 在下一次 loop 前写出已完成时间步，正常退出保证最终时刻保存。
-不收敛立即返回，不把失败步伪装成有效最终结果。
+~~~cpp
+auto& T = problem.scalarField("T");
+const auto& physics = problem.physics();
+const double rho = physics.positive("density");
+const double cp = physics.positive("heatCapacity");
+const double k = physics.nonnegative("conductivity");
+const double Q = physics.number("source");
 
-## 工作流
+const auto linear = readLinearControl(problem, T);
+auto time = time::start(problem);
+auto history = time::history(T);
+auto equation = equ::createEquation(T);
+problem.validate();
 
-```bash
-make -j4
-mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
-build/babelsim-post -case cases/heat -time mpi4/all -format vtk tecplot
-```
+while (time.value() < time.end()) {
+    time.advance();
+    history.save(T, time.dt());
 
-数据在 `results/mpi4/<物理时间>/rank-*/`，
-ParaView 打开 `post/mpi4/series.pvd`。
-默认不指定 -time 时，序列直接在 results/<物理时间>。
+    equation.reset();
+    equ::ddt(equation, rho * cp, history);
+    equ::laplacian(equation, k, -1);
+    equ::source(equation, Q);
 
-output.bs 的 writeInterval 是步数间隔，默认 1。例如 endTime=0.05、deltaT=0.01、
-writeInterval=2，输出 0.02、0.04、0.05，而不是仅写 final 或把 1/2/3 当作时间。
+    const auto solved = equ::solve(equation, T, linear);
+    if (!solved.converged()) return SolverResult{solved.status};
+}
+~~~
 
-## 变系数与数值测试
+`ddt` 使用 Case 一次性安装的 methods.time；BDF2 首步由 Equation 使用 Euler 历史。
+求解器只在需要的时间步调用 write，运行时不打印和判断物理收敛。
 
-将 k 或 rhoCp 替换为从 Case 读入的 scalar Field，eqn 写法不变。
-材料模型可在每一步前更新物性场；它仍属于物理数学代码，不应操作通信或矩阵。
+## Transport
 
-曾经并存的 thermal.h、solveHeatStep、solveTransientHeat 已删除，避免同一热方程和时间循环
-维护两份。内存型数值测试显式准备 RunTime 后，直接使用相同的 eqn/solve；
-Case 工作流测试则实际运行本页的生产入口。新 Solver 不需要再写专用头文件或库式求解器。
+Transport 在自己的 main 中加载 C、U，创建面通量 phi：
 
-## 与 OpenFOAM 对照
+~~~cpp
+auto& C = problem.scalarField("C");
+auto& U = problem.vectorField("U");
+auto& phi = problem.createFaceField("phi");
+phi = math::flux(U);
 
-OpenFOAM-8 的 laplacianFoam 在主循环中构造 ddt/laplacian 方程，并包含非正交修正及写出步骤；
-它短小是因为创建网格/场、边界离散、方法选择和执行工作已由框架提供。
-BabelSim 学习这个职责分离，而不复制其头文件片段包含方式、fvMatrix、IOobject 或注册机制。
-参见 [OpenFOAM-8 laplacianFoam 官方源码](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/basic/laplacianFoam/laplacianFoam.C)。
+const double storage = problem.physics().positive("storage");
+const double D = problem.physics().nonnegative("diffusivity");
+const double S = problem.physics().number("source", 0.0);
+~~~
 
-| 对照点 | BabelSim |
-| --- | --- |
-| Field 从 Case 创建 | problem.scalarField("T") |
-| 方程与数学同形 | solve(ddt == laplacian + source) |
-| 数值格式来自 Case | methods.bs / solution.bs |
-| 时间、历史和输出下沉 | Case::loop 调用内部 RunTime |
-| 普通作者新增代码 | 一个普通函数 + 同文件的一行注册 |
-
-不同点：当前 heat 的每步只求一次方程；强非线性物性或需要多次显式非正交修正时，应像
-双场例子一样在该时间步内组织收敛迭代。框架已保证重复 solve 不推进历史，
-但不会替物理作者猜测非线性收敛准则。
+每个时间步按 `ddt -> div(phi) -> laplacian -> source -> solve` 组装 C。phi 是程序创建
+的面场，不会从初始目录读取同名文件。两种 Solver 的完整可运行代码都可以作为新标量
+PDE 的模板，场加载、Equation、History、诊断和输出职责保持一致。

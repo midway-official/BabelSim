@@ -29,6 +29,40 @@ bool Parameters::contains(const std::string& key) const {
     return false;
 }
 
+ParameterInfo Parameters::inspect(const std::string& key) const {
+    for (std::size_t i = 0; i < m_lines.size(); ++i) {
+        if (m_lines[i].tokens.front() == key)
+            return {true, m_used[i], m_lines[i].number};
+    }
+    return {};
+}
+
+std::string Parameters::word(const std::string& key) const {
+    const ConfigLine& line = entry(key);
+    if (line.tokens.size() != 2 || line.tokens[1].empty()) invalid(line, "expected one word");
+    return line.tokens[1];
+}
+
+std::string Parameters::word(const std::string& key, const std::string& fallback) const {
+    if (fallback.empty()) throw std::invalid_argument("invalid nonempty fallback for " + key);
+    return contains(key) ? word(key) : fallback;
+}
+
+bool Parameters::boolean(const std::string& key) const {
+    const std::string value = word(key);
+    std::string lower;
+    lower.reserve(value.size());
+    for (const unsigned char character : value)
+        lower.push_back(static_cast<char>(std::tolower(character)));
+    if (lower == "true" || lower == "yes" || lower == "on" || lower == "1") return true;
+    if (lower == "false" || lower == "no" || lower == "off" || lower == "0") return false;
+    invalid(entry(key), "expected true/false, yes/no, or on/off");
+}
+
+bool Parameters::boolean(const std::string& key, bool fallback) const {
+    return contains(key) ? boolean(key) : fallback;
+}
+
 const ConfigLine& Parameters::entry(const std::string& key) const {
     for (std::size_t i = 0; i < m_lines.size(); ++i) {
         if (m_lines[i].tokens.front() == key) {
@@ -52,7 +86,10 @@ double Parameters::number(const std::string& key) const {
 }
 
 double Parameters::number(const std::string& key, double fallback) const {
-    return contains(key) ? number(key) : fallback;
+    if (contains(key)) return number(key);
+    if (!std::isfinite(fallback))
+        throw std::invalid_argument("invalid finite fallback for " + key);
+    return fallback;
 }
 
 double Parameters::positive(const std::string& key) const {
@@ -92,8 +129,24 @@ double Parameters::nonnegative(const std::string& key) const {
     return value;
 }
 
+double Parameters::nonnegative(const std::string& key, double fallback) const {
+    const double value = number(key, fallback);
+    if (value < 0.0 || !std::isfinite(value)) {
+        if (contains(key)) invalid(entry(key), "must be nonnegative and finite");
+        throw std::invalid_argument("invalid nonnegative fallback for " + key);
+    }
+    return value;
+}
+
 int Parameters::integer(const std::string& key, int fallback) const {
     if (!contains(key)) return fallback;
+    const double value = number(key);
+    if (std::trunc(value) != value || value < std::numeric_limits<int>::min() ||
+        value > std::numeric_limits<int>::max()) invalid(entry(key), "expected an integer");
+    return static_cast<int>(value);
+}
+
+int Parameters::integer(const std::string& key) const {
     const double value = number(key);
     if (std::trunc(value) != value || value < std::numeric_limits<int>::min() ||
         value > std::numeric_limits<int>::max()) invalid(entry(key), "expected an integer");

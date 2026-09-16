@@ -11,7 +11,7 @@ using namespace babelsim;
 
 namespace {
 
-const ResultField& field(const ResultData& data, const std::string& name) {
+const ResultField& findResultField(const ResultData& data, const std::string& name) {
     for (const ResultField& result : data.fields) {
         if (result.info.name == name) return result;
     }
@@ -46,9 +46,9 @@ int main() {
     const ResultData result = readParallelResults(output, mesh.cellCount());
     require(result.time_name == "final" && result.fields.size() == 3,
             "parallel output metadata was not reconstructed");
-    const ResultField& p = field(result, "p");
-    const ResultField& u = field(result, "U");
-    const ResultField& grad = field(result, "gradU");
+    const ResultField& p = findResultField(result, "p");
+    const ResultField& u = findResultField(result, "U");
+    const ResultField& grad = findResultField(result, "gradU");
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         require(near(p.values[static_cast<std::size_t>(cell)], detail::fieldData(pressure)[cell]),
                 "scalar output value changed");

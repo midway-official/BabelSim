@@ -10,7 +10,7 @@
 
 namespace babelsim::equ {
 namespace impl = babelsim::detail;
-template<class T> struct Matrix<T>::Storage {
+template<class T> struct Equation<T>::Storage {
     explicit Storage(Field<T>& x) : unknown(&x), coefficients(x.mesh()) {}
     Field<T>* unknown;
     DiscreteEquation<T> coefficients;
@@ -28,12 +28,12 @@ template<class T> struct Matrix<T>::Storage {
 
 };
 namespace detail {
-struct MatrixAccess {
-    template<class T> static auto& get(Matrix<T>& a) { return *a.storage_; }
-    template<class T> static const auto& get(const Matrix<T>& a) { return *a.storage_; }
+struct EquationAccess {
+    template<class T> static auto& get(Equation<T>& a) { return *a.storage_; }
+    template<class T> static const auto& get(const Equation<T>& a) { return *a.storage_; }
 };
 }
-using detail::MatrixAccess;
+using detail::EquationAccess;
 namespace {
 auto& backend() { return impl::execution().backend(); }
 template<class T> void cell(const Field<T>& f, const Mesh& mesh) {
@@ -41,15 +41,15 @@ template<class T> void cell(const Field<T>& f, const Mesh& mesh) {
     if (&f.mesh() != &mesh || f.location() != FieldLocation::Cell)
         throw std::invalid_argument("equ requires compatible cell fields");
 }
-template<class T> auto& state(const Matrix<T>& a) {
-    auto& s = MatrixAccess::get(a);
+template<class T> auto& state(const Equation<T>& a) {
+    auto& s = EquationAccess::get(a);
     if (&s.unknown->mesh() != &impl::execution().mesh())
         throw std::invalid_argument("equ matrix belongs to a different run mesh");
     return s;
 }
-template<class T> auto& state(Matrix<T>& a) {
-    state(static_cast<const Matrix<T>&>(a));
-    return MatrixAccess::get(a);
+template<class T> auto& state(Equation<T>& a) {
+    state(static_cast<const Equation<T>&>(a));
+    return EquationAccess::get(a);
 }
 void finite(double v) {
     if (!std::isfinite(v)) throw std::invalid_argument("nonfinite equ coefficient");
@@ -64,22 +64,22 @@ template<class T> void accumulate(DiscreteEquation<T>& a, const DiscreteEquation
     }
 }
 template<class T> void finish(Field<T>& f) { backend().synchronize(f); }
-template<class T> Field<T> resultField(const Matrix<T>& a, const char* name) {
+template<class T> Field<T> resultField(const Equation<T>& a, const char* name) {
     return Field<T>(state(a).unknown->mesh(), FieldLocation::Cell, name);
 }
 }
-template<class T> Matrix<T>::Matrix(Field<T>& x) : storage_(std::make_unique<Storage>(x)) {
+template<class T> Equation<T>::Equation(Field<T>& x) : storage_(std::make_unique<Storage>(x)) {
     cell(x, impl::execution().mesh());
     if (x.calculatedBoundary()) throw std::invalid_argument("equ unknown requires physical boundaries");
 }
-template<class T> Matrix<T>::~Matrix() = default;
-template<class T> Matrix<T>::Matrix(Matrix&&) noexcept = default;
-template<class T> Matrix<T>& Matrix<T>::operator=(Matrix&&) noexcept = default;
-template<class T> void clear(Matrix<T>& a) { state(a).coefficients.reset(); state(a).diffusion.clear(); }
-template<class T> Matrix<T> copy(const Matrix<T>& a) {
-    Matrix<T> b(*state(a).unknown); state(b).coefficients = state(a).coefficients; state(b).diffusion=state(a).diffusion; return b;
+template<class T> Equation<T>::~Equation() = default;
+template<class T> Equation<T>::Equation(Equation&&) noexcept = default;
+template<class T> Equation<T>& Equation<T>::operator=(Equation&&) noexcept = default;
+template<class T> void clear(Equation<T>& a) { state(a).coefficients.reset(); state(a).diffusion.clear(); }
+template<class T> Equation<T> copy(const Equation<T>& a) {
+    Equation<T> b(*state(a).unknown); state(b).coefficients = state(a).coefficients; state(b).diffusion=state(a).diffusion; return b;
 }
-template<class T> void div(Matrix<T>& a, const ScalarField& phi, double factor) {
+template<class T> void div(Equation<T>& a, const ScalarField& phi, double factor) {
     finite(factor);
     auto& s = state(a); auto& x = *s.unknown;
     if (&phi.mesh()!=&x.mesh() || phi.location()!=FieldLocation::Face)
@@ -90,7 +90,7 @@ template<class T> void div(Matrix<T>& a, const ScalarField& phi, double factor) 
     addConvection(s.coefficients, phi, x, m.convectionFor(x.name()),
         m.interpolationFor(x.name()), m.gradientFor(x.name()), factor);
 }
-template<class T> void laplacian(Matrix<T>& a, double k, double factor) {
+template<class T> void laplacian(Equation<T>& a, double k, double factor) {
     finite(k); finite(factor);
     auto& s = state(a); auto& x = *s.unknown; finish(x);
     DiscreteEquation<T> contribution(x.mesh()); const auto& m = numericalMethods();
@@ -105,7 +105,7 @@ template<class T> void laplacian(Matrix<T>& a, double k, double factor) {
     }
 
 }
-template<class T> void laplacian(Matrix<T>& a, const ScalarField& k, double factor) {
+template<class T> void laplacian(Equation<T>& a, const ScalarField& k, double factor) {
     finite(factor); auto& s = state(a); auto& x = *s.unknown;
     if (&k.mesh()!=&x.mesh() || (k.location()!=FieldLocation::Cell && k.location()!=FieldLocation::Face))
         throw std::invalid_argument("equ diffusivity must be a compatible cell or face field");
@@ -127,28 +127,28 @@ template<class T> void laplacian(Matrix<T>& a, const ScalarField& k, double fact
     }
 
 }
-template<class T> void reaction(Matrix<T>& a, double c) {
+template<class T> void reaction(Equation<T>& a, double c) {
     finite(c); auto& s=state(a); const auto& mesh=s.unknown->mesh();
     for (Index i: impl::meshData(mesh).owned_cells) s.coefficients.diagonal[i]+=c*mesh.cellVolume(i);
 }
-template<class T> void reaction(Matrix<T>& a, const ScalarField& c, double factor) {
+template<class T> void reaction(Equation<T>& a, const ScalarField& c, double factor) {
     finite(factor); auto& s=state(a); const auto& mesh=s.unknown->mesh(); cell(c,mesh);
     for (Index i: impl::meshData(mesh).owned_cells) {
         finite(impl::fieldData(c)[i]);
         s.coefficients.diagonal[i]+=factor*impl::fieldData(c)[i]*mesh.cellVolume(i);
     }
 }
-template<class T> void source(Matrix<T>& a, T value) {
+template<class T> void source(Equation<T>& a, T value) {
     auto& s=state(a); const auto& mesh=s.unknown->mesh();
     for (Index i: impl::meshData(mesh).owned_cells) s.coefficients.source[i]+=mesh.cellVolume(i)*value;
 }
-template<class T> void source(Matrix<T>& a, const Field<T>& value, double factor) {
+template<class T> void source(Equation<T>& a, const Field<T>& value, double factor) {
     finite(factor); auto& s=state(a); const auto& mesh=s.unknown->mesh(); cell(value,mesh);
     for (Index i: impl::meshData(mesh).owned_cells)
         s.coefficients.source[i]+=factor*mesh.cellVolume(i)*impl::fieldData(value)[i];
 }
 namespace {
-template<class T, class Capacity> void timeTerm(Matrix<T>& a, const Capacity& capacity,
+template<class T, class Capacity> void timeTerm(Equation<T>& a, const Capacity& capacity,
     const Field<T>& previous, double dt, TimeMethod method, const Field<T>* older, double olddt) {
     auto& s=state(a); const auto& mesh=s.unknown->mesh(); cell(previous,mesh);
     if (method==TimeMethod::Steady) return;
@@ -175,22 +175,22 @@ template<class T, class Capacity> void timeTerm(Matrix<T>& a, const Capacity& ca
     }
 }
 }
-template<class T> void ddt(Matrix<T>& a,double c,const Field<T>& old,double dt,TimeMethod m,const Field<T>* older,double olddt) {
+template<class T> void ddt(Equation<T>& a,double c,const Field<T>& old,double dt,TimeMethod m,const Field<T>* older,double olddt) {
     timeTerm(a,c,old,dt,m,older,olddt);
 }
-template<class T> void ddt(Matrix<T>& a,const ScalarField& c,const Field<T>& old,double dt,TimeMethod m,const Field<T>* older,double olddt) {
+template<class T> void ddt(Equation<T>& a,const ScalarField& c,const Field<T>& old,double dt,TimeMethod m,const Field<T>* older,double olddt) {
     timeTerm(a,c,old,dt,m,older,olddt);
 }
-template<class T,class Capacity> void historyTime(Matrix<T>& a,const Capacity& c,const math::History<T>& h) {
+template<class T,class Capacity> void historyTime(Equation<T>& a,const Capacity& c,const time::History<T>& h) {
     if(numericalMethods().time==TimeMethod::Steady) return;
     if(h.levels()==0) throw std::logic_error("saveOld must precede a transient assembly");
     const auto configured=numericalMethods().time;
     const auto method=configured==TimeMethod::BDF2 && h.levels()<2 ? TimeMethod::Euler : configured;
     ddt(a,c,h.previous(),h.dt(),method,&h.older(),h.previousDt());
 }
-template<class T> void ddt(Matrix<T>& a,double c,const math::History<T>& h) {historyTime(a,c,h);}
-template<class T> void ddt(Matrix<T>& a,const ScalarField& c,const math::History<T>& h) {historyTime(a,c,h);}
-template<class T> void scale(Matrix<T>& a,double f) {
+template<class T> void ddt(Equation<T>& a,double c,const time::History<T>& h) {historyTime(a,c,h);}
+template<class T> void ddt(Equation<T>& a,const ScalarField& c,const time::History<T>& h) {historyTime(a,c,h);}
+template<class T> void scale(Equation<T>& a,double f) {
     finite(f); auto& q=state(a).coefficients;
     for (auto& v:q.diagonal) v*=f;
     for (auto& v:q.upper) v*=f;
@@ -198,7 +198,7 @@ template<class T> void scale(Matrix<T>& a,double f) {
     for (auto& v:q.source) v=f*v;
     for (auto& contribution:state(a).diffusion) contribution.factor*=f;
 }
-template<class T> void add(Matrix<T>& a,const Matrix<T>& b,double f) {
+template<class T> void add(Equation<T>& a,const Equation<T>& b,double f) {
     auto& sa=state(a); const auto& sb=state(b);
     if (sa.unknown != sb.unknown) throw std::invalid_argument("matrix addition requires same unknown binding");
     // Copy first so self-addition does not invalidate iterators.
@@ -208,20 +208,20 @@ template<class T> void add(Matrix<T>& a,const Matrix<T>& b,double f) {
         contribution.factor*=f; sa.diffusion.push_back(std::move(contribution));
     }
 }
-template<class T> void addDiagonal(Matrix<T>& a,const ScalarField& d) {
+template<class T> void addDiagonal(Equation<T>& a,const ScalarField& d) {
     auto& s=state(a); cell(d,s.unknown->mesh());
     for (Index i:impl::meshData(d.mesh()).owned_cells) s.coefficients.diagonal[i]+=impl::fieldData(d)[i];
 }
-template<class T> void addRhs(Matrix<T>& a,const Field<T>& b) {
+template<class T> void addRhs(Equation<T>& a,const Field<T>& b) {
     auto& s=state(a); cell(b,s.unknown->mesh());
     for (Index i:impl::meshData(b.mesh()).owned_cells) s.coefficients.source[i]+=impl::fieldData(b)[i];
 }
-template<class T> ScalarField diagonal(const Matrix<T>& a) {
+template<class T> ScalarField diagonal(const Equation<T>& a) {
     const auto& s=state(a); ScalarField d(s.unknown->mesh(),FieldLocation::Cell,"equ.diagonal");
     for (Index i:impl::meshData(d.mesh()).owned_cells) impl::fieldData(d)[i]=s.coefficients.diagonal[i];
     finish(d); return d;
 }
-template<class T> ScalarField response(const Matrix<T>& a) {
+template<class T> ScalarField volumeScaledInverseDiagonal(const Equation<T>& a) {
     auto d=diagonal(a);
     for (Index i:impl::meshData(d.mesh()).owned_cells) {
         const double ap=impl::fieldData(d)[i];
@@ -230,12 +230,12 @@ template<class T> ScalarField response(const Matrix<T>& a) {
     }
     finish(d); return d;
 }
-template<class T> Field<T> rhs(const Matrix<T>& a) {
+template<class T> Field<T> rhs(const Equation<T>& a) {
     auto b=resultField(a,"equ.rhs"); const auto& q=state(a).coefficients;
     for (Index i:impl::meshData(b.mesh()).owned_cells) impl::fieldData(b)[i]=q.source[i];
     finish(b); return b;
 }
-template<class T> Field<T> apply(const Matrix<T>& a,const Field<T>& x) {
+template<class T> Field<T> apply(const Equation<T>& a,const Field<T>& x) {
     const auto& s=state(a); const auto& mesh=s.unknown->mesh(); cell(x,mesh);
     backend().synchronize(const_cast<Field<T>&>(x)); auto y=resultField(a,"equ.apply");
     auto* values=impl::fieldData(y); const auto* xv=impl::fieldData(x); const auto& q=s.coefficients;
@@ -247,12 +247,12 @@ template<class T> Field<T> apply(const Matrix<T>& a,const Field<T>& x) {
     }
     finish(y); return y;
 }
-template<class T> Field<T> residual(const Matrix<T>& a,const Field<T>& x) {
+template<class T> Field<T> residual(const Equation<T>& a,const Field<T>& x) {
     auto r=apply(a,x); const auto& q=state(a).coefficients;
     for(Index i:impl::meshData(x.mesh()).owned_cells) impl::fieldData(r)[i]=q.source[i]-impl::fieldData(r)[i];
     finish(r); return r;
 }
-template<class T> void relax(Matrix<T>& a,const Field<T>& previous,double alpha) {
+template<class T> void relax(Equation<T>& a,const Field<T>& previous,double alpha) {
     if (!(alpha>0 && alpha<=1)) throw std::invalid_argument("relaxation must be in (0,1]");
     auto& s=state(a); cell(previous,s.unknown->mesh()); auto& q=s.coefficients;
     for(Index i:impl::meshData(previous.mesh()).owned_cells) {
@@ -260,7 +260,7 @@ template<class T> void relax(Matrix<T>& a,const Field<T>& previous,double alpha)
         q.diagonal[i]+=extra; q.source[i]+=extra*impl::fieldData(previous)[i];
     }
 }
-void reference(Matrix<double>& a,Index global_cell,double value) {
+void reference(Equation<double>& a,Index global_cell,double value) {
     finite(value); auto& s=state(a); auto& q=s.coefficients; const auto& mesh=s.unknown->mesh();
     bool found=false;
     for(Index i:impl::meshData(mesh).owned_cells) {
@@ -270,7 +270,7 @@ void reference(Matrix<double>& a,Index global_cell,double value) {
     }
     if(backend().all(!found)) throw std::invalid_argument("reference global cell does not exist");
 }
-void reference(Matrix<double>& a,double value) {
+void reference(Equation<double>& a,double value) {
     finite(value);
     const auto& s=state(a); const auto& mesh=s.unknown->mesh(); const auto& q=s.coefficients;
     auto rowSum=q.diagonal;
@@ -289,7 +289,7 @@ void reference(Matrix<double>& a,double value) {
     if(backend().all(constantMode)) reference(a,0,value);
 }
 
-ScalarField faceFlux(const Matrix<double>& a,const ScalarField& solution) {
+ScalarField faceFlux(const Equation<double>& a,const ScalarField& solution) {
     const auto& s=state(a); cell(solution,s.unknown->mesh());
     ScalarField result(solution.mesh(),FieldLocation::Face,"equ.diffusionFlux");
     for(const auto& contribution:s.diffusion) {
@@ -304,11 +304,7 @@ ScalarField faceFlux(const Matrix<double>& a,const ScalarField& solution) {
     }
     finish(result); return result;
 }
-template<class T> double relativeResidual(const Matrix<T>& a,const Field<T>& x) {
-    auto ax=apply(a,x); auto b=rhs(a); auto r=b-ax;
-    return math::normL2(r)/std::max(math::normL2(ax)+math::normL2(b),1e-30);
-}
-template<class T> SolveResult solveConfigured(const Matrix<T>& a,Field<T>& x,const LinearSolverConfig* config) {
+template<class T> SolveResult solveConfigured(const Equation<T>& a,Field<T>& x,const LinearSolverConfig* config) {
     const auto& s=state(a);
     if(s.unknown!=&x) throw std::invalid_argument("solve target differs from matrix unknown");
     if constexpr(std::is_same_v<T,double>) return config ? backend().solve(s.coefficients,x,*config) : backend().solve(s.coefficients,x);
@@ -327,39 +323,62 @@ template<class T> SolveResult solveConfigured(const Matrix<T>& a,Field<T>& x,con
         return result;
     }
 }
-template<class T> SolveResult solve(const Matrix<T>& a,Field<T>& x) { return solveConfigured(a,x,nullptr); }
-template<class T> SolveResult solve(const Matrix<T>& a,Field<T>& x,const LinearSolverConfig& config) {
+template<class T> SolveResult solve(const Equation<T>& a,Field<T>& x) { return solveConfigured(a,x,nullptr); }
+template<class T> SolveResult solve(const Equation<T>& a,Field<T>& x,const LinearSolverConfig& config) {
     config.validate(); return solveConfigured(a,x,&config);
 }
+template<class T> void Equation<T>::reset() { clear(*this); }
+template<class T> Equation<T> Equation<T>::copy() const { return equ::copy(*this); }
+template<class T> ScalarField Equation<T>::diagonal() const { return equ::diagonal(*this); }
+template<class T> ScalarField Equation<T>::volumeScaledInverseDiagonal() const {
+    return equ::volumeScaledInverseDiagonal(*this);
+}
+template<class T> Field<T> Equation<T>::rhs() const { return equ::rhs(*this); }
+template<class T> void Equation<T>::reference(Index cellIndex, double value) {
+    if constexpr (std::is_same_v<T, double>) equ::reference(*this, cellIndex, value);
+    else throw std::invalid_argument("reference requires a scalar equation");
+}
+template<class T> void Equation<T>::referenceIfUnanchored(double value) {
+    if constexpr (std::is_same_v<T, double>) equ::reference(*this, value);
+    else throw std::invalid_argument("reference requires a scalar equation");
+}
 #define INSTANTIATE(T) \
- template class Matrix<T>; \
- template void clear(Matrix<T>&); \
- template Matrix<T> copy(const Matrix<T>&); \
- template void div(Matrix<T>&,const ScalarField&,double); \
- template void laplacian(Matrix<T>&,double,double); \
- template void laplacian(Matrix<T>&,const ScalarField&,double); \
- template void reaction(Matrix<T>&,double); \
- template void reaction(Matrix<T>&,const ScalarField&,double); \
- template void source(Matrix<T>&,T); \
- template void source(Matrix<T>&,const Field<T>&,double); \
- template void ddt(Matrix<T>&,double,const Field<T>&,double,TimeMethod,const Field<T>*,double); \
- template void ddt(Matrix<T>&,const ScalarField&,const Field<T>&,double,TimeMethod,const Field<T>*,double); \
- template void ddt(Matrix<T>&,double,const math::History<T>&); \
- template void ddt(Matrix<T>&,const ScalarField&,const math::History<T>&); \
- template void scale(Matrix<T>&,double); \
- template void add(Matrix<T>&,const Matrix<T>&,double); \
- template void addDiagonal(Matrix<T>&,const ScalarField&); \
- template void addRhs(Matrix<T>&,const Field<T>&); \
- template ScalarField diagonal(const Matrix<T>&); \
- template ScalarField response(const Matrix<T>&); \
- template Field<T> rhs(const Matrix<T>&); \
- template Field<T> apply(const Matrix<T>&,const Field<T>&); \
- template Field<T> residual(const Matrix<T>&,const Field<T>&); \
- template void relax(Matrix<T>&,const Field<T>&,double); \
- template double relativeResidual(const Matrix<T>&,const Field<T>&); \
- template SolveResult solve(const Matrix<T>&,Field<T>&); \
- template SolveResult solve(const Matrix<T>&,Field<T>&,const LinearSolverConfig&);
+ template class Equation<T>; \
+ template void clear(Equation<T>&); \
+ template Equation<T> copy(const Equation<T>&); \
+ template void div(Equation<T>&,const ScalarField&,double); \
+ template void laplacian(Equation<T>&,double,double); \
+ template void laplacian(Equation<T>&,const ScalarField&,double); \
+ template void reaction(Equation<T>&,double); \
+ template void reaction(Equation<T>&,const ScalarField&,double); \
+ template void source(Equation<T>&,T); \
+ template void source(Equation<T>&,const Field<T>&,double); \
+ template void ddt(Equation<T>&,double,const Field<T>&,double,TimeMethod,const Field<T>*,double); \
+ template void ddt(Equation<T>&,const ScalarField&,const Field<T>&,double,TimeMethod,const Field<T>*,double); \
+ template void ddt(Equation<T>&,double,const time::History<T>&); \
+ template void ddt(Equation<T>&,const ScalarField&,const time::History<T>&); \
+ template void scale(Equation<T>&,double); \
+ template void add(Equation<T>&,const Equation<T>&,double); \
+ template void addDiagonal(Equation<T>&,const ScalarField&); \
+ template void addRhs(Equation<T>&,const Field<T>&); \
+ template ScalarField diagonal(const Equation<T>&); \
+ template ScalarField volumeScaledInverseDiagonal(const Equation<T>&); \
+ template Field<T> rhs(const Equation<T>&); \
+ template Field<T> apply(const Equation<T>&,const Field<T>&); \
+ template Field<T> residual(const Equation<T>&,const Field<T>&); \
+ template void relax(Equation<T>&,const Field<T>&,double); \
+ template SolveResult solve(const Equation<T>&,Field<T>&); \
+ template SolveResult solve(const Equation<T>&,Field<T>&,const LinearSolverConfig&);
 INSTANTIATE(double)
 INSTANTIATE(Vec3)
 #undef INSTANTIATE
 } // namespace babelsim::equ
+
+namespace babelsim::diagnostics {
+template<class T> double relativeResidual(const equ::Equation<T>& equation, const Field<T>& x) {
+    auto ax = equ::apply(equation, x); auto b = equation.rhs(); auto r = b - ax;
+    return math::normL2(r) / std::max(math::normL2(ax) + math::normL2(b), 1e-30);
+}
+template double relativeResidual(const equ::Equation<double>&, const ScalarField&);
+template double relativeResidual(const equ::Equation<Vec3>&, const VectorField&);
+}

@@ -32,6 +32,7 @@ SOURCES := src/core/mesh.cpp \
            src/io/mesh_reader.cpp \
            src/io/result_reader.cpp \
            src/io/postprocess.cpp \
+           src/io/monitor.cpp \
            src/discretization/operators.cpp \
            src/discretization/equation_expression.cpp \
            src/discretization/fvm_execution.cpp \
@@ -51,6 +52,7 @@ HEADERS := $(wildcard include/babelsim/*.h)
 TEST_SUPPORT_HEADERS := $(wildcard tests/support/*.h)
 
 TEST_SOURCES := tests/procedural_equation_test.cpp \
+                tests/monitor_test.cpp \
                 tests/numerical_contract_test.cpp \
                 tests/unstructured_mesh_test.cpp \
                 tests/mesh_geometry_test.cpp \

@@ -11,12 +11,9 @@ namespace {
 
 std::string selectedModel(const Parameters& settings) {
     if (!settings.contains("turbulenceModel")) return "none";
-    const ConfigLine& entry = settings.entry("turbulenceModel");
-    if (entry.tokens.size() != 2) {
-        throw std::invalid_argument("turbulenceModel expects exactly one model name");
-    }
+    const std::string selected = settings.word("turbulenceModel");
     std::string result;
-    for (unsigned char character : entry.tokens[1]) {
+    for (unsigned char character : selected) {
         if (std::isalnum(character)) result += static_cast<char>(std::tolower(character));
     }
     return result;
@@ -26,7 +23,7 @@ std::string selectedModel(const Parameters& settings) {
 
 Model* create(
     Case& problem,
-    const VectorField& velocity,
+    VectorField& velocity,
     const ScalarField& face_flux,
     ScalarField& effective_viscosity,
     double density,
@@ -53,15 +50,21 @@ Model* create(
         "unsupported turbulenceModel; expected none, SA, kOmega or kEpsilon");
 }
 
-Turbulence::Turbulence(Case& problem, const VectorField& velocity, const ScalarField& phi)
+Turbulence::Turbulence(Case& problem, VectorField& velocity, const ScalarField& phi)
     : viscosity_(nullptr), model_(nullptr, destroy)
 {
     const double rho = problem.physics().positive("density");
     const double mu = problem.physics().positive("dynamicViscosity");
-    viscosity_ = &problem.scalarField("muEffective", mu);
+    viscosity_ = &problem.createScalarField("muEffective", mu);
     model_.reset(create(problem, velocity, phi, *viscosity_, rho, mu));
 }
 
 void destroy(Model* model) noexcept { delete model; }
+
+TensorField Turbulence::deviatoricStressRemainder(const VectorField& velocity) const {
+    const auto gradU = math::grad(velocity);
+    return effectiveViscosity() * (math::transpose(gradU)
+        - (2.0 / 3.0) * math::isotropic(math::trace(gradU)));
+}
 
 }  // babelsim::rans 命名空间

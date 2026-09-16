@@ -47,14 +47,15 @@ def case(label, model, method="euler", dt=0.01, end=0.1, fixed=False, clipping=F
         f"interpolation linear\ngradient leastSquares\nconvection upwind\ndiffusion orthogonal\ntime {method}\n")
     (target / "control.bs").write_text(f"startTime 0\nendTime {end}\ndeltaT {dt}\n")
     (target / "output.bs").write_text("directory results\ntimeName final\nwriteInterval 100000\n")
-    (target / "numerics/solution.bs").write_text(
+    solution = (
         "scalarSolver bicgstab ilut 1e-14 1e-12 2000\n"
         "vectorSolver bicgstab ilut 1e-14 1e-12 2000\n"
         f"maxIterations {40 if clipping else 3000}\n"
         "velocityTolerance 1e-9\ncontinuityTolerance 1e-9\n"
         "pressureCorrectionTolerance 1e-9\nmomentumTolerance 1e-9\n")
+    if model != "none": solution += "turbulenceRelaxation 0.7\nturbulenceTolerance 1e-10\n"
+    (target / "numerics/solution.bs").write_text(solution)
     physics = f"density 1\ndynamicViscosity 0.01\nturbulenceModel {model}\n"
-    if model != "none": physics += "turbulenceRelaxation 0.7\nturbulenceTolerance 1e-10\n"
     if clipping: physics += "kMin 1\nepsilonMin 1\n"
     (target / "physics/thermal.bs").write_text(physics)
     for name, kind, value in [("U","vector","0 0 0"),("p","scalar","1"),

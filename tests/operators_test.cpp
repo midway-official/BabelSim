@@ -257,9 +257,8 @@ int main() {
             ? linear_upwind_convection.upper[f] * detail::fieldData(warped_linear)[neighbour]
             : linear_upwind_convection.lower[f] * detail::fieldData(warped_linear)[owner];
     }
-    require(
-        near(linear_upwind_residual, exact_convection, 1e-10),
-        "linear-upwind convection is not affine exact on a warped cell");
+    // Limited linear-upwind need not preserve affine fields on warped faces.
+    // Its assembled and explicit forms must still describe the same flux.
     ScalarField explicit_linear_upwind(
         warped, FieldLocation::Cell, "explicitLinearUpwind");
     convection(
@@ -267,8 +266,9 @@ int main() {
         ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
         GradientMethod::LeastSquares);
     require(
-        near(detail::fieldData(explicit_linear_upwind)[warped_centre], 2.2, 1e-10),
-        "explicit linear-upwind convection is not affine exact");
+        near(detail::fieldData(explicit_linear_upwind)[warped_centre] * warped.cellVolume(warped_centre),
+             linear_upwind_residual, 1e-10),
+        "limited linear-upwind explicit and assembled scalar fluxes disagree");
     VectorDiscreteEquation warped_vector_convection(warped);
     addConvection(
         warped_vector_convection, advecting_flux, warped_vector,
@@ -316,9 +316,6 @@ int main() {
             ? linear_upwind_vector_convection.upper[f] * detail::fieldData(warped_vector)[neighbour]
             : linear_upwind_vector_convection.lower[f] * detail::fieldData(warped_vector)[owner];
     }
-    require(
-        near(linear_upwind_vector_residual, exact_vector_convection, 1e-10),
-        "linear-upwind vector convection is not affine exact");
     VectorField explicit_linear_upwind_vector(
         warped, FieldLocation::Cell, "explicitLinearUpwindVector");
     convection(
@@ -326,9 +323,44 @@ int main() {
         ConvectionMethod::LinearUpwind, InterpolationMethod::Linear,
         GradientMethod::LeastSquares);
     require(
-        near(detail::fieldData(explicit_linear_upwind_vector)[warped_centre],
-             Vec3{0.1, 0.5, 1.175}, 1e-10),
-        "explicit linear-upwind vector convection is not affine exact");
+        near(detail::fieldData(explicit_linear_upwind_vector)[warped_centre] * warped.cellVolume(warped_centre),
+             linear_upwind_vector_residual, 1e-10),
+        "limited linear-upwind explicit and assembled vector fluxes disagree");
+
+    // Isolate each interior face in both directions. Reconstruction must stay
+    // within adjacent cell values, and its two integrated contributions cancel.
+    ScalarField isolated_flux(warped, FieldLocation::Face, "isolatedFlux");
+    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+        const Index owner = detail::meshData(warped).face_owner[face];
+        const Index neighbour = detail::meshData(warped).face_neighbour[face];
+        require(neighbour != invalid_index, "limiter test requires an interior face");
+        for (double direction : {-1.0, 1.0}) {
+            isolated_flux.fill(0.0);
+            detail::fieldData(isolated_flux)[face] = direction;
+            convection(isolated_flux, warped_linear, explicit_linear_upwind,
+                ConvectionMethod::LinearUpwind, InterpolationMethod::Linear, GradientMethod::LeastSquares);
+            convection(isolated_flux, warped_vector, explicit_linear_upwind_vector,
+                ConvectionMethod::LinearUpwind, InterpolationMethod::Linear, GradientMethod::LeastSquares);
+            const double ownerFlux = detail::fieldData(explicit_linear_upwind)[owner] * warped.cellVolume(owner);
+            const double neighbourFlux = detail::fieldData(explicit_linear_upwind)[neighbour] * warped.cellVolume(neighbour);
+            const double faceValue = ownerFlux / direction;
+            const double a = detail::fieldData(warped_linear)[owner];
+            const double b = detail::fieldData(warped_linear)[neighbour];
+            require(faceValue >= std::min(a, b) - 1e-12 && faceValue <= std::max(a, b) + 1e-12,
+                    "limited scalar reconstruction exceeds adjacent values");
+            require(near(ownerFlux + neighbourFlux, 0, 1e-12), "limited scalar flux is not conservative");
+            const Vec3 ownerVector = detail::fieldData(explicit_linear_upwind_vector)[owner] * warped.cellVolume(owner);
+            const Vec3 neighbourVector = detail::fieldData(explicit_linear_upwind_vector)[neighbour] * warped.cellVolume(neighbour);
+            require(near(ownerVector + neighbourVector, Vec3{}, 1e-12), "limited vector flux is not conservative");
+            for (int component = 0; component < 3; ++component) {
+                const double av = detail::fieldData(warped_vector)[owner][component];
+                const double bv = detail::fieldData(warped_vector)[neighbour][component];
+                const double value = ownerVector[component] / direction;
+                require(value >= std::min(av, bv) - 1e-12 && value <= std::max(av, bv) + 1e-12,
+                        "limited vector reconstruction exceeds adjacent values");
+            }
+        }
+    }
     VectorDiscreteEquation vector_diffusion(skewed);
     addDiffusion(
         vector_diffusion, 1.0, skewed_vector,

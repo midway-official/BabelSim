@@ -16,16 +16,17 @@ int main(int argc, char** argv) {
         require(argc == 2, "expected generated model case");
         Case problem(argv[1]);
         auto& U = problem.vectorField("U");
-        auto& phi = problem.faceFlux("phi", U);
+        auto& phi = problem.createFaceField("phi");
+        phi = math::flux(U);
         const auto& mesh = problem.mesh();
         U.evaluate([](Vec3 x) { return Vec3{2*x.y,0,0}; });
         for (Index p = 0; p < mesh.patchCount(); ++p) U.setBoundary(p, BoundaryCondition<Vec3>::zeroGradient());
         U.setBoundary(2, fixedValue(Vec3{})); U.setBoundary(3, fixedValue(Vec3{2,0,0}));
         math::evaluate(math::flux(U), phi);
-        auto& effective = problem.scalarField("effective", 0.0);
+        auto& effective = problem.createScalarField("effective", 0.0);
         const double rho = problem.physics().positive("density");
         const double mu = problem.physics().positive("dynamicViscosity");
-        const auto model_name = problem.physics().entry("turbulenceModel").tokens[1];
+        const auto model_name = problem.physics().word("turbulenceModel");
         if (model_name == "SA")
             problem.scalarField("nuTilda").setBoundary(0, fixedValue(0.0));
         for(const char* key:{"maxIterations","nonOrthogonalCorrections","velocityRelaxation",
@@ -35,22 +36,21 @@ int main(int argc, char** argv) {
         std::unique_ptr<rans::Model, void(*)(rans::Model*)> model(
             rans::create(problem, U, phi, effective, rho, mu), rans::destroy);
         require(model != nullptr, "expected turbulence model");
-        loadMethods(problem);
-        auto time=enableTime(problem);
-        advance(time);
+        auto time=time::start(problem);
+        time.advance();
         model->saveOld(time.dt());
         // Independently build one frozen-coefficient Euler step from the published
         // scalar formulas. Test observable solutions rather than private scratch fields.
-        const double relaxation = problem.physics().fraction("turbulenceRelaxation", 0.7);
+        const double relaxation = problem.solution().fraction("turbulenceRelaxation", 0.7);
         std::vector<ScalarField> expected;
         std::vector<double> initialResiduals;
         const std::vector<std::string> names = model_name == "SA"
             ? std::vector<std::string>{"nuTilda"}
             : std::vector<std::string>{"k", model_name == "kOmega" ? "omega" : "epsilon"};
         for (const auto& name : names) {
-            expected.push_back(math::copy(problem.scalarField(name)));
+            expected.push_back(problem.scalarField(name));
             auto& value = expected.back();
-            const auto old = math::copy(value);
+            const auto old = value;
             ScalarField diffusion(mesh, FieldLocation::Cell);
             ScalarField source(mesh, FieldLocation::Cell);
             ScalarField sink(mesh, FieldLocation::Cell);
@@ -100,10 +100,10 @@ int main(int argc, char** argv) {
             auto equation = equ::createEquation(value);
             equ::ddt(equation, rho, old, time.dt());
             equ::div(equation, phi, rho);
-            equ::laplacian(equation, diffusion, -1.0);
+            equ::laplacian(equation, diffusion, -1);
             equ::reaction(equation, sink);
             equ::source(equation, source);
-            initialResiduals.push_back(equ::relativeResidual(equation, value));
+            initialResiduals.push_back(diagnostics::relativeResidual(equation, value));
             equ::relax(equation, old, relaxation);
             require(equ::solve(equation, value, readLinearControl(problem,value)).healthy(),
                     "reference transport solve failed");
@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
                         "transport step differs from independent source/diffusion equation");
         }
         const auto cell = [&](const char* name, Index i) {
-            return detail::fieldData(static_cast<const ScalarField&>(problem.scalarField(name)))[i];
+            return detail::fieldData(static_cast<const ScalarField&>(problem.existingScalarField(name)))[i];
         };
         for (Index i : detail::meshData(mesh).owned_cells) {
             double eddy = 0;
