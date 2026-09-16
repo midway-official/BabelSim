@@ -1,5 +1,6 @@
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
+#include "babelsim/equ.h"
 
 namespace babelsim {
 
@@ -15,13 +16,22 @@ int runCoupledScalar(Case& problem) {
     const int corrections = problem.solution().integer("couplingIterations", 100);
     const double tolerance = problem.solution().number("couplingTolerance", 1e-12);
 
-    while (problem.loop()) {
+    loadMethods(problem);
+    auto time=enableTime(problem);
+    auto oldT=math::history(T), oldC=math::history(C);
+    auto A=equ::matrix(T), B=equ::matrix(C);
+    while(time.value()<time.end()) {
+        advance(time);
+        math::saveOld(oldT,T,time.dt());
+        math::saveOld(oldC,C,time.dt());
         bool converged = false;
         for (int correction = 0; correction < corrections; ++correction) {
             previous.assign(T);
             previous_C.assign(C);
-            if (!solve(eqn::ddt(T) == eqn::laplacian(D, T) + eqn::source(a, C)).converged()) return 2;
-            if (!solve(eqn::ddt(C) == eqn::laplacian(D, C) + eqn::source(a, T)).converged()) return 2;
+            equ::clear(A); equ::ddt(A,1.0,oldT); equ::laplacian(A,D,-1.0); equ::source(A,a*C);
+            if(!equ::solve(A,T).converged()) return 2;
+            equ::clear(B); equ::ddt(B,1.0,oldC); equ::laplacian(B,D,-1.0); equ::source(B,a*T);
+            if(!equ::solve(B,C).converged()) return 2;
             if (diagnostics::relativeChange(T, previous) <= tolerance &&
                 diagnostics::relativeChange(C, previous_C) <= tolerance) {
                 converged = true;
@@ -29,6 +39,7 @@ int runCoupledScalar(Case& problem) {
             }
         }
         if (!converged) return 2;
+        write(problem,time);
     }
     return 0;
 }

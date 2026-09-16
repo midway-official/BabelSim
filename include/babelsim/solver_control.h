@@ -74,6 +74,9 @@ struct LinearSolverConfig {
     double relative_tolerance = 1e-8;
     int max_iterations = 1000;
     bool warm_start = false;
+    // ILUT 强度；默认值保持原有后端行为。非默认值用于高纵横比/强对流网格。
+    double ilut_drop_tolerance = 1e-3;
+    int ilut_fill_factor = 2;
     // AMG 只作为 Krylov 预条件器；这些参数只改变计算后端，不改变方程 API。
     int amg_max_levels = 12;
     int amg_coarse_size = 48;
@@ -84,6 +87,15 @@ struct LinearSolverConfig {
 
     void validate() const;
 };
+
+inline bool operator==(const LinearSolverConfig& a, const LinearSolverConfig& b) {
+    return a.solver==b.solver && a.preconditioner==b.preconditioner &&
+        a.absolute_tolerance==b.absolute_tolerance && a.relative_tolerance==b.relative_tolerance &&
+        a.max_iterations==b.max_iterations && a.warm_start==b.warm_start &&
+        a.ilut_drop_tolerance==b.ilut_drop_tolerance && a.ilut_fill_factor==b.ilut_fill_factor &&
+        a.amg_max_levels==b.amg_max_levels && a.amg_coarse_size==b.amg_coarse_size &&
+        a.amg_smoothing_steps==b.amg_smoothing_steps && a.amg_refresh_interval==b.amg_refresh_interval;
+}
 
 // 所有后端使用同一合同：原始（未预条件）真残差的全局 L2 范数，
 // ||b-Ax|| <= max(atol, rtol * max(||r0||, ||b||))。

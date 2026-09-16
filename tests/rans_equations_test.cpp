@@ -1,8 +1,7 @@
 #include "babelsim/runtime.h"
 #include "babelsim/mpi_support.h"
 #include "babelsim/parallel.h"
-#include "physics/simple_common.h"
-#include "physics/RANS/model.h"
+#include "physics/RANS/api.h"
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
 #include "test_util.h"
@@ -28,11 +27,17 @@ int main(int argc, char** argv) {
         const auto model_name = problem.physics().entry("turbulenceModel").tokens[1];
         if (model_name == "SA")
             problem.scalarField("nuTilda").setBoundary(0, fixedValue(0.0));
-        (void)readSimpleControl(problem.solution());
+        for(const char* key:{"maxIterations","nonOrthogonalCorrections","velocityRelaxation",
+            "pressureRelaxation","continuityTolerance","velocityTolerance","momentumTolerance",
+            "pressureCorrectionTolerance"})
+            if(problem.solution().contains(key)) (void)problem.solution().number(key);
         std::unique_ptr<rans::Model, void(*)(rans::Model*)> model(
             rans::create(problem, U, phi, effective, rho, mu), rans::destroy);
         require(model != nullptr, "expected turbulence model");
-        require(problem.loop(), "expected transient coefficient test step");
+        loadMethods(problem);
+        auto time=enableTime(problem);
+        advance(time);
+        rans::saveOld(*model,time.dt());
         require(model->correct().healthy(), "model coefficient update failed");
         if (model_name == "SA") {
             ScalarField face(mesh, FieldLocation::Face);
@@ -95,11 +100,15 @@ int main(int argc, char** argv) {
         coefficient.useCalculatedBoundary(); coefficient.evaluate([](Vec3 x) { return 1+x.x; });
         TensorField gradient(mesh, FieldLocation::Cell), stress(mesh, FieldLocation::Cell);
         VectorField correction(mesh, FieldLocation::Cell);
-        evaluateStressCorrection(U, phi, coefficient, gradient, stress, correction);
+        U.setBoundaryFlux(phi);
+        gradient.useCalculatedBoundary(); stress.useCalculatedBoundary();
+        gradient=math::grad(U);
+        stress=coefficient*(math::transpose(gradient)-(2.0/3.0)*math::isotropic(math::trace(gradient)));
+        correction=math::div(stress);
         for (Index i : detail::meshData(mesh).owned_cells)
             require(norm(detail::fieldData(correction)[i]-Vec3{0,2,0}) < 1e-10,
                     "RANS transposed stress term is missing or incorrectly indexed");
-        diagnostics::report("rans_equations_test: published source/diffusion/eddy viscosity and variable-coefficient stress passed");
+        if(primaryProcess()) std::cout << "rans_equations_test: published source/diffusion/eddy viscosity and variable-coefficient stress passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n'; MPI_Abort(MPI_COMM_WORLD, 1);
     }

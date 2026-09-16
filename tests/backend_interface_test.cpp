@@ -70,7 +70,7 @@ int main() {
     require(
         fvm.solve(eqn::ddt(velocity) == Vec3{}, {}).front().converged(),
         "replaceable backend did not solve a vector equation");
-    fvm.evaluate(math::grad(temperature), gradient);
+    fvm.evaluate(math::ScalarGradient{temperature}, gradient);
 
     require(recording->scalar_solves == 1, "scalar equation bypassed compute backend");
     require(recording->vector_solves == 1, "vector equation bypassed compute backend");

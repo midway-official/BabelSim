@@ -56,6 +56,7 @@ public:
         ParallelContext parallel)
         : m_mesh(&mesh),
           m_parallel(std::move(parallel)),
+          m_scalar_config(scalar_config), m_vector_config(vector_config),
           m_scalar_assembly(mesh),
           m_vector_assembly(mesh),
           m_scalar_solver(scalar_config),
@@ -109,7 +110,21 @@ public:
         return result;
     }
 
-    PerformanceCounters performance() const override { return m_performance; }
+    PerformanceCounters performance() const override {
+        auto result=m_performance;
+        for(const auto& variant:m_variants) result+=variant->performance();
+        return result;
+    }
+    SolveResult solve(const ScalarDiscreteEquation& a, ScalarField& x, const LinearSolverConfig& config) override {
+        config.validate();
+        if(config==m_scalar_config) return solve(a,x);
+        return variant(config).solve(a,x);
+    }
+    std::array<SolveResult,3> solve(const VectorDiscreteEquation& a, VectorField& x, const LinearSolverConfig& config) override {
+        config.validate();
+        if(config==m_vector_config) return solve(a,x);
+        return variant(config).solve(a,x);
+    }
 
     SolveResult solve(
         const ScalarDiscreteEquation& equation, ScalarField& unknown) override
@@ -214,6 +229,14 @@ private:
 
     const Mesh* m_mesh;
     ParallelContext m_parallel;
+    LinearSolverConfig m_scalar_config, m_vector_config;
+    std::vector<std::unique_ptr<EigenMpiBackend>> m_variants;
+    EigenMpiBackend& variant(const LinearSolverConfig& config) {
+        for(auto& value:m_variants) if(value->m_scalar_config==config) return *value;
+        m_variants.push_back(std::make_unique<EigenMpiBackend>(*m_mesh,config,config,m_parallel));
+        return *m_variants.back();
+    }
+
     std::unique_ptr<HaloExchange> m_halo;
     SparseAssembly m_scalar_assembly;
     SparseAssembly m_vector_assembly;

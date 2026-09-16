@@ -61,6 +61,31 @@ double Parameters::positive(const std::string& key) const {
     return value;
 }
 
+double Parameters::positive(const std::string& key,double fallback) const {
+    const double value=number(key,fallback);
+    if(!(value>0) || !std::isfinite(value)) {
+        if(contains(key)) invalid(entry(key),"must be positive and finite");
+        throw std::invalid_argument("invalid positive fallback for "+key);
+    }
+    return value;
+}
+double Parameters::fraction(const std::string& key,double fallback) const {
+    const double value=positive(key,fallback);
+    if(value>1) {
+        if(contains(key)) invalid(entry(key),"must be in (0, 1]");
+        throw std::invalid_argument("invalid fraction fallback for "+key);
+    }
+    return value;
+}
+int Parameters::integer(const std::string& key,int fallback,int minimum,int maximum) const {
+    const int value=integer(key,fallback);
+    if(minimum>maximum || value<minimum || value>maximum) {
+        if(contains(key)) invalid(entry(key),"integer outside allowed range");
+        throw std::invalid_argument("invalid integer fallback/range for "+key);
+    }
+    return value;
+}
+
 double Parameters::nonnegative(const std::string& key) const {
     const double value = number(key);
     if (value < 0.0) invalid(entry(key), "must be nonnegative");

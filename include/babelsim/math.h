@@ -1,13 +1,13 @@
 #pragma once
 
 #include "babelsim/field.h"
+#include "babelsim/history.h"
 
 namespace babelsim::math {
 
-// math 描述已有场上的数学量，不创建待求解方程项。描述对象只保存 Field 引用；
-// evaluate()/add()/subtract() 才执行：所有参与进程以相同顺序调用，后端同步所有输入、
-// 选择离散方法，并同步写出的结果。调用者不负责 halo；同位输入与结果不得别名。
-// 单面/单元局部核不属于公开 math API。
+// Known-field arithmetic. Public functions below materialize independent results.
+// The operation records are the internal execution bridge, not deferred user
+// expressions. Whole-field operations synchronize their inputs and outputs.
 struct ScalarGradient {
     const ScalarField& field;
 };
@@ -82,57 +82,6 @@ struct ScalarLaplacian {
     const ScalarField* coefficient_field = nullptr;
 };
 
-inline ScalarGradient grad(const ScalarField& field) { return {field}; }
-inline NormalGradient normalGradient(const ScalarField& field) { return {field}; }
-inline VectorGradient grad(const VectorField& field) { return {field}; }
-inline FaceFlux flux(const VectorField& velocity) { return {velocity}; }
-inline ScalarDiffusionFlux flux(
-    const ScalarField& coefficient,
-    const ScalarField& field)
-{
-    return {coefficient, field};
-}
-inline FaceDivergence div(const ScalarField& flux) { return {flux}; }
-inline VectorDivergence div(const VectorField& field) { return {field}; }
-inline TensorDivergence div(const TensorField& field) { return {field}; }
-inline ScalarConvection div(const ScalarField& flux, const ScalarField& field) {
-    return {flux, field};
-}
-inline VectorConvection div(const ScalarField& flux, const VectorField& field) {
-    return {flux, field};
-}
-inline ScalarInterpolation interpolate(const ScalarField& field) { return {field}; }
-inline VectorInterpolation interpolate(const VectorField& field) { return {field}; }
-inline ScalarReconstruction reconstruct(
-    const ScalarField& field,
-    const VectorField& gradient)
-{
-    return {field, gradient};
-}
-// 使用已经重构的梯度计算扩散通量，避免组合算法重复求梯度。
-// 梯度必须与当前 field 对应；后端负责同步，不负责替调用者更新这个数学量。
-inline ScalarDiffusionFlux flux(
-    const ScalarField& coefficient, ScalarReconstruction reconstruction)
-{
-    return {coefficient, reconstruction.field, &reconstruction.gradient};
-}
-inline VectorReconstruction reconstruct(
-    const VectorField& field,
-    const TensorField& gradient)
-{
-    return {field, gradient};
-}
-inline ScalarLaplacian laplacian(const ScalarField& field) { return {field}; }
-inline ScalarLaplacian laplacian(double diffusivity, const ScalarField& field) {
-    return {field, diffusivity, nullptr};
-}
-inline ScalarLaplacian laplacian(
-    const ScalarField& diffusivity,
-    const ScalarField& field)
-{
-    return {field, 1.0, &diffusivity};
-}
-
 void evaluate(ScalarGradient operation, VectorField& result);
 void evaluate(NormalGradient operation, ScalarField& result);
 void evaluate(ScalarDiffusionFlux operation, ScalarField& result);
@@ -157,4 +106,110 @@ void add(FaceFlux operation, ScalarField& target, FaceRegion region = FaceRegion
 void subtract(ScalarDiffusionFlux operation, ScalarField& target,
               FaceRegion region = FaceRegion::All);
 
+// Eager mathematical operations: auto g=grad(p) is an independent snapshot.
+template<class R, class Op>
+Field<R> computed(const Mesh& mesh, FieldLocation location, const char* name, Op op) {
+    Field<R> result(mesh,location,name);
+    result.useCalculatedBoundary();
+    evaluate(op,result);
+    return result;
+}
+template<class T> void evaluate(const Field<T>& value, Field<T>& output) { output=value; }
+inline VectorField grad(const ScalarField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"grad",ScalarGradient{f}); }
+inline TensorField grad(const VectorField& f) { return computed<Tensor3>(f.mesh(),FieldLocation::Cell,"grad",VectorGradient{f}); }
+inline ScalarField normalGradient(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"normalGradient",NormalGradient{f}); }
+inline ScalarField flux(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"flux",FaceFlux{f}); }
+inline ScalarField flux(const ScalarField& k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f}); }
+inline ScalarField flux(const ScalarField& k,const ScalarField& f,const VectorField& gradient) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f,&gradient}); }
+inline ScalarField div(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",FaceDivergence{f}); }
+inline ScalarField div(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",VectorDivergence{f}); }
+inline VectorField div(const TensorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",TensorDivergence{f}); }
+inline ScalarField div(const ScalarField& phi,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",ScalarConvection{phi,f}); }
+inline VectorField div(const ScalarField& phi,const VectorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",VectorConvection{phi,f}); }
+inline ScalarField interpolate(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"interpolate",ScalarInterpolation{f}); }
+inline VectorField interpolate(const VectorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Face,"interpolate",VectorInterpolation{f}); }
+inline ScalarField reconstruct(const ScalarField& f,const VectorField& g) { return computed<double>(f.mesh(),FieldLocation::Face,"reconstruct",ScalarReconstruction{f,g}); }
+inline VectorField reconstruct(const VectorField& f,const TensorField& g) { return computed<Vec3>(f.mesh(),FieldLocation::Face,"reconstruct",VectorReconstruction{f,g}); }
+inline ScalarField laplacian(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f}); }
+inline ScalarField laplacian(double k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,k}); }
+inline ScalarField laplacian(const ScalarField& k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,1.0,&k}); }
+void add(const ScalarField& increment,ScalarField& target,FaceRegion region=FaceRegion::All);
+void subtract(const ScalarField& increment,ScalarField& target,FaceRegion region=FaceRegion::All);
+void subtract(const ScalarField& coefficient,const VectorField& gradient,VectorField& target);
+
 }  // babelsim::math 命名空间
+
+namespace babelsim {
+// Eager pointwise expressions. Derived cell fields carry computed boundary
+// traces; assigning them into an unknown preserves that unknown's constraints.
+template<class A, class B, class Function>
+auto fieldBinary(const Field<A>& a, const Field<B>& b, Function fn) {
+    using R = decltype(fn(A{}, B{}));
+    Field<R> result(a.mesh(), a.location(), "math.result");
+    result.useCalculatedBoundary(); result.evaluate(a,b,fn); return result;
+}
+template<class T> Field<T> operator+(const Field<T>& a,const Field<T>& b) {
+    return fieldBinary(a,b,[](T x,T y){return x+y;});
+}
+template<class T> Field<T> operator-(const Field<T>& a,const Field<T>& b) {
+    return fieldBinary(a,b,[](T x,T y){return x-y;});
+}
+template<class T> Field<T> operator*(double a,const Field<T>& b) {
+    Field<T> r(b.mesh(),b.location(),"math.scale"); r.useCalculatedBoundary();
+    r.evaluate(b,[a](T v){return a*v;}); return r;
+}
+template<class T> Field<T> operator*(const Field<T>& b,double a) {return a*b;}
+template<class T> Field<T> operator-(const Field<T>& b) {return -1.0*b;}
+template<class T> Field<T> operator/(const Field<T>& b,double a) {return (1.0/a)*b;}
+template<class T> Field<T> operator*(const ScalarField& a,const Field<T>& b) {
+    return fieldBinary(a,b,[](double x,T y){return x*y;});
+}
+inline ScalarField operator/(const ScalarField& a,const ScalarField& b) {
+    return fieldBinary(a,b,[](double x,double y){return x/y;});
+}
+namespace math {
+// A correction is an unknown field with homogeneous counterparts of the
+// original physical boundary constraints (e.g. fixed value -> zero correction).
+inline ScalarField createHomogeneousField(const ScalarField& field) {
+    ScalarField result(field.mesh(),FieldLocation::Cell,field.name()+"Prime");
+    setHomogeneousCorrectionBoundaries(result,field);
+    return result;
+}
+// Compatibility spelling. New solver code should name the construction intent.
+inline ScalarField correction(const ScalarField& field) {
+    return createHomogeneousField(field);
+}
+template<class T> Field<T> copy(const Field<T>& x) {return Field<T>(x);}
+inline ScalarField dot(const VectorField& a,const VectorField& b) {
+    return fieldBinary(a,b,[](Vec3 x,Vec3 y){return babelsim::dot(x,y);});
+}
+inline VectorField cross(const VectorField& a,const VectorField& b) {
+    return fieldBinary(a,b,[](Vec3 x,Vec3 y){return babelsim::cross(x,y);});
+}
+inline ScalarField max(const ScalarField& a,double bound) {
+    ScalarField r(a.mesh(),a.location(),"math.max"); r.useCalculatedBoundary();
+    r.evaluate(a,[bound](double v){return std::max(v,bound);}); return r;
+}
+inline ScalarField sqrt(const ScalarField& a) {
+    ScalarField r(a.mesh(),a.location(),"math.sqrt"); r.useCalculatedBoundary();
+    r.evaluate(a,[](double v){return std::sqrt(v);}); return r;
+}
+inline TensorField transpose(const TensorField& a) {
+    TensorField r(a.mesh(),a.location(),"transpose"); r.useCalculatedBoundary();
+    r.evaluate(a,[](const Tensor3& v){return babelsim::transpose(v);}); return r;
+}
+inline ScalarField trace(const TensorField& a) {
+    ScalarField r(a.mesh(),a.location(),"trace"); r.useCalculatedBoundary();
+    r.evaluate(a,[](const Tensor3& v){return babelsim::trace(v);}); return r;
+}
+inline TensorField isotropic(const ScalarField& a) {
+    TensorField r(a.mesh(),a.location(),"isotropic"); r.useCalculatedBoundary();
+    r.evaluate(a,[](double v){Tensor3 t{}; for(int i=0;i<3;++i)t[i][i]=v; return t;}); return r;
+}
+double sum(const ScalarField&);
+double integral(const ScalarField&); // cell volumes, or face areas
+double max(const ScalarField&);
+double normL2(const ScalarField&); // unweighted Euclidean norm over owned entities
+double normL2(const VectorField&);
+} // namespace math
+} // namespace babelsim

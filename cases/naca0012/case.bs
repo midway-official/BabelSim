@@ -1,0 +1,9 @@
+solver transientSimple
+mesh mesh/naca0012.mesh
+fields fields/initial
+physics physics/kOmega.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
+output output.bs
+ghostLayers 3

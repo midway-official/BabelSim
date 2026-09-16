@@ -98,8 +98,13 @@ public:
 
     Field(const Field&) = default;
     Field(Field&&) noexcept = default;
-    Field& operator=(const Field&) = delete;
-    Field& operator=(Field&&) = delete;
+    // Assignment copies values, never rebinds mesh/name/boundary constraints.
+    Field& operator=(const Field& source) { if (this != &source) assign(source); return *this; }
+    Field& operator=(Field&& source) { return *this = static_cast<const Field&>(source); }
+    Field& operator+=(const Field& source) { addScaled(1.0, source); return *this; }
+    Field& operator-=(const Field& source) { addScaled(-1.0, source); return *this; }
+    Field& operator*=(double factor) { assignScaled(factor, *this); return *this; }
+    Field& operator/=(double factor) { assignScaled(1.0 / factor, *this); return *this; }
     void fill(const T& value) {
         updateBoundaryTrace([&](Index) { return value; });
         std::fill(m_values.begin(), m_values.end(), value);
@@ -214,6 +219,20 @@ public:
                 source.m_values[index];
         }
         m_halo_valid = m_halo_valid && coefficient.m_halo_valid && source.m_halo_valid;
+    }
+
+    // Pointwise binary kernel. Geometry and boundary traces follow the inputs;
+    // the user function receives values, never storage or partition indices.
+    template<class A, class B, class Function>
+    void evaluate(const Field<A>& a, const Field<B>& b, Function function) {
+        validateStorage(); a.validateStorage(); b.validateStorage();
+        if (m_mesh != a.m_mesh || m_mesh != b.m_mesh ||
+            m_location != a.m_location || m_location != b.m_location)
+            throw std::invalid_argument("field binary operation requires matching layouts");
+        updateBoundaryTrace([&](Index f) { return function(a.boundaryTrace(f), b.boundaryTrace(f)); });
+        for (std::size_t i=0; i<m_values.size(); ++i)
+            m_values[i] = function(a.m_values[i], b.m_values[i]);
+        m_halo_valid = a.m_halo_valid && b.m_halo_valid;
     }
 
     void setBoundary(Index patch, BoundaryCondition<T> condition) {

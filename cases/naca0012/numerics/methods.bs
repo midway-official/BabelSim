@@ -1,0 +1,7 @@
+interpolation linear
+gradient leastSquares
+convection linearUpwind
+# Limit the non-orthogonal correction to retain diagonal dominance on the
+# C-grid while keeping the requested linearUpwind convection scheme.
+diffusion limitedCorrected
+time bdf2

@@ -38,11 +38,6 @@ void RuntimeControl::validate() const {
     const double steps = (time.end_time - time.start_time) / time.delta_t;
     if (!std::isfinite(steps) || steps > std::numeric_limits<int>::max())
         throw std::invalid_argument("time interval contains too many steps");
-    // 当前 BDF2 是等步长离散，不能把缩短的末步冒充等步长 BDF2。
-    if (methods.time == TimeMethod::BDF2 &&
-        std::abs(steps - std::round(steps)) >
-            64.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, steps))
-        throw std::invalid_argument("BDF2 requires an integral number of uniform time steps");
     scalar_solver.validate();
     vector_solver.validate();
 }
@@ -87,10 +82,26 @@ RunTime& RunTime::current() {
 
 const Mesh& RunTime::mesh() const { return *m_implementation->mesh; }
 const Methods& RunTime::methods() const { return m_implementation->control.methods; }
+void RunTime::setMethods(const Methods& methods) {
+    m_implementation->control.methods=methods;
+    m_implementation->fvm.setMethods(methods);
+}
 double RunTime::time() const { return m_implementation->current_time; }
 double RunTime::deltaT() const { return m_implementation->current_delta_t; }
 int RunTime::step() const { return m_implementation->current_step; }
 bool RunTime::primary() const { return m_implementation->primary_rank; }
+
+const TimeControl& RunTime::timeControl() const { return m_implementation->control.time; }
+const LinearSolverConfig& RunTime::linearControl(bool vector) const {
+    return vector ? m_implementation->control.vector_solver : m_implementation->control.scalar_solver;
+}
+void RunTime::setTime(double value, int step_value, double dt) {
+    if (!std::isfinite(value) || step_value < 0 || !(dt > 0) || !std::isfinite(dt))
+        throw std::invalid_argument("invalid explicit time metadata");
+    m_implementation->current_time = value;
+    m_implementation->current_step = step_value;
+    m_implementation->current_delta_t = dt;
+}
 
 PerformanceCounters RunTime::performance() const {
     PerformanceCounters result = m_implementation->fvm.performance();
@@ -103,6 +114,11 @@ PerformanceCounters RunTime::performance() const {
 bool RunTime::loop() {
     Implementation& state = *m_implementation;
     const TimeControl& control = state.control.time;
+    // 当前 BDF2 是等步长离散，不能把缩短的末步冒充等步长 BDF2。
+    if (state.control.methods.time == TimeMethod::BDF2 &&
+        std::abs(((control.end_time-control.start_time)/control.delta_t) - std::round((control.end_time-control.start_time)/control.delta_t)) >
+            64.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, (control.end_time-control.start_time)/control.delta_t))
+        throw std::invalid_argument("BDF2 requires an integral number of uniform time steps");
     const double tolerance = 32.0 * std::numeric_limits<double>::epsilon() *
         std::max({std::abs(control.start_time), std::abs(control.end_time), control.delta_t});
     const double remaining = control.end_time - state.current_time;

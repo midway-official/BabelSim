@@ -1,6 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
-#include "physics/simple/algorithm.h"
+#include "support/simple_reference.h"
 #include "babelsim/runtime.h"
 #include "babelsim/parallel.h"
 #include "babelsim/parallel_writer.h"
@@ -71,18 +71,9 @@ int main(int argc, char* argv[]) {
         run_control.scalar_solver.relative_tolerance = 1e-10;
 
         RunTime run_time = RunTime::forMesh(mesh, run_control);
-        SteadySimpleAlgorithm solver(fields, {1.0, 0.01}, control);
-        SimpleIterationResult result;
         int iterations = 0;
-        for (int iteration = 1;
-             iteration <= control.max_iterations; ++iteration) {
-            result = solver.iterate();
-            iterations = iteration;
-            require(result.healthy, "distributed cavity SIMPLE became unhealthy");
-            if (result.converged) {
-                break;
-            }
-        }
+        const auto result = solveIncompressible(fields, {1.0, 0.01}, control, &iterations);
+        require(result.healthy, "SIMPLE produced a numerical failure");
         require(result.converged, "distributed cavity SIMPLE did not converge");
         // 收敛决定必须是 collective；若某个 rank 使用了本地状态提前/延后
         // 跳出，这里的最小和最大外迭代次数会立即暴露控制流分叉。

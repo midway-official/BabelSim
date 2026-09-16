@@ -230,6 +230,10 @@ void readLinearSolverLine(
             result.amg_smoothing_steps = integer(path, value_line, 1);
         } else if (value_line.tokens[0] == "amgRefreshInterval") {
             result.amg_refresh_interval = integer(path, value_line, 1);
+        } else if (value_line.tokens[0] == "ilutDropTolerance") {
+            result.ilut_drop_tolerance = number(path, value_line, 1);
+        } else if (value_line.tokens[0] == "ilutFillFactor") {
+            result.ilut_fill_factor = integer(path, value_line, 1);
         } else {
             invalid(path, line, "unknown linear solver option " + value_line.tokens[0]);
         }

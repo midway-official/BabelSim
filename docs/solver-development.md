@@ -10,6 +10,7 @@
 ```cpp
 #include "babelsim/application.h"
 #include "babelsim/case.h"
+#include "babelsim/equ.h"
 #include "babelsim/solver.h"
 ```
 
@@ -17,10 +18,10 @@
 
 | 概念 | 作者负责的内容 |
 | --- | --- |
-| Case | 从算例获取命名场、物性和算法参数；时间循环 |
+| Case | 从算例获取命名场、物性和算法参数；显式 IO |
 | ScalarField / VectorField | 温度、浓度、速度等数学场 |
 | Boundary | 按 patch 名称定义数学边界 |
-| eqn / math | 隐式方程项 / 显式场运算 |
+| equ / math | 立即离散组装 / 直接场运算 |
 | solve | 求一个离散后的方程并检查线性收敛 |
 | diagnostics | 全局数学范数、场变化、守恒误差 |
 | 算法循环 | 组织预测、求解、修正和收敛；普通函数和循环即可 |
@@ -39,6 +40,7 @@
 ```cpp
 #include "babelsim/application.h"
 #include "babelsim/case.h"
+#include "babelsim/equ.h"
 #include "babelsim/solver.h"
 
 namespace babelsim {
@@ -47,9 +49,22 @@ int runSpecies(Case& problem) {
     const double D = problem.physics().nonnegative("diffusivity");
     const double S = problem.physics().number("source");
 
-    while (problem.loop()) {
-        if (!solve(eqn::ddt(C) ==
-                   eqn::laplacian(D, C) + eqn::source(S)).converged()) return 2;
+    loadMethods(problem);
+    const auto linear = readLinearControl(problem, C);
+    const int interval = readWriteInterval(problem);
+    auto time = enableTime(problem);
+    auto old = math::history(C);
+    auto A = equ::createEquation(C);
+    problem.validate();
+    while (!time.finished()) {
+        advance(time);
+        math::saveOld(old, C, time.dt());
+        equ::reset(A);
+        equ::ddt(A, 1.0, old);
+        equ::laplacian(A, D, -1.0);
+        equ::source(A, S);
+        if (!equ::solve(A, C, linear).converged()) return 2;
+        if (time.step() % interval == 0 || time.finished()) write(problem, time);
     }
     return 0;
 }
@@ -57,7 +72,7 @@ const SolverRegistration species("species", runSpecies);
 }
 ```
 
-这就是完整 Solver，不需要再写 Case reader、执行入口类、析构函数或输出代码。
+这就是完整 Solver，不需要再写 Case reader、执行入口类、析构函数；输出时机由代码中的 write 明确指定。
 也不需要同时提供一个专用头文件和 solveTransientXXX 库函数；原来的 Heat/Transport
 重复库式入口已经删除。测试需要内存输入时直接调用同一套通用数学 API。
 
@@ -99,7 +114,7 @@ Solver 编译不需要 MPI/Eigen 头或 `-Isrc`；最终用 MPI 链接器解决�
 `tests/external/solver.cpp` 给出方程、双场耦合及矢量响应三个实际例子；
 `make test-external` 会将文件复制到临时目录，仅使用公开头和预编译库完成构建与 1/2/4 进程运行。
 
-`return 0` 表示计算成功，启动器保证最终输出；`return 2` 表示没有收敛。
+`return 0` 表示求解器报告成功，启动器不会据此写出结果；`return 2` 表示没有收敛。
 不得忽略求解失败后继续推进时间。配置和文件错误由框架给出路径/行号，并停止整个并行作业。
 
 ## 3. 创建 Case 并运行
@@ -125,7 +140,7 @@ vectorSolver bicgstab amg 1e-12 1e-8 800 amgMaxLevels=12 amgCoarseSize=48 amgSmo
 ```
 
 这些是 Case 的计算后端选择，不是 Solver 代码中的对象。AMG 层级、Krylov 工作区和
-全局归约由默认后端管理；新增 PDE 只需要组合 `eqn`/`math`/`solve`，不需要修改或调用
+全局归约由默认后端管理；新增 PDE 只需要组合 `equ`/`math`，不需要修改或调用
 线性代数 API。MPI AMG 的细网格平滑、halo matvec、全局聚合粗网格和粗校正都在后端内完成；
 若要开发 GPU AMG，应替换 ComputeBackend，而不是在 Physics 中加入通信代码。
 `amgRefreshInterval` 是 AMG 预条件器的性能调节项：它不缓存方程矩阵，也不改变 PDE；
@@ -146,7 +161,7 @@ build/babelsim-post -case cases/species -time mpi4/all -format vtk tecplot
 ```
 
 打开 `post/mpi4/series.pvd` 即可查看时间序列。Solver 不关心进程数。
-自定义 main 只调用 runApplication；不要自行处理 MPI 初始化、异常退出或最终输出。
+自定义 main 调用 runApplication 管理 MPI 生命周期。可传入错误回调打印诊断；不提供回调时运行时保持静默。结果写出由求解器显式调用 write。
 
 ## 4. 添加对流、变系数和边界
 
@@ -156,14 +171,18 @@ build/babelsim-post -case cases/species -time mpi4/all -format vtk tecplot
 VectorField& U = problem.vectorField("U");
 ScalarField& phi = problem.faceFlux("phi", U);
 // 在时间循环内：
-solve(eqn::ddt(C) + eqn::div(phi, C) ==
-      eqn::laplacian(D, C) + eqn::source(S));
+equ::reset(A);
+equ::ddt(A, 1.0, old);
+equ::div(A, phi);
+equ::laplacian(A, D, -1.0);
+equ::source(A, S);
+const auto result = equ::solve(A, C, linear);
 ```
 
 这里只省略了示例中的收敛检查，实际代码仍应检查返回值。若速度随时间更新，在更新后用
-`math::evaluate(math::flux(U), phi)` 更新通量；不要把构造时的通量误当成自动跟随 U 的表达式。
+`phi = math::flux(U)` 更新通量；不要把构造时的通量误当成自动跟随 U 的表达式。
 
-标量与矢量方程的公开 `solve` 都返回一个 `SolveResult`，统一用 `.converged()` 检查。
+标量与矢量方程的公开 `equ::solve` 都返回一个 `SolveResult`，统一用 `.converged()` 检查。
 矢量方程必须三个分量全部收敛才成功；公开相对残差是最差分量，不能只检查 x 分量。
 
 扩散系数可换为普通命名场：`ScalarField& k = problem.scalarField("k");`。
@@ -178,7 +197,7 @@ T.boundary("cold") = fixedValue(300.0);
 T.boundary("side") = zeroGradient();
 ```
 
-框架把它们带入离散。不要修改矩阵系数或 halo 边界数组。
+框架把它们带入离散。需要修改线性系统时使用 equ 的矩阵操作，不访问底层存储或 halo 数组。
 
 ## 5. 新增算法驱动 Solver：先用普通函数，不先建类
 
@@ -190,7 +209,7 @@ T.boundary("side") = zeroGradient();
 \partial_t C=D\nabla^2C+aT.
 \]
 
-两个未知量仍由同一套 `solve/eqn` 求解；不创建耦合执行器、解析器或另一套矩阵。
+两个未知量仍由同一套 `equ` 求解；不创建耦合执行器、解析器或另一套矩阵。
 
 算法需要保存某个数学状态时可写：
 
@@ -203,8 +222,7 @@ const double change = diagnostics::relativeChange(T, previous);
 带初值的重载创建不读取文件、也不自动输出的中间场；Case 拥有它，算法不管理分配或析构。
 这是数学上的赋值和变化范数，不是存储访问。初始边界是零梯度；需要别的数学条件时显式设置。
 
-所有场在 start/首次 loop 之前创建。validate() 只做校验，算法私有对象的构造不会
-抢先结束声明阶段；算法驱动主程序完成声明后调用 problem.start()。
+命名场在声明阶段创建，随后调用 problem.validate() 校验配置。局部数学临时场可在循环中创建。
 已有命名场在开始计算后仍能查找，但新名称会报错。Case 返回的引用必须保留 `&`，
 也不能超出 Case 生命周期。
 

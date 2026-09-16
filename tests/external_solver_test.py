@@ -39,12 +39,12 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     (work / "math_api.cpp").write_text(
         '#include "babelsim/math.h"\nusing namespace babelsim;\n'
         'void gradient(const ScalarField& p, VectorField& result){ math::evaluate(math::grad(p),result); }\n')
-    (work / "eqn_api.cpp").write_text(
-        '#include "babelsim/eqn.h"\nusing namespace babelsim;\n'
-        'auto heat(ScalarField& T){ return eqn::ddt(T) == eqn::laplacian(1.0,T) + eqn::source(2.0); }\n'
+    (work / "equ_api.cpp").write_text(
+        '#include "babelsim/equ.h"\n#include "babelsim/math.h"\nusing namespace babelsim;\n'
+        'auto heat(ScalarField& T){ auto A=equ::matrix(T); equ::laplacian(A,1.0,-1.0); equ::source(A,2.0); return A; }\n'
         'auto momentum(ScalarField& phi,VectorField& U,ScalarField& p){\n'
-        ' return eqn::div(phi,U) == -math::grad(p) + eqn::laplacian(0.1,U); }\n')
-    for name in ("math_api.cpp", "eqn_api.cpp"):
+        ' auto A=equ::matrix(U); equ::div(A,phi); equ::source(A,-math::grad(p)); equ::laplacian(A,0.1,-1.0); return A; }\n')
+    for name in ("math_api.cpp", "equ_api.cpp"):
         run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
             "-fsyntax-only", name, cwd=work)
     # physics() 与 case.bs 的条目同名；旧接口不再作为并存别名暴露。
@@ -72,7 +72,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     # 把整个私有 SIMPLE 模块作为维护对象在仓库外重建。
     # 不提供框架 internal/、MPI/Eigen 头；算法自己的私有头可正常使用。
     shutil.copytree(ROOT / "src/physics/simple", work / "simple")
-    shutil.copy(ROOT / "src/physics/simple_common.h", work / "simple_common.h")
+    (work / "RANS").mkdir()
+    shutil.copy(ROOT / "src/physics/RANS/api.h", work / "RANS/api.h")
     simple_objects = []
     for source in sorted((work / "simple").glob("*.cpp")):
         output = source.with_suffix(".o")
@@ -187,7 +188,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
 
     # 这是启动器的负向夹具，故意模拟不一致返回码；不是普通 Solver 编程示例。
     (work / "failure.cpp").write_text(
-        '#include "babelsim/application.h"\n#include "babelsim/case.h"\n#include <cstdlib>\n'
+        '#include "babelsim/application.h"\n#include "babelsim/case.h"\n#include <cstdlib>\n#include <iostream>\n'
         'int failure(babelsim::Case& problem){\n'
         ' (void)problem.physics().number("strength");\n'
         ' auto& field=problem.scalarField("failed",0.0); problem.output(field);\n'
@@ -205,7 +206,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         '#else\n'
         ' const babelsim::SolverRegistration entry("vector_extension",failure);\n'
         '#endif\n'
-        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv); }\n')
+        'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv,\n'
+        ' [](const char* message){ std::cerr << message << "\\n"; }); }\n')
     # 重名来自另一个源文件，确保错误检查不依赖翻译单元的静态初始化顺序。
     (work / "duplicate.cpp").write_text(
         '#include "babelsim/application.h"\nint failure(babelsim::Case&);\n'

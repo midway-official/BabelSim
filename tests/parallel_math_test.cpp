@@ -141,7 +141,7 @@ void exercise(Fields& f, Answers& answers, bool record) {
     f.gradP.fill({0.7, -0.2, 0.4});
     f.faceScalar.evaluate([](Vec3 x) { return 1.7 + 0.1*x.x; });
     poison(f.faceScalar); poison(f.p); poison(f.gradP); poison(f.phi);
-    math::subtract(math::flux(f.faceScalar, math::reconstruct(f.p, f.gradP)),
+    math::subtract(math::flux(f.faceScalar, f.p, f.gradP),
                   f.phi, math::FaceRegion::Interior); check(f.phi);
     // 与原 Rhie--Chow 逐面数学式直接对照，尤其检查分区界面与物理边界的区别。
     const Mesh& mesh = f.p.mesh();
@@ -154,7 +154,7 @@ void exercise(Fields& f, Answers& answers, bool record) {
         require(near(detail::fieldData(f.phi)[face], expected, 1e-12), "composed flux differs from the original face formula");
     }
     poison(f.faceScalar); poison(f.p); poison(f.gradP);
-    math::evaluate(math::flux(f.faceScalar, math::reconstruct(f.p, f.gradP)), f.phi); check(f.phi);
+    math::evaluate(math::flux(f.faceScalar, f.p, f.gradP), f.phi); check(f.phi);
     poison(f.gradU); math::evaluate(math::div(f.gradU), f.vector); check(f.vector);
 }
 }  // 匿名命名空间

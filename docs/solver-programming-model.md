@@ -1,78 +1,54 @@
-# 方程驱动与算法驱动：同一框架的两种组织方式
+# 过程式数值求解器编程模型
 
-两种方式不是两套架构，也不需要共同的 Solver 基类。普通作者都从 Case、命名 Field、
-eqn/math、solve 和数学 diagnostics 出发；RunTime、矩阵和 MPI 由框架维护者负责。
+求解器是使用公共数值 API 的普通 C++ 函数。作者依次读取场和参数、计算物性、
+清空矩阵、逐项离散、求解、修正场、检查收敛和写出结果。
+不要求作者定义结构体、继承算法类或拆分公共算法文件。
 
-## 公共的是框架语言，不是具体求解器
+## 独立的算法程序
 
-`include/babelsim/` 只发布 Case、Field、边界、eqn、math、solve、diagnostics 和应用注册等
-通用接口，不发布 Heat、Transport、稳态 SIMPLE 或瞬态 SIMPLE 的类。具体求解器是使用这门
-“框架语言”编写的应用，而不是供另一个 Solver 继承或调用的 SDK。
+- Heat 和 Transport 各自在一个 `main.cpp` 中完成读取、时间循环、组装和输出。
+- 稳态 SIMPLE 在自己的 `main.cpp` 中使用一个主要迭代循环。
+- 瞬态 SIMPLE 在自己的 `main.cpp` 中使用时间循环和内部 SIMPLE 循环。
+- 两个 SIMPLE 不调用共享的 SIMPLE 算法；压力非正交修正可使用显式子循环。
+- SA、k-omega、k-epsilon 各自实现输运方程、闭合和历史状态。
+  `RANS/api.h` 只提供交互接口与模型选择，不提供共享数值算法。
 
-- Heat、Transport 足够简单，各自在一个 `main.cpp` 中完成方程与注册；
-- 稳态和瞬态 SIMPLE 需要跨步骤共享数学状态，只在自己的 `src/physics/<solver>/` 中使用
-  私有 `algorithm.h/.cpp`、`momentum.cpp`、`pressure.cpp` 和 `state.h`；
-- 普通 Solver 作者不能包含这些私有头，也不需要理解它们；应直接组合公共数学 API；
-- Case 用户只写 `solver heat`、`solver transport`、`solver simple` 或
-  `solver transientSimple`，不会构造具体 Solver 对象。
+具体入口见 [稳态 SIMPLE](../src/physics/simple/main.cpp)、
+[瞬态 SIMPLE](../src/physics/transient_simple/main.cpp) 和
+[Heat](../src/physics/heat/main.cpp)。
 
-这种边界避免“内置算法的当前 C++ 组织”变成必须长期兼容的公共抽象，同时保证所有新 Solver
-仍可使用同一套 Field、Equation、离散、代数和 MPI 执行设施。
+## API 的执行语义
 
-## 方程驱动
+`equ::createEquation(field)` 创建绑定未知场的线性系统。`clear` 清空贡献，
+`ddt/div/laplacian/reaction/source` 立即组装；`solve` 只求解已组装的矩阵。
+`math::grad`、`math::div`、插值和场代数直接产生已计算的场。
+组装后的矩阵与已计算的临时场不因输入后续变化而重新求值。
 
-源码直接描述一个或几个 PDE。完整实际入口见
-[heat/main.cpp](../src/physics/heat/main.cpp) 和
-[transport/main.cpp](../src/physics/transport/main.cpp)。
-一个函数已经包含读物性、取得场、时间循环和方程，不再另建 Case reader 或运行适配文件。
+`loadMethods(problem)` 显式加载离散配置。`enableTime(problem)` 创建时间服务；
+普通 while 循环调用 `advance(time)` 推进。服务负责末步截断和时间元数据，
+不会保存历史、运行物理算法、判断收敛或写文件。
+`math::saveOld` 在物理时间步开始时显式保存历史，内迭代不得推进历史。
+`equ::ddt` 根据历史和格式配置处理 BDF2 起步与变步长系数。
 
-```cpp
-while (problem.loop()) {
-    if (!solve(eqn::ddt(C) + eqn::div(phi, C) ==
-               eqn::laplacian(D, C) + eqn::source(S)).converged()) return 2;
-}
-```
+## 责任边界
 
-## 算法驱动
+| 层 | 负责内容 |
+| --- | --- |
+| 物理求解器 | 方程、更新次序、循环、松弛、物理收敛与所有运行信息打印 |
+| 模型 | 独立闭合与输运，向求解器返回物性和诊断数据 |
+| 公共 DSL | 场、矩阵、直接数学运算与历史 |
+| 离散层 | 网格几何、边界贡献、离散格式与一致通量 |
+| 代数及并行后端 | 线性求解、线性收敛、通信及全局归约 |
+| 运行时与 IO | MPI 生命周期、配置读取、显式时间服务和显式结果写入 |
 
-本质是在同一时间层或稳态迭代里组织方程、修正与收敛。
-[双场例子](../tests/examples/coupled_scalar.cpp) 用一个普通函数完成交替耦合，
-没有新增类、框架对象、解析器或通信文件；SIMPLE 较复杂，才在自身模块内使用私有算法对象：
+运行时不打印、不推断物理收敛、不根据成功返回码自动输出。
+应用可向 runApplication 提供错误打印回调。求解器使用 primaryProcess()
+控制单进程打印，使用全局 diagnostics 保证各 rank 的停止决策一致。
 
-```cpp
-while (simple.loop()) {
-    simple.solveMomentum();
-    simple.solvePressure();
-    simple.correctVelocity();
-    simple.correctFlux();
-    simple.checkContinuity();
-}
-```
+`Case` 管理命名场；局部数学场可用 auto 创建。赋值复制数值并保留目标的边界约束。
+中间派生场需要计算边界迹时，直接接收 math 返回值，或对复用目标显式设置
+useCalculatedBoundary()。不向物理层暴露 LDU、CSR、Eigen 或 MPI。
 
-不要为了形式统一把普通 PDE 也做成继承式算法类；也不要要求新耦合算法照搬 SIMPLE 的全部文件。
-
-## 两种方式共享的契约
-
-1. Case 拥有物理场和命名中间场，引用在运行期间稳定。
-2. Field 的赋值、缩放和积是数学操作，不是让作者遍历存储。
-3. eqn 表达方程贡献，math 表达显式求值，真正执行集中在 solve/evaluate。
-4. 时间历史按物理步推进，内迭代不会改变旧时间层。
-5. diagnostics 返回全局量；每个耦合未知量都要被正确纳入停止判据。
-6. Case 按时间步统一保存已完成结果；失败提前返回，不能写成收敛结果。
-7. 新算子才需要修改离散层；组合已有算子不改 MPI 或线性代数。
-
-## 降低学习曲线，而不是隐藏物理决策
-
-作者仍需决定：隐式/显式项、BC、物性、耦合顺序、松弛、时间步和收敛准则。
-这些是数学与数值算法，框架不应该替作者猜测。
-被移除的是反复编写 reader、创建执行对象、维护历史/通信/矩阵和组织并行输出的负担。
-
-新增独立求解器的流程只有：自己的函数与一行注册、通用 runApplication 入口 → 一个 Case →
-链接已构建框架 → 串行验证 → MPI 对比。各 Solver 在自己的源文件注册，不再有内置应用选择表。
-完整可执行步骤见 [开发指南](solver-development.md)；维护者的责任边界见
-[架构](architecture.md)。make test-external 将真实 Solver 复制到仓库外构建，
-覆盖方程驱动、双场算法驱动和矢量响应；同时确认底层存储访问不能编译。
-
-这遵循 OpenFOAM 的场、方程、算法与 Case 分离思想，而不是复制其类型体系。
-[官方 simpleFoam 主程序](https://github.com/OpenFOAM/OpenFOAM-8/blob/master/applications/solvers/incompressible/simpleFoam/simpleFoam.C)
-展示了这种以算法步骤组织代码的方式；BabelSim 用普通函数和少量对象实现自己的边界。
+完整 API 契约见 [过程式 DSL](procedural-dsl.md)，编译与算例准备见
+[开发指南](solver-development.md)。旧 eqn 表达式和 loop 接口只保留兼容回归，
+不作为新求解器的开发模式。

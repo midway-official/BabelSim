@@ -1,0 +1,15 @@
+field omega
+{
+    type scalar
+    location cell
+    internal uniform (10)
+    boundary
+    {
+        airfoil { type fixedValue value (1.0e4) }
+        inlet { type fixedValue value (10) }
+        outlet { type zeroGradient }
+        farfield { type fixedValue value (10) }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

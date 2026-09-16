@@ -44,14 +44,12 @@ int main() {
     try { (void)solve(eqn::ddt(U) == eqn::source(force), referenceValue(0.0)); }
     catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "vector equation silently ignored a scalar reference constraint");
-    rejected = false;
-    try { math::evaluate(math::laplacian(p), p); }
-    catch (const std::invalid_argument&) { rejected = true; }
-    require(rejected, "in-place explicit laplacian corrupted its input");
-    rejected = false;
-    try { math::evaluate(math::flux(flux, p), flux); }
-    catch (const std::invalid_argument&) { rejected = true; }
-    require(rejected, "diffusion flux overwrote its coefficient");
+    const auto expectedLaplacian = math::laplacian(p);
+    math::evaluate(math::laplacian(p), p);
+    require(near(math::normL2(p-expectedLaplacian),0), "eager in-place laplacian changed result");
+    const auto expectedFlux = math::flux(flux,p);
+    math::evaluate(math::flux(flux,p),flux);
+    require(near(math::normL2(flux-expectedFlux),0), "eager flux coefficient alias changed result");
     rejected = false;
     try { (void)solve(eqn::ddt(p) == 0.0, relaxed(0.0)); }
     catch (const std::invalid_argument&) { rejected = true; }

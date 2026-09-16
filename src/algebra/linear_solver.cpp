@@ -238,7 +238,9 @@ void LinearSolverConfig::validate() const {
     if (!(absolute_tolerance > 0.0) || !(relative_tolerance > 0.0) ||
         !std::isfinite(absolute_tolerance) || !std::isfinite(relative_tolerance) ||
         max_iterations <= 0 || amg_max_levels <= 0 || amg_coarse_size <= 0 ||
-        amg_smoothing_steps <= 0 || amg_refresh_interval <= 0) {
+        amg_smoothing_steps <= 0 || amg_refresh_interval <= 0 ||
+        !(ilut_drop_tolerance > 0.0) || !std::isfinite(ilut_drop_tolerance) ||
+        ilut_fill_factor < 1) {
         throw std::invalid_argument("linear solver configuration is invalid");
     }
     const bool supported = preconditioner == PreconditionerType::None ||
@@ -293,8 +295,8 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& matrix) {
             state.incomplete_cholesky.info() == Eigen::Success;
         return;
     }
-    state.ilut.setDroptol(1e-3);
-    state.ilut.setFillfactor(2);
+    state.ilut.setDroptol(state.config.ilut_drop_tolerance);
+    state.ilut.setFillfactor(state.config.ilut_fill_factor);
     state.ilut.compute(state.matrix);
     state.pattern_analyzed = true;
     state.factorization_succeeded = state.ilut.info() == Eigen::Success;

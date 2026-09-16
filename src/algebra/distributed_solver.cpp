@@ -206,8 +206,8 @@ struct DistributedLinearSolver::Implementation {
             factorization_succeeded =
                 incomplete_cholesky.info() == Eigen::Success;
         } else {
-            ilut.setDroptol(1e-3);
-            ilut.setFillfactor(2);
+            ilut.setDroptol(config.ilut_drop_tolerance);
+            ilut.setFillfactor(config.ilut_fill_factor);
             ilut.compute(matrix);
             factorization_succeeded = ilut.info() == Eigen::Success;
         }

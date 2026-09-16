@@ -46,7 +46,7 @@ implementation_headers = {
     "runtime.h", "parallel.h", "mpi_support.h", "linear_solver.h", "assembly.h",
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
-for name in ("case.h", "solver.h", "math.h", "eqn.h", "application.h", "postprocess.h",
+for name in ("case.h", "solver.h", "math.h", "equ.h", "eqn.h", "application.h", "postprocess.h",
              "result_reader.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)
@@ -59,7 +59,7 @@ for path in (ROOT / "include").rglob("*.h"):
 
 # 应用只调用通用入口；各 Solver 在自己的 main.cpp 注册，不能回到集中名单。
 launcher = texts[ROOT / "src/apps/babelsim_solve.cpp"]
-assert "runApplication(argc, argv)" in launcher
+assert "runApplication(argc, argv," in launcher
 assert not re.search(r'SolverRegistration|SolverEntry|runHeat|runSimple|runTransport', launcher)
 for path in (ROOT / "src/physics").glob("*/main.cpp"):
     assert len(re.findall(r'\bSolverRegistration\b', texts[path])) == 1, path
@@ -116,20 +116,16 @@ assert not (ROOT / "src/discretization/simple_discretization.cpp").exists()
 def check_solver(path, text, dependencies):
     # 本算法内的私有状态合法，但所有跨模块能力必须来自公开 Solver API。
     module = ROOT / "src/physics" / path.relative_to(ROOT / "src/physics").parts[0]
-    shared_simple_types = ROOT / "src/physics/simple_common.h"
     for dependency in dependencies:
-        allowed_simple_shared = (dependency == shared_simple_types and
-                                 module.name in {"simple", "transient_simple"})
+        allowed_model_interface = (dependency == ROOT / "src/physics/RANS/api.h" and
+                                   module.name in {"simple", "transient_simple"})
         assert (dependency.is_relative_to(ROOT / "include") or
-                dependency.is_relative_to(module) or
-                allowed_simple_shared), (path, dependency)
+                dependency.is_relative_to(module) or allowed_model_interface), (path, dependency)
         assert dependency.name not in implementation_headers, (path, dependency)
     code = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"', '', text, flags=re.S)
     assert not re.search(r'\bdetail\s*::|MPI_|ParallelContext|HaloExchange|mutableData|'
-                         r'\.(?:data|values|internal)\s*\(|std::vector|SparseAssembly|'
-                         r'\b(?:CSR|LDU|Eigen|owned_cells|owned_faces|ghost|communicator|'
-                         r'PerformanceCounters)\b|\.performance\s*\(|'
-                         r'\.reportPerformance\s*\(', code), path
+                         r'\.(?:data|values|internal)\s*\(|SparseAssembly|'
+                         r'\b(?:CSR|LDU|Eigen|owned_cells|owned_faces|ghost|communicator)\b', code), path
 
 
 for path in files:
@@ -137,7 +133,7 @@ for path in files:
         check_solver(path, texts[path], closures[path])
 
 # 负向验收：检查器本身必须拒绝曾经漏过的私有接口、存储访问和运行后端包含链。
-momentum = ROOT / "src/physics/simple/momentum.cpp"
+momentum = ROOT / "src/physics/simple/main.cpp"
 for body, dependency in (
     ('detail::fieldData(m_U)[0] = Vec3{};', None),
     ('detail::meshData(m_U.mesh());', None),
@@ -157,14 +153,35 @@ for body, dependency in (
 for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [
         ROOT / "tests/examples/coupled_scalar.cpp", ROOT / "tests/external/solver.cpp"]:
     assert not re.search(r'MPI_|ParallelContext|HaloExchange|mutableData|\.data\(|'
-                         r'std::vector|unique_ptr|shared_ptr|RunTime|SparseAssembly', path.read_text()), path
-simple_common = ROOT / "src/physics/simple_common.h"
-control = texts[simple_common]
-assert "LinearSolverConfig" not in control and "simpleRunTimeControl" not in control
-assert all(dependency.is_relative_to(ROOT / "include") or dependency == simple_common
-           for dependency in closures[simple_common])
+                         r'RunTime|SparseAssembly', path.read_text()), path
+# Each SIMPLE is a self-contained program, not a shared algorithm wrapper.
+for module in ("simple", "transient_simple"):
+    assert sorted(p.name for p in (ROOT / "src/physics" / module).iterdir()) == ["main.cpp"]
+    text = texts[ROOT / "src/physics" / module / "main.cpp"]
+    assert "equ::solve" in text and "for (int iter" in text
+    assert "solveIncompressible" not in text
+assert "while (time.value() < time.end())" in texts[ROOT / "src/physics/transient_simple/main.cpp"]
+# The model contract has no data or transport implementation.
+model_api = texts[ROOT / "src/physics/RANS/api.h"]
+assert "virtual SolveResult correct()=0" in model_api
+assert "solveTransport" not in model_api and "equ::" not in model_api
+for name in ("k_omega", "k_epsilon", "spalart_allmaras"):
+    text = texts[ROOT / "src/physics/RANS" / (name + ".cpp")]
+    assert "equ::solve" in text and "equ::ddt" in text
+    assert '#include "model.h"' not in text
 for name in ("thermal.h", "transport.h", "simple.h", "simple_control.h",
              "transient_simple.h", "equation.h", "solvers.h"):
     assert not (ROOT / "include/babelsim" / name).exists(), name
+
+# Runtime provides data/execution only; solver programs own printing and loops.
+for path in (ROOT / "src/runtime").glob("*.cpp"):
+    assert not re.search(r'std::(?:cout|cerr|clog)|\b(?:printf|fprintf|puts)\s*\(', texts[path]), path
+assert not re.search(r'std::(?:cout|cerr|clog)|reportPerformance', texts[ROOT / "src/io/case.cpp"])
+for path in (ROOT / "src/physics").rglob("*.cpp"):
+    assert not re.search(r'\beqn::|\.loop\s*\(|diagnostics::report', texts[path]), path
+for name in ("procedural_equation.cpp", "field_math.cpp"):
+    dependencies = closures[ROOT / "src/discretization" / name]
+    assert all(path.name not in {"runtime.h", "parallel.h", "mpi_support.h", "assembly.h"}
+               for path in dependencies), name
 
 print(f"architecture_test: {len(files)} sources/headers, acyclic includes and layer boundaries passed")

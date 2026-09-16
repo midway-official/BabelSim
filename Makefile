@@ -35,6 +35,8 @@ SOURCES := src/core/mesh.cpp \
            src/discretization/operators.cpp \
            src/discretization/equation_expression.cpp \
            src/discretization/fvm_execution.cpp \
+           src/discretization/procedural_equation.cpp \
+           src/discretization/field_math.cpp \
            $(COMPUTE_BACKEND_SOURCES) \
            src/parallel/parallel_context.cpp \
            src/parallel/parallel_writer.cpp \
@@ -46,8 +48,10 @@ OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOURCES))
 SOLVER_SOURCES := $(wildcard src/physics/*/main.cpp)
 SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
+TEST_SUPPORT_HEADERS := $(wildcard tests/support/*.h)
 
-TEST_SOURCES := tests/numerical_contract_test.cpp \
+TEST_SOURCES := tests/procedural_equation_test.cpp \
+                tests/numerical_contract_test.cpp \
                 tests/unstructured_mesh_test.cpp \
                 tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
@@ -88,7 +92,7 @@ $(BUILD)/%.o: src/%.cpp Makefile
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD)/%: tests/%.cpp tests/test_util.h $(HEADERS) $(LIB)
+$(BUILD)/%: tests/%.cpp tests/test_util.h $(TEST_SUPPORT_HEADERS) $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)
 	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
 

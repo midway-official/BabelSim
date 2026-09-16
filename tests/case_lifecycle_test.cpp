@@ -1,5 +1,5 @@
 #include "babelsim/case.h"
-#include "physics/simple/algorithm.h"
+#include "support/simple_reference.h"
 #include "test_util.h"
 
 #include <iostream>
@@ -42,7 +42,10 @@ int main() {
     }
     {
         Case problem("cases/cavity", "lifecycle-simple");
-        SteadySimpleAlgorithm simple(problem);
+        problem.vectorField("U"); problem.scalarField("p"); problem.faceField("phi");
+        problem.physics().positive("density");
+        problem.physics().positive("dynamicViscosity");
+        readSimpleControl(problem.solution());
         problem.scalarField("couplingState", 0.0);
         problem.validate();
         problem.scalarField("afterValidation", 0.0);

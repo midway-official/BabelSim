@@ -25,6 +25,12 @@ public:
     virtual void sum(const double* local, double* global, int count) const = 0;
     virtual void maximum(const double* local, double* global, int count) const = 0;
     virtual bool all(bool local_condition) const = 0;
+    virtual SolveResult solve(const ScalarDiscreteEquation&, ScalarField&, const LinearSolverConfig&) {
+        throw std::logic_error("compute backend does not support per-solve linear options");
+    }
+    virtual std::array<SolveResult,3> solve(const VectorDiscreteEquation&, VectorField&, const LinearSolverConfig&) {
+        throw std::logic_error("compute backend does not support per-solve linear options");
+    }
     // 可替换后端不实现观测时返回空快照，避免性能观测扩展破坏既有后端契约。
     virtual PerformanceCounters performance() const { return {}; }
 

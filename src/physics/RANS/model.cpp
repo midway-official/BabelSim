@@ -24,113 +24,6 @@ std::string selectedModel(const Parameters& settings) {
 
 }  // 匿名命名空间
 
-Model::Model(
-    Case& problem,
-    const VectorField& velocity,
-    const ScalarField& face_flux,
-    ScalarField& effective_viscosity,
-    double density,
-    double molecular_viscosity)
-    : m_problem(problem),
-      m_velocity(velocity),
-      m_face_flux(face_flux),
-      m_effective_viscosity(effective_viscosity),
-      m_density(density),
-      m_molecular_viscosity(molecular_viscosity),
-      m_relaxation(positiveSetting(problem.physics(), "turbulenceRelaxation", 0.7)),
-      m_tolerance(positiveSetting(problem.physics(), "turbulenceTolerance", 1e-6)),
-      m_velocity_gradient(problem.tensorField("ransGradU", Tensor3{})),
-      m_strain_measure(problem.scalarField("ransStrain2", 0.0))
-{
-    m_effective_viscosity.useCalculatedBoundary();
-    m_velocity_gradient.useCalculatedBoundary();
-    m_strain_measure.useCalculatedBoundary();
-    if (m_relaxation > 1.0) {
-        throw std::invalid_argument("turbulenceRelaxation must not exceed one");
-    }
-}
-
-SolveResult Model::solveTransport(
-    ScalarField& variable,
-    const ScalarField& diffusivity,
-    const ScalarField& source, const ScalarField* sink) const
-{
-    return solve(transportEquation(variable, diffusivity, source, sink), relaxed(m_relaxation));
-}
-
-ScalarEquationDefinition Model::transportEquation(ScalarField& variable,
-    const ScalarField& diffusivity, const ScalarField& source, const ScalarField* sink) const
-{
-    ScalarExpression lhs = eqn::div(m_density, m_face_flux, variable);
-    if (numericalMethods().time != TimeMethod::Steady) lhs = eqn::ddt(m_density, variable) + lhs;
-    if (sink) lhs = lhs + eqn::Sp(*sink, variable);
-    return lhs == eqn::laplacian(diffusivity, variable) + eqn::source(source);
-}
-
-double Model::transportResidual(ScalarField& variable, const ScalarField& diffusivity,
-    const ScalarField& source, const ScalarField* sink) const
-{
-    return diagnostics::residual(transportEquation(variable, diffusivity, source, sink)).relative();
-}
-
-void Model::updateKinematics() {
-    const_cast<VectorField&>(m_velocity).setBoundaryFlux(m_face_flux);
-    math::evaluate(math::grad(m_velocity), m_velocity_gradient);
-    m_strain_measure.evaluate(m_velocity_gradient, strainMeasure);
-}
-
-void Model::setEddyViscosity(const ScalarField& turbulent_viscosity) {
-    m_effective_viscosity.fill(m_molecular_viscosity);
-    m_effective_viscosity.addScaled(1.0, turbulent_viscosity);
-}
-
-SolveResult Model::combine(const SolveResult& first, const SolveResult& second) {
-    SolveResult result;
-    result.status = first.status == SolveStatus::NumericalFailure ||
-            second.status == SolveStatus::NumericalFailure
-        ? SolveStatus::NumericalFailure
-        : first.converged() && second.converged()
-            ? SolveStatus::Converged : SolveStatus::MaxIterations;
-    result.iterations = first.iterations + second.iterations;
-    result.initial_residual = std::hypot(first.initial_residual, second.initial_residual);
-    result.final_residual = std::hypot(first.final_residual, second.final_residual);
-    result.relative_residual = std::max(first.relative_residual, second.relative_residual);
-    return result;
-}
-
-double positiveSetting(const Parameters& settings, const char* key, double fallback) {
-    const double value = settings.number(key, fallback);
-    if (!(value > 0.0) || !std::isfinite(value)) {
-        throw std::invalid_argument(std::string(key) + " must be positive");
-    }
-    return value;
-}
-
-double strainMeasure(const Tensor3& gradient) {
-    const double divergence = gradient[0][0] + gradient[1][1] + gradient[2][2];
-    double squared = 0.0;
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column) {
-            double value = 0.5 * (gradient[row][column] + gradient[column][row]);
-            if (row == column) value -= divergence / 3.0;
-            squared += value * value;
-        }
-    }
-    return 2.0 * squared;
-}
-
-double vorticityMagnitude(const Tensor3& gradient) {
-    double squared = 0.0;
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column) {
-            const double value = 0.5 *
-                (gradient[row][column] - gradient[column][row]);
-            squared += value * value;
-        }
-    }
-    return std::sqrt(2.0 * squared);
-}
-
 Model* create(
     Case& problem,
     const VectorField& velocity,
@@ -160,6 +53,7 @@ Model* create(
         "unsupported turbulenceModel; expected none, SA, kOmega or kEpsilon");
 }
 
+void saveOld(Model& model,double dt) { model.saveOld(dt); }
 void destroy(Model* model) noexcept { delete model; }
 SolveResult correct(Model& model) { return model.correct(); }
 double relativeChange(const Model& model) { return model.relativeChange(); }

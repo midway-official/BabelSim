@@ -1,0 +1,46 @@
+{
+  "cell_count": 112000,
+  "vertex_count": 226080,
+  "wall_surface_points": 401,
+  "spanwise_cells": 1,
+  "positive_volume_cells": 112000,
+  "negative_or_zero_volume_cells": 0,
+  "cell_volume_min": 4.038774343372779e-06,
+  "cell_volume_max": 0.20120104344572265,
+  "edge_length_min": 0.0005159999999999563,
+  "edge_length_max": 0.6965345120720148,
+  "edge_length_3d_min": 0.0005159999999999563,
+  "edge_length_3d_max": 1.0,
+  "planar_aspect_ratio_max": 143.96913335791885,
+  "planar_aspect_ratio_p95": 65.22050854593834,
+  "nonorthogonality_deg_max": 82.64276217102287,
+  "nonorthogonality_deg_p95": 45.75556379565497,
+  "face_skewness_max": 0.5726203695194327,
+  "face_skewness_p95": 0.014781820937853298,
+  "first_layer_spacing_min": 0.006157973649821483,
+  "first_layer_spacing_max": 0.6964943386804937,
+  "outer_x_range": [
+    -5.0,
+    30.0
+  ],
+  "outer_y_range": [
+    -12.0,
+    12.0
+  ],
+  "extrusion_thickness": 1.0,
+  "angle_of_attack_deg": 15.0,
+  "rotation_pivot_x": 0.25,
+  "farfield_box": {
+    "x_min": -5.0,
+    "x_max": 30.0,
+    "y_min": -12.0,
+    "y_max": 12.0
+  },
+  "farfield_geometry": "exact_rectangle_c_grid",
+  "block_counts": {
+    "left": 140,
+    "wall_normal": 80,
+    "wake": 320,
+    "wake_normal": 20
+  }
+}

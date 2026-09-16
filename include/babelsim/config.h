@@ -32,8 +32,11 @@ public:
     double number(const std::string& key) const;
     double number(const std::string& key, double fallback) const;
     double positive(const std::string& key) const;
+    double positive(const std::string& key, double fallback) const;
+    double fraction(const std::string& key, double fallback) const;
     double nonnegative(const std::string& key) const;
     int integer(const std::string& key, int fallback) const;
+    int integer(const std::string& key, int fallback, int minimum, int maximum) const;
     void requireAllUsed() const;
 
     // 字典基础设施入口，普通 Solver 不需要访问 token。

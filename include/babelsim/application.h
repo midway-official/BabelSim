@@ -2,6 +2,7 @@
 
 namespace babelsim {
 class Case;
+using ApplicationErrorHandler = void (*)(const char* message);
 
 // 每个 Solver 在自己的源文件命名空间作用域注册一次，名称使用字符串字面量。
 // 注册只连接描述项：无堆分配、异常或 MPI 调用，校验与分派在 runApplication 内完成。
@@ -18,10 +19,11 @@ private:
     int (*m_run)(Case&);
     mutable const SolverRegistration* m_next;
     static const SolverRegistration*& first() noexcept;
-    friend int runApplication(int argc, char* argv[]);
+    friend int runApplication(int argc, char* argv[], ApplicationErrorHandler);
 };
 
-// 运行已链接源文件注册的 Solver；统一管理参数、MPI 生命周期、失败退出与最终输出。
-int runApplication(int argc, char* argv[]);
+// Dispatch and MPI lifetime only. No output or automatic result writes.
+// The application may supply its own error handler; default operation is silent.
+int runApplication(int argc, char* argv[], ApplicationErrorHandler onError = nullptr);
 
 }  // babelsim 命名空间

@@ -1,6 +1,8 @@
 #include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
+#include "babelsim/equ.h"
+#include <iostream>
 
 using namespace babelsim;
 
@@ -11,9 +13,16 @@ int transport(Case& problem) {
     ScalarField& phi = problem.faceFlux("phi", U);
     const double D = problem.physics().nonnegative("diffusivity");
     const double Q = problem.physics().number("source");
-    while (problem.loop()) {
-        if (!solve(eqn::ddt(C) + eqn::div(phi, C) ==
-                   eqn::laplacian(D, C) + Q).converged()) return 2;
+    loadMethods(problem);
+    auto time=enableTime(problem);
+    auto old=math::history(C);
+    auto A=equ::matrix(C);
+    while(time.value()<time.end()) {
+        advance(time); math::saveOld(old,C,time.dt());
+        equ::clear(A); equ::ddt(A,1.0,old); equ::div(A,phi);
+        equ::laplacian(A,D,-1.0); equ::source(A,Q);
+        if(!equ::solve(A,C).converged()) return 2;
+        write(problem,time);
     }
     return 0;
 }
@@ -30,13 +39,21 @@ int coupled(Case& problem) {
     const double a = problem.physics().number("coupling");
     problem.output(T);
     problem.output(C);
-    while (problem.loop()) {
+    loadMethods(problem);
+    auto time=enableTime(problem);
+    auto oldT=math::history(T),oldC=math::history(C);
+    auto A=equ::matrix(T),B=equ::matrix(C);
+    while(time.value()<time.end()) {
+        advance(time);
+        math::saveOld(oldT,T,time.dt()); math::saveOld(oldC,C,time.dt());
         bool converged = false;
         for (int correction = 0; correction < 100; ++correction) {
             previousT.assign(T);
             previousC.assign(C);
-            if (!solve(eqn::ddt(T) == eqn::laplacian(D, T) + eqn::source(a, C)).converged()) return 2;
-            if (!solve(eqn::ddt(C) == eqn::laplacian(D, C) + eqn::source(a, T)).converged()) return 2;
+            equ::clear(A); equ::ddt(A,1.0,oldT); equ::laplacian(A,D,-1.0); equ::source(A,a*C);
+            if(!equ::solve(A,T).converged()) return 2;
+            equ::clear(B); equ::ddt(B,1.0,oldC); equ::laplacian(B,D,-1.0); equ::source(B,a*T);
+            if(!equ::solve(B,C).converged()) return 2;
             if (diagnostics::relativeChange(T, previousT) < 1e-12 &&
                 diagnostics::relativeChange(C, previousC) < 1e-12) {
                 converged = true;
@@ -44,6 +61,7 @@ int coupled(Case& problem) {
             }
         }
         if (!converged) return 2;
+        write(problem,time);
     }
     return 0;
 }
@@ -70,11 +88,21 @@ int vectorResponse(Case& problem) {
     problem.output(rAU);
     problem.output(energy);
     problem.output(stress);
-    while (problem.loop()) {
-        if (!solveWithResponse(eqn::ddt(U) == eqn::source(strength, force), rAU).converged()) return 2;
-        if (!solve(-eqn::laplacian(1.0, p) == 0.0, referenceValue(3.0)).converged()) return 2;
+    loadMethods(problem);
+    auto time=enableTime(problem);
+    auto old=math::history(U);
+    auto A=equ::matrix(U);
+    auto P=equ::matrix(p);
+    while(time.value()<time.end()) {
+        advance(time); math::saveOld(old,U,time.dt());
+        equ::clear(A); equ::ddt(A,1.0,old); equ::source(A,strength*force);
+        rAU=equ::response(A);
+        if(!equ::solve(A,U).converged()) return 2;
+        equ::clear(P); equ::laplacian(P,1.0,-1.0); equ::reference(P,0,3.0);
+        if(!equ::solve(P,p).converged()) return 2;
         math::subtract(rAU, math::grad(p), U);
         energy.evaluate(U, [](Vec3 velocity) { return 0.5*squaredNorm(velocity); });
+        write(problem,time);
     }
     return 0;
 }
@@ -82,5 +110,5 @@ int vectorResponse(Case& problem) {
 const SolverRegistration vector_registration("vector_extension", vectorResponse);
 
 int main(int argc, char* argv[]) {
-    return runApplication(argc, argv);
+    return runApplication(argc, argv, [](const char* message){ std::cerr << message << '\n'; });
 }

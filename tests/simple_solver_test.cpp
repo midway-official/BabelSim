@@ -1,6 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
-#include "physics/simple/algorithm.h"
+#include "support/simple_reference.h"
 #include "babelsim/runtime.h"
 #include "babelsim/mesh_io.h"
 
@@ -61,7 +61,7 @@ int main() {
     configureChannelBoundaries(fields);
 
     bool rejected = false;
-    try { SteadySimpleAlgorithm without_run(fields, {1.0, 0.01}, {}); }
+    try { solveIncompressible(fields, {1.0, 0.01}, {}); }
     catch (const std::logic_error&) { rejected = true; }
     require(rejected, "SIMPLE accepted fields without an active execution domain");
 
@@ -87,22 +87,14 @@ int main() {
     const Mesh other_mesh = makeHexBox({2, 2, 1}, {}, {1, 1, 1});
     IncompressibleFields other_fields(other_mesh);
     rejected = false;
-    try { SteadySimpleAlgorithm wrong_mesh(other_fields, {1.0, 0.01}, control); }
+    try { solveIncompressible(other_fields, {1.0, 0.01}, control); }
     catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "SIMPLE accepted fields from a different execution domain");
     // rho=2 同时验证 eqn::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
     // 黏度以维持该回归的 Reynolds 数。
-    SteadySimpleAlgorithm solver(fields, {2.0, 0.2}, control);
-    SimpleIterationResult result;
     int iterations = 0;
-    for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {
-        result = solver.iterate();
-        iterations = iteration;
-        require(result.healthy, "SIMPLE produced a numerical failure");
-        if (result.converged) {
-            break;
-        }
-    }
+    const auto result = solveIncompressible(fields, {2.0, 0.2}, control, &iterations);
+    require(result.healthy, "SIMPLE produced a numerical failure");
     require(result.converged, "SIMPLE did not converge on the native channel");
     require(
         result.continuity.relative <= control.continuity_tolerance,

@@ -8,7 +8,6 @@
 
 #include <array>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -213,7 +212,6 @@ struct Case::Implementation {
     int last_written_step = -1;
     bool started = false;
     bool finished = false;
-    bool performance_reported = false;
 };
 
 Case::Case(const std::filesystem::path& directory, const std::string& run_name)
@@ -288,6 +286,68 @@ void Case::start() {
     m_implementation->started = true;
 }
 
+const Methods& Case::loadMethods() {
+    m_implementation->run_time.setMethods(readMethodsFile(m_implementation->definition.methods_file));
+    return m_implementation->run_time.methods();
+}
+const Methods& loadMethods(Case& problem) { return problem.loadMethods(); }
+TimeStepper::TimeStepper(Case& problem):case_(&problem),options_(problem.timeControl()),
+    value_(options_.start_time),dt_(options_.delta_t) { options_.validate(); }
+TimeStepper enableTime(Case& problem) { return TimeStepper(problem); }
+void advance(TimeStepper& time) {
+    if(time.finished()) throw std::logic_error("cannot advance beyond endTime");
+    const double tolerance=32*std::numeric_limits<double>::epsilon()*
+        std::max({std::abs(time.options_.start_time),std::abs(time.options_.end_time),time.options_.delta_t});
+    double next=static_cast<double>(static_cast<long double>(time.options_.start_time)+
+        static_cast<long double>(time.step_+1)*time.options_.delta_t);
+    if(next>=time.options_.end_time-tolerance) next=time.options_.end_time;
+    const double dt=next-time.value_;
+    if(!(dt>0)) throw std::runtime_error("time step is below representable time precision");
+    time.case_->setTime(next,time.step_+1,dt);
+    time.value_=next; time.dt_=dt; ++time.step_;
+}
+void write(Case& problem,const TimeStepper& time) {
+    if(&problem!=&time.owner()) throw std::invalid_argument("time service belongs to another case");
+    problem.setTime(time.value(),time.step(),time.dt());
+    problem.write();
+}
+
+LinearSolverConfig Case::linearControl(bool vector) const { return m_implementation->run_time.linearControl(vector); }
+TimeOptions readTimeControl(const Case& problem) {
+    const auto& c=problem.timeControl(); return {c.start_time,c.end_time,c.delta_t};
+}
+LinearSolverConfig readLinearControl(const Case& problem,const ScalarField& field) {
+    if(&field.mesh()!=&problem.mesh()) throw std::invalid_argument("linear control field belongs to a different case");
+    return problem.linearControl(false);
+}
+LinearSolverConfig readLinearControl(const Case& problem,const VectorField& field) {
+    if(&field.mesh()!=&problem.mesh()) throw std::invalid_argument("linear control field belongs to a different case");
+    return problem.linearControl(true);
+}
+int readWriteInterval(const Case& problem) { return problem.outputControl().write_interval; }
+void setTime(Case& problem,double value) {
+    problem.setTime(value,problem.step(),problem.timeControl().delta_t);
+}
+void write(Case& problem,double value,int step) {
+    problem.setTime(value,step,problem.timeControl().delta_t);
+    problem.write();
+}
+
+const TimeControl& Case::timeControl() const { return m_implementation->run_time.timeControl(); }
+const OutputControl& Case::outputControl() const { return m_implementation->output; }
+void Case::setTime(double value, int step_value, double dt) {
+    if (m_implementation->finished) throw std::logic_error("cannot change a finished case");
+    start();
+    m_implementation->run_time.setTime(value, step_value, dt);
+}
+void Case::write() {
+    start();
+    m_implementation->writeStep(true);
+    // Explicit writes update both the time series and the latest written snapshot.
+    // This does not mark the physical calculation converged or complete.
+    m_implementation->write(m_implementation->final_directory);
+}
+
 bool Case::loop() {
     Implementation& state = *m_implementation;
     if (state.finished) return false;
@@ -304,42 +364,16 @@ void Case::finish() {
     Implementation& state = *m_implementation;
     if (state.finished) return;
     start();
-    reportPerformance();
     state.writeStep(true);
     if (state.final_directory != state.series_directory / timeName(time()))
         state.write(state.final_directory);
     state.finished = true;
-    if (state.parallel.rank == 0)
-        std::cout << "BabelSim result time=" << time()
-                  << " steps=" << step() << " saved to " << state.series_directory << '\n';
+
 }
 
-void Case::reportPerformance() {
-    Implementation& state = *m_implementation;
-    if (state.performance_reported) return;
-    state.performance_reported = true;
-    // 各计数和计时取所有 rank 的最大值，表示并行关键路径；不能用 rank 0
-    // 的局部耗时替代整体性能。该额外归约发生在快照之后，不计入求解工作量。
-    const PerformanceCounters performance = maximumPerformance(
-        state.run_time.performance(), state.parallel);
-    if (state.parallel.rank == 0) {
-        std::cout << "BabelSim performance runtimeElapsed=" << performance.elapsed_seconds
-                  << " linearSolves=" << performance.linear_solves
-                  << " krylovIterations=" << performance.krylov_iterations
-                  << " spmv=" << performance.sparse_matvecs
-                  << " halo=" << performance.halo_exchanges
-                  << " allreduce=" << performance.global_reductions
-                  << " assembly=" << performance.equation_assemblies
-                  << '/' << performance.assembly_seconds
-                  << " preconditionerSetup=" << performance.preconditioner_setups
-                  << '/' << performance.preconditioner_seconds
-                  << " preconditionerApply=" << performance.preconditioner_applications
-                  << '/' << performance.preconditioner_apply_seconds
-                  << " linearSeconds=" << performance.linear_solve_seconds
-                  << " spmvSeconds=" << performance.sparse_matvec_seconds
-                  << " haloSeconds=" << performance.halo_seconds
-                  << " allreduceSeconds=" << performance.global_reduction_seconds << '\n';
-    }
+PerformanceCounters Case::performance() const {
+    const Implementation& state = *m_implementation;
+    return maximumPerformance(state.run_time.performance(), state.parallel);
 }
 
-}  // babelsim 命名空间
+} // namespace babelsim

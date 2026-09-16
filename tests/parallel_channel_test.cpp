@@ -1,6 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
-#include "physics/simple/algorithm.h"
+#include "support/simple_reference.h"
 #include "babelsim/runtime.h"
 #include "babelsim/mesh_io.h"
 #include "babelsim/parallel.h"
@@ -100,17 +100,9 @@ int main(int argc, char* argv[]) {
         run_control.scalar_solver.max_iterations = 1200;
 
         RunTime run_time = RunTime::forMesh(mesh, run_control);
-        SteadySimpleAlgorithm solver(fields, {1.0, 0.01}, control);
-        SimpleIterationResult result;
         int iterations = 0;
-        for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {
-            result = solver.iterate();
-            iterations = iteration;
-            require(result.healthy, "distributed channel SIMPLE became unhealthy");
-            if (result.converged) {
-                break;
-            }
-        }
+        const auto result = solveIncompressible(fields, {1.0, 0.01}, control, &iterations);
+        require(result.healthy, "SIMPLE produced a numerical failure");
         if (!result.converged && parallel.rank == 0)
             std::cerr << "channel stopping diagnostics: mass=" << result.continuity.relative
                       << " dU=" << result.relative_velocity_change

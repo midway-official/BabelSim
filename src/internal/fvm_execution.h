@@ -20,6 +20,10 @@ public:
     FvmExecution(const FvmExecution&) = delete;
     FvmExecution& operator=(const FvmExecution&) = delete;
     void beginStep(double delta_t);
+    // Internal bridge for the immediate procedural assembler.
+    ComputeBackend& backend();
+    const Mesh& mesh() const;
+    void setMethods(const Methods&);
     SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control,
                       EquationResidual* residual = nullptr);
     std::array<SolveResult, 3> solve(
@@ -60,4 +64,5 @@ private:
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;
 };
+FvmExecution& execution();
 }  // babelsim::detail 命名空间

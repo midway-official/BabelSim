@@ -1,6 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
-#include "physics/simple/algorithm.h"
+#include "support/simple_reference.h"
 #include "babelsim/runtime.h"
 
 #include "test_util.h"
@@ -47,17 +47,9 @@ int main() {
     run_control.scalar_solver.relative_tolerance = 1e-9;
 
     RunTime run_time = RunTime::forMesh(mesh, run_control);
-    SteadySimpleAlgorithm solver(fields, {1.0, 0.01}, control);
-    SimpleIterationResult result;
     int iterations = 0;
-    for (int iteration = 1; iteration <= control.max_iterations; ++iteration) {
-        result = solver.iterate();
-        iterations = iteration;
-        require(result.healthy, "3D cavity SIMPLE became unhealthy");
-        if (result.converged) {
-            break;
-        }
-    }
+    const auto result = solveIncompressible(fields, {1.0, 0.01}, control, &iterations);
+    require(result.healthy, "SIMPLE produced a numerical failure");
     require(result.converged, "3D cavity SIMPLE did not converge");
 
     const Index lower_centre = hexCellIndex(n / 2 - 1, n / 2 - 1, n / 2 - 1, n, n);

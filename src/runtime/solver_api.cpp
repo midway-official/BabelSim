@@ -3,25 +3,15 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <stdexcept>
 
 namespace babelsim {
 
 const Methods& numericalMethods() { return RunTime::current().methods(); }
+bool primaryProcess() { return RunTime::current().primary(); }
 
 SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control) {
-    RunTime& time = RunTime::current();
-    const SolveResult result = detail::execution().solve(equation, control);
-    if (!result.converged() && time.primary()) {
-        std::cerr << "linear solve failed at time=" << time.time()
-                  << " iterations=" << result.iterations
-                  << " initial=" << result.initial_residual
-                  << " final=" << result.final_residual
-                  << " relative=" << result.relative_residual
-                  << " healthy=" << result.healthy() << '\n';
-    }
-    return result;
+    return detail::execution().solve(equation, control);
 }
 
 namespace {
@@ -38,9 +28,6 @@ SolveResult aggregate(const std::array<SolveResult, 3>& components) {
         result.relative_residual = std::max(result.relative_residual, component.relative_residual);
         result.performance += component.performance;
     }
-    if (!result.converged() && RunTime::current().primary())
-        std::cerr << "vector equation failed at time=" << RunTime::current().time()
-                  << " worst relative residual=" << result.relative_residual << '\n';
     return result;
 }
 
@@ -130,10 +117,6 @@ EquationResidual residual(const ScalarEquationDefinition& equation) {
 }
 EquationResidual residual(const VectorEquationDefinition& equation) {
     return detail::execution().residual(equation);
-}
-
-void report(std::string_view message) {
-    if (RunTime::current().primary()) std::cout << message << '\n';
 }
 
 double relativeChange(const VectorField& current, const VectorField& previous) {

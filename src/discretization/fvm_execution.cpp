@@ -164,6 +164,9 @@ FvmExecution::FvmExecution(const Mesh& mesh, const Methods& methods,
     : m_implementation(std::make_unique<Implementation>(
           mesh, methods, std::move(backend), delta_t)) {}
 FvmExecution::~FvmExecution() = default;
+ComputeBackend& FvmExecution::backend() { return *m_implementation->backend; }
+const Mesh& FvmExecution::mesh() const { return *m_implementation->mesh; }
+void FvmExecution::setMethods(const Methods& methods) { m_implementation->methods=methods; }
 
 void FvmExecution::beginStep(double delta_t) {
     Implementation& state = *m_implementation;

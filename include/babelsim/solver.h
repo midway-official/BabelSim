@@ -11,6 +11,8 @@ namespace babelsim {
 // 当前问题的只读数值方法；算法可以据此选择修正次数，不接触运行后端。
 // 引用仅在当前 Case/运行域生存期内有效。
 const Methods& numericalMethods();
+// Query only; the solver owns all output.
+bool primaryProcess();
 
 // 普通 Solver 的数学执行入口。此头文件不包含 RunTime、MPI 或离散矩阵实现。
 // 面通量在每个控制体上的守恒误差。它是通用有限体积诊断量；不可压缩 SIMPLE 将
@@ -59,8 +61,6 @@ double relativeChange(const ScalarField& current, const ScalarField& previous);
 double relativeMagnitude(const ScalarField& value, const ScalarField& reference);
 FluxBalance fluxBalance(const ScalarField& face_flux);
 bool all(bool local_condition);
-// 算法提供诊断文本，框架保证一次输出；调用者不判断进程编号。
-void report(std::string_view message);
 }  // diagnostics 命名空间
 
 }  // babelsim 命名空间

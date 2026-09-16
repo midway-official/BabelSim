@@ -2,6 +2,9 @@
 
 #include "babelsim/config.h"
 #include "babelsim/field.h"
+#include "babelsim/time.h"
+#include "babelsim/methods.h"
+#include "babelsim/solver_control.h"
 
 #include <memory>
 
@@ -69,21 +72,37 @@ public:
     // 下一次 loop() 前保存已完成时间步；自然退出时保证最终时刻写出。
     // 若求解失败，请提前返回，不调用 finish()，以免把失败步标成完整结果。
     bool loop();
+    const TimeControl& timeControl() const;
+    LinearSolverConfig linearControl(bool vector) const;
+    const Methods& loadMethods();
+    const OutputControl& outputControl() const;
+    // Procedural lifecycle: these calls never advance field histories.
+    void setTime(double value, int step, double dt);
+    void write();
     double time() const;
     int step() const;
     // validate 只校验；只有最外层 start/loop 关闭声明阶段，算法构造不改变 Case 状态。
     void validate() const;
     void start();
     void finish();
+    // Data only. Solver code decides when and how to print these counters.
+    PerformanceCounters performance() const;
 
 private:
-    // 应用生命周期观测不是 Solver API。启动器在正常完成和达到迭代上限时调用；
-    // 不写结果，也不改变成功/失败状态。
-    friend int runApplication(int argc, char* argv[]);
-    void reportPerformance();
     void selectOutput(const std::string& name, const void* field, bool enabled);
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;
 };
+
+// Read-only configuration values and explicit I/O; no algorithm lifecycle.
+struct TimeOptions { double start, end, dt; };
+const Methods& loadMethods(Case&);
+TimeOptions readTimeControl(const Case&);
+LinearSolverConfig readLinearControl(const Case&, const ScalarField&);
+LinearSolverConfig readLinearControl(const Case&, const VectorField&);
+int readWriteInterval(const Case&);
+void setTime(Case&, double time);
+void write(Case&, double time, int step);
+void write(Case&, const TimeStepper&);
 
 }  // babelsim 命名空间

@@ -73,7 +73,7 @@ int main() {
     ScalarField projected(mesh, FieldLocation::Face, "projected");
     math::evaluate(math::flux(face_response), projected);
     math::add(math::flux(face_response), correction, math::FaceRegion::Interior);
-    math::subtract(math::flux(face_coefficient, math::reconstruct(scalar, scalar_gradient)),
+    math::subtract(math::flux(face_coefficient, scalar, scalar_gradient),
                   correction, math::FaceRegion::Interior);
     for (Index face : detail::meshData(mesh).owned_faces) {
         const double projection = dot(detail::fieldData(face_response)[face], mesh.faceAreaVector(face));
@@ -94,8 +94,11 @@ int main() {
         throw std::runtime_error("invalid public flux operation was accepted");
     };
     rejects([&] { math::add(math::flux(face_response), scalar); });
-    rejects([&] { math::subtract(math::flux(face_coefficient, scalar), face_coefficient); });
-    rejects([&] { math::evaluate(math::flux(face_coefficient, math::reconstruct(scalar, face_response)), projected); });
+    const auto before=math::copy(face_coefficient);
+    const auto decrement=math::flux(face_coefficient,scalar);
+    math::subtract(math::flux(face_coefficient,scalar),face_coefficient);
+    require(near(math::normL2(face_coefficient-(before-decrement)),0),"eager alias subtraction changed result");
+    rejects([&] { math::evaluate(math::flux(face_coefficient, scalar, face_response), projected); });
     rejects([&] { math::add(math::flux(face_response), projected, static_cast<math::FaceRegion>(-1)); });
     const Mesh other_mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     VectorField other_face(other_mesh, FieldLocation::Face);

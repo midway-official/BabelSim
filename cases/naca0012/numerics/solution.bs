@@ -1,0 +1,9 @@
+maxIterations 25
+velocityRelaxation 0.10
+pressureRelaxation 0.05
+continuityTolerance 1.0e-2
+velocityTolerance 1.0e-2
+pressureCorrectionTolerance 1.0e-1
+momentumTolerance 1.0e-2
+scalarSolver bicgstab ilut 1.0e-12 1.0e-8 800
+vectorSolver bicgstab ilut 1.0e-12 1.0e-8 800

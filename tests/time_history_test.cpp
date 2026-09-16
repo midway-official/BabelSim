@@ -52,8 +52,13 @@ int main() {
         control.methods.time = TimeMethod::BDF2;
         control.time = {0, 0.25, 0.1};
         control.validate();
+        // Only the legacy loop uses uniform-step coefficients. The procedural
+        // history API supports a shortened final BDF2 step.
+        const Mesh mesh = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
+        RunTime time = RunTime::forMesh(mesh, control);
+        time.loop();
     } catch (const std::invalid_argument&) { rejected = true; }
-    require(rejected, "variable-step BDF2 must not silently use uniform-step coefficients");
+    require(rejected, "legacy loop must not silently use uniform-step BDF2 coefficients");
     {
         const Mesh mesh = makeHexBox({6, 5, 1}, {0, 0, 0}, {1, 1, 1});
         VectorField U(mesh, FieldLocation::Cell, "U");
