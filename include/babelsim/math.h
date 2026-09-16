@@ -142,6 +142,14 @@ void subtract(const ScalarField& coefficient,const VectorField& gradient,VectorF
 namespace babelsim {
 // Eager pointwise expressions. Derived cell fields carry computed boundary
 // traces; assigning them into an unknown preserves that unknown's constraints.
+template<class T, class Function>
+auto fieldUnary(const Field<T>& field, Function function) {
+    using R = decltype(function(T{}));
+    Field<R> result(field.mesh(), field.location(), "math.result");
+    result.useCalculatedBoundary();
+    result.evaluate(field, function);
+    return result;
+}
 template<class A, class B, class Function>
 auto fieldBinary(const Field<A>& a, const Field<B>& b, Function fn) {
     using R = decltype(fn(A{}, B{}));
@@ -167,7 +175,19 @@ template<class T> Field<T> operator*(const ScalarField& a,const Field<T>& b) {
 inline ScalarField operator/(const ScalarField& a,const ScalarField& b) {
     return fieldBinary(a,b,[](double x,double y){return x/y;});
 }
+inline ScalarField operator+(const ScalarField& field, double value) {
+    return fieldUnary(field, [value](double x) { return x + value; });
+}
+inline ScalarField operator+(double value, const ScalarField& field) { return field + value; }
+inline ScalarField operator-(const ScalarField& field, double value) { return field + (-value); }
+inline ScalarField operator-(double value, const ScalarField& field) { return value + (-field); }
+inline ScalarField operator/(double value, const ScalarField& field) {
+    return fieldUnary(field, [value](double x) { return value / x; });
+}
 namespace math {
+// Apply a local mathematical function, including to computed boundary traces.
+template<class T, class Function>
+auto map(const Field<T>& field, Function function) { return fieldUnary(field, function); }
 // A correction is an unknown field with homogeneous counterparts of the
 // original physical boundary constraints (e.g. fixed value -> zero correction).
 inline ScalarField createHomogeneousField(const ScalarField& field) {

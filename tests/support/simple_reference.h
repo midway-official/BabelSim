@@ -4,6 +4,7 @@
 
 #include "babelsim/config.h"
 #include "babelsim/solver.h"
+#include "physics/RANS/api.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -83,7 +84,7 @@ struct IncompressibleFields {
 struct SimpleIterationResult {
     SolveResult velocity;
     SolveResult pressure;
-    SolveResult turbulence{SolveStatus::Converged, 0, 0.0, 0.0, 0.0};
+    rans::TransportResult turbulence;
     FluxBalance continuity;
     double relative_velocity_change = 0.0;
     double relative_momentum_residual = 0.0;
@@ -95,26 +96,6 @@ struct SimpleIterationResult {
     bool linear_converged = false;
     bool converged = false;
 };
-
-// 稳态和瞬态 SIMPLE 共享的私有湍流耦合边界。Model 的具体类型、输运变量与
-// 工作场全部留在 physics/RANS；SIMPLE 只触发校正并读取统一的收敛语义。
-namespace rans {
-class Model;
-Model* create(
-    Case& problem,
-    const VectorField& velocity,
-    const ScalarField& face_flux,
-    ScalarField& effective_viscosity,
-    double density,
-    double molecular_viscosity);
-void saveTime(Model& model, double dt, double previous_dt, TimeMethod method);
-void destroy(Model* model) noexcept;
-SolveResult correct(Model& model);
-double relativeChange(const Model& model);
-double relativeResidual(const Model& model);
-double tolerance(const Model& model);
-const char* name(const Model& model);
-}  // rans 命名空间
 
 // 分量 Laplacian 隐式处理 muEff*grad(U)，其余偏应力作为显式通用张量散度。
 // 仅由启用涡黏性闭合的动量路径调用；层流保留原 NS 动量离散。
@@ -266,9 +247,9 @@ SimpleIterationResult solveIncompressible(
         phi=phiHbyA+pressureFlux;
 
         if(turbulence) {
-            result.turbulence=rans::correct(*turbulence);
-            result.relative_turbulence_change=rans::relativeChange(*turbulence);
-            result.relative_turbulence_residual=rans::relativeResidual(*turbulence);
+            result.turbulence=turbulence->solveTransport();
+            result.relative_turbulence_change=result.turbulence.relativeChange();
+            result.relative_turbulence_residual=result.turbulence.initialResidual();
         }
         result.relative_velocity_change=diagnostics::relativeChange(U,previousIteration);
         result.relative_pressure_correction=diagnostics::relativeMagnitude(pPrime,p);
@@ -284,14 +265,14 @@ SimpleIterationResult solveIncompressible(
             std::isfinite(result.relative_velocity_change) && std::isfinite(result.relative_momentum_residual) &&
             std::isfinite(result.relative_pressure_correction) && std::isfinite(result.continuity.relative));
         result.linear_converged=diagnostics::all(pressureConverged && result.velocity.converged() &&
-            (!turbulence || result.turbulence.converged()));
+            (!turbulence || result.turbulence.linearConverged()));
         result.converged=result.healthy && result.linear_converged && diagnostics::all(
             result.continuity.relative<=control.continuity_tolerance &&
             result.relative_velocity_change<=control.velocity_tolerance &&
             result.relative_momentum_residual<=control.momentum_tolerance &&
             result.relative_pressure_correction<=control.pressure_correction_tolerance &&
-            (!turbulence || (result.relative_turbulence_change<=rans::tolerance(*turbulence) &&
-                result.relative_turbulence_residual<=rans::tolerance(*turbulence))));
+            (!turbulence || (result.relative_turbulence_change<=turbulence->tolerance() &&
+                result.relative_turbulence_residual<=turbulence->tolerance())));
         if(iterations) *iterations=iter+1;
         if(log && (iter==0 || (iter+1)%100==0 || result.converged || !result.healthy || iter+1==control.max_iterations)) {
             std::ostringstream message;

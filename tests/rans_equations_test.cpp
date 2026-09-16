@@ -1,4 +1,5 @@
 #include "babelsim/runtime.h"
+#include "babelsim/equ.h"
 #include "babelsim/mpi_support.h"
 #include "babelsim/parallel.h"
 #include "physics/RANS/api.h"
@@ -37,62 +38,108 @@ int main(int argc, char** argv) {
         loadMethods(problem);
         auto time=enableTime(problem);
         advance(time);
-        rans::saveOld(*model,time.dt());
-        require(model->correct().healthy(), "model coefficient update failed");
-        if (model_name == "SA") {
-            ScalarField face(mesh, FieldLocation::Face);
-            math::evaluate(math::interpolate(effective), face);
-            for (Index f : detail::meshData(mesh).owned_faces)
-                if (mesh.boundaryFace(f) && mesh.boundaryPatch(f) == 0)
-                    require(std::abs(detail::fieldData(face)[f] - mu) < 1e-13,
-                            "SA zero boundary trace did not propagate to effective coefficient");
+        model->saveOld(time.dt());
+        // Independently build one frozen-coefficient Euler step from the published
+        // scalar formulas. Test observable solutions rather than private scratch fields.
+        const double relaxation = problem.physics().fraction("turbulenceRelaxation", 0.7);
+        std::vector<ScalarField> expected;
+        std::vector<double> initialResiduals;
+        const std::vector<std::string> names = model_name == "SA"
+            ? std::vector<std::string>{"nuTilda"}
+            : std::vector<std::string>{"k", model_name == "kOmega" ? "omega" : "epsilon"};
+        for (const auto& name : names) {
+            expected.push_back(math::copy(problem.scalarField(name)));
+            auto& value = expected.back();
+            const auto old = math::copy(value);
+            ScalarField diffusion(mesh, FieldLocation::Cell);
+            ScalarField source(mesh, FieldLocation::Cell);
+            ScalarField sink(mesh, FieldLocation::Cell);
+            diffusion.useCalculatedBoundary();
+            source.useCalculatedBoundary();
+            sink.useCalculatedBoundary();
+            if (model_name != "SA") {
+                const auto& k = problem.scalarField("k");
+                const auto& second = problem.scalarField(model_name == "kOmega" ? "omega" : "epsilon");
+                diffusion.evaluate(k, second, [&](double kv, double sv) {
+                    const double eddy = model_name == "kOmega" ? rho*kv/sv : 0.09*rho*kv*kv/sv;
+                    return mu + eddy * (model_name == "kOmega" ? 0.5 : name == "k" ? 1.0 : 1.0/1.3);
+                });
+                source.evaluate(k, second, [&](double kv, double sv) {
+                    const double eddy = model_name == "kOmega" ? rho*kv/sv : 0.09*rho*kv*kv/sv;
+                    const double production = 4*eddy; // U=(2y,0,0): 2*S:S=4
+                    return name == "k" ? production : production*sv/kv*(model_name == "kOmega" ? 5.0/9.0 : 1.44);
+                });
+                sink.evaluate(k, second, [&](double kv, double sv) {
+                    return model_name == "kOmega" ? rho*sv*(name == "k" ? 0.09 : 0.075)
+                        : rho*sv/kv*(name == "k" ? 1.0 : 1.92);
+                });
+            } else {
+                const auto& distance = problem.scalarField("wallDistance");
+                ScalarField reaction(mesh, FieldLocation::Cell);
+                reaction.useCalculatedBoundary();
+                reaction.evaluate(old, distance, [&](double nu, double d) {
+                    const double chi = nu/(mu/rho), kappa = 0.41, sigma = 2.0/3.0;
+                    const double fv1 = std::pow(chi,3)/(std::pow(chi,3)+std::pow(7.1,3));
+                    const double fv2 = 1-chi/(1+chi*fv1), ft2 = 1.2*std::exp(-0.5*chi*chi);
+                    const double st = std::max(2 + nu*fv2/(kappa*kappa*d*d), 1e-30);
+                    const double r = std::clamp(nu/(st*kappa*kappa*d*d),0.0,10.0);
+                    const double g = r+0.3*(std::pow(r,6)-r);
+                    const double fw = g*std::pow(65.0/(std::pow(g,6)+64),1.0/6.0);
+                    const double cw1 = 0.1355/(kappa*kappa)+(1+0.622)/sigma;
+                    return 0.1355*(1-ft2)*st-(cw1*fw-0.1355*ft2/(kappa*kappa))*nu/(d*d);
+                });
+                diffusion.evaluate(old, [&](double nu) { return (mu+rho*nu)/(2.0/3.0); });
+                sink.evaluate(reaction, [&](double rate) { return rho*std::max(-rate,0.0); });
+                source.evaluate(reaction, old, [&](double rate, double nu) { return rho*std::max(rate,0.0)*nu; });
+                auto gradient = math::grad(old);
+                ScalarField gradientSource(mesh, FieldLocation::Cell);
+                gradientSource.useCalculatedBoundary();
+                gradientSource.evaluate(gradient, [&](Vec3 g) { return rho*0.622/(2.0/3.0)*squaredNorm(g); });
+                source.addScaled(1.0, gradientSource);
+            }
+            auto equation = equ::createEquation(value);
+            equ::ddt(equation, rho, old, time.dt());
+            equ::div(equation, phi, rho);
+            equ::laplacian(equation, diffusion, -1.0);
+            equ::reaction(equation, sink);
+            equ::source(equation, source);
+            initialResiduals.push_back(equ::relativeResidual(equation, value));
+            equ::relax(equation, old, relaxation);
+            require(equ::solve(equation, value, readLinearControl(problem,value)).healthy(),
+                    "reference transport solve failed");
+        }
+        const auto report = model->solveTransport();
+        require(report.healthy(), "model transport update failed");
+        require(report.equations.size() == names.size(), "missing per-equation diagnostics");
+        for (std::size_t n=0; n<names.size(); ++n) {
+            require(report.equations[n].field == names[n], "incorrect diagnostic field name");
+            require(near(report.equations[n].initialResidual, initialResiduals[n], 1e-10),
+                    "transport residual was not measured before relaxation");
+            const auto& actual = problem.scalarField(names[n]);
+            for (Index i : detail::meshData(mesh).owned_cells)
+                require(near(detail::fieldData(actual)[i], detail::fieldData(expected[n])[i], 1e-10),
+                        "transport step differs from independent source/diffusion equation");
         }
         const auto cell = [&](const char* name, Index i) {
             return detail::fieldData(static_cast<const ScalarField&>(problem.scalarField(name)))[i];
         };
-        const auto check = [](double a, double b) {
-            require(std::isfinite(a) && std::isfinite(b) &&
-                std::abs(a-b) <= 1e-10*std::max({1.0,std::abs(a),std::abs(b)}),
-                "model term differs from independently evaluated published equation");
-        };
         for (Index i : detail::meshData(mesh).owned_cells) {
-            if (model_name == "kEpsilon" || model_name == "kOmega") {
-                const double k = cell("k", i);
-                const double second = cell(model_name == "kEpsilon" ? "epsilon" : "omega", i);
-                const double mut = model_name == "kEpsilon" ? 0.09*rho*k*k/second : rho*k/second;
-                const double production = 4*mut;
-                check(cell("mut", i), mut);
-                check(cell("ransProduction", i), production);
-                check(cell("ransSourceK", i) - cell("ransSinkK", i)*k,
-                      production - (model_name == "kEpsilon" ? rho*second : 0.09*rho*second*k));
-                if (model_name == "kEpsilon") {
-                    check(cell("ransSourceEpsilon", i) - cell("ransSinkSecond", i)*second,
-                          1.44*production*second/k - 1.92*rho*second*second/k);
-                    check(cell("ransDiffusivityK", i), mu+mut);
-                    check(cell("ransDiffusivityEpsilon", i), mu+mut/1.3);
-                } else {
-                    check(cell("ransSourceOmega", i) - cell("ransSinkSecond", i)*second,
-                          (5.0/9.0)*production*second/k - 0.075*rho*second*second);
-                    check(cell("ransDiffusivityK", i), mu+0.5*mut);
-                    check(cell("ransDiffusivityOmega", i), mu+0.5*mut);
-                }
-            } else {
-                const double nu = cell("nuTilda", i), d = cell("wallDistance", i);
-                const double chi = nu/(mu/rho), kappa = 0.41, sigma = 2.0/3.0;
-                const double fv1 = std::pow(chi,3)/(std::pow(chi,3)+std::pow(7.1,3));
-                const double fv2 = 1-chi/(1+chi*fv1), ft2 = 1.2*std::exp(-0.5*chi*chi);
-                const double st = std::max(2 + nu*fv2/(kappa*kappa*d*d), 1e-30);
-                const double r = std::clamp(nu/(st*kappa*kappa*d*d),0.0,10.0);
-                const double g = r+0.3*(std::pow(r,6)-r);
-                const double fw = g*std::pow(65.0/(std::pow(g,6)+64),1.0/6.0);
-                const double cw1 = 0.1355/(kappa*kappa)+(1+0.622)/sigma;
-                const double source = rho*(0.1355*(1-ft2)*st*nu -
-                    (cw1*fw-0.1355*ft2/(kappa*kappa))*nu*nu/(d*d) +
-                    (0.622/sigma)*cell("ransGradNuTilda2",i));
-                check(cell("mut",i), rho*nu*fv1);
-                check(cell("ransDiffusivityNuTilda",i), (mu+rho*nu)/sigma);
-                check(cell("ransSourceNuTilda",i)-cell("ransSinkNuTilda",i)*nu,source);
+            double eddy = 0;
+            if (model_name == "kOmega") eddy = rho*cell("k",i)/cell("omega",i);
+            else if (model_name == "kEpsilon") eddy = 0.09*rho*std::pow(cell("k",i),2)/cell("epsilon",i);
+            else {
+                const double nu=cell("nuTilda",i), chi=nu/(mu/rho);
+                eddy=rho*nu*std::pow(chi,3)/(std::pow(chi,3)+std::pow(7.1,3));
             }
+            require(near(cell("mut",i),eddy,1e-10), "eddy viscosity closure differs from published formula");
+            require(near(detail::fieldData(effective)[i],mu+eddy,1e-10), "effective viscosity was not updated");
+        }
+        if (model_name == "SA") {
+            const auto face = math::interpolate(effective);
+            for (Index f : detail::meshData(mesh).owned_faces)
+                if (mesh.boundaryFace(f) && mesh.boundaryPatch(f) == 0)
+                    require(std::abs(detail::fieldData(face)[f] - mu) < 1e-13,
+                            "SA zero boundary trace did not propagate to effective coefficient");
         }
 
         // F1: div(mu*grad(U)^T) = (0,2,0), although div(mu*grad(U)) = 0.

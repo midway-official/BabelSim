@@ -2,246 +2,142 @@
 #include "babelsim/equ.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace babelsim::rans {
 namespace {
-double strainMeasure(const Tensor3& gradient) {
-    const double divergence = gradient[0][0] + gradient[1][1] + gradient[2][2];
-    double squared = 0.0;
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column) {
-            double value = 0.5 * (gradient[row][column] + gradient[column][row]);
-            if (row == column) value -= divergence / 3.0;
-            squared += value * value;
+
+// 2 dev(symm(grad U)):dev(symm(grad U)); kept local to this model.
+double strainSquared(const Tensor3& gradient) {
+    const double divergence = trace(gradient);
+    double sum = 0.0;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            const double strain = 0.5 * (gradient[i][j] + gradient[j][i])
+                - (i == j ? divergence / 3.0 : 0.0);
+            sum += strain * strain;
         }
     }
-    return 2.0 * squared;
+    return 2.0 * sum;
 }
 
-
-
-// Wilcox 1988m 高雷诺数 k-omega。该明确命名的版本不含 2006 版交叉扩散，
-// P 使用不可压缩线性涡黏性近似 mu_t * 2*S':S'。
+// Wilcox1988m k-omega; constant-density incompressible transport.
 class KOmega final : public Model {
-    // This model owns its numerical state and transport implementation.
-    Case& m_problem;
-    const VectorField& m_velocity;
-    const ScalarField& m_face_flux;
-    ScalarField& m_effective_viscosity;
-    double m_density, m_molecular_viscosity, m_relaxation, m_tolerance;
-    TensorField& m_velocity_gradient;
-    ScalarField& m_strain_measure;
-    LinearSolverConfig m_linear_options;
-    double m_relative_residual=std::numeric_limits<double>::infinity();
 public:
-    KOmega(
-        Case& problem,
-        const VectorField& velocity,
-        const ScalarField& face_flux,
-        ScalarField& effective_viscosity,
-        double density,
-        double molecular_viscosity)
-        : m_problem(problem), m_velocity(velocity), m_face_flux(face_flux),
-          m_effective_viscosity(effective_viscosity), m_density(density),
-          m_molecular_viscosity(molecular_viscosity),
-          m_relaxation(problem.physics().fraction("turbulenceRelaxation",0.7)),
-          m_tolerance(problem.physics().positive("turbulenceTolerance",1e-6)),
-          m_velocity_gradient(problem.tensorField("ransGradU",Tensor3{})),
-          m_strain_measure(problem.scalarField("ransStrain2",0.0)),
-          m_beta_star(problem.physics().positive("kOmegaBetaStar", 0.09)),
-          m_beta(problem.physics().positive("kOmegaBeta", 3.0 / 40.0)),
-          m_gamma(problem.physics().positive("kOmegaGamma", 5.0 / 9.0)),
-          m_sigma_k(problem.physics().positive("kOmegaSigmaK", 0.5)),
-          m_sigma_omega(problem.physics().positive("kOmegaSigmaOmega", 0.5)),
-          m_k_min(problem.physics().positive("kMin", 1e-12)),
-          m_omega_min(problem.physics().positive("omegaMin", 1e-12)),
-          m_k(problem.scalarField("k")),
-          m_omega(problem.scalarField("omega")),
-          m_mut(problem.scalarField("mut", 0.0)),
-          m_previous_k(problem.scalarField("ransPreviousK", 0.0)),
-          m_previous_omega(problem.scalarField("ransPreviousOmega", 0.0)),
-          m_inverse_k(problem.scalarField("ransInverseK", 0.0)),
-          m_inverse_omega(problem.scalarField("ransInverseOmega", 0.0)),
-          m_production(problem.scalarField("ransProduction", 0.0)),
-          m_diffusivity_k(problem.scalarField("ransDiffusivityK", 0.0)),
-          m_diffusivity_omega(problem.scalarField("ransDiffusivityOmega", 0.0)),
-          m_source_k(problem.scalarField("ransSourceK", 0.0)),
-          m_source_omega(problem.scalarField("ransSourceOmega", 0.0)),
-          m_sink_k(problem.scalarField("ransSinkK", 0.0)),
-          m_sink_second(problem.scalarField("ransSinkSecond", 0.0)),
-          m_work(problem.scalarField("ransWork", 0.0))
+    KOmega(Case& problem, const VectorField& velocity, const ScalarField& flux,
+             ScalarField& effectiveViscosity, double density, double viscosity)
+        : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
+          k(problem.scalarField("k")), omega(problem.scalarField("omega")),
+          mut(problem.scalarField("mut", 0.0)),
+          relaxation(problem.physics().fraction("turbulenceRelaxation", 0.7)),
+          residualTolerance(problem.physics().positive("turbulenceTolerance", 1e-6)),
+          kMin(problem.physics().positive("kMin", 1e-12)),
+          omegaMin(problem.physics().positive("omegaMin", 1e-12)),
+          betaStar(problem.physics().positive("kOmegaBetaStar", 0.09)),
+          beta(problem.physics().positive("kOmegaBeta", 3.0 / 40.0)),
+          gamma(problem.physics().positive("kOmegaGamma", 5.0 / 9.0)),
+          sigmaK(problem.physics().positive("kOmegaSigmaK", 0.5)),
+          sigmaOmega(problem.physics().positive("kOmegaSigmaOmega", 0.5)),
+          kSolver(readLinearControl(problem, k)),
+          omegaSolver(readLinearControl(problem, omega)),
+          kHistory(math::history(k)), omegaHistory(math::history(omega))
     {
-        m_effective_viscosity.useCalculatedBoundary();
-        m_velocity_gradient.useCalculatedBoundary();
-        m_strain_measure.useCalculatedBoundary();
-        m_linear_options=readLinearControl(problem, m_k);
-        for (ScalarField* field : {&m_mut, &m_inverse_k, &m_inverse_omega, &m_production, &m_diffusivity_k, &m_diffusivity_omega, &m_source_k, &m_source_omega, &m_sink_k, &m_sink_second, &m_work})
-            field->useCalculatedBoundary();
-        boundFields();
-        updateKinematics();
+        mut.useCalculatedBoundary();
+        muEff.useCalculatedBoundary();
+        boundTransportFields();
         updateViscosity();
-        m_problem.output(m_mut);
-
+        problem.output(mut);
     }
 
     const char* modelName() const override { return "Wilcox1988m k-omega"; }
+    double tolerance() const override { return residualTolerance; }
 
-    double tolerance() const override {return m_tolerance;}
-    double relativeResidual() const override {return m_relative_residual;}
     void saveOld(double dt) override {
-        math::saveOld(m_k_old, m_k, dt);
-        math::saveOld(m_omega_old, m_omega, dt);
+        math::saveOld(kHistory, k, dt);
+        math::saveOld(omegaHistory, omega, dt);
     }
 
-    SolveResult correct() override {
-        m_previous_k.assign(m_k);
-        m_previous_omega.assign(m_omega);
-        updateKinematics();
-        updateSourcesAndDiffusivities();
+    TransportResult solveTransport() override {
+        const auto previousK = math::copy(k);
+        const auto previousOmega = math::copy(omega);
+        const_cast<VectorField&>(U).setBoundaryFlux(phi);
 
-        auto kEquation=assemble_k();
-        equ::relax(kEquation,m_k,m_relaxation);
-        const auto k_result=equ::solve(kEquation,m_k,m_linear_options);
-        auto omegaEquation=assemble_omega();
-        equ::relax(omegaEquation,m_omega,m_relaxation);
-        const auto omega_result=equ::solve(omegaEquation,m_omega,m_linear_options);
-        boundFields();
-        updateSourcesAndDiffusivities();
-        m_relative_residual = std::max(
-            equ::relativeResidual(assemble_k(),m_k),
-            equ::relativeResidual(assemble_omega(),m_omega));
-        m_relative_change = std::max(
-            diagnostics::relativeChange(m_k, m_previous_k),
-            diagnostics::relativeChange(m_omega, m_previous_omega));
-        return combine(k_result, omega_result);
+        // Freeze closure coefficients at the current nonlinear iterate.
+        updateViscosity();
+        const auto production = mut * math::map(math::grad(U), strainSquared);
+        const auto kDiffusivity = mu + sigmaK * mut;
+        const auto omegaDiffusivity = mu + sigmaOmega * mut;
+        const auto kDestructionRate = betaStar * rho * omega;
+        const auto omegaDestructionRate = beta * rho * omega;
+        const auto omegaProduction = gamma * production * omega / math::max(k, kMin);
+
+        // k: production on RHS; destruction linearized as rate * k on LHS.
+        auto kEquation = equ::createEquation(k);
+        equ::ddt(kEquation, rho, kHistory);
+        equ::div(kEquation, phi, rho);
+        equ::laplacian(kEquation, kDiffusivity, -1.0);
+        equ::reaction(kEquation, kDestructionRate);
+        equ::source(kEquation, production);
+        const double kResidual = equ::relativeResidual(kEquation, k);
+        equ::relax(kEquation, previousK, relaxation);
+        const auto kSolve = equ::solve(kEquation, k, kSolver);
+        if (!diagnostics::all(kSolve.healthy()))
+            return {{{"k", kSolve, kResidual, 0.0}}};
+
+        // omega: use the same frozen closure state as the k equation.
+        auto omegaEquation = equ::createEquation(omega);
+        equ::ddt(omegaEquation, rho, omegaHistory);
+        equ::div(omegaEquation, phi, rho);
+        equ::laplacian(omegaEquation, omegaDiffusivity, -1.0);
+        equ::reaction(omegaEquation, omegaDestructionRate);
+        equ::source(omegaEquation, omegaProduction);
+        const double omegaResidual = equ::relativeResidual(omegaEquation, omega);
+        equ::relax(omegaEquation, previousOmega, relaxation);
+        const auto omegaSolve = equ::solve(omegaEquation, omega, omegaSolver);
+        if (!diagnostics::all(omegaSolve.healthy()))
+            return {{{"k", kSolve, kResidual, 0.0}, {"omega", omegaSolve, omegaResidual, 0.0}}};
+
+        // Bound unknowns, then publish the viscosity for the next momentum solve.
+        boundTransportFields();
+        updateViscosity();
+        return {{
+            {"k", kSolve, kResidual, diagnostics::relativeChange(k, previousK)},
+            {"omega", omegaSolve, omegaResidual,
+                diagnostics::relativeChange(omega, previousOmega)}
+        }};
     }
-
-    double relativeChange() const override { return m_relative_change; }
 
 private:
-    equ::Matrix<double> assemble_k() {
-        auto A=equ::createEquation(m_k);
-        equ::ddt(A,m_density,m_k_old);
-        equ::div(A,m_face_flux,m_density);
-        equ::laplacian(A,m_diffusivity_k,-1.0);
-        equ::reaction(A,m_sink_k);
-        equ::source(A,m_source_k);
-        return A;
-    }
-    equ::Matrix<double> assemble_omega() {
-        auto A=equ::createEquation(m_omega);
-        equ::ddt(A,m_density,m_omega_old);
-        equ::div(A,m_face_flux,m_density);
-        equ::laplacian(A,m_diffusivity_omega,-1.0);
-        equ::reaction(A,m_sink_second);
-        equ::source(A,m_source_omega);
-        return A;
-    }
-    void updateKinematics() {
-        const_cast<VectorField&>(m_velocity).setBoundaryFlux(m_face_flux);
-        m_velocity_gradient=math::grad(m_velocity);
-        m_strain_measure.evaluate(m_velocity_gradient,strainMeasure);
-    }
-    void setEddyViscosity(const ScalarField& turbulent) {
-        m_effective_viscosity.fill(m_molecular_viscosity);
-        m_effective_viscosity+=turbulent;
-    }
-    static SolveResult combine(const SolveResult& first, const SolveResult& second) {
-    SolveResult result;
-    result.status = first.status == SolveStatus::NumericalFailure ||
-            second.status == SolveStatus::NumericalFailure
-        ? SolveStatus::NumericalFailure
-        : first.converged() && second.converged()
-            ? SolveStatus::Converged : SolveStatus::MaxIterations;
-    result.iterations = first.iterations + second.iterations;
-    result.initial_residual = std::hypot(first.initial_residual, second.initial_residual);
-    result.final_residual = std::hypot(first.final_residual, second.final_residual);
-    result.relative_residual = std::max(first.relative_residual, second.relative_residual);
-    return result;
-}
-
-    void boundFields() {
-        m_k.setBoundaryFlux(m_face_flux);
-        m_omega.setBoundaryFlux(m_face_flux);
-        m_k.evaluate(m_k, [this](double value) { return std::max(value, m_k_min); });
-        m_omega.evaluate(m_omega, [this](double value) {
-            return std::max(value, m_omega_min);
-        });
+    void boundTransportFields() {
+        k.setBoundaryFlux(phi);
+        omega.setBoundaryFlux(phi);
+        k = math::max(k, kMin);
+        omega = math::max(omega, omegaMin);
     }
 
     void updateViscosity() {
-        m_inverse_omega.evaluate(m_omega, [this](double value) {
-            return 1.0 / std::max(value, m_omega_min);
-        });
-        m_mut.assignProduct(m_k, m_inverse_omega);
-        m_mut.assignScaled(m_density, m_mut);
-        setEddyViscosity(m_mut);
+        mut = rho * k / math::max(omega, omegaMin);
+        muEff = mu + mut;
     }
 
-    void updateSourcesAndDiffusivities() {
-        updateViscosity();
-        m_production.assignProduct(m_mut, m_strain_measure);
-
-        m_work.assignProduct(m_k, m_omega);
-        m_source_k.assign(m_production);
-        m_sink_k.assignScaled(m_beta_star * m_density, m_omega);
-
-        m_inverse_k.evaluate(m_k, [this](double value) {
-            return 1.0 / std::max(value, m_k_min);
-        });
-        m_work.assignProduct(m_production, m_omega);
-        m_work.assignProduct(m_inverse_k, m_work);
-        m_source_omega.assignScaled(m_gamma, m_work);
-        m_work.assignProduct(m_omega, m_omega);
-        m_sink_second.assignScaled(m_beta * m_density, m_omega);
-
-        m_diffusivity_k.fill(m_molecular_viscosity);
-        m_diffusivity_k.addScaled(m_sigma_k, m_mut);
-        m_diffusivity_omega.fill(m_molecular_viscosity);
-        m_diffusivity_omega.addScaled(m_sigma_omega, m_mut);
-    }
-
-    double m_beta_star;
-    double m_beta;
-    double m_gamma;
-    double m_sigma_k;
-    double m_sigma_omega;
-    double m_k_min;
-    double m_omega_min;
-    ScalarField& m_k;
-    ScalarField& m_omega;
-    ScalarField& m_mut;
-    ScalarField& m_previous_k;
-    ScalarField& m_previous_omega;
-    ScalarField& m_inverse_k;
-    ScalarField& m_inverse_omega;
-    ScalarField& m_production;
-    ScalarField& m_diffusivity_k;
-    ScalarField& m_diffusivity_omega;
-    ScalarField& m_source_k;
-    ScalarField& m_source_omega;
-    ScalarField& m_sink_k;
-    ScalarField& m_sink_second;
-    ScalarField& m_work;
-    double m_relative_change = 0.0;
-    math::History<double> m_k_old{m_k};
-    math::History<double> m_omega_old{m_omega};
-
+    const VectorField& U;
+    const ScalarField& phi;
+    ScalarField& muEff;
+    const double rho, mu;
+    ScalarField& k;
+    ScalarField& omega;
+    ScalarField& mut;
+    const double relaxation, residualTolerance, kMin, omegaMin;
+    const double betaStar, beta, gamma, sigmaK, sigmaOmega;
+    const LinearSolverConfig kSolver, omegaSolver;
+    math::History<double> kHistory, omegaHistory;
 };
 
-}  // 匿名命名空间
+} // namespace
 
-Model* makeKOmega(
-    Case& problem,
-    const VectorField& velocity,
-    const ScalarField& face_flux,
-    ScalarField& effective_viscosity,
-    double density,
-    double molecular_viscosity)
-{
-    return new KOmega(
-        problem, velocity, face_flux, effective_viscosity,
-        density, molecular_viscosity);
+Model* makeKOmega(Case& problem, const VectorField& velocity, const ScalarField& flux,
+                   ScalarField& effectiveViscosity, double density, double viscosity) {
+    return new KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity);
 }
 
-}  // babelsim::rans 命名空间
+} // namespace babelsim::rans

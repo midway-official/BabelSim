@@ -28,7 +28,7 @@ int runTransientSimple(Case& problem) {
     const double pressureTolerance = settings.positive("pressureCorrectionTolerance", 1e-6);
 
     auto turbulence = rans::load(problem, U, phi);
-    const auto& muEff = turbulence.viscosity();
+    const auto& muEff = turbulence.effectiveViscosity();
     auto pPrime = math::createHomogeneousField(p);
     const int pressureSolves = methods.diffusionFor(pPrime.name()) == DiffusionMethod::Orthogonal
         ? 1 : nonOrthogonalCorrections + 1;
@@ -104,11 +104,11 @@ int runTransientSimple(Case& problem) {
             bool turbulenceConverged = true;
             double dTurbulence = 0.0, rTurbulence = 0.0;
             if (turbulence) {
-                const auto result = turbulence.correct();
-                dTurbulence = turbulence.relativeChange();
-                rTurbulence = turbulence.relativeResidual();
+                const auto result = turbulence.solveTransport();
+                dTurbulence = result.relativeChange();
+                rTurbulence = result.initialResidual();
                 if (!diagnostics::all(result.healthy() && std::isfinite(dTurbulence) && std::isfinite(rTurbulence))) return 2;
-                turbulenceConverged = result.converged()
+                turbulenceConverged = result.linearConverged()
                     && dTurbulence <= turbulence.tolerance()
                     && rTurbulence <= turbulence.tolerance();
             }

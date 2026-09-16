@@ -6,293 +6,155 @@
 
 namespace babelsim::rans {
 namespace {
-double strainMeasure(const Tensor3& gradient) {
-    const double divergence = gradient[0][0] + gradient[1][1] + gradient[2][2];
-    double squared = 0.0;
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column) {
-            double value = 0.5 * (gradient[row][column] + gradient[column][row]);
-            if (row == column) value -= divergence / 3.0;
-            squared += value * value;
-        }
-    }
-    return 2.0 * squared;
-}
 
 double vorticityMagnitude(const Tensor3& gradient) {
-    double squared = 0.0;
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column) {
-            const double value = 0.5 *
-                (gradient[row][column] - gradient[column][row]);
-            squared += value * value;
+    double sum = 0.0;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            const double rotation = 0.5 * (gradient[i][j] - gradient[j][i]);
+            sum += rotation * rotation;
         }
     }
-    return std::sqrt(2.0 * squared);
+    return std::sqrt(2.0 * sum);
 }
 
-
-
-// 标准正变量 Spalart-Allmaras。wallDistance 必须是 Case 提供的“到最近壁面
-// 的真实几何距离”场，不能用网格线方向距离或最近单元中心距离替代。
+// Standard positive-variable SA, including ft2, without the primary trip term.
+// wallDistance is the geometric distance to the nearest wall, supplied by Case.
 class SpalartAllmaras final : public Model {
-    // This model owns its numerical state and transport implementation.
-    Case& m_problem;
-    const VectorField& m_velocity;
-    const ScalarField& m_face_flux;
-    ScalarField& m_effective_viscosity;
-    double m_density, m_molecular_viscosity, m_relaxation, m_tolerance;
-    TensorField& m_velocity_gradient;
-    ScalarField& m_strain_measure;
-    LinearSolverConfig m_linear_options;
-    double m_relative_residual=std::numeric_limits<double>::infinity();
 public:
-    SpalartAllmaras(
-        Case& problem,
-        const VectorField& velocity,
-        const ScalarField& face_flux,
-        ScalarField& effective_viscosity,
-        double density,
-        double molecular_viscosity)
-        : m_problem(problem), m_velocity(velocity), m_face_flux(face_flux),
-          m_effective_viscosity(effective_viscosity), m_density(density),
-          m_molecular_viscosity(molecular_viscosity),
-          m_relaxation(problem.physics().fraction("turbulenceRelaxation",0.7)),
-          m_tolerance(problem.physics().positive("turbulenceTolerance",1e-6)),
-          m_velocity_gradient(problem.tensorField("ransGradU",Tensor3{})),
-          m_strain_measure(problem.scalarField("ransStrain2",0.0)),
-          m_cb1(problem.physics().positive("saCb1", 0.1355)),
-          m_cb2(problem.physics().positive("saCb2", 0.622)),
-          m_sigma(problem.physics().positive("saSigma", 2.0 / 3.0)),
-          m_kappa(problem.physics().positive("saKappa", 0.41)),
-          m_cw2(problem.physics().positive("saCw2", 0.3)),
-          m_cw3(problem.physics().positive("saCw3", 2.0)),
-          m_cv1(problem.physics().positive("saCv1", 7.1)),
-          m_ct3(problem.physics().positive("saCt3", 1.2)),
-          m_ct4(problem.physics().positive("saCt4", 0.5)),
-          m_cw1(problem.physics().positive(
-              "saCw1",
-              m_cb1 / (m_kappa * m_kappa) + (1.0 + m_cb2) / m_sigma)),
-          m_nu_tilda_min(problem.physics().positive("saNuTildaMin", 1e-14)),
-          m_wall_distance_min(problem.physics().positive(
-              "saWallDistanceMin", 1e-12)),
-          m_nu_tilda(problem.scalarField("nuTilda")),
-          m_wall_distance(problem.scalarField("wallDistance")),
-          m_mut(problem.scalarField("mut", 0.0)),
-          m_previous_nu_tilda(problem.scalarField("ransPreviousNuTilda", 0.0)),
-          m_nu_tilda_gradient(problem.vectorField("ransGradNuTilda", Vec3{})),
-          m_vorticity_magnitude(problem.scalarField("ransVorticity", 0.0)),
-          m_gradient_squared(problem.scalarField("ransGradNuTilda2", 0.0)),
-          m_chi(problem.scalarField("ransChi", 0.0)),
-          m_fv1(problem.scalarField("ransFv1", 0.0)),
-          m_fv2(problem.scalarField("ransFv2", 0.0)),
-          m_ft2(problem.scalarField("ransFt2", 0.0)),
-          m_inverse_distance_squared(problem.scalarField("ransInvD2", 0.0)),
-          m_stilda(problem.scalarField("ransSTilda", 0.0)),
-          m_r(problem.scalarField("ransR", 0.0)),
-          m_fw(problem.scalarField("ransFw", 0.0)),
-          m_diffusivity(problem.scalarField("ransDiffusivityNuTilda", 0.0)),
-          m_source(problem.scalarField("ransSourceNuTilda", 0.0)),
-          m_sink(problem.scalarField("ransSinkNuTilda", 0.0)),
-          m_work1(problem.scalarField("ransWork1", 0.0)),
-          m_work2(problem.scalarField("ransWork2", 0.0))
+    SpalartAllmaras(Case& problem, const VectorField& velocity, const ScalarField& flux,
+                   ScalarField& effectiveViscosity, double density, double viscosity)
+        : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
+          nuTilda(problem.scalarField("nuTilda")),
+          wallDistance(problem.scalarField("wallDistance")),
+          mut(problem.scalarField("mut", 0.0)),
+          relaxation(problem.physics().fraction("turbulenceRelaxation", 0.7)),
+          residualTolerance(problem.physics().positive("turbulenceTolerance", 1e-6)),
+          nuTildaMin(problem.physics().positive("saNuTildaMin", 1e-14)),
+          wallDistanceMin(problem.physics().positive("saWallDistanceMin", 1e-12)),
+          cb1(problem.physics().positive("saCb1", 0.1355)),
+          cb2(problem.physics().positive("saCb2", 0.622)),
+          sigma(problem.physics().positive("saSigma", 2.0 / 3.0)),
+          kappa(problem.physics().positive("saKappa", 0.41)),
+          cw2(problem.physics().positive("saCw2", 0.3)),
+          cw3(problem.physics().positive("saCw3", 2.0)),
+          cv1(problem.physics().positive("saCv1", 7.1)),
+          ct3(problem.physics().positive("saCt3", 1.2)),
+          ct4(problem.physics().positive("saCt4", 0.5)),
+          cw1(problem.physics().positive("saCw1",
+              cb1 / (kappa * kappa) + (1.0 + cb2) / sigma)),
+          nuTildaSolver(readLinearControl(problem, nuTilda)),
+          nuTildaHistory(math::history(nuTilda))
     {
-        m_effective_viscosity.useCalculatedBoundary();
-        m_velocity_gradient.useCalculatedBoundary();
-        m_strain_measure.useCalculatedBoundary();
-        m_linear_options=readLinearControl(problem, m_nu_tilda);
-        for (ScalarField* field : {&m_mut, &m_vorticity_magnitude, &m_gradient_squared, &m_chi, &m_fv1, &m_fv2, &m_ft2, &m_inverse_distance_squared, &m_stilda, &m_r, &m_fw, &m_diffusivity, &m_source, &m_sink, &m_work1, &m_work2})
-            field->useCalculatedBoundary();
-        m_nu_tilda_gradient.useCalculatedBoundary();
-        boundField();
-        updateKinematics();
-        updateFunctions();
+        mut.useCalculatedBoundary();
+        muEff.useCalculatedBoundary();
+        boundTransportField();
         updateViscosity();
-        m_problem.output(m_mut);
-
+        problem.output(mut);
     }
 
     const char* modelName() const override { return "Spalart-Allmaras"; }
+    double tolerance() const override { return residualTolerance; }
 
-    double tolerance() const override {return m_tolerance;}
-    double relativeResidual() const override {return m_relative_residual;}
     void saveOld(double dt) override {
-        math::saveOld(m_nu_tilda_old, m_nu_tilda, dt);
+        math::saveOld(nuTildaHistory, nuTilda, dt);
     }
 
-    SolveResult correct() override {
-        m_previous_nu_tilda.assign(m_nu_tilda);
-        updateKinematics();
-        updateEquationFields();
-        auto nu_tildaEquation=assemble_nu_tilda();
-        equ::relax(nu_tildaEquation,m_nu_tilda,m_relaxation);
-        const auto result=equ::solve(nu_tildaEquation,m_nu_tilda,m_linear_options);
-        boundField();
-        updateEquationFields();
+    TransportResult solveTransport() override {
+        const auto previousNuTilda = math::copy(nuTilda);
+        const_cast<VectorField&>(U).setBoundaryFlux(phi);
+
+        // Closure functions, evaluated at the current nonlinear iterate.
+        const double nu = mu / rho;
+        const auto chi = nuTilda / nu;
+        const auto fv1 = viscosityDamping(chi);
+        const auto fv2 = 1.0 - chi / (1.0 + chi * fv1);
+        const auto ft2 = math::map(chi, [this](double x) {
+            return ct3 * std::exp(-ct4 * x * x);
+        });
+        const auto distance = math::max(wallDistance, wallDistanceMin);
+        const auto inverseDistanceSquared = 1.0 / (distance * distance);
+        const auto rotation = math::map(math::grad(U), vorticityMagnitude);
+        // Existing positive S-tilde regularization; this is not SA-neg.
+        const auto modifiedRotation = math::max(
+            rotation + nuTilda * fv2 * inverseDistanceSquared / (kappa * kappa), 1e-30);
+        const auto r = math::map(
+            nuTilda * inverseDistanceSquared / (kappa * kappa * modifiedRotation),
+            [](double value) { return std::clamp(value, 0.0, 10.0); });
+        const auto fw = math::map(r, [this](double value) {
+            const double g = value + cw2 * (std::pow(value, 6.0) - value);
+            const double cw3ToSix = std::pow(cw3, 6.0);
+            return g * std::pow((1.0 + cw3ToSix) /
+                (std::pow(g, 6.0) + cw3ToSix), 1.0 / 6.0);
+        });
+
+        // Net reaction a*nuTilda: positive part explicit, negative part implicit.
+        const auto productionRate = cb1 * (1.0 - ft2) * modifiedRotation;
+        const auto destructionRate = (cw1 * fw - cb1 / (kappa * kappa) * ft2)
+            * nuTilda * inverseDistanceSquared;
+        const auto netReactionRate = productionRate - destructionRate;
+        const auto implicitDestruction = rho * math::max(-netReactionRate, 0.0);
+        const auto gradNuTilda = math::grad(nuTilda);
+        const auto gradientSource = (rho * cb2 / sigma) * math::dot(gradNuTilda, gradNuTilda);
+        const auto explicitSource = rho * math::max(netReactionRate, 0.0) * nuTilda
+            + gradientSource;
+        const auto diffusivity = (mu + rho * nuTilda) / sigma;
+
+        // rho D(nuTilda)/Dt - div(diffusivity grad(nuTilda)) + sink = source.
+        auto nuTildaEquation = equ::createEquation(nuTilda);
+        equ::ddt(nuTildaEquation, rho, nuTildaHistory);
+        equ::div(nuTildaEquation, phi, rho);
+        equ::laplacian(nuTildaEquation, diffusivity, -1.0);
+        equ::reaction(nuTildaEquation, implicitDestruction);
+        equ::source(nuTildaEquation, explicitSource);
+        const double transportResidual = equ::relativeResidual(nuTildaEquation, nuTilda);
+        equ::relax(nuTildaEquation, previousNuTilda, relaxation);
+        const auto nuTildaSolve = equ::solve(nuTildaEquation, nuTilda, nuTildaSolver);
+        if (!diagnostics::all(nuTildaSolve.healthy()))
+            return {{{"nuTilda", nuTildaSolve, transportResidual, 0.0}}};
+
+        boundTransportField();
         updateViscosity();
-        m_relative_residual = equ::relativeResidual(assemble_nu_tilda(),m_nu_tilda);
-        m_relative_change = diagnostics::relativeChange(
-            m_nu_tilda, m_previous_nu_tilda);
-        return result;
+        return {{{"nuTilda", nuTildaSolve, transportResidual,
+            diagnostics::relativeChange(nuTilda, previousNuTilda)}}};
     }
-
-    double relativeChange() const override { return m_relative_change; }
 
 private:
-    equ::Matrix<double> assemble_nu_tilda() {
-        auto A=equ::createEquation(m_nu_tilda);
-        equ::ddt(A,m_density,m_nu_tilda_old);
-        equ::div(A,m_face_flux,m_density);
-        equ::laplacian(A,m_diffusivity,-1.0);
-        equ::reaction(A,m_sink);
-        equ::source(A,m_source);
-        return A;
-    }
-    void updateKinematics() {
-        const_cast<VectorField&>(m_velocity).setBoundaryFlux(m_face_flux);
-        m_velocity_gradient=math::grad(m_velocity);
-        m_strain_measure.evaluate(m_velocity_gradient,strainMeasure);
-    }
-    void setEddyViscosity(const ScalarField& turbulent) {
-        m_effective_viscosity.fill(m_molecular_viscosity);
-        m_effective_viscosity+=turbulent;
-    }
-    void boundField() {
-        m_nu_tilda.setBoundaryFlux(m_face_flux);
-        m_nu_tilda.evaluate(m_nu_tilda, [this](double value) {
-            return std::max(value, m_nu_tilda_min);
+    ScalarField viscosityDamping(const ScalarField& chi) const {
+        return math::map(chi, [this](double value) {
+            const double chiCubed = value * value * value;
+            return chiCubed / (chiCubed + cv1 * cv1 * cv1);
         });
     }
 
-    void updateFunctions() {
-        const double molecular_nu = m_molecular_viscosity / m_density;
-        const double cv1_cubed = m_cv1 * m_cv1 * m_cv1;
-        m_vorticity_magnitude.evaluate(m_velocity_gradient, vorticityMagnitude);
-        m_chi.evaluate(m_nu_tilda, [molecular_nu](double value) {
-            return value / molecular_nu;
-        });
-        m_fv1.evaluate(m_chi, [cv1_cubed](double chi) {
-            const double chi_cubed = chi * chi * chi;
-            return chi_cubed / (chi_cubed + cv1_cubed);
-        });
-        m_work1.assignProduct(m_chi, m_fv1);
-        m_work1.evaluate(m_work1, [](double value) { return 1.0 / (1.0 + value); });
-        m_fv2.assignProduct(m_chi, m_work1);
-        m_fv2.evaluate(m_fv2, [](double value) { return 1.0 - value; });
-        m_ft2.evaluate(m_chi, [this](double chi) {
-            return m_ct3 * std::exp(-m_ct4 * chi * chi);
-        });
-        m_inverse_distance_squared.evaluate(m_wall_distance, [this](double distance) {
-            const double bounded = std::max(distance, m_wall_distance_min);
-            return 1.0 / (bounded * bounded);
-        });
-
-        m_work1.assignProduct(m_nu_tilda, m_inverse_distance_squared);
-        m_work1.assignProduct(m_fv2, m_work1);
-        m_stilda.assign(m_vorticity_magnitude);
-        m_stilda.addScaled(1.0 / (m_kappa * m_kappa), m_work1);
-        m_stilda.evaluate(m_stilda, [](double value) {
-            return std::max(value, 1e-30);
-        });
-
-        m_r.evaluate(m_stilda, [](double value) { return 1.0 / value; });
-        m_r.assignProduct(m_inverse_distance_squared, m_r);
-        m_r.assignProduct(m_nu_tilda, m_r);
-        m_r.assignScaled(1.0 / (m_kappa * m_kappa), m_r);
-        m_r.evaluate(m_r, [](double value) { return std::clamp(value, 0.0, 10.0); });
-        m_fw.evaluate(m_r, [this](double r) {
-            const double r6 = std::pow(r, 6.0);
-            const double g = r + m_cw2 * (r6 - r);
-            const double cw3_6 = std::pow(m_cw3, 6.0);
-            return g * std::pow((1.0 + cw3_6) /
-                                (std::pow(g, 6.0) + cw3_6), 1.0 / 6.0);
-        });
+    void boundTransportField() {
+        nuTilda.setBoundaryFlux(phi);
+        nuTilda = math::max(nuTilda, nuTildaMin);
     }
 
     void updateViscosity() {
-        m_mut.assignProduct(m_nu_tilda, m_fv1);
-        m_mut.assignScaled(m_density, m_mut);
-        setEddyViscosity(m_mut);
+        mut = rho * nuTilda * viscosityDamping(nuTilda / (mu / rho));
+        muEff = mu + mut;
     }
 
-    void updateEquationFields() {
-        updateFunctions();
-        m_nu_tilda_gradient = math::grad(m_nu_tilda);
-        m_gradient_squared.evaluate(m_nu_tilda_gradient, [](const Vec3& gradient) {
-            return squaredNorm(gradient);
-        });
-
-        // Split the signed reaction coefficient without changing the positive-variable PDE.
-        // a = cb1*(1-ft2)*S~ - (cw1*fw-cb1*ft2/kappa^2)*nu~/d^2.
-        m_work1.evaluate(m_ft2, [](double value) { return 1.0 - value; });
-        m_source.assignProduct(m_stilda, m_work1);
-        m_source.assignScaled(m_cb1, m_source);
-        m_work1.assignProduct(m_nu_tilda, m_inverse_distance_squared);
-        m_work2.assignScaled(m_cw1, m_fw);
-        m_work2.addScaled(-m_cb1 / (m_kappa * m_kappa), m_ft2);
-        m_source.addProduct(-1.0, m_work2, m_work1);
-        m_sink.evaluate(m_source, [this](double a) { return m_density * std::max(-a, 0.0); });
-        m_source.evaluate(m_source, [](double a) { return std::max(a, 0.0); });
-        m_source.assignProduct(m_nu_tilda, m_source);
-        m_source.addScaled(m_cb2 / m_sigma, m_gradient_squared);
-        m_source.assignScaled(m_density, m_source);
-
-        // 守恒形式中的扩散系数 rho*(nu+nu~)/sigma。
-        m_diffusivity.fill(m_molecular_viscosity);
-        m_diffusivity.addScaled(m_density, m_nu_tilda);
-        m_diffusivity.assignScaled(1.0 / m_sigma, m_diffusivity);
-    }
-
-    double m_cb1;
-    double m_cb2;
-    double m_sigma;
-    double m_kappa;
-    double m_cw2;
-    double m_cw3;
-    double m_cv1;
-    double m_ct3;
-    double m_ct4;
-    double m_cw1;
-    double m_nu_tilda_min;
-    double m_wall_distance_min;
-    ScalarField& m_nu_tilda;
-    ScalarField& m_wall_distance;
-    ScalarField& m_mut;
-    ScalarField& m_previous_nu_tilda;
-    VectorField& m_nu_tilda_gradient;
-    ScalarField& m_vorticity_magnitude;
-    ScalarField& m_gradient_squared;
-    ScalarField& m_chi;
-    ScalarField& m_fv1;
-    ScalarField& m_fv2;
-    ScalarField& m_ft2;
-    ScalarField& m_inverse_distance_squared;
-    ScalarField& m_stilda;
-    ScalarField& m_r;
-    ScalarField& m_fw;
-    ScalarField& m_diffusivity;
-    ScalarField& m_source;
-    ScalarField& m_sink;
-    ScalarField& m_work1;
-    ScalarField& m_work2;
-    double m_relative_change = 0.0;
-    math::History<double> m_nu_tilda_old{m_nu_tilda};
-
+    const VectorField& U;
+    const ScalarField& phi;
+    ScalarField& muEff;
+    const double rho, mu;
+    ScalarField& nuTilda;
+    const ScalarField& wallDistance;
+    ScalarField& mut;
+    const double relaxation, residualTolerance, nuTildaMin, wallDistanceMin;
+    const double cb1, cb2, sigma, kappa, cw2, cw3, cv1, ct3, ct4, cw1;
+    const LinearSolverConfig nuTildaSolver;
+    math::History<double> nuTildaHistory;
 };
 
-}  // 匿名命名空间
+} // namespace
 
-Model* makeSpalartAllmaras(
-    Case& problem,
-    const VectorField& velocity,
-    const ScalarField& face_flux,
-    ScalarField& effective_viscosity,
-    double density,
-    double molecular_viscosity)
-{
-    return new SpalartAllmaras(
-        problem, velocity, face_flux, effective_viscosity,
-        density, molecular_viscosity);
+Model* makeSpalartAllmaras(Case& problem, const VectorField& velocity, const ScalarField& flux,
+                          ScalarField& effectiveViscosity, double density, double viscosity) {
+    return new SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity);
 }
 
-}  // babelsim::rans 命名空间
+} // namespace babelsim::rans

@@ -1,52 +1,93 @@
 #pragma once
+
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <memory>
+#include <string>
+#include <vector>
+
 namespace babelsim::rans {
+
+// Per-equation diagnostics retain names and units. Never combine absolute
+// residuals of different transported quantities such as k and omega.
+struct TransportEquationResult {
+    std::string field;
+    SolveResult linearSolve;
+    double initialResidual; // normalized, before relaxation and solve
+    double relativeChange; // after solving and bounding, vs previous outer iterate
+};
+
+struct TransportResult {
+    std::vector<TransportEquationResult> equations;
+
+    bool healthy() const {
+        for (const auto& equation : equations)
+            if (!equation.linearSolve.healthy() || !std::isfinite(equation.initialResidual)
+                || !std::isfinite(equation.relativeChange)) return false;
+        return true;
+    }
+    bool linearConverged() const {
+        for (const auto& equation : equations)
+            if (!equation.linearSolve.converged()) return false;
+        return true;
+    }
+    double initialResidual() const {
+        double result = 0.0;
+        for (const auto& equation : equations) {
+            if (!std::isfinite(equation.initialResidual))
+                return std::numeric_limits<double>::infinity();
+            result = std::max(result, equation.initialResidual);
+        }
+        return result;
+    }
+    double relativeChange() const {
+        double result = 0.0;
+        for (const auto& equation : equations) {
+            if (!std::isfinite(equation.relativeChange))
+                return std::numeric_limits<double>::infinity();
+            result = std::max(result, equation.relativeChange);
+        }
+        return result;
+    }
+};
+
+// Interface only: every concrete model owns its fields, closure and transport.
 class Model {
 public:
-    virtual ~Model()=default;
-    virtual void saveOld(double dt)=0;
-    virtual const char* modelName() const=0;
-    virtual SolveResult correct()=0;
-    virtual double relativeChange() const=0;
-    virtual double relativeResidual() const=0;
-    virtual double tolerance() const=0;
+    virtual ~Model() = default;
+    virtual void saveOld(double dt) = 0;
+    virtual const char* modelName() const = 0;
+    virtual TransportResult solveTransport() = 0;
+    virtual double tolerance() const = 0;
 };
-Model* create(Case&,const VectorField&,const ScalarField&,ScalarField&,double,double);
+
+Model* create(Case&, const VectorField&, const ScalarField&, ScalarField&, double, double);
 void destroy(Model*) noexcept;
-using Handle=std::unique_ptr<Model,void(*)(Model*)>;
-inline Handle load(Case& c,const VectorField& u,const ScalarField& phi,ScalarField& mu,double rho,double molecular) {
-    return Handle(create(c,u,phi,mu,rho,molecular),destroy);
-}
-// Coupling object owns the wiring; each selected implementation remains independent.
+using Handle = std::unique_ptr<Model, void(*)(Model*)>;
+
+// SIMPLE-facing coupling: configuration and field ownership, no numerical model.
 class Turbulence {
 public:
-    Turbulence(Case& problem,const VectorField& velocity,const ScalarField& phi)
-        : viscosity_(&problem.scalarField("muEffective",problem.physics().positive("dynamicViscosity"))),
-          model_(create(problem,velocity,phi,*viscosity_,problem.physics().positive("density"),
-                        problem.physics().positive("dynamicViscosity")),destroy) {}
-    explicit operator bool() const {return bool(model_);}
-    const ScalarField& viscosity() const {return *viscosity_;}
-    void saveOld(double dt) {if(model_) model_->saveOld(dt);}
-    SolveResult correct() {
-        return model_ ? model_->correct() : SolveResult{SolveStatus::Converged,0,0,0,0};
+    Turbulence(Case& problem, const VectorField& velocity, const ScalarField& phi);
+    explicit operator bool() const { return bool(model_); }
+    const ScalarField& effectiveViscosity() const { return *viscosity_; }
+    void saveOld(double dt) { if (model_) model_->saveOld(dt); }
+    TransportResult solveTransport() {
+        return model_ ? model_->solveTransport() : TransportResult{};
     }
-    double relativeChange() const {return model_ ? model_->relativeChange() : 0.0;}
-    double relativeResidual() const {return model_ ? model_->relativeResidual() : 0.0;}
-    double tolerance() const {return model_ ? model_->tolerance() : 0.0;}
+    double tolerance() const { return model_ ? model_->tolerance() : 0.0; }
+
 private:
     ScalarField* viscosity_;
     Handle model_;
 };
-inline Turbulence load(Case& problem,const VectorField& velocity,const ScalarField& phi) {
-    return Turbulence(problem,velocity,phi);
+
+inline Turbulence load(Case& problem, const VectorField& velocity, const ScalarField& phi) {
+    return Turbulence(problem, velocity, phi);
 }
 
-void saveOld(Model&,double dt);
-SolveResult correct(Model&);
-double relativeChange(const Model&);
-double relativeResidual(const Model&);
-double tolerance(const Model&);
-const char* name(const Model&);
-}
+} // namespace babelsim::rans

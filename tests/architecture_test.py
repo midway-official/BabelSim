@@ -163,8 +163,8 @@ for module in ("simple", "transient_simple"):
 assert "while (time.value() < time.end())" in texts[ROOT / "src/physics/transient_simple/main.cpp"]
 # The model contract has no data or transport implementation.
 model_api = texts[ROOT / "src/physics/RANS/api.h"]
-assert "virtual SolveResult correct()=0" in model_api
-assert "solveTransport" not in model_api and "equ::" not in model_api
+assert "virtual TransportResult solveTransport() = 0" in model_api
+assert "equ::" not in model_api
 for name in ("k_omega", "k_epsilon", "spalart_allmaras"):
     text = texts[ROOT / "src/physics/RANS" / (name + ".cpp")]
     assert "equ::solve" in text and "equ::ddt" in text

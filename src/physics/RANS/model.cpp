@@ -53,13 +53,15 @@ Model* create(
         "unsupported turbulenceModel; expected none, SA, kOmega or kEpsilon");
 }
 
-void saveOld(Model& model,double dt) { model.saveOld(dt); }
-void destroy(Model* model) noexcept { delete model; }
-SolveResult correct(Model& model) { return model.correct(); }
-double relativeChange(const Model& model) { return model.relativeChange(); }
-double tolerance(const Model& model) { return model.tolerance(); }
-const char* name(const Model& model) { return model.modelName(); }
+Turbulence::Turbulence(Case& problem, const VectorField& velocity, const ScalarField& phi)
+    : viscosity_(nullptr), model_(nullptr, destroy)
+{
+    const double rho = problem.physics().positive("density");
+    const double mu = problem.physics().positive("dynamicViscosity");
+    viscosity_ = &problem.scalarField("muEffective", mu);
+    model_.reset(create(problem, velocity, phi, *viscosity_, rho, mu));
+}
 
-double relativeResidual(const Model& model) { return model.relativeResidual(); }
+void destroy(Model* model) noexcept { delete model; }
 
 }  // babelsim::rans 命名空间

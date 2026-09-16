@@ -119,10 +119,10 @@ boundary constraints:
 
 ```cpp
 auto pPrime = math::createHomogeneousField(p);
-auto P = equ::createEquation(pPrime);
+auto pressureCorrectionEquation = equ::createEquation(pPrime);
 ```
 
-After assembly, `equ::reference(P, 0.0)` adds a reference only when the assembled
+After assembly, `equ::reference(pressureCorrectionEquation, 0.0)` adds a reference only when the assembled
 matrix has a constant null mode. This is intended for pressure systems; it does
 not diagnose arbitrary singularities or disconnected components.
 
@@ -130,17 +130,19 @@ not diagnose arbitrary singularities or disconnected components.
 
 ```cpp
 auto turbulence = rans::load(problem, U, phi);
-const auto& muEff = turbulence.viscosity();
+const auto& muEff = turbulence.effectiveViscosity();
 // Once per physical time step, before any inner corrections:
 turbulence.saveOld(time.dt());
 // At the explicitly chosen point in the SIMPLE iteration:
-const auto result = turbulence.correct();
+const auto result = turbulence.solveTransport();
 ```
 
 The coupling object reads the configured model and molecular properties and
 provides effective dynamic viscosity. Each concrete model independently implements
-its transport equations and closure. The caller owns logging and the physical
-convergence decision. Laminar configuration supplies molecular viscosity without
+its transport equations and closure. Each result retains named per-equation linear status, normalized pre-relaxation
+residual and bounded field change. Only dimensionless maxima are aggregated;
+absolute residuals of different physical quantities are never added. The caller
+owns logging and the physical convergence decision. Laminar configuration supplies molecular viscosity without
 transport equations. Steady solvers do not save transient histories.
 
 ## Matrix operations
