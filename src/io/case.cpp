@@ -308,9 +308,6 @@ TensorField& Case::createTensorField(const std::string& name, Tensor3 initial) {
 ScalarField& Case::createFaceScalarField(const std::string& name) {
     return m_implementation->field(m_implementation->scalars, name, FieldLocation::Face, false);
 }
-ScalarField& Case::createFaceField(const std::string& name) {
-    return createFaceScalarField(name);
-}
 VectorField& Case::createFaceVectorField(const std::string& name) {
     return m_implementation->field(m_implementation->vectors, name, FieldLocation::Face, false);
 }
@@ -355,10 +352,6 @@ void Case::start() {
     m_implementation->started = true;
 }
 
-const Methods& Case::loadMethods() {
-    return methods();
-}
-const Methods& loadMethods(Case& problem) { return problem.loadMethods(); }
 TimeStepper::TimeStepper(Case& problem):case_(&problem),options_(problem.timeControl()),
     value_(options_.start_time),dt_(options_.delta_t) { options_.validate(); }
 TimeStepper time::start(Case& problem) { return TimeStepper(problem); }
@@ -410,9 +403,6 @@ LinearSolverConfig readLinearControl(const Case& problem,const VectorField& fiel
     return fieldLinearControl(problem, field.name(), true);
 }
 int readWriteInterval(const Case& problem) { return problem.outputControl().write_interval; }
-void setTime(Case& problem,double value) {
-    problem.setTime(value,problem.step(),problem.timeControl().delta_t);
-}
 void write(Case& problem,double value,int step) {
     problem.setTime(value,step,problem.timeControl().delta_t);
     problem.write();
@@ -431,18 +421,6 @@ void Case::write() {
     // Explicit writes update both the time series and the latest written snapshot.
     // This does not mark the physical calculation converged or complete.
     m_implementation->write(m_implementation->final_directory);
-}
-
-bool Case::loop() {
-    Implementation& state = *m_implementation;
-    if (state.finished) return false;
-    if (state.run_time.methods().time == TimeMethod::Steady)
-        throw std::logic_error("steady case requires an algorithm iteration loop");
-    start();
-    if (step() > 0) state.writeStep(false);
-    if (state.run_time.loop()) return true;
-    finish();
-    return false;
 }
 
 void Case::finish() {

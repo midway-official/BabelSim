@@ -58,8 +58,7 @@ output output.bs
 ```
 
 Case 构造时读取网格、`physics`、`solution`、`methods` 和输出控制。方法字典只解析一次；
-`problem.methods()` 是只读生效配置，不应在 Solver 中再次调用解析器。旧的
-`loadMethods(problem)` 只是幂等兼容别名，新代码使用 `problem.methods()`。
+`problem.methods()` 是只读生效配置，不应在 Solver 中再次调用解析器。
 
 ### 2.2 配置分类
 
@@ -99,8 +98,8 @@ const ParameterInfo info = problem.solution().inspect("maxIterations");
 ```
 
 在声明阶段完成所有场、物性和设置读取后调用一次 `problem.validate()`。它只校验，不推进
-时间、不写文件，也不会提前禁止继续声明场。第一次进入 `time::start`、`setTime` 或
-`loop` 时 Case 才锁定声明阶段。
+时间、不写文件，也不会提前禁止继续声明场。第一次进入 `time::start` 或
+`setTime` 时 Case 才锁定声明阶段。
 
 ## 3. 场的加载、创建和查找
 
@@ -127,7 +126,6 @@ auto& correctionAgain = problem.existingScalarField("correction");
   不会静默忽略新的初始化值。
 - `createFaceScalarField/createFaceVectorField/createFaceTensorField` 创建面场，不能从结果输出
   配置直接写出。
-- `createFaceField` 仅作为旧代码的兼容别名；新代码应显式写出 `createFaceScalarField`。
 - `existing*Field` 只查找已经声明的对象，用于模型之间明确共享一个场。
 - 声明阶段结束后不能创建新 Case 场；局部派生量仍可用值语义的 `math::*` 返回值创建。
 
@@ -264,8 +262,8 @@ while (time.value() < time.end()) {
 BDF2 首步自动使用 Euler。稳态 Solver 不应创建时间循环；它检查方法为
 `TimeMethod::Steady` 后直接进入自己的迭代循环。
 
-旧的 `Case::loop()` 保留用于兼容程序，但新 Solver 应优先使用上面的显式
-`TimeStepper`，因为代码中清楚可见何时保存历史、何时组装和何时写出。
+Solver 使用显式 `TimeStepper` 或自己的迭代循环；Case 不提供隐藏的 `problem.loop()`，
+因此代码中清楚可见何时保存历史、何时组装和何时写出。
 
 ## 6. 线性求解、诊断和通用监视器
 

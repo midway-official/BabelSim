@@ -1,7 +1,6 @@
 #pragma once
 
 #include "babelsim/field.h"
-#include "babelsim/history.h"
 
 namespace babelsim::math {
 

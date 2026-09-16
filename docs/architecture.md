@@ -52,7 +52,7 @@ auto& again = problem.existingFaceField("phi");
 
 Case 构造期间读取方法一次并创建 Runtime。problem.methods() 只读返回生效配置。参数
 声明完成后调用 problem.validate()；start/time::start/setTime 会锁定声明阶段，随后不允许
-创建新命名场。面标量场使用 `createFaceScalarField`（`createFaceField` 仅为兼容别名）。
+创建新命名场。面标量场使用 `createFaceScalarField`，面向量/面张量分别使用对应的显式类型名称。
 Equation 和 History 的析构顺序由 Case/Runtime 保证，Solver 不管理后端。
 
 ## 4. DSL 契约

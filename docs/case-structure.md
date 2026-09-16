@@ -138,7 +138,7 @@ auto& same = problem.existingScalarField("k");  // 查找已声明场
 
 命名场由 Case 绑定当前 Mesh 和边界。加载 API 只加载 cell 文件；create API 只创建程序
 场。第一次 create 的初值生效，重复 create 或 load/create 混用会报错，不会静默忽略。
-面标量场的新代码使用 `createFaceScalarField`；旧的 `createFaceField` 仍作为兼容别名。
+面标量场使用 `createFaceScalarField`，面向量/面张量使用对应的显式类型名称。
 声明阶段结束后不能增加 Case 场；局部 math 返回值可继续使用。
 
 压力修正等齐次边界场使用：
@@ -167,7 +167,7 @@ while (time.value() < time.end()) {
 ~~~
 
 TimeStepper 只负责推进和末步截断；History 由 Solver 明确保存；运行时不判断物理收敛、不
-打印。稳态 Solver 使用自己的 for 循环，不调用 Case::loop。
+打印。稳态 Solver 使用自己的 for 循环；Case 不提供隐藏的 `problem.loop()`。
 
 ## 6. 结果结构
 

@@ -381,15 +381,4 @@ SolveResult PreparedLinearSolver::solve(
     return result;
 }
 
-SolveResult solve(
-    const Eigen::SparseMatrix<double>& matrix,
-    const Eigen::VectorXd& right_hand_side,
-    Eigen::VectorXd& solution,
-    const LinearSolverConfig& config)
-{
-    PreparedLinearSolver solver(config);
-    solver.compute(matrix);
-    return solver.solve(right_hand_side, solution);
-}
-
 }  // babelsim 命名空间

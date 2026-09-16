@@ -28,10 +28,4 @@ private:
     std::unique_ptr<Implementation> m_implementation;
 };
 
-SolveResult solve(
-    const Eigen::SparseMatrix<double>& A,
-    const Eigen::VectorXd& b,
-    Eigen::VectorXd& x,
-    const LinearSolverConfig& config = {});
-
 }  // babelsim 命名空间

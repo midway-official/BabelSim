@@ -32,6 +32,15 @@ closures = {path: closure(path) for path in files}
 for retired in ("include/babelsim/fvm.h", "include/babelsim/fvc.h",
                 "src/discretization/fvm_expression.cpp"):
     assert not (ROOT / retired).exists(), retired
+# Keep removed convenience wrappers from silently returning through a future
+# compatibility patch.  The backend contract is the reusable assembly/solve
+# objects below, and Case time/method access is explicit.
+assert not re.search(r'\b(?:LinearSystem|assembleMatrix|assemble\s*\()',
+                     texts[ROOT / "include/babelsim/assembly.h"])
+assert not re.search(r'\bsolve\s*\(\s*const\s+Eigen::SparseMatrix',
+                     texts[ROOT / "include/babelsim/linear_solver.h"])
+assert not re.search(r'\b(?:createFaceField|loadMethods|bool\s+loop\s*\()',
+                     texts[ROOT / "include/babelsim/case.h"])
 for path, text in texts.items():
     assert not re.search(r'\b(?:fvm|fvc)\s*::|namespace\s+(?:fvm|fvc)\b|'
                          r'babelsim/(?:fvm|fvc)\.h|\b(?:FvmTermKind|ScalarFvmTerm|VectorFvmTerm)\b', text), path

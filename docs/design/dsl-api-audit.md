@@ -64,8 +64,42 @@ SA、k–omega、k–epsilon 各自实现输运和闭合。SIMPLE 只看到 effe
 | entry().tokens | Parameters typed getter |
 | Physics return 数字退出码 | SolverResult |
 | simple.solve() 黑盒 | main 中显式 SIMPLE 步骤 |
+| `LinearSystem` / `assemble()` | `SparseAssembly::update()` + `matrix()` 与显式 `assembleSource()` |
+| `assembleMatrix()` 临时矩阵包装 | 可复用的 `SparseAssembly`（一次建立结构，多次更新值） |
+| `solve(Eigen::SparseMatrix, ...)` 一次性后端入口 | `PreparedLinearSolver::compute/factorize/solve` |
+| `Case::loadMethods()`、`loadMethods(Case&)` | 构造时加载，使用 `Case::methods()` |
+| `Case::createFaceField()` | 按值类型命名的 `createFaceScalarField()` |
+| `Case::loop()` 隐藏时间循环 | `time::start(problem)` + 显式 `TimeStepper`/算法循环 |
 
-## 6. 验收
+## 6. 后端静态清理
+
+本轮按“先找调用者，再删除入口”的原则检查了 `src/backend`、`src/algebra` 和实现头文件。
+`SparseAssembly` 仍被 Eigen/MPI 后端用于缓存 CSR 结构；`assembleSource` 仍被串行和分布式
+线性求解路径使用；`PreparedLinearSolver` 仍被 Eigen 后端用于矩阵准备和重复求解。因此这些
+能力属于后端稳定契约，不能因为 Physics 不直接调用就删除。
+
+确认没有生产调用后，删除了三类只提供临时包装或重复语义的接口：
+
+1. `LinearSystem` 与 `assemble()/assembleMatrix()`：它们每次重新创建矩阵并把矩阵/右端捆成
+   一个后端结构，绕过了可缓存的 `SparseAssembly`。测试已改为显式更新装配器、取得矩阵并
+   单独装配源项，仍覆盖标量/向量系数等价性。
+2. `PreparedLinearSolver` 之外的 Eigen 一次性 `solve(A,b,x,config)`：该函数内部立即构造、
+   准备并销毁求解器，不能复用预条件器，也没有 Physics 或后端调用者。测试改用同一个
+   `PreparedLinearSolver` 完成相同的 CG、BiCGSTAB、AMG 和无预条件器验证。
+3. 向量按值返回的 `assembleSource(equation)`：只有带输出参数的版本被 Eigen/MPI 路径使用；
+   删除按值重载避免不必要的临时分配。
+
+同时删除了 Case 中未被任何 Solver、测试或应用使用的历史兼容入口：`createFaceField`、
+`loadMethods`（成员与自由函数）、单参数 `setTime` 和 `Case::loop`。它们不改变数值语义，
+却会重新引入类型不明确、方法重复解析或隐藏时间推进。保留的 `write(Case, TimeStepper)`
+和显式 `Case::setTime/write` 仍是当前 Physics/示例实际使用的 I/O 入口。
+
+后端公开实现头仍由 architecture test 标记为 implementation-only；Physics 的包含闭包没有
+引入 Eigen、CSR、MPI、DistributedLinearSolver 或 DiscreteEquation。后续若要进一步缩小
+安装包，可把这些已标记的实现头从安装清单迁入 `src`，但这属于打包边界调整，不在本轮数值
+重构范围内。
+
+## 7. 验收
 
 architecture_test 检查层次和包含边界；case_io/lifecycle 检查配置消费和场生命周期；
 procedural/operators/backend 检查数学合同；Heat、Transport、SIMPLE、时间历史和 RANS

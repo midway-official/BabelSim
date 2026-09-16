@@ -30,13 +30,6 @@ Eigen::Index coefficientPosition(
     throw std::logic_error("sparse assembly pattern is incomplete");
 }
 
-template <typename T>
-Eigen::SparseMatrix<double> assembleMatrixImpl(const DiscreteEquation<T>& equation) {
-    SparseAssembly assembly(equationMesh(equation.mesh));
-    assembly.update(equation);
-    return assembly.matrix();
-}
-
 }  // 匿名命名空间
 
 SparseAssembly::SparseAssembly(const Mesh& mesh)
@@ -133,21 +126,6 @@ void SparseAssembly::update(const VectorDiscreteEquation& equation) {
     update(equation.mesh, equation.diagonal, equation.upper, equation.lower);
 }
 
-Eigen::SparseMatrix<double> assembleMatrix(const ScalarDiscreteEquation& equation) {
-    return assembleMatrixImpl(equation);
-}
-
-Eigen::SparseMatrix<double> assembleMatrix(const VectorDiscreteEquation& equation) {
-    return assembleMatrixImpl(equation);
-}
-
-LinearSystem assemble(const ScalarDiscreteEquation& equation) {
-    LinearSystem system;
-    system.A = assembleMatrix(equation);
-    assembleSource(equation, system.b);
-    return system;
-}
-
 void assembleSource(const ScalarDiscreteEquation& equation, Eigen::VectorXd& result) {
     equation.validateStorage();
     const Mesh& mesh = equationMesh(equation.mesh);
@@ -174,12 +152,6 @@ void assembleSource(
         result[1][row] = equation.source[c].y;
         result[2][row] = equation.source[c].z;
     }
-}
-
-std::array<Eigen::VectorXd, 3> assembleSource(const VectorDiscreteEquation& equation) {
-    std::array<Eigen::VectorXd, 3> result;
-    assembleSource(equation, result);
-    return result;
 }
 
 }  // babelsim 命名空间

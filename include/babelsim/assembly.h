@@ -9,11 +9,6 @@
 
 namespace babelsim {
 
-struct LinearSystem {
-    Eigen::SparseMatrix<double> A;
-    Eigen::VectorXd b;
-};
-
 // 预计算依赖网格的压缩稀疏结构及每个 LDU 系数在值数组中的直接位置。分区网格仅
 // 生成自有行；跨进程的面系数由分布式求解器的 halo 矩阵向量乘施加。因此 update()
 // 不遍历拓扑，不分配三元组，不排序，也不插入稀疏项。
@@ -41,13 +36,9 @@ private:
     std::vector<Index> m_coupled_faces;
 };
 
-Eigen::SparseMatrix<double> assembleMatrix(const ScalarDiscreteEquation& equation);
-Eigen::SparseMatrix<double> assembleMatrix(const VectorDiscreteEquation& equation);
-LinearSystem assemble(const ScalarDiscreteEquation& equation);
 void assembleSource(const ScalarDiscreteEquation& equation, Eigen::VectorXd& result);
 void assembleSource(
     const VectorDiscreteEquation& equation,
     std::array<Eigen::VectorXd, 3>& result);
-std::array<Eigen::VectorXd, 3> assembleSource(const VectorDiscreteEquation& equation);
 
 }  // babelsim 命名空间

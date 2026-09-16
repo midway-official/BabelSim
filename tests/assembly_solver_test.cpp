@@ -35,9 +35,13 @@ int main() {
     addDiffusion(
         equation, 1.0, phi, GradientMethod::GreenGauss,
         DiffusionMethod::Orthogonal);
-    const LinearSystem system = assemble(equation);
+    SparseAssembly assembly(mesh);
+    assembly.update(equation);
+    Eigen::VectorXd source;
+    assembleSource(equation, source);
+    const auto& matrix = assembly.matrix();
     const double symmetry_error =
-        (system.A - Eigen::SparseMatrix<double>(system.A.transpose())).norm();
+        (matrix - Eigen::SparseMatrix<double>(matrix.transpose())).norm();
     require(symmetry_error < 1e-13, "diffusion assembly is not symmetric");
 
     Eigen::VectorXd solution;
@@ -46,7 +50,9 @@ int main() {
     config.preconditioner = PreconditionerType::IncompleteCholesky;
     config.absolute_tolerance = 1e-14;
     config.relative_tolerance = 1e-12;
-    const SolveResult result = solve(system.A, system.b, solution, config);
+    PreparedLinearSolver direct_solver(config);
+    direct_solver.compute(matrix);
+    const SolveResult result = direct_solver.solve(source, solution);
     require(result.converged(), "CG did not solve the diffusion equation");
 
     double maximum_error = 0.0;
@@ -61,8 +67,10 @@ int main() {
     LinearSolverConfig no_preconditioner_config = config;
     no_preconditioner_config.preconditioner = PreconditionerType::None;
     Eigen::VectorXd no_preconditioner_solution;
-    const SolveResult no_preconditioner_result = solve(
-        system.A, system.b, no_preconditioner_solution, no_preconditioner_config);
+    PreparedLinearSolver no_preconditioner_solver(no_preconditioner_config);
+    no_preconditioner_solver.compute(matrix);
+    const SolveResult no_preconditioner_result =
+        no_preconditioner_solver.solve(source, no_preconditioner_solution);
     require(
         no_preconditioner_result.converged() &&
             (no_preconditioner_solution - solution).norm() < 1e-11 &&
@@ -71,11 +79,11 @@ int main() {
         "unpreconditioned CG did not remain an identity preconditioner");
 
     PreparedLinearSolver prepared(config);
-    prepared.compute(system.A);
+    prepared.compute(matrix);
     Eigen::VectorXd first;
     Eigen::VectorXd second;
-    const SolveResult first_result = prepared.solve(system.b, first);
-    const SolveResult second_result = prepared.solve(2.0 * system.b, second);
+    const SolveResult first_result = prepared.solve(source, first);
+    const SolveResult second_result = prepared.solve(2.0 * source, second);
     require(
         first_result.converged() && second_result.converged() &&
             (first - solution).norm() < 1e-12 &&
@@ -90,16 +98,18 @@ int main() {
     amg_config.amg_smoothing_steps = 2;
     amg_config.max_iterations = 100;
     Eigen::VectorXd amg_cg_solution;
-    const SolveResult amg_cg_result = solve(
-        system.A, system.b, amg_cg_solution, amg_config);
+    PreparedLinearSolver amg_cg_solver(amg_config);
+    amg_cg_solver.compute(matrix);
+    const SolveResult amg_cg_result = amg_cg_solver.solve(source, amg_cg_solution);
     require(
         amg_cg_result.converged() && (amg_cg_solution - solution).norm() < 1e-10,
         "AMG-preconditioned CG did not solve diffusion");
 
     amg_config.solver = LinearSolverType::BiCGSTAB;
     Eigen::VectorXd bicgstab_solution;
-    const SolveResult bicgstab_result = solve(
-        system.A, system.b, bicgstab_solution, amg_config);
+    PreparedLinearSolver bicgstab_solver(amg_config);
+    bicgstab_solver.compute(matrix);
+    const SolveResult bicgstab_result = bicgstab_solver.solve(source, bicgstab_solution);
     require(
         bicgstab_result.converged() &&
             (bicgstab_solution - solution).norm() < 1e-10,
@@ -115,25 +125,25 @@ int main() {
     // 因而复用只影响速度和迭代数，不能改变线性系统的解。
     amg_config.amg_refresh_interval = 4;
     PreparedLinearSolver cached_amg(amg_config);
-    cached_amg.compute(system.A);
+    cached_amg.compute(matrix);
     Eigen::VectorXd cached_amg_solution;
-    cached_amg.factorize(2.0 * system.A);
+    cached_amg.factorize(2.0 * matrix);
     require(
-        cached_amg.solve(2.0 * system.b, cached_amg_solution).converged() &&
+        cached_amg.solve(2.0 * source, cached_amg_solution).converged() &&
             (cached_amg_solution - solution).norm() < 1e-10,
         "reused AMG preconditioner did not solve the updated system");
 
     PreparedLinearSolver prepared_amg(amg_config);
-    prepared_amg.compute(system.A);
+    prepared_amg.compute(matrix);
     Eigen::VectorXd prepared_amg_solution;
     require(
-        prepared_amg.solve(system.b, prepared_amg_solution).converged() &&
+        prepared_amg.solve(source, prepared_amg_solution).converged() &&
             (prepared_amg_solution - solution).norm() < 1e-10,
         "prepared AMG did not solve diffusion");
-    prepared_amg.factorize(2.0 * system.A);
+    prepared_amg.factorize(2.0 * matrix);
     Eigen::VectorXd refactorized_amg_solution;
     require(
-        prepared_amg.solve(2.0 * system.b, refactorized_amg_solution).converged() &&
+        prepared_amg.solve(2.0 * source, refactorized_amg_solution).converged() &&
             (refactorized_amg_solution - solution).norm() < 1e-10,
         "AMG factorization did not reuse its hierarchy");
 
@@ -141,14 +151,16 @@ int main() {
     vector_equation.diagonal = equation.diagonal;
     vector_equation.upper = equation.upper;
     vector_equation.lower = equation.lower;
+    SparseAssembly vector_assembly(mesh);
+    vector_assembly.update(vector_equation);
     require(
-        (assembleMatrix(vector_equation) - system.A).norm() < 1e-14,
+        (vector_assembly.matrix() - matrix).norm() < 1e-14,
         "scalar and segregated-vector matrix assembly differ");
 
     SparseAssembly cached_assembly(mesh);
     cached_assembly.update(equation);
     require(
-        (cached_assembly.matrix() - system.A).norm() < 1e-14,
+        (cached_assembly.matrix() - matrix).norm() < 1e-14,
         "precomputed sparse assembly differs from triplet assembly");
     ScalarDiscreteEquation rescaled_equation = equation;
     for (double& value : rescaled_equation.diagonal) {
@@ -162,7 +174,7 @@ int main() {
     }
     cached_assembly.update(rescaled_equation);
     require(
-        (cached_assembly.matrix() - 2.0 * system.A).norm() < 1e-14,
+        (cached_assembly.matrix() - 2.0 * matrix).norm() < 1e-14,
         "precomputed sparse assembly did not update coefficient values");
 
     ScalarField face_diffusivity(
@@ -175,9 +187,13 @@ int main() {
     addDiffusion(
         constant_diffusion, 3.0, phi,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
+    SparseAssembly field_diffusion_assembly(mesh);
+    SparseAssembly constant_diffusion_assembly(mesh);
+    field_diffusion_assembly.update(field_diffusion);
+    constant_diffusion_assembly.update(constant_diffusion);
     require(
-        (assembleMatrix(field_diffusion) -
-         assembleMatrix(constant_diffusion)).norm() < 1e-14 &&
+        (field_diffusion_assembly.matrix() -
+         constant_diffusion_assembly.matrix()).norm() < 1e-14 &&
             field_diffusion.source == constant_diffusion.source,
         "face-centred scalar diffusivity differs from a constant coefficient");
 
@@ -190,6 +206,10 @@ int main() {
     addDiffusion(
         constant_vector_diffusion, 3.0, vector,
         GradientMethod::GreenGauss, DiffusionMethod::Orthogonal);
+    SparseAssembly field_vector_diffusion_assembly(mesh);
+    SparseAssembly constant_vector_diffusion_assembly(mesh);
+    field_vector_diffusion_assembly.update(field_vector_diffusion);
+    constant_vector_diffusion_assembly.update(constant_vector_diffusion);
     double vector_source_error = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         vector_source_error = std::max(
@@ -199,8 +219,8 @@ int main() {
                 constant_vector_diffusion.source[static_cast<std::size_t>(cell)]));
     }
     require(
-        (assembleMatrix(field_vector_diffusion) -
-         assembleMatrix(constant_vector_diffusion)).norm() < 1e-14 &&
+        (field_vector_diffusion_assembly.matrix() -
+         constant_vector_diffusion_assembly.matrix()).norm() < 1e-14 &&
             vector_source_error < 1e-14,
         "face-centred vector diffusivity differs from a constant coefficient");
 

@@ -69,10 +69,8 @@ public:
     TensorField& tensorField(const std::string& name);
     TensorField& existingTensorField(const std::string& name);
     TensorField& createTensorField(const std::string& name, Tensor3 initial = {});
-    // Explicitly names the value type and location.  createFaceField is kept
-    // as a source-compatible alias for older solvers.
+    // Explicitly names the value type and location.
     ScalarField& createFaceScalarField(const std::string& name);
-    ScalarField& createFaceField(const std::string& name);
     VectorField& createFaceVectorField(const std::string& name);
     TensorField& createFaceTensorField(const std::string& name);
     ScalarField& existingFaceField(const std::string& name);
@@ -86,23 +84,18 @@ public:
         selectOutput(field.name(), &field, enabled);
     }
 
-    // 下一次 loop() 前保存已完成时间步；自然退出时保证最终时刻写出。
-    // 若求解失败，请提前返回，不调用 finish()，以免把失败步标成完整结果。
-    bool loop();
     const TimeControl& timeControl() const;
     // Numerical methods are parsed once while the Case/runtime is constructed.
     // This accessor is a read-only view; it never reloads the methods file.
     const Methods& methods() const;
     LinearSolverConfig linearControl(bool vector) const;
-    // Backward-compatible name for methods(); retained as an idempotent query.
-    const Methods& loadMethods();
     const OutputControl& outputControl() const;
     // Procedural lifecycle: these calls never advance field histories.
     void setTime(double value, int step, double dt);
     void write();
     double time() const;
     int step() const;
-    // validate 只校验；只有最外层 start/loop 关闭声明阶段，算法构造不改变 Case 状态。
+    // validate 只校验；只有最外层 start/setTime 关闭声明阶段，算法构造不改变 Case 状态。
     void validate() const;
     void start();
     void finish();
@@ -117,12 +110,10 @@ private:
 
 // Read-only configuration values and explicit I/O; no algorithm lifecycle.
 struct TimeOptions { double start, end, dt; };
-const Methods& loadMethods(Case&);
 TimeOptions readTimeControl(const Case&);
 LinearSolverConfig readLinearControl(const Case&, const ScalarField&);
 LinearSolverConfig readLinearControl(const Case&, const VectorField&);
 int readWriteInterval(const Case&);
-void setTime(Case&, double time);
 void write(Case&, double time, int step);
 void write(Case&, const TimeStepper&);
 
