@@ -8,7 +8,7 @@ BabelSim 使用 C++ embedded DSL，不定义另一门脚本语言；普通 C++ �
 
 | API | 语义 | 典型接口 |
 | --- | --- | --- |
-| Case / Field | 网格上下文、命名场、边界、输出和时间元数据 | scalarField、createFaceField、write |
+| Case / Field | 网格上下文、命名场、边界、输出和时间元数据 | scalarField、createFaceScalarField、write |
 | math | 已经计算的场数学 | grad、div、interpolate、flux、laplacian |
 | equ | 对绑定未知量立即加入离散项 | createEquation、ddt、div、laplacian、source |
 | time | 时间推进和显式历史 | start、TimeStepper::advance、History::save |
@@ -20,7 +20,7 @@ BabelSim 使用 C++ embedded DSL，不定义另一门脚本语言；普通 C++ �
 ~~~cpp
 auto& T = problem.scalarField("T");             // 加载 fields/initial/T.field
 auto& U = problem.vectorField("U");             // 加载 fields/initial/U.field
-auto& phi = problem.createFaceField("phi");     // 创建面场，不读文件
+auto& phi = problem.createFaceScalarField("phi");     // 创建面场，不读文件
 auto& rAU = problem.createScalarField("rAU");   // 创建 cell 中间场
 auto& same = problem.existingScalarField("rAU");// 查找已声明对象
 ~~~
@@ -41,13 +41,24 @@ equation.reset();
 equ::ddt(equation, rho * cp, history);
 equ::laplacian(equation, k, -1);
 equ::source(equation, Q);
-const auto solved = equ::solve(equation, T, linear);
+const auto solved = equ::solve(equation, linear);
 ~~~
 
 laplacian(equation, gamma, multiplier) 的定义是 multiplier * div(gamma * grad(unknown))；
 扩散左端通常使用 -1。source 只加入已知右端。Equation 的 reset、diagonal、rhs、
-volumeScaledInverseDiagonal、referenceIfUnanchored 是对象状态操作；faceFlux 从实际离散项
-返回一致面通量。
+referenceIfUnanchored 是对象状态操作；需要 SIMPLE 响应系数时显式写
+`geometry::cellVolumes(mesh) / equation.diagonal()`；faceFlux 从实际离散项返回一致面通量。
+
+## geometry 几何场
+
+```cpp
+const auto V = geometry::cellVolumes(problem.mesh());
+const auto Sf = geometry::faceAreaVectors(problem.mesh());
+const auto Af = geometry::faceAreas(problem.mesh());
+```
+
+这些值场只反映网格几何，不读取配置、不写结果、不实现物理算法。`Sf` 的方向与面通量
+和散度算子一致，因而可以和 `math::dot`、`math::interpolate` 直接组合。
 
 ## 时间、配置和诊断
 

@@ -305,8 +305,11 @@ TensorField& Case::existingTensorField(const std::string& name) {
 TensorField& Case::createTensorField(const std::string& name, Tensor3 initial) {
     return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell, false, initial);
 }
-ScalarField& Case::createFaceField(const std::string& name) {
+ScalarField& Case::createFaceScalarField(const std::string& name) {
     return m_implementation->field(m_implementation->scalars, name, FieldLocation::Face, false);
+}
+ScalarField& Case::createFaceField(const std::string& name) {
+    return createFaceScalarField(name);
 }
 VectorField& Case::createFaceVectorField(const std::string& name) {
     return m_implementation->field(m_implementation->vectors, name, FieldLocation::Face, false);

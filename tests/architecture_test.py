@@ -47,7 +47,7 @@ implementation_headers = {
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
 for name in ("case.h", "solver.h", "math.h", "equ.h", "eqn.h", "application.h", "postprocess.h",
-             "result_reader.h", "monitor.h"):
+             "result_reader.h", "monitor.h", "geometry.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)
         assert not re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path]), path
@@ -76,6 +76,7 @@ for path in (ROOT / "src/apps").glob("*.cpp"):
 runtime = texts[ROOT / "src/runtime/runtime.cpp"]
 assert not re.search(r'Eigen::|SparseAssembly|DiscreteEquation|EquationTerm|gradient_workspace', runtime)
 assert "integratedNormalGradient" not in texts[ROOT / "include/babelsim/math.h"]
+assert "volumeScaledInverseDiagonal" not in texts[ROOT / "include/babelsim/equ.h"]
 assert all(path.name != "runtime.h" for path in
            closures[ROOT / "src/discretization/fvm_execution.cpp"])
 

@@ -69,6 +69,9 @@ public:
     TensorField& tensorField(const std::string& name);
     TensorField& existingTensorField(const std::string& name);
     TensorField& createTensorField(const std::string& name, Tensor3 initial = {});
+    // Explicitly names the value type and location.  createFaceField is kept
+    // as a source-compatible alias for older solvers.
+    ScalarField& createFaceScalarField(const std::string& name);
     ScalarField& createFaceField(const std::string& name);
     VectorField& createFaceVectorField(const std::string& name);
     TensorField& createFaceTensorField(const std::string& name);

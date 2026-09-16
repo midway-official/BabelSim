@@ -436,12 +436,16 @@ inline SymmetryBoundary symmetry() { return {}; }
 
 namespace field {
 // Zero cell field with homogeneous counterparts of the original constraints:
-// fixed value/gradient -> zero value/gradient; inlet/outlet switching is retained.
-// Preserve the historic Prime name because discretization selection uses it.
-inline ScalarField homogeneousLike(const ScalarField& original) {
-    ScalarField result(original.mesh(), FieldLocation::Cell, original.name() + "Prime");
+// fixed value/gradient -> zero value/gradient; other constraints follow the
+// existing pressure-correction mapping.  The caller supplies the name because
+// it is also the key used to select discretization methods.
+inline ScalarField homogeneousLike(const ScalarField& original, std::string name) {
+    ScalarField result(original.mesh(), FieldLocation::Cell, std::move(name));
     setHomogeneousCorrectionBoundaries(result, original);
     return result;
+}
+inline ScalarField homogeneousLike(const ScalarField& original) {
+    return homogeneousLike(original, original.name() + "Prime");
 }
 } // namespace field
 

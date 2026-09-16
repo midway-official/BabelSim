@@ -221,15 +221,6 @@ template<class T> ScalarField diagonal(const Equation<T>& a) {
     for (Index i:impl::meshData(d.mesh()).owned_cells) impl::fieldData(d)[i]=s.coefficients.diagonal[i];
     finish(d); return d;
 }
-template<class T> ScalarField volumeScaledInverseDiagonal(const Equation<T>& a) {
-    auto d=diagonal(a);
-    for (Index i:impl::meshData(d.mesh()).owned_cells) {
-        const double ap=impl::fieldData(d)[i];
-        if (!(ap>0) || !std::isfinite(ap)) throw std::runtime_error("response requires positive finite diagonal");
-        impl::fieldData(d)[i]=d.mesh().cellVolume(i)/ap;
-    }
-    finish(d); return d;
-}
 template<class T> Field<T> rhs(const Equation<T>& a) {
     auto b=resultField(a,"equ.rhs"); const auto& q=state(a).coefficients;
     for (Index i:impl::meshData(b.mesh()).owned_cells) impl::fieldData(b)[i]=q.source[i];
@@ -327,12 +318,16 @@ template<class T> SolveResult solve(const Equation<T>& a,Field<T>& x) { return s
 template<class T> SolveResult solve(const Equation<T>& a,Field<T>& x,const LinearSolverConfig& config) {
     config.validate(); return solveConfigured(a,x,&config);
 }
+template<class T> SolveResult solve(const Equation<T>& a) {
+    return solveConfigured(a, *EquationAccess::get(a).unknown, nullptr);
+}
+template<class T> SolveResult solve(const Equation<T>& a, const LinearSolverConfig& config) {
+    config.validate();
+    return solveConfigured(a, *EquationAccess::get(a).unknown, &config);
+}
 template<class T> void Equation<T>::reset() { clear(*this); }
 template<class T> Equation<T> Equation<T>::copy() const { return equ::copy(*this); }
 template<class T> ScalarField Equation<T>::diagonal() const { return equ::diagonal(*this); }
-template<class T> ScalarField Equation<T>::volumeScaledInverseDiagonal() const {
-    return equ::volumeScaledInverseDiagonal(*this);
-}
 template<class T> Field<T> Equation<T>::rhs() const { return equ::rhs(*this); }
 template<class T> void Equation<T>::reference(Index cellIndex, double value) {
     if constexpr (std::is_same_v<T, double>) equ::reference(*this, cellIndex, value);
@@ -362,13 +357,14 @@ template<class T> void Equation<T>::referenceIfUnanchored(double value) {
  template void addDiagonal(Equation<T>&,const ScalarField&); \
  template void addRhs(Equation<T>&,const Field<T>&); \
  template ScalarField diagonal(const Equation<T>&); \
- template ScalarField volumeScaledInverseDiagonal(const Equation<T>&); \
  template Field<T> rhs(const Equation<T>&); \
  template Field<T> apply(const Equation<T>&,const Field<T>&); \
  template Field<T> residual(const Equation<T>&,const Field<T>&); \
  template void relax(Equation<T>&,const Field<T>&,double); \
  template SolveResult solve(const Equation<T>&,Field<T>&); \
- template SolveResult solve(const Equation<T>&,Field<T>&,const LinearSolverConfig&);
+ template SolveResult solve(const Equation<T>&,Field<T>&,const LinearSolverConfig&); \
+ template SolveResult solve(const Equation<T>&); \
+ template SolveResult solve(const Equation<T>&,const LinearSolverConfig&);
 INSTANTIATE(double)
 INSTANTIATE(Vec3)
 #undef INSTANTIATE

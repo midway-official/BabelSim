@@ -115,7 +115,7 @@ auto& T = problem.scalarField("T");
 auto& U = problem.vectorField("U");
 
 // 由程序创建，不读取文件；初值在第一次 create 调用时生效
-auto& phi = problem.createFaceField("phi");
+auto& phi = problem.createFaceScalarField("phi");
 auto& correction = problem.createScalarField("correction", 0.0);
 
 // 访问之前已经声明的场，不加载、不创建第二份对象
@@ -125,15 +125,16 @@ auto& correctionAgain = problem.existingScalarField("correction");
 - `scalarField/vectorField/tensorField(name)` 只表示从初始场目录加载单元场。
 - `createScalarField/createVectorField/createTensorField` 只创建程序场；重复 create 会报错，
   不会静默忽略新的初始化值。
-- `createFaceField/createFaceVectorField/createFaceTensorField` 创建面场，不能从结果输出
+- `createFaceScalarField/createFaceVectorField/createFaceTensorField` 创建面场，不能从结果输出
   配置直接写出。
+- `createFaceField` 仅作为旧代码的兼容别名；新代码应显式写出 `createFaceScalarField`。
 - `existing*Field` 只查找已经声明的对象，用于模型之间明确共享一个场。
 - 声明阶段结束后不能创建新 Case 场；局部派生量仍可用值语义的 `math::*` 返回值创建。
 
 压力修正场的边界必须明确表达其含义：
 
 ```cpp
-auto pPrime = field::homogeneousLike(p);
+auto pPrime = field::homogeneousLike(p, "pPrime");
 ```
 
 它复制 `p` 的网格和位置，把定值边界变成齐次定值、定梯度边界变成零梯度；名称比
@@ -203,7 +204,7 @@ equ::ddt(temperatureEquation, rho * cp, history);
 equ::laplacian(temperatureEquation, k, -1);
 equ::source(temperatureEquation, Q);
 const SolveResult result =
-    equ::solve(temperatureEquation, T, linearControl);
+    equ::solve(temperatureEquation, linearControl);
 ```
 
 `createEquation(T)` 明确创建“绑定未知量 T 的离散方程”。它不会从字段名推断 PDE；
@@ -219,9 +220,25 @@ const SolveResult result =
 - `equ::faceFlux(eq, solution)` 返回与该 Equation 实际离散项一致的标量面通量。
 
 `equ::apply`、`equ::residual` 和 `diagnostics::relativeResidual` 观察已组装的系统，
-不会再次组装。Equation 的 `reset`、`diagonal`、`rhs`、
-`volumeScaledInverseDiagonal`、`referenceIfUnanchored` 是状态或结构操作，属于
-Equation 对象本身。
+不会再次组装。Equation 的 `reset`、`diagonal`、`rhs`、`referenceIfUnanchored` 是状态或
+结构操作，属于 Equation 对象本身。需要 SIMPLE 响应系数时，几何体积和对角系数保持
+独立：`const auto rAU = geometry::cellVolumes(problem.mesh()) / equation.diagonal();`。
+
+## 4.1 几何量也是可组合的场
+
+`geometry` 只把已经加载网格中的几何数组 materialize 成值场；它不读取文件、不注册输出，
+也不包含物理算法。静态网格的几何量应在循环外取得：
+
+```cpp
+const auto V  = geometry::cellVolumes(problem.mesh());
+const auto Sf = geometry::faceAreaVectors(problem.mesh());
+const auto Af = geometry::faceAreas(problem.mesh());
+const auto C  = geometry::cellCentres(problem.mesh());
+```
+
+`V` 是控制体积，`Sf` 是与通量和散度使用同一拓扑方向的面面积向量，`Af` 是面面积，
+`C` 是单元中心；还可使用 `faceCentres` 和 `faceUnitNormals`。它们返回普通 Field，
+可以直接参与 `math::interpolate`、场代数和 `math::dot`。
 
 ## 5. 时间、历史和循环
 
@@ -340,7 +357,7 @@ SolverResult runHeat(Case& problem) {
         equ::laplacian(equation, k, -1);
         equ::source(equation, Q);
 
-        const auto solved = equ::solve(equation, T, linear);
+        const auto solved = equ::solve(equation, linear);
         report.record({{"time", time.value()},
                        {"residual", solved.relative_residual}});
         if (!solved.converged())
@@ -362,7 +379,7 @@ Solver 函数掌握。
 ```cpp
 auto& C = problem.scalarField("C");
 auto& U = problem.vectorField("U");
-auto& phi = problem.createFaceField("phi");
+auto& phi = problem.createFaceScalarField("phi");
 phi = math::flux(U);
 
 const auto& physics = problem.physics();
@@ -385,7 +402,7 @@ while (time.value() < time.end()) {
     equ::laplacian(equation, D, -1);
     equ::source(equation, source);
 
-    const auto solved = equ::solve(equation, C, readLinearControl(problem, C));
+    const auto solved = equ::solve(equation, readLinearControl(problem, C));
     if (!solved.converged()) return SolverResult{solved.status};
 }
 ```

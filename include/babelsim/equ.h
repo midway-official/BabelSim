@@ -23,7 +23,6 @@ public:
     void reset(); // retain allocation and unknown binding, remove all terms
     Equation copy() const; // independent assembled coefficients, same unknown
     ScalarField diagonal() const; // integrated aP
-    ScalarField volumeScaledInverseDiagonal() const; // V/aP, NOT 1/aP
     Field<T> rhs() const; // integrated b
     void reference(Index globalCell, double value); // scalar gauge at an explicit cell
     void referenceIfUnanchored(double value); // scalar constant-null-mode gauge
@@ -74,6 +73,10 @@ template<class T> void relax(Equation<T>&, const Field<T>& previous, double alph
 ScalarField faceFlux(const Equation<double>&, const ScalarField& solution);
 template<class T> SolveResult solve(const Equation<T>&, Field<T>&);
 template<class T> SolveResult solve(const Equation<T>&, Field<T>&, const LinearSolverConfig&);
+// The equation already owns the binding to its unknown.  These overloads
+// prevent a second target argument from accidentally disagreeing with it.
+template<class T> SolveResult solve(const Equation<T>&);
+template<class T> SolveResult solve(const Equation<T>&, const LinearSolverConfig&);
 
 extern template class Equation<double>;
 extern template class Equation<Vec3>;

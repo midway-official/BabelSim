@@ -24,14 +24,18 @@ equ::laplacian(momentumEquation, muEff, -1);
 equ::source(momentumEquation, -math::grad(p));
 
 const double rU = diagnostics::relativeResidual(momentumEquation, U);
-// relax -> volumeScaledInverseDiagonal -> velocity solve
+const auto aP = momentumEquation.diagonal();
+const auto rAU = geometry::cellVolumes(problem.mesh()) / aP;
+// velocity solve
 
 // 本 main 中显式组合 Rhie–Chow
 const auto gradP = math::grad(p);
 auto phiH = math::flux(U);
-math::add(math::flux(math::interpolate(rAU * gradP)), phiH, math::FaceRegion::Interior);
-math::subtract(math::flux(math::interpolate(rAU), p, gradP),
-               phiH, math::FaceRegion::Interior);
+const auto correction =
+    math::dot(math::interpolate(rAU * gradP), geometry::faceAreaVectors(problem.mesh()))
+    - math::interpolate(rAU) * math::normalGradient(p, gradP)
+        * geometry::faceAreas(problem.mesh());
+math::add(correction, phiH, math::FaceRegion::Interior);
 
 pressureCorrectionEquation.reset();
 equ::laplacian(pressureCorrectionEquation, rAU, -1);

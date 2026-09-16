@@ -2,6 +2,7 @@
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
 #include "babelsim/equ.h"
+#include "babelsim/geometry.h"
 #include <iostream>
 
 using namespace babelsim;
@@ -10,7 +11,7 @@ using namespace babelsim;
 SolverResult transport(Case& problem) {
     ScalarField& C = problem.scalarField("C");
     VectorField& U = problem.createVectorField("U", Vec3{});
-    ScalarField& phi = problem.createFaceField("phi");
+    ScalarField& phi = problem.createFaceScalarField("phi");
     phi = math::flux(U);
     const double D = problem.physics().nonnegative("diffusivity");
     const double Q = problem.physics().number("source");
@@ -91,10 +92,11 @@ SolverResult vectorResponse(Case& problem) {
     auto old=time::history(U);
     auto A=equ::createEquation(U);
     auto P=equ::createEquation(p);
+    const auto V = geometry::cellVolumes(problem.mesh());
     while(time.value()<time.end()) {
         time.advance(); old.save(U, time.dt());
         A.reset(); equ::ddt(A,1.0,old); equ::source(A,strength*force);
-        rAU=A.volumeScaledInverseDiagonal();
+        rAU=V / A.diagonal();
         if(!equ::solve(A,U).converged()) return SolverResult::notConverged();
         P.reset(); equ::laplacian(P,1.0, -1); P.reference(0, 3.0);
         if(!equ::solve(P,p).converged()) return SolverResult::notConverged();

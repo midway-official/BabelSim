@@ -9,6 +9,7 @@ TaihoCFD 的已验证数值算法为参考，但不依赖 TaihoCFD 的输入格�
 ```text
 Mesh      空间在哪里，以及单元、面、顶点如何连接
 Field     空间中存放什么数据
+geometry  将网格几何量以普通 Field 暴露给 Physics
 Operator  数据之间进行什么数学运算
 Method    该运算采用什么离散方式
 Equation  表达要求解的数学方程

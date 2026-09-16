@@ -34,7 +34,7 @@ while (time.value() < time.end()) {
     equ::laplacian(equation, k, -1);
     equ::source(equation, Q);
 
-    const auto solved = equ::solve(equation, T, linear);
+    const auto solved = equ::solve(equation, linear);
     if (!solved.converged()) return SolverResult{solved.status};
 }
 ~~~
@@ -49,7 +49,7 @@ Transport 在自己的 main 中加载 C、U，创建面通量 phi：
 ~~~cpp
 auto& C = problem.scalarField("C");
 auto& U = problem.vectorField("U");
-auto& phi = problem.createFaceField("phi");
+auto& phi = problem.createFaceScalarField("phi");
 phi = math::flux(U);
 
 const double storage = problem.physics().positive("storage");

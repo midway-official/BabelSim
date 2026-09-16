@@ -20,7 +20,8 @@
 | math 混入复制/历史/生命周期 | 场值复制直接用 Field 值语义；历史使用 time::History |
 | correction 名称不能说明边界含义 | field::homogeneousLike 明确表示同网格齐次边界场 |
 | Equation 创建语义不清 | equ::createEquation(unknown) 明确绑定未知量 |
-| response 需要理解 SIMPLE 才能猜 | Equation::volumeScaledInverseDiagonal 明确是 V/aP |
+| solve 再次传入未知量容易不一致 | equ::solve(equation, control) 使用已绑定未知量；旧重载保留兼容 |
+| response 需要理解 SIMPLE 才能猜 | 删除复合响应 API；由 geometry::cellVolumes / Equation::diagonal 直接写 V/aP |
 | interpolate 特殊重载隐藏 Rhie–Chow | interpolate 永远只插值；Rhie–Chow 在 SIMPLE main |
 | load/create 重载混淆 | scalarField 等只加载，create*Field 只创建，existing*Field 只查找 |
 | 初始化值可能被静默忽略 | 重复 create 或 load/create 混用直接抛错 |
@@ -55,9 +56,10 @@ SA、k–omega、k–epsilon 各自实现输运和闭合。SIMPLE 只看到 effe
 | math::copy/history/saveOld | Field 值复制、time::History::save |
 | math::correction/createHomogeneousField | field::homogeneousLike |
 | equ::Matrix | equ::Equation、equ::createEquation |
-| equ::response | Equation::volumeScaledInverseDiagonal |
+| Equation::volumeScaledInverseDiagonal | 删除；使用 `geometry::cellVolumes(mesh) / equation.diagonal()` |
 | 含初值的 scalarField/vectorField 重载 | createScalarField/createVectorField |
 | faceField/faceFlux 生命周期混合入口 | createFace*Field、equ::faceFlux |
+| 网格内部几何数组对 Physics 不可见 | geometry::cellVolumes/faceAreaVectors/faceAreas 等 Field 视图 |
 | Solver 自己读取 methods.bs | problem.methods() |
 | entry().tokens | Parameters typed getter |
 | Physics return 数字退出码 | SolverResult |

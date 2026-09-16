@@ -4,6 +4,7 @@
 
 #include "babelsim/config.h"
 #include "babelsim/solver.h"
+#include "babelsim/geometry.h"
 #include "physics/RANS/api.h"
 
 #include <cmath>
@@ -195,6 +196,7 @@ SimpleIterationResult solveIncompressible(
     VectorField rAUgradP(mesh,FieldLocation::Cell,"rAUGradP");
     VectorField rAUgradPf(mesh,FieldLocation::Face,"rAUGradPFace");
     ScalarField rAUf(mesh,FieldLocation::Face,"rAUFace");
+    const auto V = geometry::cellVolumes(mesh);
     const bool fixedPressure=setHomogeneousCorrectionBoundaries(pPrime,p);
     auto A=equ::createEquation(U);
     auto P=equ::createEquation(pPrime);
@@ -209,10 +211,9 @@ SimpleIterationResult solveIncompressible(
             previous,older,dt,previousDt,timeMethod);
         equ::relax(A,previousIteration,control.velocity_relaxation);
         // Preserve the existing SIMPLE row normalization explicitly. This scales
-        // both sides; volumeScaledInverseDiagonal() therefore describes precisely
-        // the solved matrix.
+        // both sides; V/aP therefore describes precisely the solved matrix.
         equ::scale(A,control.velocity_relaxation);
-        rAU=A.volumeScaledInverseDiagonal();
+        rAU=V / A.diagonal();
         result.velocity=equ::solve(A,U);
         if (!diagnostics::all(result.velocity.healthy())) { result.healthy=false; result.converged=false; return result; }
 

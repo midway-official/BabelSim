@@ -28,7 +28,7 @@ SolverResult runHeat(Case& problem) {
         equ::ddt(temperatureEquation, rho * cp, T_old);
         equ::laplacian(temperatureEquation, k, -1);
         equ::source(temperatureEquation, Q);
-        const auto result = equ::solve(temperatureEquation, T, linearOptions);
+        const auto result = equ::solve(temperatureEquation, linearOptions);
 
         reporter.record({{"time", time.value()}, {"residual", result.relative_residual}});
         if (!result.converged()) return SolverResult{result.status};

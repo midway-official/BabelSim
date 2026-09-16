@@ -33,7 +33,7 @@ excludeFields。
 
 ~~~cpp
 auto& T = problem.scalarField("T");
-auto& phi = problem.createFaceField("phi");
+auto& phi = problem.createFaceScalarField("phi");
 const auto& physics = problem.physics();
 const double rho = physics.positive("density");
 const double D = physics.nonnegative("diffusivity");
@@ -61,7 +61,7 @@ while (time.value() < time.end()) {
     equ::laplacian(equation, D, -1);
     equ::source(equation, source);
 
-    const auto solved = equ::solve(equation, T, linear);
+    const auto solved = equ::solve(equation, linear);
 }
 ~~~
 

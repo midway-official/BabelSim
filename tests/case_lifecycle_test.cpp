@@ -45,7 +45,7 @@ int main() {
         problem.createFaceVectorField("faceVector");
         problem.createFaceTensorField("faceTensor");
         rejected = false;
-        try { problem.output(problem.createFaceField("faceScalar")); }
+        try { problem.output(problem.createFaceScalarField("faceScalar")); }
         catch (const std::invalid_argument&) { rejected = true; }
         require(rejected, "unsupported face output was silently accepted");
         ScalarField copy(first);
@@ -56,7 +56,7 @@ int main() {
     }
     {
         Case problem("cases/cavity", "lifecycle-simple");
-        problem.vectorField("U"); problem.scalarField("p"); problem.createFaceField("phi");
+        problem.vectorField("U"); problem.scalarField("p"); problem.createFaceScalarField("phi");
         problem.physics().positive("density");
         problem.physics().positive("dynamicViscosity");
         readSimpleControl(problem.solution());

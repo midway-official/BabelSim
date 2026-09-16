@@ -9,7 +9,7 @@ SolverResult runTransport(Case& problem) {
     const monitor::Reporter reporter("transport");
     auto& C = problem.scalarField("C");
     auto& U = problem.vectorField("U");
-    auto& phi = problem.createFaceField("phi");
+    auto& phi = problem.createFaceScalarField("phi");
     phi = math::flux(U);
     const auto& physical = problem.physics();
     const double storage = physical.positive("storage");
@@ -31,7 +31,7 @@ SolverResult runTransport(Case& problem) {
         equ::div(transportEquation, phi);
         equ::laplacian(transportEquation, D, -1);
         equ::source(transportEquation, S);
-        const auto result = equ::solve(transportEquation, C, linearOptions);
+        const auto result = equ::solve(transportEquation, linearOptions);
 
         reporter.record({{"time", time.value()}, {"residual", result.relative_residual}});
         if (!result.converged()) return SolverResult{result.status};

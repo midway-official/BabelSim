@@ -1,6 +1,7 @@
 #include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/equ.h"
+#include "babelsim/geometry.h"
 #include "babelsim/solver.h"
 #include "../RANS/api.h"
 #include "babelsim/monitor.h"
@@ -11,11 +12,14 @@ SolverResult runSimple(Case& problem) {
     const monitor::Reporter reporter("SIMPLE");
     auto& U = problem.vectorField("U");
     auto& p = problem.scalarField("p");
-    auto& phi = problem.createFaceField("phi");
+    auto& phi = problem.createFaceScalarField("phi");
     const auto& physical = problem.physics();
     const double rho = physical.positive("density");
 
     const auto& methods = problem.methods(); // loaded once by Case/runtime
+    const auto V = geometry::cellVolumes(problem.mesh());
+    const auto Sf = geometry::faceAreaVectors(problem.mesh());
+    const auto Af = geometry::faceAreas(problem.mesh());
     const auto velocitySolver = readLinearControl(problem, U);
     const auto pressureSolver = readLinearControl(problem, p);
     const auto& settings = problem.solution();
@@ -30,7 +34,7 @@ SolverResult runSimple(Case& problem) {
 
     auto turbulence = rans::load(problem, U, phi);
     const auto& muEff = turbulence.effectiveViscosity();
-    auto pPrime = field::homogeneousLike(p);
+    auto pPrime = field::homogeneousLike(p, "pPrime");
     const int pressureSolves = methods.diffusionFor(pPrime.name()) == DiffusionMethod::Orthogonal
         ? 1 : nonOrthogonalCorrections + 1;
     auto momentumEquation = equ::createEquation(U);
@@ -58,15 +62,20 @@ SolverResult runSimple(Case& problem) {
         equ::relax(momentumEquation, U_previous, alphaU);
         // Preserve SIMPLE row normalization; V/aP below uses these scaled rows.
         equ::scale(momentumEquation, alphaU);
-        const auto rAU = momentumEquation.volumeScaledInverseDiagonal();
-        const auto velocitySolve = equ::solve(momentumEquation, U, velocitySolver);
+        const auto aP = momentumEquation.diagonal();
+        const auto rAU = V / aP;
+        const auto velocitySolve = equ::solve(momentumEquation, velocitySolver);
         if (!diagnostics::all(velocitySolve.healthy())) return SolverResult::numericalFailure();
 
         // Rhie-Chow interpolation; physical boundary fluxes remain unchanged.
         const auto gradP = math::grad(p);
         auto phiH = math::flux(U);
-        math::add(math::flux(math::interpolate(rAU * gradP)), phiH, math::FaceRegion::Interior);
-        math::subtract(math::flux(math::interpolate(rAU), p, gradP), phiH, math::FaceRegion::Interior);
+        const auto interpolatedGradientFlux =
+            math::dot(math::interpolate(rAU * gradP), Sf);
+        const auto normalGradientFlux =
+            math::interpolate(rAU) * math::normalGradient(p, gradP) * Af;
+        math::add(interpolatedGradientFlux, phiH, math::FaceRegion::Interior);
+        math::subtract(normalGradientFlux, phiH, math::FaceRegion::Interior);
         const auto divPhiH = math::div(phiH);
 
         pPrime.fill(0.0);
@@ -77,7 +86,7 @@ SolverResult runSimple(Case& problem) {
             equ::laplacian(pressureCorrectionEquation, rAU, -1);
             equ::source(pressureCorrectionEquation, -divPhiH);
             pressureCorrectionEquation.referenceIfUnanchored(0.0);
-            const auto pressureSolve = equ::solve(pressureCorrectionEquation, pPrime, pressureSolver);
+            const auto pressureSolve = equ::solve(pressureCorrectionEquation, pressureSolver);
             if (!diagnostics::all(pressureSolve.healthy())) return SolverResult::numericalFailure();
             pressureConverged = pressureConverged && pressureSolve.converged();
             pressureLinearResidual = pressureSolve.relative_residual;

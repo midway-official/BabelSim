@@ -109,7 +109,7 @@ public:
         equ::source(nuTildaEquation, explicitSource);
         const double transportResidual = diagnostics::relativeResidual(nuTildaEquation, nuTilda);
         equ::relax(nuTildaEquation, previousNuTilda, relaxation);
-        const auto nuTildaSolve = equ::solve(nuTildaEquation, nuTilda, nuTildaSolver);
+        const auto nuTildaSolve = equ::solve(nuTildaEquation, nuTildaSolver);
         if (!diagnostics::all(nuTildaSolve.healthy()))
             return {{{"nuTilda", nuTildaSolve, transportResidual, 0.0}}};
 

@@ -14,6 +14,8 @@ const auto divStress = math::div(stress);            // cell vector divergence
 const auto f = math::interpolate(p);                 // face scalar interpolation
 const auto diffusionFlux = math::flux(k, T);         // face diffusion flux
 const auto lap = math::laplacian(T);                 // explicit laplacian
+const auto gradT = math::grad(T);                    // cell vector gradient
+const auto normal = math::normalGradient(T, gradT);  // face-normal derivative
 ~~~
 
 math 操作立即求值并返回 Field。math::div 的参数类型决定它是面通量、矢量场或张量场
@@ -34,7 +36,7 @@ equ::ddt(equation, rho * cp, history);
 equ::div(equation, phi);                  // 隐式 div(phi*T)
 equ::laplacian(equation, k, -1);          // -div(k*grad(T)) 左端
 equ::source(equation, Q);                 // 已知 RHS
-const auto result = equ::solve(equation, T, linear);
+const auto result = equ::solve(equation, linear);
 ~~~
 
 Equation 不从字段名猜 PDE。每个 equ 调用立即向同一系统加入一项，并冻结该调用所需的
@@ -59,7 +61,6 @@ laplacian 的符号必须在调用点可见。通常扩散放到左端时直接�
 | reset | 清空当前贡献，保留未知量和工作区 |
 | copy | 复制独立的已组装系统 |
 | diagonal | 积分后的 aP |
-| volumeScaledInverseDiagonal | V/aP，用于 SIMPLE 响应 |
 | rhs | 积分后的 b |
 | reference / referenceIfUnanchored | 标量规范约束 |
 | apply / residual | 对当前系统做代数应用 |
@@ -67,6 +68,19 @@ laplacian 的符号必须在调用点可见。通常扩散放到左端时直接�
 
 这些接口不会自动再次组装。SIMPLE 可以在组装后直接读取 relativeResidual，再进行松弛
 和求解，因此不需要为了诊断再次调用 momentum assembly。
+
+## geometry：几何量的场视图
+
+```cpp
+const auto V  = geometry::cellVolumes(mesh);
+const auto Sf = geometry::faceAreaVectors(mesh);
+const auto Af = geometry::faceAreas(mesh);
+const auto C  = geometry::cellCentres(mesh);
+```
+
+几何场只来源于已加载的 `Mesh`，不负责读取案例参数或写出结果。面积向量的方向与
+`math::flux`、`math::div` 使用的网格拓扑一致。Equation 的 `diagonal()` 是积分后的
+`aP`，所以 SIMPLE 中的响应系数直接写为 `const auto rAU = V / equation.diagonal();`。
 
 ## 时间离散
 
@@ -83,6 +97,7 @@ methods.bs 在 Case 构造期间读取一次；equ::ddt 从 History 和 problem.
 
 ## SIMPLE 专用数学保持在 Physics
 
-Rhie–Chow 由 SIMPLE main 组合 math::grad、math::interpolate、math::flux、math::add 和
-math::subtract。non-orthogonal pressure correction 也是该 main 的显式子循环。
+Rhie–Chow 由 SIMPLE main 组合 math::grad、math::interpolate、math::normalGradient、
+math::dot、场代数和区域更新。`math::flux(U)` 仍用于保留物理边界的入口/出口通量判定，
+而修正项使用 `Sf`、`Af` 显式写出。non-orthogonal pressure correction 也是该 main 的显式子循环。
 不要给 math::interpolate 增加特殊 overload，也不要把 SIMPLE 流程包装为 simple.solve()。

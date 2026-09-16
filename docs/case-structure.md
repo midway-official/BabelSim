@@ -131,19 +131,20 @@ Parameters 统一处理缺失值、默认值、类型、有限值和范围。pos
 ~~~cpp
 auto& T = problem.scalarField("T");             // 读取 fields/initial/T.field
 auto& U = problem.vectorField("U");             // 读取 U.field
-auto& phi = problem.createFaceField("phi");     // 创建面场，不读文件
+auto& phi = problem.createFaceScalarField("phi");     // 创建面场，不读文件
 auto& k = problem.createScalarField("k", 0.0);  // 创建 cell 场
 auto& same = problem.existingScalarField("k");  // 查找已声明场
 ~~~
 
 命名场由 Case 绑定当前 Mesh 和边界。加载 API 只加载 cell 文件；create API 只创建程序
 场。第一次 create 的初值生效，重复 create 或 load/create 混用会报错，不会静默忽略。
+面标量场的新代码使用 `createFaceScalarField`；旧的 `createFaceField` 仍作为兼容别名。
 声明阶段结束后不能增加 Case 场；局部 math 返回值可继续使用。
 
 压力修正等齐次边界场使用：
 
 ~~~cpp
-auto pPrime = field::homogeneousLike(p);
+auto pPrime = field::homogeneousLike(p, "pPrime");
 ~~~
 
 它为给定 cell 场生成同网格、同位置、对应齐次边界类型的场，不修改原场。函数名应由

@@ -25,6 +25,7 @@ SolverResult 映射为命令行退出码。
 | Case/IO | include/babelsim/case.h、src/io/case.cpp | 读取案例、拥有 Mesh/命名 Field、参数、输出 |
 | 参数 | include/babelsim/config.h、src/io/config.cpp | typed getter、默认值校验、消费跟踪 |
 | 场 | include/babelsim/field.h | scalar/vector/tensor、cell/face、边界和值运算 |
+| 几何 | include/babelsim/geometry.h、src/geometry | 将 Mesh 的体积、面积、中心和法向表示为普通 Field |
 | 方法 | include/babelsim/methods.h、src/io/numerics_reader.cpp | 一次性读取空间/时间离散及按场覆盖 |
 | math | include/babelsim/math.h、src/discretization/operators.cpp | grad/div/flux/interpolate 等显式场运算 |
 | equ | include/babelsim/equ.h、src/discretization/procedural_equation.cpp | Equation 生命周期、逐项装配、面通量和求解 |
@@ -45,13 +46,14 @@ Case 拥有网格、从文件加载的命名场和程序创建的命名场；返
 
 ~~~cpp
 auto& T = problem.scalarField("T");
-auto& phi = problem.createFaceField("phi");
+auto& phi = problem.createFaceScalarField("phi");
 auto& again = problem.existingFaceField("phi");
 ~~~
 
 Case 构造期间读取方法一次并创建 Runtime。problem.methods() 只读返回生效配置。参数
 声明完成后调用 problem.validate()；start/time::start/setTime 会锁定声明阶段，随后不允许
-创建新命名场。Equation 和 History 的析构顺序由 Case/Runtime 保证，Solver 不管理后端。
+创建新命名场。面标量场使用 `createFaceScalarField`（`createFaceField` 仅为兼容别名）。
+Equation 和 History 的析构顺序由 Case/Runtime 保证，Solver 不管理后端。
 
 ## 4. DSL 契约
 

@@ -24,7 +24,7 @@ for (int iter = 0; iter < maxIterations; ++iter) {
     equ::div(equation, phi);
     equ::laplacian(equation, mu, -1);
     const double residual = diagnostics::relativeResidual(equation, U);
-    const auto solved = equ::solve(equation, U, linear);
+    const auto solved = equ::solve(equation, linear);
     // update, diagnostics, report, convergence
 }
 ~~~

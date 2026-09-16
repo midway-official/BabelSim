@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "expected generated model case");
         Case problem(argv[1]);
         auto& U = problem.vectorField("U");
-        auto& phi = problem.createFaceField("phi");
+        auto& phi = problem.createFaceScalarField("phi");
         phi = math::flux(U);
         const auto& mesh = problem.mesh();
         U.evaluate([](Vec3 x) { return Vec3{2*x.y,0,0}; });

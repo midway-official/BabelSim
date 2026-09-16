@@ -1,4 +1,6 @@
 #include "internal/mesh_access.h"
+#include "internal/field_access.h"
+#include "babelsim/geometry.h"
 #include "babelsim/mesh.h"
 
 #include "test_util.h"
@@ -72,6 +74,35 @@ int main() {
     }
     require(maximum_non_orthogonal > 1e-3, "skewed mesh was treated as orthogonal");
     require(maximum_skewness > 1e-5, "skewness metric was not detected");
+
+    // Public geometry views expose the same orientation and values as Mesh,
+    // without making Physics depend on Mesh's internal storage.
+    const auto volumes = geometry::cellVolumes(skewed);
+    const auto centres = geometry::cellCentres(skewed);
+    const auto areas = geometry::faceAreas(skewed);
+    const auto area_vectors = geometry::faceAreaVectors(skewed);
+    const auto face_centres = geometry::faceCentres(skewed);
+    const auto normals = geometry::faceUnitNormals(skewed);
+    require(volumes.location() == FieldLocation::Cell, "cell volumes location");
+    require(centres.location() == FieldLocation::Cell, "cell centres location");
+    require(areas.location() == FieldLocation::Face, "face areas location");
+    require(area_vectors.location() == FieldLocation::Face, "face area vectors location");
+    for (Index cell = 0; cell < skewed.cellCount(); ++cell) {
+        require(near(detail::fieldData(volumes)[cell], skewed.cellVolume(cell)),
+                "geometry volume value");
+        require(near(detail::fieldData(centres)[cell], skewed.cellCentre(cell)),
+                "geometry centre value");
+    }
+    for (Index face = 0; face < skewed.faceCount(); ++face) {
+        require(near(detail::fieldData(areas)[face], skewed.faceArea(face)),
+                "geometry face area value");
+        require(near(detail::fieldData(area_vectors)[face], skewed.faceAreaVector(face)),
+                "geometry area-vector orientation");
+        require(near(detail::fieldData(face_centres)[face], skewed.faceCentre(face)),
+                "geometry face centre value");
+        require(near(detail::fieldData(normals)[face], skewed.faceNormal(face)),
+                "geometry face normal value");
+    }
 
     std::cout << "mesh_geometry_test: cells=" << skewed.cellCount()
               << " volume=" << total_volume

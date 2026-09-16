@@ -80,7 +80,7 @@ public:
         equ::source(kEquation, production);
         const double kResidual = diagnostics::relativeResidual(kEquation, k);
         equ::relax(kEquation, previousK, relaxation);
-        const auto kSolve = equ::solve(kEquation, k, kSolver);
+        const auto kSolve = equ::solve(kEquation, kSolver);
         if (!diagnostics::all(kSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}}};
 
@@ -93,7 +93,7 @@ public:
         equ::source(omegaEquation, omegaProduction);
         const double omegaResidual = diagnostics::relativeResidual(omegaEquation, omega);
         equ::relax(omegaEquation, previousOmega, relaxation);
-        const auto omegaSolve = equ::solve(omegaEquation, omega, omegaSolver);
+        const auto omegaSolve = equ::solve(omegaEquation, omegaSolver);
         if (!diagnostics::all(omegaSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}, {"omega", omegaSolve, omegaResidual, 0.0}}};
 

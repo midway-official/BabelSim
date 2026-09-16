@@ -15,6 +15,10 @@ struct ScalarGradient {
 // 每个面的外法向梯度；执行时自动重构单元梯度、同步输入并修正非正交性。
 struct NormalGradient {
     const ScalarField& field;
+    // Optional gradient already computed by the caller.  Supplying it keeps
+    // compositions such as Rhie--Chow explicit without changing the
+    // mathematical definition of the face-normal derivative.
+    const VectorField* gradient = nullptr;
 };
 
 struct VectorGradient {
@@ -117,7 +121,16 @@ Field<R> computed(const Mesh& mesh, FieldLocation location, const char* name, Op
 template<class T> void evaluate(const Field<T>& value, Field<T>& output) { output=value; }
 inline VectorField grad(const ScalarField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"grad",ScalarGradient{f}); }
 inline TensorField grad(const VectorField& f) { return computed<Tensor3>(f.mesh(),FieldLocation::Cell,"grad",VectorGradient{f}); }
-inline ScalarField normalGradient(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"normalGradient",NormalGradient{f}); }
+inline ScalarField normalGradient(const ScalarField& f) {
+    return computed<double>(f.mesh(),FieldLocation::Face,"normalGradient",NormalGradient{f});
+}
+// The second overload reuses a caller-owned cell gradient.  It still evaluates
+// the same face-normal derivative, including the configured non-orthogonal
+// correction and boundary treatment.
+inline ScalarField normalGradient(const ScalarField& f, const VectorField& gradient) {
+    return computed<double>(
+        f.mesh(), FieldLocation::Face, "normalGradient", NormalGradient{f, &gradient});
+}
 // Oriented, area-integrated face flux: vector value dot Sf. A cell vector is
 // interpolated first; an already face-centred vector is used directly.
 inline ScalarField flux(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"flux",FaceFlux{f}); }

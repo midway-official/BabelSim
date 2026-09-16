@@ -1,4 +1,5 @@
 #include "babelsim/equ.h"
+#include "babelsim/geometry.h"
 #include "babelsim/runtime.h"
 #include "internal/field_access.h"
 #include "test_util.h"
@@ -24,10 +25,11 @@ int main() {
     auto saved=a.copy();
     a.reset();
     equ::add(a,saved,2); equ::scale(a,0.5);
-    auto mobility=a.volumeScaledInverseDiagonal();
+    const auto volume = geometry::cellVolumes(mesh);
+    auto mobility=volume / a.diagonal();
     require(near(detail::fieldData(mobility)[0],1.0/6),"V/aP response");
     equ::relax(a,x,0.5);
-    auto relaxed=a.volumeScaledInverseDiagonal();
+    auto relaxed=volume / a.diagonal();
     require(near(detail::fieldData(relaxed)[0],1.0/12),"relaxed response");
     require(equ::solve(a,x).converged() && near(detail::fieldData(x)[0],2),"relax fixed point");
 
@@ -60,7 +62,8 @@ int main() {
 
     // Correction boundaries inherit homogeneous constraints. An already anchored
     // pressure matrix must not acquire an additional interior reference.
-    auto correction = field::homogeneousLike(x);
+    auto correction = field::homogeneousLike(x, "pPrime");
+    require(correction.name() == "pPrime", "homogeneous field name is explicit");
     auto pressure = equ::createEquation(correction);
     equ::laplacian(pressure, 1.0, -1);
     const auto anchored = pressure.diagonal();
@@ -82,7 +85,7 @@ int main() {
 
     VectorField u(mesh,FieldLocation::Cell,"U");
     auto v=equ::createEquation(u); equ::reaction(v,2.0); equ::source(v,Vec3{2,4,6});
-    require(equ::solve(v,u).converged(),"vector solve");
+    require(equ::solve(v).converged(),"bound vector solve");
     require(near(detail::fieldData(u)[0],Vec3{1,2,3}),"vector source/diagonal");
     std::cout << "procedural_equation_test: assembly, frozen inputs, algebra, BDF2, diffusion and vector solve passed\n";
 }

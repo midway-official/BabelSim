@@ -81,7 +81,7 @@ public:
         equ::source(kEquation, production);
         const double kResidual = diagnostics::relativeResidual(kEquation, k);
         equ::relax(kEquation, previousK, relaxation);
-        const auto kSolve = equ::solve(kEquation, k, kSolver);
+        const auto kSolve = equ::solve(kEquation, kSolver);
         if (!diagnostics::all(kSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}}};
 
@@ -94,7 +94,7 @@ public:
         equ::source(epsilonEquation, epsilonProduction);
         const double epsilonResidual = diagnostics::relativeResidual(epsilonEquation, epsilon);
         equ::relax(epsilonEquation, previousEpsilon, relaxation);
-        const auto epsilonSolve = equ::solve(epsilonEquation, epsilon, epsilonSolver);
+        const auto epsilonSolve = equ::solve(epsilonEquation, epsilonSolver);
         if (!diagnostics::all(epsilonSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}, {"epsilon", epsilonSolve, epsilonResidual, 0.0}}};
 

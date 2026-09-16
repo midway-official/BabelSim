@@ -991,11 +991,18 @@ void FvmExecution::evaluate(math::NormalGradient operation, ScalarField& result)
     requireCellField(operation.field, *state.mesh, "normal-gradient input");
     requireFaceField(result, *state.mesh, "normal-gradient result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    gradient(operation.field, state.gradient_workspace,
-             state.methods.gradientFor(operation.field.name()));
-    state.synchronize(state.gradient_workspace);
+    const VectorField* scalar_gradient = operation.gradient;
+    if (scalar_gradient) {
+        requireCellField(*scalar_gradient, *state.mesh, "normal-gradient supplied gradient");
+        state.synchronize(const_cast<VectorField&>(*scalar_gradient));
+    } else {
+        gradient(operation.field, state.gradient_workspace,
+                 state.methods.gradientFor(operation.field.name()));
+        state.synchronize(state.gradient_workspace);
+        scalar_gradient = &state.gradient_workspace;
+    }
     for (Index face : detail::meshData(*state.mesh).owned_faces) {
-        detail::fieldData(result)[face] = integratedNormalGradient(operation.field, state.gradient_workspace, face,
+        detail::fieldData(result)[face] = integratedNormalGradient(operation.field, *scalar_gradient, face,
             state.methods.diffusionFor(operation.field.name())) / state.mesh->faceArea(face);
     }
     state.synchronize(result);

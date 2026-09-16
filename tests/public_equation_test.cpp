@@ -36,10 +36,16 @@ int main() {
     ScalarField flux(mesh, FieldLocation::Face, "flux");
     ScalarField coefficient(mesh, FieldLocation::Cell, "k", 2.0);
     math::evaluate(math::normalGradient(p), normal);
+    const auto pGradient = math::grad(p);
+    ScalarField normalWithGradient(mesh, FieldLocation::Face, "normalWithGradient");
+    math::evaluate(math::normalGradient(p, pGradient), normalWithGradient);
     math::evaluate(math::flux(coefficient, p), flux);
-    for (Index face : detail::meshData(mesh).owned_faces)
+    for (Index face : detail::meshData(mesh).owned_faces) {
+        require(near(detail::fieldData(normalWithGradient)[face], detail::fieldData(normal)[face], 1e-12),
+                "supplied gradient changed normal-gradient semantics");
         require(near(detail::fieldData(flux)[face], 2.0 * mesh.faceArea(face) * detail::fieldData(normal)[face], 1e-10),
                 "normal gradient and diffusion flux disagree");
+    }
     bool rejected = false;
     try { (void)solve(eqn::ddt(U) == eqn::source(force), referenceValue(0.0)); }
     catch (const std::invalid_argument&) { rejected = true; }
