@@ -4,6 +4,11 @@
 不作为本次基线。基线提交为 `23997abd589f0dbca7034b2c52ddf2f0f098264f`，本次
 工作区差异由基准驱动写入 `metadata.json`。
 
+当前主机未安装 `perf`（执行硬件计数器命令返回 `perf: command not found`），本审计没有
+使用 PMU 事件推断 cache miss、分支预测或 SIMD 利用率；热点判断只依据源码、内部阶段
+计时和同配置 A/B。后续若部署到带权限的节点，应将 profiler 运行与正式 benchmark 样本
+分开保存。
+
 ## 实际调用图
 
 ```text
@@ -76,6 +81,9 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 15. 串行和分布式 BiCGSTAB 对中间残差的非别名目标使用 Eigen `noalias()` 写入；方向
     递推中存在目标/输入别名的表达式没有套用该标记。该优化只涉及已有工作向量，
     不改变 Krylov 迭代公式。
+16. 分布式 AMG 首次构造粗层时建立完整粗矩阵的压缩索引；后续 refresh 按现有
+    `outerIndexPtr()/innerIndexPtr()` 直接覆盖 value 数组，并保留原有
+    `SparseLU::factorize` 顺序。粗矩阵的聚合、全局归约和数值内容没有改变。
 
 ## 性能假设和实测结果
 
@@ -206,6 +214,15 @@ solver 均值为 0.599 s、2-rank 为 0.283 s，仍不足以单独归因出稳�
 `preconditionerSeconds` 均值由 0.339 s 降至 0.332 s，2-rank 由 0.0389 s 降至
 0.0379 s；solver 阶段差异仍处于样本噪声内。该改动的收益主要体现在 refresh 时减少
 稀疏索引分配和容量增长，不能替代后续对粗层全局归约的优化。
+
+本次进一步用 102400 单元、AMG `refreshInterval=1`、固定 20 次 SIMPLE 外迭代（每次都
+重新 factorize）验证分布式粗层原位刷新。2-rank 三次正式样本的 Krylov 迭代数均为
+8809、预条件器 setup 次数均为 40，说明工作量和数值停止条件一致：基线 solver 均值
+10.511 s（10.396--10.613 s），新路径 10.137 s（9.948--10.296 s），约下降 3.6%；
+预条件器 apply 均值 6.497→6.248 s（约 3.8%），`sparseMatvecSeconds` 6.343→6.060 s。
+1-rank 同一窗口的基线和新路径 solver 均值分别为 9.859 s 与 9.857 s，说明该改动只
+作用于分布式粗层存储，串行 AMG 没有可归因的收益。以上仍是固定外迭代吞吐 pilot，
+不是完整收敛时间；收益会随 refresh 频率、粗层大小和 MPI 实现变化。
 
 ## 尚未验证的风险
 

@@ -104,6 +104,10 @@ AMG 的每个层级现在长期保存独立的 `A*x` 工作向量，平滑和残
 平滑初始化或粗层直接求解中都会被完整覆盖，因此 `apply` 也不再先做一次无效的全向量
 清零。`factorize` 对 fine-level 和刷新后 coarse-level 的相同稀疏模式只覆盖 value 数组，
 复用已有稀疏索引存储；候选粗矩阵仍由原有 Galerkin 乘法产生。
+分布式 AMG 的全局粗矩阵在首次 refresh 时建立压缩索引，后续 refresh 直接按已有
+column/row index 覆盖 value，再调用原有 `SparseLU::factorize`；这避免了重复构造
+Triplet 和稀疏图，不改变聚合、全局归约或粗层求解顺序。102400 单元固定 20 次外迭代
+的 2-rank A/B 中，solver 均值约下降 3.6%，但该结果只代表分布式 refresh 吞吐 pilot。
 CSR 热循环使用连续数组指针和 GCC/Clang 的最多 8 次循环展开提示；这是后端编译优化，
 不改变 Physics DSL、稀疏模式或每行累加顺序。该优化在 102400 单元 pilot 中的 A/B 数值
 见 [`backend-audit-2026-09.md`](/home/midway/BabelSim/docs/performance/backend-audit-2026-09.md)。

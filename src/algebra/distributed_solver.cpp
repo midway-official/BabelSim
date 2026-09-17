@@ -31,6 +31,7 @@ namespace {
 
 constexpr double breakdown_tolerance = 0.0;
 using Clock = std::chrono::steady_clock;
+using SparseMatrix = Eigen::SparseMatrix<double>;
 
 double secondsSince(Clock::time_point start) {
     return std::chrono::duration<double>(Clock::now() - start).count();
@@ -575,17 +576,42 @@ struct DistributedLinearSolver::Implementation {
         ++pending_performance.global_reductions;
         pending_performance.global_reduction_seconds += secondsSince(reduction_start);
 
-        std::vector<Eigen::Triplet<double>> entries;
-        entries.reserve(coarse_count * 7U);
-        for (std::size_t row = 0; row < coarse_count; ++row) {
-            for (std::size_t column = 0; column < coarse_count; ++column) {
-                entries.emplace_back(
-                    row, column, amg_global_coarse[row * coarse_count + column]);
+        if (rebuild_pattern) {
+            // The replicated coarse matrix is deliberately dense at this
+            // scale.  Build its compressed row/column index once; refreshes
+            // only replace values below and do not allocate Triplets or
+            // rebuild Eigen's sparse graph.
+            std::vector<Eigen::Triplet<double>> entries;
+            entries.reserve(coarse_count * coarse_count);
+            for (std::size_t row = 0; row < coarse_count; ++row) {
+                for (std::size_t column = 0; column < coarse_count; ++column) {
+                    entries.emplace_back(
+                        row, column, amg_global_coarse[row * coarse_count + column]);
+                }
+            }
+            amg_coarse_matrix.resize(coarse_count, coarse_count);
+            amg_coarse_matrix.setFromTriplets(entries.begin(), entries.end());
+            amg_coarse_matrix.makeCompressed();
+        } else {
+            if (amg_coarse_matrix.rows() != static_cast<Eigen::Index>(coarse_count) ||
+                amg_coarse_matrix.cols() != static_cast<Eigen::Index>(coarse_count) ||
+                !amg_coarse_matrix.isCompressed()) {
+                throw std::logic_error("distributed AMG coarse pattern is not prepared");
+            }
+            // Eigen stores a compressed matrix by column.  Walking the
+            // existing index arrays preserves the original factorization
+            // order while replacing only coefficient values.
+            double* values = amg_coarse_matrix.valuePtr();
+            const SparseMatrix::StorageIndex* outer = amg_coarse_matrix.outerIndexPtr();
+            const SparseMatrix::StorageIndex* inner = amg_coarse_matrix.innerIndexPtr();
+            for (Eigen::Index column = 0; column < amg_coarse_matrix.outerSize(); ++column) {
+                for (Eigen::Index position = outer[column]; position < outer[column + 1]; ++position) {
+                    const std::size_t row = static_cast<std::size_t>(inner[position]);
+                    values[position] = amg_global_coarse[row * coarse_count +
+                        static_cast<std::size_t>(column)];
+                }
             }
         }
-        amg_coarse_matrix.resize(coarse_count, coarse_count);
-        amg_coarse_matrix.setFromTriplets(entries.begin(), entries.end());
-        amg_coarse_matrix.makeCompressed();
         if (rebuild_pattern) amg_coarse_solver.analyzePattern(amg_coarse_matrix);
         amg_coarse_solver.factorize(amg_coarse_matrix);
         amg_residual.resize(matrix.rows());
@@ -600,13 +626,12 @@ struct DistributedLinearSolver::Implementation {
     {
         if (!amg_ready || &input == &output) return false;
         constexpr double weight = 2.0 / 3.0;
-        output.noalias() = weight * amg_inverse_diagonal.cwiseProduct(input);
+        output.array() = weight * amg_inverse_diagonal.array() * input.array();
         for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
             apply(output, amg_product);
             amg_residual.noalias() = input;
             amg_residual.noalias() -= amg_product;
-            output.noalias() += weight *
-                amg_inverse_diagonal.cwiseProduct(amg_residual);
+            output.array() += weight * amg_inverse_diagonal.array() * amg_residual.array();
         }
         apply(output, amg_product);
         amg_residual.noalias() = input;
@@ -629,8 +654,7 @@ struct DistributedLinearSolver::Implementation {
             apply(output, amg_product);
             amg_residual.noalias() = input;
             amg_residual.noalias() -= amg_product;
-            output.noalias() += weight *
-                amg_inverse_diagonal.cwiseProduct(amg_residual);
+            output.array() += weight * amg_inverse_diagonal.array() * amg_residual.array();
         }
         return output.allFinite();
     }

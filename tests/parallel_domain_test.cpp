@@ -282,6 +282,16 @@ int main(int argc, char* argv[]) {
         require(global_error < 1e-9,
                 "distributed AMG-BiCGSTAB diffusion solution is incorrect");
 
+        // A second factorization exercises the AMG refresh path that reuses
+        // the compressed coarse-matrix pattern instead of rebuilding its
+        // Triplet/index storage.
+        bicgstab_solver.factorize(diffusion_assembly.matrix(), diffusion_equation);
+        Eigen::VectorXd refreshed_amg_solution;
+        const SolveResult refreshed_amg_result = bicgstab_solver.solve(
+            diffusion_source, refreshed_amg_solution);
+        require(refreshed_amg_result.converged(),
+                "distributed AMG refresh factorization failed");
+
         bicgstab_config.preconditioner = PreconditionerType::ILUT;
         DistributedLinearSolver bicgstab_ilut_solver(local, parallel, bicgstab_config);
         bicgstab_ilut_solver.compute(diffusion_assembly.matrix(), diffusion_equation);
