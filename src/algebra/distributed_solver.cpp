@@ -277,8 +277,12 @@ struct DistributedLinearSolver::Implementation {
             value.cols() != detail::ownedCellCount(mesh)) {
             throw std::invalid_argument("distributed local matrix size is invalid");
         }
-        matrix = value;
         if (!spmv_pattern_ready) {
+            // The first matrix establishes the immutable sparse pattern.  All
+            // later SIMPLE iterations reuse it and only replace contiguous
+            // coefficient values below; this avoids an Eigen sparse
+            // assignment and allocator traffic on every equation update.
+            matrix = value;
             boundary_rows.assign(static_cast<std::size_t>(value.rows()), 0);
             for (const RemoteCoupling& coupling : remote) {
                 boundary_rows[static_cast<std::size_t>(coupling.row)] = 1;
@@ -307,7 +311,23 @@ struct DistributedLinearSolver::Implementation {
 #endif
             spmv_pattern_ready = true;
         } else {
-            // 稀疏模式固定时只覆盖已有系数，不在每个外迭代重新分配 Triplet/矩阵。
+            // SparseAssembly owns a fixed stencil.  Refuse a changed pattern
+            // instead of silently pairing a coefficient with the wrong entry.
+            if (value.nonZeros() != matrix.nonZeros() ||
+                !std::equal(
+                    value.outerIndexPtr(),
+                    value.outerIndexPtr() + value.outerSize() + 1,
+                    matrix.outerIndexPtr()) ||
+                !std::equal(
+                    value.innerIndexPtr(),
+                    value.innerIndexPtr() + value.nonZeros(),
+                    matrix.innerIndexPtr())) {
+                throw std::logic_error("distributed sparse matrix pattern changed");
+            }
+            std::copy_n(value.valuePtr(), value.nonZeros(), matrix.valuePtr());
+#if !BABELSIM_CSR_SPMV
+            // The split Eigen matrices are only needed by the fallback SpMV
+            // path.  The default CSR path reads the shared coefficient array.
             for (Eigen::Index column = 0; column < value.outerSize(); ++column) {
                 for (Eigen::SparseMatrix<double>::InnerIterator entry(value, column);
                      entry; ++entry) {
@@ -317,6 +337,7 @@ struct DistributedLinearSolver::Implementation {
                     target.coeffRef(entry.row(), entry.col()) = entry.value();
                 }
             }
+#endif
 #if BABELSIM_CSR_SPMV
             interior_csr.update(matrix);
             boundary_csr.update(matrix);

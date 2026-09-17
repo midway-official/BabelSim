@@ -50,7 +50,8 @@ JSON 中单独保留。
 当前脚本的 `complete` 模式使用生产求解器的真实停止条件，只有 `converged` 样本可以
 用于完整 time-to-solution 排名。`throughput` 只改变证据标签，不能伪造固定迭代或改变
 收敛条件；如果需要严格的固定外迭代窗口，应在独立 benchmark application 中实现，不能
-修改生产求解器的算法。
+修改生产求解器的算法。所有正式样本（包括 `maxIterations` 的 throughput 样本）都在
+`wallClockByRank` 中按状态统计；`convergedWallClock` 只保留可用于完整求解排名的样本。
 
 后端计数器包括线性求解、Krylov 迭代、SpMV、halo、全局归约、方程装配、预条件器 setup
 和 apply 以及对应时间。`linearSolveSeconds` 包含其内部 SpMV/通信，阶段时间不能简单

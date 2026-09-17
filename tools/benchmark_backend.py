@@ -310,7 +310,10 @@ def write_summary(
 ) -> None:
     measured_runs = [run for run in runs if not run.get("warmup", False)]
     by_rank: dict[str, list[float]] = {}
+    all_by_rank: dict[str, dict[str, list[float]]] = {}
     for run in measured_runs:
+        all_by_rank.setdefault(str(run["ranks"]), {}).setdefault(
+            run["status"], []).append(run["elapsedSeconds"])
         if run["status"] == "converged":
             by_rank.setdefault(str(run["ranks"]), []).append(run["elapsedSeconds"])
     statistics_by_rank = {}
@@ -331,7 +334,23 @@ def write_summary(
         "preconditionerApplications", "outputWrites", "elapsedSeconds", "assemblySeconds",
         "preconditionerSeconds", "preconditionerApplySeconds", "linearSolveSeconds",
         "sparseMatvecSeconds", "haloSeconds", "globalReductionSeconds", "outputSeconds",
-    )
+            )
+
+    wall_clock_by_rank = {}
+    for rank, statuses in all_by_rank.items():
+        wall_clock_by_rank[rank] = {}
+        for status, values in statuses.items():
+            mean = statistics.mean(values)
+            wall_clock_by_rank[rank][status] = {
+                "samples": len(values),
+                "medianSeconds": statistics.median(values),
+                "minSeconds": min(values),
+                "maxSeconds": max(values),
+                "coefficientOfVariation": (
+                    statistics.pstdev(values) / mean
+                    if len(values) > 1 and mean else 0.0
+                ),
+            }
     counters_by_rank: dict[str, dict[str, dict[str, float]]] = {}
     phase_names = (
         "caseSetupSeconds", "solverSeconds", "solverComputeSeconds",
@@ -370,6 +389,7 @@ def write_summary(
         "git": git_metadata(),
         "host": host_metadata(),
         "runs": runs,
+        "wallClockByRank": wall_clock_by_rank,
         "convergedWallClock": statistics_by_rank,
         "phaseTimesByRank": phase_times_by_rank,
         "localCountersByRank": counters_by_rank,
