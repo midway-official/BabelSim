@@ -80,6 +80,20 @@ struct BoundaryFaceSpec {
     Index patch = invalid_index;
 };
 
+// Read-only partition facts used by generic performance/reporting tools.  The
+// values describe storage owned by one rank; they do not expose mesh arrays or
+// alter the geometry/field DSL.
+struct MeshPartitionInfo {
+    Index global_cells = 0;
+    Index local_cells = 0;
+    Index owned_cells = 0;
+    Index ghost_cells = 0;
+    Index local_faces = 0;
+    Index owned_faces = 0;
+    Index communication_faces = 0;
+    Index neighbour_ranks = 0;
+};
+
 // 只表示显式连接的非结构六面体网格。Hex 顶点顺序采用 VTK_HEXAHEDRON：
 // (0,1,2,3) 为一侧环，(4,5,6,7) 为对侧对应环。网格没有逻辑坐标、维度
 // 或规则编号；单元、面所有权和 ghost 信息只服务局部并行分区。
@@ -137,6 +151,7 @@ public:
     Index cellCount() const { return static_cast<Index>(m_storage.cell_vertices.size()); }
     Index globalCellCount() const { return m_storage.global_cell_count; }
     Index faceCount() const { return static_cast<Index>(m_storage.face_owner.size()); }
+    MeshPartitionInfo partitionInfo() const;
     Index vertexCount() const { return static_cast<Index>(m_storage.vertices.size()); }
     Index owner(Index face) const { return m_storage.face_owner.at(face); }
     Index neighbour(Index face) const { return m_storage.face_neighbour.at(face); }

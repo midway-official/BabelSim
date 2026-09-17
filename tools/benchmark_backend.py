@@ -496,6 +496,7 @@ def write_summary(
     # Keep the requested MPI size separate from the rank-local index.  A
     # single "rank-0" bucket across -np 1,2,4,... would mix unrelated runs.
     counters_by_rank: dict[str, dict[str, dict[str, dict[str, list[float]]]]] = {}
+    partition_by_rank: dict[str, dict[str, dict[str, dict[str, list[float]]]]] = {}
     phase_names = (
         "caseSetupSeconds", "solverSeconds", "solverComputeSeconds",
         "applicationSeconds",
@@ -521,6 +522,11 @@ def write_summary(
             for name in phase_names:
                 if name in report:
                     phases.setdefault(name, {}).setdefault("samples", []).append(report[name])
+            partition = report.get("partition")
+            if partition:
+                metrics = partition_by_rank.setdefault(size_key, {}).setdefault(rank_key, {})
+                for name, value in partition.items():
+                    metrics.setdefault(name, {}).setdefault("samples", []).append(value)
     for rank_groups in counters_by_rank.values():
         for aggregate in rank_groups.values():
             for name, value in list(aggregate.items()):
@@ -529,6 +535,11 @@ def write_summary(
     for rank_groups in phase_times_by_rank.values():
         for phases in rank_groups.values():
             for name, value in list(phases.items()):
+                samples = value.pop("samples")
+                value.update({"min": min(samples), "mean": statistics.mean(samples), "max": max(samples)})
+    for rank_groups in partition_by_rank.values():
+        for metrics in rank_groups.values():
+            for name, value in list(metrics.items()):
                 samples = value.pop("samples")
                 value.update({"min": min(samples), "mean": statistics.mean(samples), "max": max(samples)})
     critical_path_by_rank = {}
@@ -558,6 +569,7 @@ def write_summary(
         "convergedWallClock": statistics_by_rank,
         "criticalPathByRank": critical_path_by_rank,
         "phaseTimesByRank": phase_times_by_rank,
+        "partitionByRank": partition_by_rank,
         "localCountersByRank": counters_by_rank,
     }
     (output / "metadata.json").write_text(json.dumps(summary, indent=2) + "\n")

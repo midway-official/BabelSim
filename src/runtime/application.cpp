@@ -86,6 +86,7 @@ void writePerformance(
     parallel.barrier();
     const PerformanceCounters counters = problem.performance();
     const PerformanceCounters local = problem.localPerformance();
+    const MeshPartitionInfo partition = problem.mesh().partitionInfo();
     const double solver_compute_seconds = std::max(
         0.0, solver_seconds - local.output_seconds);
     std::ostringstream name;
@@ -101,6 +102,16 @@ void writePerformance(
            << ",\n  \"solverSeconds\": " << solver_seconds
            << ",\n  \"solverComputeSeconds\": " << solver_compute_seconds
            << ",\n  \"applicationSeconds\": " << application_seconds
+           << ",\n  \"partition\": {"
+           << "\n    \"globalCells\": " << partition.global_cells
+           << ",\n    \"localCells\": " << partition.local_cells
+           << ",\n    \"ownedCells\": " << partition.owned_cells
+           << ",\n    \"ghostCells\": " << partition.ghost_cells
+           << ",\n    \"localFaces\": " << partition.local_faces
+           << ",\n    \"ownedFaces\": " << partition.owned_faces
+           << ",\n    \"communicationFaces\": " << partition.communication_faces
+           << ",\n    \"neighbourRanks\": " << partition.neighbour_ranks
+           << "\n  }"
            << ",\n  \"linearSolves\": " << counters.linear_solves
            << ",\n  \"krylovIterations\": " << counters.krylov_iterations
            << ",\n  \"sparseMatvecs\": " << counters.sparse_matvecs

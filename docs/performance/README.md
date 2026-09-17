@@ -56,6 +56,11 @@ rank JSON 还记录 `mpiInitSeconds`（每个进程的 MPI 初始化，一次性
 Case/solver/solverCompute/application 阶段的 min/mean/max；MPI 启动和输出计数在 rank
 JSON 中单独保留。
 
+每个 rank 的性能 JSON 还包含只读的 `partition` 指标：global/local/owned/ghost cells、
+local/owned faces、processor communication faces 和实际邻居 rank 数。汇总文件的
+`partitionByRank` 按 MPI size 与 local rank 保留这些值的 min/mean/max，方便检查分区负载、
+ghost 比例和通信面增长；它们只用于解释性能，不参与求解或收敛判断。
+
 ## 三类测量
 
 当前脚本的 `complete` 模式使用生产求解器的真实停止条件，只有 `converged` 样本可以

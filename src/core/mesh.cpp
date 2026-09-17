@@ -126,6 +126,23 @@ Index Mesh::faceOwnerRank(Index face) const {
     return m_storage.face_owner_ranks[static_cast<std::size_t>(face)];
 }
 
+MeshPartitionInfo Mesh::partitionInfo() const {
+    MeshPartitionInfo result;
+    result.global_cells = m_storage.global_cell_count;
+    result.local_cells = cellCount();
+    result.owned_cells = static_cast<Index>(m_storage.owned_cells.size());
+    result.ghost_cells = result.local_cells - result.owned_cells;
+    result.local_faces = faceCount();
+    result.owned_faces = static_cast<Index>(m_storage.owned_faces.size());
+    for (Index patch = 0; patch < patchCount(); ++patch) {
+        const auto& boundary = m_storage.patches[static_cast<std::size_t>(patch)];
+        if (boundary.kind != PatchKind::Processor || boundary.faces.empty()) continue;
+        ++result.neighbour_ranks;
+        result.communication_faces += static_cast<Index>(boundary.faces.size());
+    }
+    return result;
+}
+
 void Mesh::setPartition(
     Index global_cells,
     Index layers,

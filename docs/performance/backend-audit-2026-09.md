@@ -57,6 +57,9 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 9. 私有 CSR SpMV 的热循环缓存了原始数组指针，并在 GCC/Clang 下请求最多 8 次循环
    展开。该提示只作用于后端双精度行乘，保持每行累加顺序和矩阵模式；编译器不支持该
    提示时会退化为同一标量循环。
+10. `Mesh::partitionInfo()` 为通用观测接口返回 global/local/owned/ghost cell、面和
+    processor-neighbor 统计；性能 JSON 和 benchmark 的 `partitionByRank` 按 MPI size
+    与 local rank 保存这些数据。该接口不参与方程组、场同步或收敛决策。
 
 ## 性能假设和实测结果
 
