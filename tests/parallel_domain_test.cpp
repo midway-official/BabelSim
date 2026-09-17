@@ -45,6 +45,26 @@ int main(int argc, char* argv[]) {
         }
         halo.exchange(scalar);
         halo.exchange(vector);
+        std::vector<double> asynchronous(static_cast<std::size_t>(local.cellCount()), -1.0);
+        for (Index cell : detail::meshData(local).owned_cells) {
+            asynchronous[static_cast<std::size_t>(cell)] =
+                detail::globalCellId(local, cell) + 0.5;
+        }
+        halo.beginFirstLayer(asynchronous);
+        // A real Krylov SpMV performs the interior rows in this window.  Keep a
+        // small local read here so the test also exercises the begin/finish
+        // lifetime rather than immediately turning it back into a blocking call.
+        double owned_sum = 0.0;
+        for (Index cell : detail::meshData(local).owned_cells)
+            owned_sum += asynchronous[static_cast<std::size_t>(cell)];
+        halo.finishFirstLayer(asynchronous);
+        require(owned_sum > 0.0, "asynchronous halo test did not read owned values");
+        for (Index cell = 0; cell < local.cellCount(); ++cell) {
+            require(
+                near(asynchronous[static_cast<std::size_t>(cell)],
+                     detail::globalCellId(local, cell) + 0.5),
+                "asynchronous halo exchange did not reconstruct global values");
+        }
         for (Index cell = 0; cell < local.cellCount(); ++cell) {
             const double id = detail::globalCellId(local, cell);
             require(

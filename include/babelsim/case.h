@@ -100,7 +100,10 @@ public:
     void start();
     void finish();
     // Data only. Solver code decides when and how to print these counters.
+    // performance() is the critical-path (maximum rank) view; localPerformance()
+    // is the rank-local view used by benchmark aggregation.
     PerformanceCounters performance() const;
+    PerformanceCounters localPerformance() const;
 
 private:
     void selectOutput(const std::string& name, const void* field, bool enabled);

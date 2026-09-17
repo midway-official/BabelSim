@@ -7,6 +7,7 @@
 #include "babelsim/runtime.h"
 
 #include <array>
+#include <chrono>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -72,15 +73,17 @@ PerformanceCounters maximumPerformance(
     const PerformanceCounters& local,
     const ParallelContext& parallel)
 {
-    const std::array<double, 16> local_values{
+    const std::array<double, 19> local_values{
         static_cast<double>(local.linear_solves),
         static_cast<double>(local.krylov_iterations),
         static_cast<double>(local.sparse_matvecs),
         static_cast<double>(local.halo_exchanges),
+        static_cast<double>(local.halo_bytes),
         static_cast<double>(local.global_reductions),
         static_cast<double>(local.equation_assemblies),
         static_cast<double>(local.preconditioner_setups),
         static_cast<double>(local.preconditioner_applications),
+        static_cast<double>(local.output_writes),
         local.elapsed_seconds,
         local.assembly_seconds,
         local.preconditioner_seconds,
@@ -89,6 +92,7 @@ PerformanceCounters maximumPerformance(
         local.sparse_matvec_seconds,
         local.halo_seconds,
         local.global_reduction_seconds,
+        local.output_seconds,
     };
     std::array<double, local_values.size()> global_values{};
     parallel.maximum(
@@ -99,18 +103,21 @@ PerformanceCounters maximumPerformance(
     global.krylov_iterations = static_cast<std::uint64_t>(global_values[1]);
     global.sparse_matvecs = static_cast<std::uint64_t>(global_values[2]);
     global.halo_exchanges = static_cast<std::uint64_t>(global_values[3]);
-    global.global_reductions = static_cast<std::uint64_t>(global_values[4]);
-    global.equation_assemblies = static_cast<std::uint64_t>(global_values[5]);
-    global.preconditioner_setups = static_cast<std::uint64_t>(global_values[6]);
-    global.preconditioner_applications = static_cast<std::uint64_t>(global_values[7]);
-    global.elapsed_seconds = global_values[8];
-    global.assembly_seconds = global_values[9];
-    global.preconditioner_seconds = global_values[10];
-    global.preconditioner_apply_seconds = global_values[11];
-    global.linear_solve_seconds = global_values[12];
-    global.sparse_matvec_seconds = global_values[13];
-    global.halo_seconds = global_values[14];
-    global.global_reduction_seconds = global_values[15];
+    global.halo_bytes = static_cast<std::uint64_t>(global_values[4]);
+    global.global_reductions = static_cast<std::uint64_t>(global_values[5]);
+    global.equation_assemblies = static_cast<std::uint64_t>(global_values[6]);
+    global.preconditioner_setups = static_cast<std::uint64_t>(global_values[7]);
+    global.preconditioner_applications = static_cast<std::uint64_t>(global_values[8]);
+    global.output_writes = static_cast<std::uint64_t>(global_values[9]);
+    global.elapsed_seconds = global_values[10];
+    global.assembly_seconds = global_values[11];
+    global.preconditioner_seconds = global_values[12];
+    global.preconditioner_apply_seconds = global_values[13];
+    global.linear_solve_seconds = global_values[14];
+    global.sparse_matvec_seconds = global_values[15];
+    global.halo_seconds = global_values[16];
+    global.global_reduction_seconds = global_values[17];
+    global.output_seconds = global_values[18];
     return global;
 }
 
@@ -197,6 +204,7 @@ struct Case::Implementation {
     }
 
     void write(const std::filesystem::path& directory) {
+        const auto output_start = std::chrono::steady_clock::now();
         const auto cellField = [&](const std::string& name) {
             const auto hasCell = [&](const auto& fields) {
                 for (const auto& field : fields)
@@ -236,6 +244,8 @@ struct Case::Implementation {
         writeFields(directory, vectors, "vector", info);
         writeFields(directory, tensors, "tensor", info);
         writeOwnedResultMetadata(directory, mesh, parallel, timeName(run_time.time()), info);
+        run_time.recordOutput(std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - output_start).count());
     }
 
     void writeStep(bool force) {
@@ -437,6 +447,10 @@ void Case::finish() {
 PerformanceCounters Case::performance() const {
     const Implementation& state = *m_implementation;
     return maximumPerformance(state.run_time.performance(), state.parallel);
+}
+
+PerformanceCounters Case::localPerformance() const {
+    return m_implementation->run_time.performance();
 }
 
 } // namespace babelsim

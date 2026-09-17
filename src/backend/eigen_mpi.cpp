@@ -13,6 +13,7 @@
 #include <chrono>
 #include <memory>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 namespace babelsim::detail {
@@ -222,6 +223,11 @@ private:
             const Clock::time_point start = Clock::now();
             m_halo->exchange(field);
             ++m_performance.halo_exchanges;
+            std::size_t components = 1;
+            if constexpr (std::is_same_v<T, Vec3>) components = 3;
+            else if constexpr (std::is_same_v<T, Tensor3>) components = 9;
+            m_performance.halo_bytes += m_halo->plannedBytes(
+                components, false, field.location() == FieldLocation::Face);
             m_performance.halo_seconds += secondsSince(start);
         }
         markHaloValid(field);

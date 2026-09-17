@@ -31,6 +31,7 @@ struct RunTime::Implementation {
     double current_delta_t = 0.0;
     int current_step = 0;
     std::chrono::steady_clock::time_point started;
+    PerformanceCounters lifecycle_performance;
 };
 
 void RuntimeControl::validate() const {
@@ -101,9 +102,18 @@ void RunTime::setTime(double value, int step_value, double dt) {
 
 PerformanceCounters RunTime::performance() const {
     PerformanceCounters result = m_implementation->fvm.performance();
+    result.output_writes = m_implementation->lifecycle_performance.output_writes;
+    result.output_seconds = m_implementation->lifecycle_performance.output_seconds;
     result.elapsed_seconds = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - m_implementation->started).count();
     return result;
+}
+
+void RunTime::recordOutput(double seconds) {
+    if (!(seconds >= 0.0) || !std::isfinite(seconds))
+        throw std::invalid_argument("result output time is invalid");
+    ++m_implementation->lifecycle_performance.output_writes;
+    m_implementation->lifecycle_performance.output_seconds += seconds;
 }
 
 

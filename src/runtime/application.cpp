@@ -4,9 +4,13 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -36,24 +40,109 @@ namespace {
 struct Arguments {
     std::filesystem::path case_directory;
     std::string time_name;
+    std::filesystem::path performance_directory;
 };
 
 Arguments parseArguments(int argc, char* argv[]) {
     Arguments result;
     for (int index = 1; index < argc;) {
         const std::string option = argv[index++];
-        if ((option != "-case" && option != "-time") || index == argc) {
+        if ((option != "-case" && option != "-time" && option != "-performance") || index == argc) {
             throw std::invalid_argument(
-                "usage: babelsim-solve -case <case-directory> [-time <name>]");
+                "usage: babelsim-solve -case <case-directory> [-time <name>] "
+                "[-performance <directory>]");
         }
         if (option == "-case") result.case_directory = argv[index];
-        else result.time_name = argv[index];
+        else if (option == "-time") result.time_name = argv[index];
+        else result.performance_directory = argv[index];
         ++index;
     }
     if (result.case_directory.empty()) {
         throw std::invalid_argument("babelsim-solve needs -case <case-directory>");
     }
     return result;
+}
+
+const char* statusName(SolveStatus status) {
+    switch (status) {
+    case SolveStatus::Converged: return "converged";
+    case SolveStatus::MaxIterations: return "maxIterations";
+    case SolveStatus::NumericalFailure: return "numericalFailure";
+    }
+    return "unknown";
+}
+
+void writePerformance(
+    const std::filesystem::path& directory,
+    const Case& problem,
+    const SolverResult& result,
+    double mpi_init_seconds,
+    double case_setup_seconds,
+    double solver_seconds,
+    double application_seconds)
+{
+    const ParallelContext parallel = ParallelContext::world();
+    if (parallel.rank == 0) std::filesystem::create_directories(directory);
+    parallel.barrier();
+    const PerformanceCounters counters = problem.performance();
+    const PerformanceCounters local = problem.localPerformance();
+    const double solver_compute_seconds = std::max(
+        0.0, solver_seconds - local.output_seconds);
+    std::ostringstream name;
+    name << "rank-" << std::setw(4) << std::setfill('0') << parallel.rank << ".json";
+    std::ofstream output(directory / name.str());
+    if (!output) throw std::runtime_error("cannot write performance report");
+    output << std::setprecision(17)
+           << "{\n  \"rank\": " << parallel.rank
+           << ",\n  \"ranks\": " << parallel.size
+           << ",\n  \"status\": \"" << statusName(result.status) << "\""
+           << ",\n  \"mpiInitSeconds\": " << mpi_init_seconds
+           << ",\n  \"caseSetupSeconds\": " << case_setup_seconds
+           << ",\n  \"solverSeconds\": " << solver_seconds
+           << ",\n  \"solverComputeSeconds\": " << solver_compute_seconds
+           << ",\n  \"applicationSeconds\": " << application_seconds
+           << ",\n  \"linearSolves\": " << counters.linear_solves
+           << ",\n  \"krylovIterations\": " << counters.krylov_iterations
+           << ",\n  \"sparseMatvecs\": " << counters.sparse_matvecs
+           << ",\n  \"haloExchanges\": " << counters.halo_exchanges
+           << ",\n  \"haloBytes\": " << counters.halo_bytes
+           << ",\n  \"globalReductions\": " << counters.global_reductions
+           << ",\n  \"equationAssemblies\": " << counters.equation_assemblies
+           << ",\n  \"preconditionerSetups\": " << counters.preconditioner_setups
+           << ",\n  \"preconditionerApplications\": " << counters.preconditioner_applications
+           << ",\n  \"outputWrites\": " << counters.output_writes
+           << ",\n  \"elapsedSeconds\": " << counters.elapsed_seconds
+           << ",\n  \"assemblySeconds\": " << counters.assembly_seconds
+           << ",\n  \"preconditionerSeconds\": " << counters.preconditioner_seconds
+           << ",\n  \"preconditionerApplySeconds\": " << counters.preconditioner_apply_seconds
+           << ",\n  \"linearSolveSeconds\": " << counters.linear_solve_seconds
+           << ",\n  \"sparseMatvecSeconds\": " << counters.sparse_matvec_seconds
+           << ",\n  \"haloSeconds\": " << counters.halo_seconds
+           << ",\n  \"globalReductionSeconds\": " << counters.global_reduction_seconds
+           << ",\n  \"outputSeconds\": " << counters.output_seconds
+           << ",\n  \"local\": {"
+           << "\n    \"linearSolves\": " << local.linear_solves
+           << ",\n    \"krylovIterations\": " << local.krylov_iterations
+           << ",\n    \"sparseMatvecs\": " << local.sparse_matvecs
+           << ",\n    \"haloExchanges\": " << local.halo_exchanges
+           << ",\n    \"haloBytes\": " << local.halo_bytes
+           << ",\n    \"globalReductions\": " << local.global_reductions
+           << ",\n    \"equationAssemblies\": " << local.equation_assemblies
+           << ",\n    \"preconditionerSetups\": " << local.preconditioner_setups
+           << ",\n    \"preconditionerApplications\": " << local.preconditioner_applications
+           << ",\n    \"outputWrites\": " << local.output_writes
+           << ",\n    \"elapsedSeconds\": " << local.elapsed_seconds
+           << ",\n    \"assemblySeconds\": " << local.assembly_seconds
+           << ",\n    \"preconditionerSeconds\": " << local.preconditioner_seconds
+           << ",\n    \"preconditionerApplySeconds\": " << local.preconditioner_apply_seconds
+           << ",\n    \"linearSolveSeconds\": " << local.linear_solve_seconds
+           << ",\n    \"sparseMatvecSeconds\": " << local.sparse_matvec_seconds
+           << ",\n    \"haloSeconds\": " << local.halo_seconds
+           << ",\n    \"globalReductionSeconds\": " << local.global_reduction_seconds
+           << ",\n    \"outputSeconds\": " << local.output_seconds
+           << "\n  }"
+           << "\n}\n";
+    if (!output) throw std::runtime_error("cannot finish performance report");
 }
 
 }  // 匿名命名空间
@@ -68,11 +157,15 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
         return 1;
     }
     const bool owns_mpi = initialized == 0;
+    const auto mpi_start = std::chrono::steady_clock::now();
     const int init_status = owns_mpi ? MPI_Init(&argc, &argv) : MPI_SUCCESS;
     if (init_status != MPI_SUCCESS) {
         if (onError) onError("MPI_Init failed");
         return 1;
     }
+    const auto application_start = std::chrono::steady_clock::now();
+    const double mpi_init_seconds = std::chrono::duration<double>(
+        application_start - mpi_start).count();
     int status = 1;
     try {
         const Arguments arguments = parseArguments(argc, argv);
@@ -86,11 +179,24 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
                 if (std::strcmp(previous->m_name, entry->m_name) == 0)
                     throw std::invalid_argument("duplicate solver registration: " + std::string(entry->m_name));
         }
+        const auto case_start = std::chrono::steady_clock::now();
         Case problem(arguments.case_directory, arguments.time_name);
+        const double case_setup_seconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - case_start).count();
         const SolverRegistration* selected = solvers;
         while (selected != nullptr && problem.solver() != selected->m_name) selected = selected->m_next;
         if (selected == nullptr) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
+        const auto solver_start = std::chrono::steady_clock::now();
         const SolverResult result = selected->m_run(problem);
+        const double solver_seconds = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - solver_start).count();
+        if (!arguments.performance_directory.empty()) {
+            const double application_seconds = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - application_start).count();
+            writePerformance(
+                arguments.performance_directory, problem, result,
+                mpi_init_seconds, case_setup_seconds, solver_seconds, application_seconds);
+        }
         // Keep the established CLI contract: both nonconvergence and numerical
         // failure are exit 2; configuration/application errors remain exit 1.
         status = ParallelContext::world().maximum(

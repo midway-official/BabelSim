@@ -50,6 +50,9 @@ public:
     static RunTime& current();
 
 private:
+    // Case records result-writing as an I/O phase; it is not part of the
+    // numerical solver counters or convergence decision.
+    void recordOutput(double seconds);
     // 性能快照属于 Case/Application 生命周期观测，不是 Physics Solver API。
     friend class Case;
     PerformanceCounters performance() const;

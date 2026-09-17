@@ -1,0 +1,76 @@
+{
+  "name": "lid-driven-cavity-re1000-102400",
+  "cells": 102400,
+  "grid": "320x320x1",
+  "reynolds": 1000,
+  "density": 1.0,
+  "dynamicViscosity": 0.001,
+  "lidVelocity": 1.0,
+  "turbulence": "none",
+  "frozenMethods": {
+    "interpolation": "linear",
+    "gradient": "greenGauss",
+    "convection": "linearUpwind",
+    "diffusion": "orthogonal",
+    "time": "steady"
+  },
+  "generator": [
+    "python3",
+    "cases/cavity/validation/generate_cavity_case.py",
+    "<case-directory>",
+    "--cells",
+    "320",
+    "--re",
+    "1000",
+    "--cluster",
+    "0",
+    "--convection",
+    "linearUpwind",
+    "--gradient",
+    "greenGauss",
+    "--velocity-relaxation",
+    "0.3",
+    "--pressure-relaxation",
+    "0.3",
+    "--max-iterations",
+    "30000"
+  ],
+  "benchmark": [
+    "python3",
+    "tools/benchmark_backend.py",
+    "--case",
+    "<case-directory>",
+    "--ranks",
+    "1,2,4,6,8,12",
+    "--repeat",
+    "3",
+    "--timeout",
+    "1800",
+    "--mode",
+    "complete",
+    "--output",
+    "<evidence-directory>"
+  ],
+  "backendAmdahlPilot": {
+    "description": "One outer SIMPLE iteration; use only for phase-cost and backend A/B, never convergence ranking",
+    "temporaryCaseEdit": "set numerics/solution.bs maxIterations=1 in a copy outside the repository",
+    "optimizedBuild": "make BUILD=build CSR_SPMV=1 ASYNC_HALO=1",
+    "eigenSpmvBuild": "make BUILD=build-eigen CSR_SPMV=0 ASYNC_HALO=1",
+    "blockingHaloBuild": "make BUILD=build-sync CSR_SPMV=1 ASYNC_HALO=0",
+    "ranks": [2],
+    "repeat": 5,
+    "requiredCounters": [
+      "solverSeconds", "linearSolveSeconds", "preconditionerApplySeconds",
+      "sparseMatvecSeconds", "haloSeconds", "globalReductionSeconds", "haloBytes"
+    ]
+  },
+  "acceptance": {
+    "sameProductionConvergence": true,
+    "relativeL2FieldDifference": 1e-5,
+    "linfFieldDifference": 1e-4,
+    "singleRankRegressionFraction": 0.03,
+    "targetTimeToSolutionImprovementFraction": 0.15,
+    "physicalCoreRanks": [1, 2, 4, 6, 8, 12],
+    "smtRanks": [24]
+  }
+}

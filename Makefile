@@ -10,11 +10,20 @@ AR := gcc-ar
 # fat LTO 同时保存机器码，允许外部 Solver 不启用 LTO 时链接静态库。
 OPTFLAGS ?= -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
             -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
-CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow \
+ASYNC_HALO ?= 1
+# Backend A/B switches.  Keep them independent so communication and SpMV
+# changes can be measured one variable at a time without touching Physics.
+CSR_SPMV ?= 1
+CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -DBABELSIM_ASYNC_KRYLOV_HALO=$(ASYNC_HALO) \
+            -DBABELSIM_CSR_SPMV=$(CSR_SPMV) \
+            -Wall -Wextra -Wpedantic -Wshadow \
             -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
 CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 
 BUILD := build
+DEBUG_BUILD ?= build-debug
+DEBUG_OPTFLAGS ?= -O1 -g3 -fno-omit-frame-pointer \
+                  -fsanitize=address,undefined -fno-sanitize-recover=all
 LIB := $(BUILD)/libbabelsim.a
 # 计算后端只需实现 internal/compute_backend.h 的 makeComputeBackend()。
 # 整组替换可同时移除默认 Eigen 装配/求解实现，数值前端和 Physics 无需修改。
@@ -83,6 +92,12 @@ MPI_TESTS := $(BUILD)/parallel_domain_test $(BUILD)/parallel_simple_test \
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
 all: $(LIB) $(APPS)
+
+# Small-case lifetime and bounds checks use a separate tree and do not alter
+# the release benchmark binary or its optimization flags.
+debug:
+	$(MAKE) BUILD=$(DEBUG_BUILD) OPTFLAGS="$(DEBUG_OPTFLAGS)" \
+		ASYNC_HALO=0 CSR_SPMV=0 all
 
 # 目录依赖使删除/新增 Solver 文件后也会重新归档，避免残留旧模块。
 PHYSICS_DIRECTORIES := src/physics $(wildcard src/physics/*/)
@@ -202,7 +217,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all test test-architecture test-external test-workflow test-rans test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all debug test test-architecture test-external test-workflow test-rans test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

@@ -16,6 +16,14 @@
 namespace babelsim {
 namespace {
 
+#ifndef BABELSIM_ASYNC_KRYLOV_HALO
+#define BABELSIM_ASYNC_KRYLOV_HALO 1
+#endif
+
+#ifndef BABELSIM_CSR_SPMV
+#define BABELSIM_CSR_SPMV 1
+#endif
+
 constexpr double breakdown_tolerance = 0.0;
 using Clock = std::chrono::steady_clock;
 
@@ -31,6 +39,107 @@ struct RemoteCoupling {
     double coefficient = 0.0;
 };
 
+// 分布式 Krylov 热路径只需要对局部矩阵做 y=A*x。Eigen 的列压缩矩阵适合
+// 预条件器，但对按行的有限体积 stencil 会产生两次稀疏遍历（interior 和
+// boundary），且每行访问跨越整列存储。这个私有 CSR 视图复用 Eigen 的系数
+// pattern，仅缓存 row/column/source-position；每次方程更新只覆盖数值，不重新
+// 分配索引。它不改变公共 Equation/Field API，也不参与预条件器因子化。
+struct CsrSpmvBlock {
+    struct Entry {
+        int column = 0;
+        int source_position = 0;
+    };
+
+    void build(
+        const Eigen::SparseMatrix<double>& source,
+        const std::vector<char>& boundary_rows,
+        bool boundary)
+    {
+        if (source.rows() != static_cast<Eigen::Index>(boundary_rows.size())) {
+            throw std::invalid_argument("CSR SpMV row mask has the wrong size");
+        }
+        row_offsets.clear();
+        columns.clear();
+        source_positions.clear();
+        values.clear();
+        active_rows.clear();
+        std::vector<std::vector<Entry>> rows(static_cast<std::size_t>(source.rows()));
+        for (Eigen::Index column = 0; column < source.outerSize(); ++column) {
+            Eigen::Index source_position = source.outerIndexPtr()[column];
+            for (Eigen::SparseMatrix<double>::InnerIterator entry(source, column);
+                 entry; ++entry) {
+                if ((boundary_rows[static_cast<std::size_t>(entry.row())] != 0) != boundary)
+                    { ++source_position; continue; }
+                rows[static_cast<std::size_t>(entry.row())].push_back(
+                    {static_cast<int>(entry.col()), static_cast<int>(source_position)});
+                ++source_position;
+            }
+        }
+        row_offsets.assign(static_cast<std::size_t>(source.rows()) + 1U, 0);
+        for (Eigen::Index row = 0; row < source.rows(); ++row) {
+            auto& entries = rows[static_cast<std::size_t>(row)];
+            std::sort(entries.begin(), entries.end(),
+                [](const Entry& left, const Entry& right) {
+                    return left.column < right.column;
+                });
+            row_offsets[static_cast<std::size_t>(row + 1)] =
+                row_offsets[static_cast<std::size_t>(row)] +
+                static_cast<Eigen::Index>(entries.size());
+            if (!entries.empty()) active_rows.push_back(static_cast<int>(row));
+        }
+        columns.resize(static_cast<std::size_t>(row_offsets.back()));
+        source_positions.resize(columns.size());
+        values.resize(columns.size());
+        std::size_t position = 0;
+        const double* source_values = source.valuePtr();
+        for (const auto& entries : rows) {
+            for (const Entry& entry : entries) {
+                columns[position] = entry.column;
+                source_positions[position] = entry.source_position;
+                values[position] = source_values[static_cast<std::size_t>(entry.source_position)];
+                ++position;
+            }
+        }
+    }
+
+    void update(const Eigen::SparseMatrix<double>& source) {
+        const double* source_values = source.valuePtr();
+        for (std::size_t position = 0; position < values.size(); ++position) {
+            values[position] = source_values[
+                static_cast<std::size_t>(source_positions[position])];
+        }
+    }
+
+    void multiply(
+        const Eigen::VectorXd& input,
+        Eigen::VectorXd& output,
+        bool add) const
+    {
+        const double* x = input.data();
+        double* y = output.data();
+        if (!add) output.setZero();
+        for (const int row_value : active_rows) {
+            const std::size_t row = static_cast<std::size_t>(row_value);
+            double sum = 0.0;
+            const int begin = row_offsets[row];
+            const int end = row_offsets[row + 1U];
+            for (int position = begin; position < end; ++position) {
+                sum += values[static_cast<std::size_t>(position)] *
+                    x[static_cast<std::size_t>(columns[static_cast<std::size_t>(position)])];
+            }
+            if (add) y[row] += sum;
+            else y[row] = sum;
+        }
+    }
+
+private:
+    std::vector<int> row_offsets;
+    std::vector<int> columns;
+    std::vector<int> source_positions;
+    std::vector<int> active_rows;
+    std::vector<double> values;
+};
+
 // Krylov 向量只包含 owned 行。把它投影到局部 cell 布局后复用拓扑无关的
 // HaloExchange；这使远程矩阵耦合只依赖 global cell ID，而非空间方向。
 class KrylovHalo {
@@ -44,22 +153,35 @@ public:
         if (owned_values.size() != detail::ownedCellCount(*m_mesh)) {
             throw std::invalid_argument("Krylov vector does not match owned cells");
         }
-        std::fill(m_values.begin(), m_values.end(), 0.0);
+        // 每个 owned 值都会被覆盖；第一层 ghost 也由下面的交换完整写入。
+        // 不再为每次 SpMV 清零整个局部 cell 布局，避免与 Krylov 向量长度无关的
+        // O(ghost_cells) 内存流量。partitionMesh 保证跨分区耦合只连接第一层 ghost。
         for (Index cell : detail::meshData(*m_mesh).owned_cells) {
             m_values[static_cast<std::size_t>(cell)] = owned_values[detail::ownedIndex(*m_mesh, cell)];
         }
+#if BABELSIM_ASYNC_KRYLOV_HALO
+        m_exchange.beginFirstLayer(m_values);
+#else
+        // A/B control: retain the pre-overlap blocking path while keeping the
+        // same cached communication layout and numerical operations.
         m_exchange.exchangeFirstLayer(m_values);
+#endif
         m_active = true;
     }
 
     void finish() {
         if (!m_active) throw std::logic_error("Krylov halo exchange is not active");
+#if BABELSIM_ASYNC_KRYLOV_HALO
+        m_exchange.finishFirstLayer(m_values);
+#endif
         m_active = false;
     }
 
     double value(Index ghost_cell) const {
         return m_values.at(static_cast<std::size_t>(ghost_cell));
     }
+
+    std::size_t bytes() const { return m_exchange.plannedBytes(1, true); }
 
 private:
     const Mesh* m_mesh;
@@ -179,6 +301,10 @@ struct DistributedLinearSolver::Implementation {
             boundary_matrix.setFromTriplets(boundary_entries.begin(), boundary_entries.end());
             interior_matrix.makeCompressed();
             boundary_matrix.makeCompressed();
+#if BABELSIM_CSR_SPMV
+            interior_csr.build(matrix, boundary_rows, false);
+            boundary_csr.build(matrix, boundary_rows, true);
+#endif
             spmv_pattern_ready = true;
         } else {
             // 稀疏模式固定时只覆盖已有系数，不在每个外迭代重新分配 Triplet/矩阵。
@@ -191,6 +317,10 @@ struct DistributedLinearSolver::Implementation {
                     target.coeffRef(entry.row(), entry.col()) = entry.value();
                 }
             }
+#if BABELSIM_CSR_SPMV
+            interior_csr.update(matrix);
+            boundary_csr.update(matrix);
+#endif
         }
     }
 
@@ -514,12 +644,21 @@ struct DistributedLinearSolver::Implementation {
         const Clock::time_point halo_start = Clock::now();
         krylov_halo.begin(input);
         current_performance.halo_seconds += secondsSince(halo_start);
+        current_performance.halo_bytes += krylov_halo.bytes();
+#if BABELSIM_CSR_SPMV
+        interior_csr.multiply(input, output, false);
+#else
         output.noalias() = interior_matrix * input;
+#endif
         const Clock::time_point halo_wait_start = Clock::now();
         krylov_halo.finish();
         ++current_performance.halo_exchanges;
         current_performance.halo_seconds += secondsSince(halo_wait_start);
+#if BABELSIM_CSR_SPMV
+        boundary_csr.multiply(input, output, true);
+#else
         output.noalias() += boundary_matrix * input;
+#endif
         for (const RemoteCoupling& coupling : remote) {
             output[coupling.row] += coupling.coefficient *
                 krylov_halo.value(coupling.ghost_cell);
@@ -789,6 +928,10 @@ struct DistributedLinearSolver::Implementation {
     Eigen::SparseMatrix<double> matrix;
     Eigen::SparseMatrix<double> interior_matrix;
     Eigen::SparseMatrix<double> boundary_matrix;
+#if BABELSIM_CSR_SPMV
+    CsrSpmvBlock interior_csr;
+    CsrSpmvBlock boundary_csr;
+#endif
     std::vector<char> boundary_rows;
     std::vector<RemoteCoupling> remote;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;

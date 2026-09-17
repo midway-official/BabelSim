@@ -33,10 +33,14 @@ struct PerformanceCounters {
     std::uint64_t krylov_iterations = 0;
     std::uint64_t sparse_matvecs = 0;
     std::uint64_t halo_exchanges = 0;
+    std::uint64_t halo_bytes = 0;
     std::uint64_t global_reductions = 0;
     std::uint64_t equation_assemblies = 0;
     std::uint64_t preconditioner_setups = 0;
     std::uint64_t preconditioner_applications = 0;
+    // Result I/O is recorded separately from numerical work so one-time and
+    // per-write costs are not mistaken for Krylov or assembly hotspots.
+    std::uint64_t output_writes = 0;
     double elapsed_seconds = 0.0;
     double assembly_seconds = 0.0;
     double preconditioner_seconds = 0.0;
@@ -45,16 +49,19 @@ struct PerformanceCounters {
     double sparse_matvec_seconds = 0.0;
     double halo_seconds = 0.0;
     double global_reduction_seconds = 0.0;
+    double output_seconds = 0.0;
 
     PerformanceCounters& operator+=(const PerformanceCounters& other) {
         linear_solves += other.linear_solves;
         krylov_iterations += other.krylov_iterations;
         sparse_matvecs += other.sparse_matvecs;
         halo_exchanges += other.halo_exchanges;
+        halo_bytes += other.halo_bytes;
         global_reductions += other.global_reductions;
         equation_assemblies += other.equation_assemblies;
         preconditioner_setups += other.preconditioner_setups;
         preconditioner_applications += other.preconditioner_applications;
+        output_writes += other.output_writes;
         elapsed_seconds += other.elapsed_seconds;
         assembly_seconds += other.assembly_seconds;
         preconditioner_seconds += other.preconditioner_seconds;
@@ -63,6 +70,7 @@ struct PerformanceCounters {
         sparse_matvec_seconds += other.sparse_matvec_seconds;
         halo_seconds += other.halo_seconds;
         global_reduction_seconds += other.global_reduction_seconds;
+        output_seconds += other.output_seconds;
         return *this;
     }
 };

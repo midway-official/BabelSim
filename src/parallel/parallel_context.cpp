@@ -614,43 +614,81 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
     build(m_faces, true, false);
 }
 
-void HaloExchange::exchange(double* values, std::size_t components, ExchangePlan& plan) {
+HaloExchange::ExchangePlan::ValueLayout& HaloExchange::valueLayout(
+    ExchangePlan& plan, std::size_t components)
+{
+    for (auto& layout : plan.common_layouts) {
+        if (layout.components == components) return layout;
+    }
+    for (auto& layout : plan.common_layouts) {
+        if (layout.components != 0) continue;
+        layout.components = components;
+        layout.send_counts.resize(static_cast<std::size_t>(m_parallel.size));
+        layout.send_offsets.resize(static_cast<std::size_t>(m_parallel.size));
+        layout.receive_counts.resize(static_cast<std::size_t>(m_parallel.size));
+        layout.receive_offsets.resize(static_cast<std::size_t>(m_parallel.size));
+        for (int peer = 0; peer < m_parallel.size; ++peer) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            layout.send_counts[p] = detail::mpiCount(
+                static_cast<std::size_t>(plan.send_counts[p]) * components,
+                "halo send values");
+            layout.send_offsets[p] = detail::mpiCount(
+                static_cast<std::size_t>(plan.send_offsets[p]) * components,
+                "halo send offset");
+            layout.receive_counts[p] = detail::mpiCount(
+                static_cast<std::size_t>(plan.receive_counts[p]) * components,
+                "halo receive values");
+            layout.receive_offsets[p] = detail::mpiCount(
+                static_cast<std::size_t>(plan.receive_offsets[p]) * components,
+                "halo receive offset");
+        }
+        return layout;
+    }
+    throw std::invalid_argument("halo exchange supports at most three component layouts");
+}
+
+void HaloExchange::begin(double* values, std::size_t components, ExchangePlan& plan) {
     if (!m_parallel.distributed()) return;
-    if (values == nullptr || components == 0) throw std::invalid_argument("halo exchange values are invalid");
+    if (values == nullptr || components == 0) {
+        throw std::invalid_argument("halo exchange values are invalid");
+    }
+    if (plan.active) throw std::logic_error("halo exchange is already active");
+    auto& layout = valueLayout(plan, components);
     plan.send_buffer.resize(plan.send_indices.size() * components);
     plan.receive_buffer.resize(plan.receive_indices.size() * components);
     for (std::size_t index = 0; index < plan.send_indices.size(); ++index) {
-        for (std::size_t component = 0; component < components; ++component) {
-            plan.send_buffer[index * components + component] =
-                values[static_cast<std::size_t>(plan.send_indices[index]) * components + component];
-        }
+        const auto source = values + static_cast<std::size_t>(plan.send_indices[index]) * components;
+        std::copy_n(source, components, plan.send_buffer.data() + index * components);
     }
-    std::vector<int> send_counts(static_cast<std::size_t>(m_parallel.size));
-    std::vector<int> send_offsets(static_cast<std::size_t>(m_parallel.size));
-    std::vector<int> receive_counts(static_cast<std::size_t>(m_parallel.size));
-    std::vector<int> receive_offsets(static_cast<std::size_t>(m_parallel.size));
-    for (int peer = 0; peer < m_parallel.size; ++peer) {
-        const std::size_t p = static_cast<std::size_t>(peer);
-        send_counts[p] = detail::mpiCount(static_cast<std::size_t>(plan.send_counts[p]) * components,
-                                           "halo send values");
-        send_offsets[p] = detail::mpiCount(static_cast<std::size_t>(plan.send_offsets[p]) * components,
-                                            "halo send offset");
-        receive_counts[p] = detail::mpiCount(static_cast<std::size_t>(plan.receive_counts[p]) * components,
-                                              "halo receive values");
-        receive_offsets[p] = detail::mpiCount(static_cast<std::size_t>(plan.receive_offsets[p]) * components,
-                                               "halo receive offset");
+    detail::checkMpi(MPI_Ialltoallv(
+        plan.send_buffer.empty() ? &plan.dummy : plan.send_buffer.data(),
+        layout.send_counts.data(), layout.send_offsets.data(), MPI_DOUBLE,
+        plan.receive_buffer.empty() ? &plan.dummy : plan.receive_buffer.data(),
+        layout.receive_counts.data(), layout.receive_offsets.data(), MPI_DOUBLE,
+        m_parallel.communicator, &plan.request), "MPI_Ialltoallv(halo values)");
+    plan.active = true;
+    plan.active_components = components;
+    plan.active_values = values;
+}
+
+void HaloExchange::finish(double* values, std::size_t components, ExchangePlan& plan) {
+    if (!m_parallel.distributed()) return;
+    if (!plan.active || plan.active_values != values || plan.active_components != components) {
+        throw std::logic_error("halo exchange finish does not match begin");
     }
-    double dummy = 0.0;
-    detail::checkMpi(MPI_Alltoallv(
-        plan.send_buffer.empty() ? &dummy : plan.send_buffer.data(), send_counts.data(), send_offsets.data(), MPI_DOUBLE,
-        plan.receive_buffer.empty() ? &dummy : plan.receive_buffer.data(), receive_counts.data(), receive_offsets.data(),
-        MPI_DOUBLE, m_parallel.communicator), "MPI_Alltoallv(halo values)");
+    detail::checkMpi(MPI_Wait(&plan.request, MPI_STATUS_IGNORE), "MPI_Wait(halo values)");
     for (std::size_t index = 0; index < plan.receive_indices.size(); ++index) {
-        for (std::size_t component = 0; component < components; ++component) {
-            values[static_cast<std::size_t>(plan.receive_indices[index]) * components + component] =
-                plan.receive_buffer[index * components + component];
-        }
+        const auto destination = values + static_cast<std::size_t>(plan.receive_indices[index]) * components;
+        std::copy_n(plan.receive_buffer.data() + index * components, components, destination);
     }
+    plan.active = false;
+    plan.active_components = 0;
+    plan.active_values = nullptr;
+}
+
+void HaloExchange::exchange(double* values, std::size_t components, ExchangePlan& plan) {
+    begin(values, components, plan);
+    finish(values, components, plan);
 }
 
 void HaloExchange::exchange(double* values, std::size_t components) {
@@ -673,6 +711,33 @@ void HaloExchange::exchangeFirstLayer(std::vector<double>& values) {
         throw std::invalid_argument("raw first-layer halo field has the wrong size");
     }
     exchange(values.data(), 1, m_first_layer_cells);
+}
+
+void HaloExchange::beginFirstLayer(std::vector<double>& values) {
+    if (m_mesh == nullptr || values.size() != static_cast<std::size_t>(m_mesh->cellCount())) {
+        throw std::invalid_argument("raw first-layer halo field has the wrong size");
+    }
+    begin(values.data(), 1, m_first_layer_cells);
+}
+
+void HaloExchange::finishFirstLayer(std::vector<double>& values) {
+    if (m_mesh == nullptr || values.size() != static_cast<std::size_t>(m_mesh->cellCount())) {
+        throw std::invalid_argument("raw first-layer halo field has the wrong size");
+    }
+    finish(values.data(), 1, m_first_layer_cells);
+}
+
+std::size_t HaloExchange::plannedBytes(
+    std::size_t components, bool first_layer, bool faces) const {
+    if (components == 0) throw std::invalid_argument("halo component count is invalid");
+    const ExchangePlan& plan = faces ? m_faces :
+        (first_layer ? m_first_layer_cells : m_cells);
+    const std::size_t values = plan.send_indices.size() + plan.receive_indices.size();
+    if (values > (std::numeric_limits<std::size_t>::max() / components) /
+                    sizeof(double)) {
+        throw std::overflow_error("halo payload size overflow");
+    }
+    return values * components * sizeof(double);
 }
 
 void HaloExchange::exchange(ScalarField& field) {
