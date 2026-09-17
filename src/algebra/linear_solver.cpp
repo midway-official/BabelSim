@@ -138,7 +138,8 @@ public:
             throw std::invalid_argument("CSR SpMV vector size is invalid");
         }
         if (output.size() != rows_count) output.resize(rows_count);
-        output.setZero();
+        // Every row is assigned below, so clearing the whole output would
+        // only add a second full-vector write before the actual SpMV.
         const double* x = input.data();
         double* y = output.data();
         const int* offsets = row_offsets.data();

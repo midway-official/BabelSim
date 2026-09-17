@@ -96,7 +96,12 @@ active 行，只清零随后由 boundary 分块累加的 inactive 行，避免�
 向量做一次无条件清零；boundary 分块仍按原顺序累加，矩阵乘的数值顺序保持不变。
 串行 `PreparedLinearSolver` 也复用后端 CSR SpMV；首次 `compute` 建立 pattern，后续
 `factorize` 只复制连续系数并检查 pattern，避免每个外迭代重新分配稀疏结构。该视图同样
-是内部实现，Eigen 仍保留给 IC、ILUT、AMG 和其他因子化操作。串行 A/B 可用
+是内部实现，Eigen 仍保留给 IC、ILUT、AMG 和其他因子化操作。串行 CSR 的每个输出行
+都会被 SpMV 直接赋值，因此不再先清零整个输出向量；这只去掉一次冗余的线性写入，不改变
+行内累加顺序。102400 单元、20 次外迭代的 1-rank pilot 中，Krylov 迭代数均为 18636，
+solver 中位数为 21.00 s（基线 21.81 s），SpMV 中位数为 4.58 s（基线 5.40 s）；样本
+仍属于固定吞吐 pilot，不能把单次结果外推为所有网格和求解器配置的固定百分比收益。串行
+A/B 可用
 `SERIAL_CSR_SPMV=0` 恢复 Eigen SpMV。
 IC 和 ILUT 的因子仍由 Eigen 计算，但 Krylov 每次 apply 默认走后端私有的原地三角求解
 路径：直接复用调用方输出向量、因子内部的三角求解工作区和一个预分配的置换 scratch
