@@ -117,15 +117,20 @@ struct CsrSpmvBlock {
     {
         const double* x = input.data();
         double* y = output.data();
+        const int* offsets = row_offsets.data();
+        const int* columns_data = columns.data();
+        const double* values_data = values.data();
         if (!add) output.setZero();
         for (const int row_value : active_rows) {
             const std::size_t row = static_cast<std::size_t>(row_value);
             double sum = 0.0;
-            const int begin = row_offsets[row];
-            const int end = row_offsets[row + 1U];
+            const int begin = offsets[row];
+            const int end = offsets[row + 1U];
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC unroll 8
+#endif
             for (int position = begin; position < end; ++position) {
-                sum += values[static_cast<std::size_t>(position)] *
-                    x[static_cast<std::size_t>(columns[static_cast<std::size_t>(position)])];
+                sum += values_data[position] * x[columns_data[position]];
             }
             if (add) y[row] += sum;
             else y[row] = sum;

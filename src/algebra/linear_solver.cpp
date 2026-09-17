@@ -136,14 +136,19 @@ public:
         output.setZero();
         const double* x = input.data();
         double* y = output.data();
+        const int* offsets = row_offsets.data();
+        const int* columns_data = columns.data();
+        const double* values_data = values.data();
         const std::size_t row_count = static_cast<std::size_t>(rows_count);
         for (std::size_t row = 0; row < row_count; ++row) {
-            const int begin = row_offsets[row];
-            const int end = row_offsets[row + 1U];
+            const int begin = offsets[row];
+            const int end = offsets[row + 1U];
             double sum = 0.0;
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC unroll 8
+#endif
             for (int position = begin; position < end; ++position) {
-                sum += values[static_cast<std::size_t>(position)] *
-                    x[static_cast<std::size_t>(columns[static_cast<std::size_t>(position)])];
+                sum += values_data[position] * x[columns_data[position]];
             }
             y[row] = sum;
         }

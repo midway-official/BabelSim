@@ -85,6 +85,9 @@ Eigen 矩阵，预条件器和 AMG 仍使用原有实现。这些机制位于 `s
 `factorize` 只复制连续系数并检查 pattern，避免每个外迭代重新分配稀疏结构。该视图同样
 是内部实现，Eigen 仍保留给 IC、ILUT、AMG 和其他因子化操作。串行 A/B 可用
 `SERIAL_CSR_SPMV=0` 恢复 Eigen SpMV。
+CSR 热循环使用连续数组指针和 GCC/Clang 的最多 8 次循环展开提示；这是后端编译优化，
+不改变 Physics DSL、稀疏模式或每行累加顺序。该优化在 102400 单元 pilot 中的 A/B 数值
+见 [`backend-audit-2026-09.md`](/home/midway/BabelSim/docs/performance/backend-audit-2026-09.md)。
 
 优化验收必须同时满足：
 
