@@ -45,7 +45,10 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 5. 分布式 Krylov 的 interior/boundary SpMV 增加私有行式 CSR 视图。Eigen 稀疏矩阵仍由
    预条件器和 AMG 使用；CSR 只缓存行偏移、列号和 Eigen 系数位置，方程更新时覆盖数值。
    `CSR_SPMV=0` 可恢复原 Eigen SpMV，便于同一配置 A/B。
-6. Application 级性能 JSON 增加 MPI 初始化、Case 构造、solver 调用和应用总时长，并在
+6. 串行 PreparedLinearSolver 同样缓存后端 CSR 视图；稀疏矩阵首次建立 pattern，后续
+   factorize 只复制值并检查结构，避免每个外迭代的稀疏对象赋值和临时分配；
+   `SERIAL_CSR_SPMV=0` 保留 Eigen A/B 回退。
+7. Application 级性能 JSON 增加 MPI 初始化、Case 构造、solver 调用和应用总时长，并在
    Case 内累计结果写出次数/时间；benchmark 汇总将计算、启动和 I/O 作为独立阶段，
    不与后端包含式计时相加。
 
@@ -69,6 +72,27 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 [`tests/performance/cavity-100k.json`](/home/midway/BabelSim/tests/performance/cavity-100k.json)
 执行。
 
+串行 CSR 索引改为 32 位连续数组后，在同一个 160²、50 外迭代、BiCGSTAB+ILUT/CG+IC
+配置上重新进行了 3 次 warmup + 3 次正式样本的 A/B。`SERIAL_CSR_SPMV=1` 与
+`SERIAL_CSR_SPMV=0` 只改变 Krylov 的 SpMV 实现，Krylov 迭代次数保持一致：
+
+| ranks | 路径 | 墙钟中位数 | solver 中位数 | SpMV 中位数 |
+| ---: | --- | ---: | ---: | ---: |
+| 1 | 行式 CSR | 11.55 s | 9.00 s | 1.27 s |
+| 1 | Eigen 回退 | 11.85 s | 9.32 s | 1.60 s |
+| 2 | 行式 CSR | 8.60 s | 5.85 s | 1.42 s |
+| 2 | Eigen 回退 | 8.61 s | 5.95 s | 1.44 s |
+
+该结果支持串行 CSR 作为默认实现，但不能推断所有稀疏模式都获得同样收益；Eigen
+回退仍用于回归和新网格形状的 A/B。当前热点计数显示预条件器 apply 通常约占 solver
+时间的 55--60%，SpMV 约占 20--25%，因此下一阶段应优先针对 IC/ILUT/AMG 的数据布局和
+通信归约做剖析，而不是仅优化装配。
+
+AMG 也做了独立的 160²、50 外迭代 A/B。标量压力方程将平滑步数从 2 调到 1 时，solver
+中位数从约 6.03 s 降到约 5.79 s（约 4.5%），但 Krylov 迭代从约 15.7k 增到约 22.1k；
+刷新间隔 1/2/4 的差异低于重复样本噪声。默认配置暂不修改，以保持现有数值和配置语义；
+这项结果仅作为 AMG 成本--收敛速度的调参证据。
+
 ## 尚未验证的风险
 
 - OpenMPI 的非阻塞集体是否在当前环境真正推进，需要用等待时间、SpMV 时间和 profiler
@@ -78,6 +102,6 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 - `Vec3/Tensor3` 仍为 AoS。若后续采用 SoA/AoSoA 或对齐分配，必须保留 public Field
   值语义、global ID 对齐、边界方向和 poisoned-halo 测试，并分别验证标量/矢量/张量。
 - 当前 pilot 是 `maxIterations`，不属于完整收敛结果；超时和数值失败不计入最快配置排名。
-- 行式 CSR 目前仅覆盖双精度标量分布式 SpMV；预条件器仍使用 Eigen，尚未证明在所有
-  网格形状、非结构网格和高阶稀疏模式上都优于 Eigen。默认路径必须继续保留
-  `CSR_SPMV=0` 回退和数值 A/B 检查。
+- 行式 CSR 目前仅覆盖双精度标量 Krylov SpMV（串行与分布式）；预条件器仍使用 Eigen，
+  尚未证明在所有网格形状、非结构网格和高阶稀疏模式上都优于 Eigen。默认路径必须继续
+  保留 `CSR_SPMV=0`/`SERIAL_CSR_SPMV=0` 回退和数值 A/B 检查。

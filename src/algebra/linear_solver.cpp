@@ -15,6 +15,10 @@
 namespace babelsim {
 namespace {
 
+#ifndef BABELSIM_SERIAL_CSR_SPMV
+#define BABELSIM_SERIAL_CSR_SPMV 1
+#endif
+
 // A nonzero inner product must not be rejected merely because of physical units.
 constexpr double breakdown_tolerance = 0.0;
 using Clock = std::chrono::steady_clock;
@@ -55,6 +59,104 @@ struct KrylovWorkspace {
     }
 };
 
+// PreparedLinearSolver 的 Krylov 热路径也按行访问有限体积 stencil。保留
+// Eigen 矩阵给预条件器，只缓存一个后端私有 CSR 视图用于 y=A*x；系数更新
+// 只覆盖 value 数组，不重新分配稀疏索引。
+class RowCsrSpmv {
+public:
+    void build(const Eigen::SparseMatrix<double>& source) {
+        if (source.rows() != source.cols() || !source.isCompressed()) {
+            throw std::invalid_argument("CSR SpMV requires a compressed square matrix");
+        }
+        if (source.rows() > std::numeric_limits<int>::max() ||
+            source.nonZeros() > std::numeric_limits<int>::max()) {
+            throw std::overflow_error("CSR SpMV index range exceeds 32-bit storage");
+        }
+        row_offsets.clear();
+        columns.clear();
+        source_positions.clear();
+        values.clear();
+        struct Entry { int column; int source_position; };
+        std::vector<std::vector<Entry>> rows(static_cast<std::size_t>(source.rows()));
+        for (Eigen::Index column = 0; column < source.outerSize(); ++column) {
+            Eigen::Index source_position = source.outerIndexPtr()[column];
+            for (Eigen::SparseMatrix<double>::InnerIterator entry(source, column);
+                 entry; ++entry) {
+                rows[static_cast<std::size_t>(entry.row())].push_back(
+                    {static_cast<int>(entry.col()),
+                     static_cast<int>(source_position)});
+                ++source_position;
+            }
+        }
+        row_offsets.assign(static_cast<std::size_t>(source.rows()) + 1U, 0);
+        for (Eigen::Index row = 0; row < source.rows(); ++row) {
+            auto& entries = rows[static_cast<std::size_t>(row)];
+            std::sort(entries.begin(), entries.end(),
+                [](const Entry& left, const Entry& right) {
+                    return left.column < right.column;
+                });
+            row_offsets[static_cast<std::size_t>(row + 1)] =
+                row_offsets[static_cast<std::size_t>(row)] +
+                static_cast<int>(entries.size());
+        }
+        columns.resize(static_cast<std::size_t>(row_offsets.back()));
+        source_positions.resize(columns.size());
+        values.resize(columns.size());
+        const double* source_values = source.valuePtr();
+        std::size_t position = 0;
+        for (const auto& entries : rows) {
+            for (const Entry& entry : entries) {
+                columns[position] = entry.column;
+                source_positions[position] = entry.source_position;
+                values[position] = source_values[static_cast<std::size_t>(entry.source_position)];
+                ++position;
+            }
+        }
+        rows_count = source.rows();
+    }
+
+    void update(const Eigen::SparseMatrix<double>& source) {
+        if (source.rows() != rows_count || source.cols() != rows_count ||
+            !source.isCompressed() ||
+            static_cast<std::size_t>(source.nonZeros()) != values.size()) {
+            throw std::logic_error("serial sparse matrix pattern changed");
+        }
+        const double* source_values = source.valuePtr();
+        for (std::size_t position = 0; position < values.size(); ++position) {
+            values[position] = source_values[
+                static_cast<std::size_t>(source_positions[position])];
+        }
+    }
+
+    void multiply(const Eigen::VectorXd& input, Eigen::VectorXd& output) const {
+        if (input.size() != rows_count) {
+            throw std::invalid_argument("CSR SpMV vector size is invalid");
+        }
+        if (output.size() != rows_count) output.resize(rows_count);
+        output.setZero();
+        const double* x = input.data();
+        double* y = output.data();
+        const std::size_t row_count = static_cast<std::size_t>(rows_count);
+        for (std::size_t row = 0; row < row_count; ++row) {
+            const int begin = row_offsets[row];
+            const int end = row_offsets[row + 1U];
+            double sum = 0.0;
+            for (int position = begin; position < end; ++position) {
+                sum += values[static_cast<std::size_t>(position)] *
+                    x[static_cast<std::size_t>(columns[static_cast<std::size_t>(position)])];
+            }
+            y[row] = sum;
+        }
+    }
+
+private:
+    Eigen::Index rows_count = 0;
+    std::vector<int> row_offsets;
+    std::vector<int> columns;
+    std::vector<int> source_positions;
+    std::vector<double> values;
+};
+
 }  // 匿名命名空间
 
 struct PreparedLinearSolver::Implementation {
@@ -62,7 +164,11 @@ struct PreparedLinearSolver::Implementation {
 
     void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
         const Clock::time_point start = Clock::now();
+#if BABELSIM_SERIAL_CSR_SPMV
+        spmv.multiply(input, output);
+#else
         output.noalias() = matrix * input;
+#endif
         ++current_performance.sparse_matvecs;
         current_performance.sparse_matvec_seconds += secondsSince(start);
     }
@@ -224,6 +330,7 @@ struct PreparedLinearSolver::Implementation {
 
     LinearSolverConfig config;
     Eigen::SparseMatrix<double> matrix;
+    RowCsrSpmv spmv;
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
     std::unique_ptr<detail::AlgebraicMultigrid> amg;
@@ -272,6 +379,10 @@ void PreparedLinearSolver::compute(const Eigen::SparseMatrix<double>& matrix) {
     if (!m_implementation) throw std::logic_error("linear solver is moved-from");
     Implementation& state = *m_implementation;
     state.matrix = matrix;
+    if (!state.matrix.isCompressed()) state.matrix.makeCompressed();
+#if BABELSIM_SERIAL_CSR_SPMV
+    state.spmv.build(state.matrix);
+#endif
     state.workspace.resize(state.matrix.rows());
     state.pattern_analyzed = false;
     state.factorization_succeeded = false;
@@ -308,7 +419,29 @@ void PreparedLinearSolver::factorize(const Eigen::SparseMatrix<double>& matrix) 
     if (!state.pattern_analyzed || matrix.rows() != matrix.cols()) {
         throw std::logic_error("linear-solver pattern must be analyzed before factorization");
     }
-    state.matrix = matrix;
+    // Preserve the public API's acceptance of an uncompressed Eigen matrix.  The
+    // normal assembly path is already compressed; this copy is only a compatibility
+    // path for callers that build a temporary uncompressed matrix.
+    if (!matrix.isCompressed()) {
+        Eigen::SparseMatrix<double> compressed = matrix;
+        compressed.makeCompressed();
+        factorize(compressed);
+        return;
+    }
+    if (matrix.rows() != state.matrix.rows() || matrix.cols() != state.matrix.cols() ||
+        matrix.nonZeros() != state.matrix.nonZeros() ||
+        !std::equal(
+            matrix.outerIndexPtr(), matrix.outerIndexPtr() + matrix.outerSize() + 1,
+            state.matrix.outerIndexPtr()) ||
+        !std::equal(
+            matrix.innerIndexPtr(), matrix.innerIndexPtr() + matrix.nonZeros(),
+            state.matrix.innerIndexPtr())) {
+        throw std::logic_error("linear-solver sparse matrix pattern changed");
+    }
+    std::copy_n(matrix.valuePtr(), matrix.nonZeros(), state.matrix.valuePtr());
+#if BABELSIM_SERIAL_CSR_SPMV
+    state.spmv.update(state.matrix);
+#endif
     state.factorization_succeeded = false;
     if (!hasPreconditioner(state.config)) {
         state.factorization_succeeded = true;

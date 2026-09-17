@@ -14,8 +14,10 @@ ASYNC_HALO ?= 1
 # Backend A/B switches.  Keep them independent so communication and SpMV
 # changes can be measured one variable at a time without touching Physics.
 CSR_SPMV ?= 1
+# Serial Krylov SpMV A/B switch; 0 keeps Eigen's column-major path.
+SERIAL_CSR_SPMV ?= 1
 CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -DBABELSIM_ASYNC_KRYLOV_HALO=$(ASYNC_HALO) \
-            -DBABELSIM_CSR_SPMV=$(CSR_SPMV) \
+            -DBABELSIM_CSR_SPMV=$(CSR_SPMV) -DBABELSIM_SERIAL_CSR_SPMV=$(SERIAL_CSR_SPMV) \
             -Wall -Wextra -Wpedantic -Wshadow \
             -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
 CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3

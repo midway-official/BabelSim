@@ -34,6 +34,11 @@ dirty diff、二进制 SHA-256、编译器/MPI/CPU/线程环境和 `results.csv`
 跳过已有终态记录（warmup 也有独立记录）；成功返回但缺少性能 JSON 会直接报错。超时会清理整个 MPI 子进程组，
 并且只记录为 `timeout`，不会进入收敛排名。
 
+汇总中的 `phaseTimesByRank`/`localCountersByRank` 先按请求的 `-np` 分组，再按实际
+本地 rank 分组；`criticalPathByRank` 对每次运行取所有 rank 的阶段最大值，然后只对这些
+关键路径样本求 min/mean/max。这样不会把不同并行度的 rank 0 混在一起，也不会把分别取到
+的 rank 最大值相加成虚假的总时间。
+
 rank JSON 还记录 `mpiInitSeconds`（每个进程的 MPI 初始化，一次性启动开支）、
 `caseSetupSeconds`（Case、网格读取、分区和配置建立，一次性开支）、`solverSeconds`
 （Physics solver 调用）、`solverComputeSeconds`（从 solver 调用中扣除已计量结果写出的
@@ -70,6 +75,10 @@ JSON 中单独保留。
 稀疏乘，`ASYNC_HALO=0` 可切换回阻塞 halo，两个开关都只影响后端。CSR 视图不替代
 Eigen 矩阵，预条件器和 AMG 仍使用原有实现。这些机制位于 `src/parallel` 和
 `src/algebra`，公共 Physics DSL 不可见。
+串行 `PreparedLinearSolver` 也复用后端 CSR SpMV；首次 `compute` 建立 pattern，后续
+`factorize` 只复制连续系数并检查 pattern，避免每个外迭代重新分配稀疏结构。该视图同样
+是内部实现，Eigen 仍保留给 IC、ILUT、AMG 和其他因子化操作。串行 A/B 可用
+`SERIAL_CSR_SPMV=0` 恢复 Eigen SpMV。
 
 优化验收必须同时满足：
 

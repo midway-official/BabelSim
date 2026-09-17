@@ -351,32 +351,54 @@ def write_summary(
                     if len(values) > 1 and mean else 0.0
                 ),
             }
-    counters_by_rank: dict[str, dict[str, dict[str, float]]] = {}
+    # Keep the requested MPI size separate from the rank-local index.  A
+    # single "rank-0" bucket across -np 1,2,4,... would mix unrelated runs.
+    counters_by_rank: dict[str, dict[str, dict[str, dict[str, list[float]]]]] = {}
     phase_names = (
         "caseSetupSeconds", "solverSeconds", "solverComputeSeconds",
         "applicationSeconds",
     )
-    phase_times_by_rank: dict[str, dict[str, dict[str, float]]] = {}
+    phase_times_by_rank: dict[str, dict[str, dict[str, dict[str, list[float]]]]] = {}
+    critical_phase_samples: dict[str, dict[str, list[float]]] = {}
     for run in measured_runs:
-        for report in run.get("performance", []):
+        size_key = str(run["ranks"])
+        run_reports = run.get("performance", [])
+        critical = critical_phase_samples.setdefault(size_key, {})
+        for name in phase_names:
+            values = [report[name] for report in run_reports if name in report]
+            if values:
+                critical.setdefault(name, []).append(max(values))
+        for report in run_reports:
             local = report.get("local", report)
-            rank_key = str(report.get("rank", run["ranks"]))
-            aggregate = counters_by_rank.setdefault(rank_key, {})
+            rank_key = str(report.get("rank", 0))
+            aggregate = counters_by_rank.setdefault(size_key, {}).setdefault(rank_key, {})
             for name in counter_names:
                 if name in local:
                     aggregate.setdefault(name, {}).setdefault("samples", []).append(local[name])
-            phases = phase_times_by_rank.setdefault(rank_key, {})
+            phases = phase_times_by_rank.setdefault(size_key, {}).setdefault(rank_key, {})
             for name in phase_names:
                 if name in report:
                     phases.setdefault(name, {}).setdefault("samples", []).append(report[name])
-    for aggregate in counters_by_rank.values():
-        for name, value in list(aggregate.items()):
-            samples = value.pop("samples")
-            value.update({"min": min(samples), "mean": statistics.mean(samples), "max": max(samples)})
-    for phases in phase_times_by_rank.values():
-        for name, value in list(phases.items()):
-            samples = value.pop("samples")
-            value.update({"min": min(samples), "mean": statistics.mean(samples), "max": max(samples)})
+    for rank_groups in counters_by_rank.values():
+        for aggregate in rank_groups.values():
+            for name, value in list(aggregate.items()):
+                samples = value.pop("samples")
+                value.update({"min": min(samples), "mean": statistics.mean(samples), "max": max(samples)})
+    for rank_groups in phase_times_by_rank.values():
+        for phases in rank_groups.values():
+            for name, value in list(phases.items()):
+                samples = value.pop("samples")
+                value.update({"min": min(samples), "mean": statistics.mean(samples), "max": max(samples)})
+    critical_path_by_rank = {}
+    for size_key, phases in critical_phase_samples.items():
+        critical_path_by_rank[size_key] = {}
+        for name, samples in phases.items():
+            critical_path_by_rank[size_key][name] = {
+                "samples": len(samples),
+                "min": min(samples),
+                "mean": statistics.mean(samples),
+                "max": max(samples),
+            }
     summary = {
         "case": str(args.case),
         "caseManifest": input_manifest,
@@ -391,6 +413,7 @@ def write_summary(
         "runs": runs,
         "wallClockByRank": wall_clock_by_rank,
         "convergedWallClock": statistics_by_rank,
+        "criticalPathByRank": critical_path_by_rank,
         "phaseTimesByRank": phase_times_by_rank,
         "localCountersByRank": counters_by_rank,
     }
