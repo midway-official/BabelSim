@@ -318,7 +318,8 @@ struct PreparedLinearSolver::Implementation {
             if (!std::isfinite(denominator) ||
                 std::abs(denominator) <= breakdown_tolerance) break;
             alpha = rho / denominator;
-            workspace.intermediate = workspace.residual - alpha * workspace.direction_product;
+            workspace.intermediate.noalias() =
+                workspace.residual - alpha * workspace.direction_product;
             iterations = iteration;
             if (workspace.intermediate.norm() <= target) {
                 solution.noalias() += alpha * workspace.preconditioned_direction;
@@ -338,7 +339,8 @@ struct PreparedLinearSolver::Implementation {
             if (!std::isfinite(omega) || std::abs(omega) <= breakdown_tolerance) break;
             solution.noalias() += alpha * workspace.preconditioned_direction +
                 omega * workspace.preconditioned_intermediate;
-            workspace.residual = workspace.intermediate - omega * workspace.intermediate_product;
+            workspace.residual.noalias() =
+                workspace.intermediate - omega * workspace.intermediate_product;
             if (workspace.residual.norm() <= target) {
                 status = SolveStatus::Converged;
                 break;

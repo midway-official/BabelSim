@@ -73,6 +73,9 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 14. AMG `factorize` 在 fine-level 和已有 coarse-level 的压缩模式相同时只复制 value
     数组；模式变化时仍移动候选矩阵。候选 coarse 矩阵始终由原 Galerkin 乘法生成，
     因此该路径只复用稀疏存储，不改变粗矩阵数值的累加顺序。
+15. 串行和分布式 BiCGSTAB 对中间残差的非别名目标使用 Eigen `noalias()` 写入；方向
+    递推中存在目标/输入别名的表达式没有套用该标记。该优化只涉及已有工作向量，
+    不改变 Krylov 迭代公式。
 
 ## 性能假设和实测结果
 
@@ -138,6 +141,12 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 该组新路径墙钟样本存在一次明显抖动，故只把约 4.0% 的 solver 下降、约 4.8% 的 SpMV
 下降作为阶段性证据；application 下降约 2.8%，尚不足以声称稳定端到端收益。该改动保留
 active 行完整覆盖和 boundary 行累加语义，并通过串行/并行数值合同。
+
+BiCGSTAB `noalias` 更新在相同 102400 单元、1/2 ranks、固定一次外迭代的五次 A/B 中
+保持 949/978 次 Krylov 迭代和相同预条件器调用数。1-rank solver 均值为 1.187/1.165 s、
+SpMV 为 0.248/0.224 s；2-rank solver 为 0.731/0.737 s、SpMV 为 0.221/0.210 s
+（原表达式/`noalias`）。不同 rank 的 solver 增益不稳定，因此该项仅作为减少临时
+表达式的后端微优化保留，不计入端到端加速目标。
 
 AMG 也做了独立的 160²、50 外迭代 A/B。标量压力方程将平滑步数从 2 调到 1 时，solver
 中位数从约 6.03 s 降到约 5.79 s（约 4.5%），但 Krylov 迭代从约 15.7k 增到约 22.1k；

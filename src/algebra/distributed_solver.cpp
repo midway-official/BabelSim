@@ -904,7 +904,7 @@ struct DistributedLinearSolver::Implementation {
                 break;
             }
             alpha = rho / shadow_product;
-            intermediate = residual - alpha * direction_product;
+            intermediate.noalias() = residual - alpha * direction_product;
             const double intermediate_norm = normGlobal(intermediate);
             iterations = iteration;
             if (invalid(intermediate_norm)) {
@@ -954,7 +954,7 @@ struct DistributedLinearSolver::Implementation {
             }
             x.noalias() += alpha * preconditioned_direction +
                 omega * preconditioned_intermediate;
-            residual = intermediate - omega * intermediate_product;
+            residual.noalias() = intermediate - omega * intermediate_product;
             // 将本轮真实残差范数和下一轮 rho 合并到同一次 Allreduce。
             // 下一轮不再单独归约 rho，正常 BiCGSTAB 每轮少一个全局同步点。
             const double local_residual_products[2] = {

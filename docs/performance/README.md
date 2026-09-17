@@ -107,6 +107,9 @@ AMG 的每个层级现在长期保存独立的 `A*x` 工作向量，平滑和残
 CSR 热循环使用连续数组指针和 GCC/Clang 的最多 8 次循环展开提示；这是后端编译优化，
 不改变 Physics DSL、稀疏模式或每行累加顺序。该优化在 102400 单元 pilot 中的 A/B 数值
 见 [`backend-audit-2026-09.md`](/home/midway/BabelSim/docs/performance/backend-audit-2026-09.md)。
+Krylov 的 BiCGSTAB 中间残差更新对预分配目标使用 `noalias()`，只在确认目标与两个
+输入向量不重叠的语句上启用；涉及递推方向自身别名的表达式保持原实现。该改动减少
+Eigen 可能生成的中间临时量，且不改变迭代递推顺序。
 
 优化验收必须同时满足：
 
