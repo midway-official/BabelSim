@@ -30,9 +30,15 @@ python3 tools/benchmark_backend.py \
 前拒绝，驱动不会主动添加 `--oversubscribe`。
 
 驱动为每次执行建立独立目录，保存 `stdout.log`、`run.json`、rank 性能 JSON、Git
-dirty diff、二进制 SHA-256、编译器/MPI/CPU/线程环境和 `results.csv`。`--resume` 会
+dirty diff、二进制 SHA-256、编译器/MPI/CPU/线程环境、Makefile 哈希和生效的默认优化
+开关信息，以及 `results.csv`。`--resume` 会
 跳过已有终态记录（warmup 也有独立记录）；成功返回但缺少性能 JSON 会直接报错。超时会清理整个 MPI 子进程组，
 并且只记录为 `timeout`，不会进入收敛排名。
+
+每个 `run.json` 还记录 benchmark 进程树的并发 RSS 峰值（`peakTreeRssKiB`）和观测到的
+solver 进程最大 RSS（`peakSolverRssKiB`）。采样器读取 Linux `/proc`，只用于性能证据，
+不参与求解器停止、收敛或错误判断；进程退出瞬间的短暂 `/proc` 缺失可能使峰值略保守，
+因此内存数据按“观测到的峰值”解释。不同时间运行的各 rank 峰值不能相加为同时峰值。
 
 汇总中的 `phaseTimesByRank`/`localCountersByRank` 先按请求的 `-np` 分组，再按实际
 本地 rank 分组；`criticalPathByRank` 对每次运行取所有 rank 的阶段最大值，然后只对这些

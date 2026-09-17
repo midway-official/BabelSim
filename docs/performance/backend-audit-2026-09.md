@@ -51,6 +51,9 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 7. Application 级性能 JSON 增加 MPI 初始化、Case 构造、solver 调用和应用总时长，并在
    Case 内累计结果写出次数/时间；benchmark 汇总将计算、启动和 I/O 作为独立阶段，
    不与后端包含式计时相加。
+8. benchmark 驱动在每次 MPI 运行期间采样 `/proc` 进程树，记录并发 RSS 峰值和 solver
+   进程最大 RSS，并把实际使用的关键环境变量写入 `run.json`；这只提供观测数据，不
+   参与求解停止或收敛判断。
 
 ## 性能假设和实测结果
 

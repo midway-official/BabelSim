@@ -19,6 +19,7 @@ import signal
 import statistics
 import subprocess
 import sys
+import threading
 import time
 from typing import Any
 
@@ -149,6 +150,42 @@ def host_metadata() -> dict[str, Any]:
     }
 
 
+def build_metadata() -> dict[str, Any]:
+    """Record the repository build recipe alongside the binary hash."""
+    makefile = ROOT / "Makefile"
+    try:
+        text = makefile.read_text()
+    except OSError as error:
+        return {"makefile": f"<unavailable: {error}>"}
+
+    def assignment(name: str) -> str:
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            if not line.startswith(name) or "?=" not in line:
+                continue
+            parts = [line.split("?=", 1)[1].strip().rstrip("\\").strip()]
+            while parts and index + len(parts) < len(lines):
+                continuation = lines[index + len(parts)]
+                if not continuation.lstrip().startswith("-") and not continuation.startswith(" "):
+                    break
+                previous = lines[index + len(parts) - 1]
+                if not previous.rstrip().endswith("\\"):
+                    break
+                parts.append(continuation.strip().rstrip("\\").strip())
+            return " ".join(parts)
+        return ""
+
+    return {
+        "makefileSha256": sha256(makefile),
+        "optimizationFlags": assignment("OPTFLAGS"),
+        "compilerFlags": assignment("CXXFLAGS"),
+        "backendDefaults": {
+            name: assignment(name)
+            for name in ("ASYNC_HALO", "CSR_SPMV", "SERIAL_CSR_SPMV")
+        },
+    }
+
+
 def binding_options(rank: int, topology: dict[str, Any]) -> tuple[list[str], str]:
     """Select a non-oversubscribed binding policy for physical cores or SMT."""
     if rank <= 0 or rank > int(topology["logicalCpus"]):
@@ -186,6 +223,94 @@ def terminate_group(process: subprocess.Popen[str]) -> None:
         except ProcessLookupError:
             pass
         process.wait(timeout=5)
+
+
+class ProcessTreeSampler:
+    """Sample concurrent RSS for mpirun and its solver descendants.
+
+    Linux exposes the process tree and VmRSS without requiring ptrace.  The
+    sampler is intentionally best-effort: missing /proc entries are expected
+    while MPI ranks exit.  It never participates in solver decisions.
+    """
+
+    def __init__(self, root_pid: int, solver_name: str, interval: float = 0.1) -> None:
+        self.root_pid = root_pid
+        self.solver_name = solver_name
+        self.interval = interval
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._lock = threading.Lock()
+        self.peak_tree_kib = 0
+        self.peak_solver_kib = 0
+
+    @staticmethod
+    def _children(pid: int) -> list[int]:
+        try:
+            text = Path(f"/proc/{pid}/task/{pid}/children").read_text()
+        except (OSError, ValueError):
+            return []
+        values: list[int] = []
+        for token in text.split():
+            try:
+                values.append(int(token))
+            except ValueError:
+                continue
+        return values
+
+    @staticmethod
+    def _rss_kib(pid: int) -> int:
+        try:
+            for line in Path(f"/proc/{pid}/status").read_text().splitlines():
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1])
+        except (OSError, ValueError, IndexError):
+            pass
+        return 0
+
+    @staticmethod
+    def _command_line(pid: int) -> str:
+        try:
+            return Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(
+                "utf-8", errors="replace")
+        except OSError:
+            return ""
+
+    def _sample_once(self) -> None:
+        pending = [self.root_pid]
+        seen: set[int] = set()
+        tree_rss = 0
+        solver_rss = 0
+        while pending:
+            pid = pending.pop()
+            if pid in seen:
+                continue
+            seen.add(pid)
+            rss = self._rss_kib(pid)
+            tree_rss += rss
+            if self.solver_name in self._command_line(pid):
+                solver_rss = max(solver_rss, rss)
+            pending.extend(self._children(pid))
+        with self._lock:
+            self.peak_tree_kib = max(self.peak_tree_kib, tree_rss)
+            self.peak_solver_kib = max(self.peak_solver_kib, solver_rss)
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            self._sample_once()
+            self._stop.wait(self.interval)
+        self._sample_once()
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> dict[str, int]:
+        self._stop.set()
+        self._thread.join(timeout=2.0)
+        with self._lock:
+            return {
+                "peakTreeRssKiB": self.peak_tree_kib,
+                "peakSolverRssKiB": self.peak_solver_kib,
+            }
 
 
 def status_from_process(returncode: int | None, timed_out: bool, reports: list[dict[str, Any]]) -> str:
@@ -258,13 +383,24 @@ def run_one(
         mode_note = "production-convergence"
     environment = dict(os.environ)
     environment.setdefault("TMPDIR", "/tmp")
+    tracked_environment = {
+        name: environment.get(name, "")
+        for name in (
+            "TMPDIR", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+            "GOMP_CPU_AFFINITY", "OMP_PROC_BIND", "BABELSIM_ASYNC_KRYLOV_HALO",
+            "BABELSIM_CSR_SPMV", "BABELSIM_SERIAL_CSR_SPMV",
+        )
+    }
     start = time.monotonic()
     timed_out = False
+    sampler: ProcessTreeSampler | None = None
     try:
         process = subprocess.Popen(
             command, cwd=ROOT, env=environment, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             start_new_session=True)
+        sampler = ProcessTreeSampler(process.pid, args.binary.name)
+        sampler.start()
         try:
             stdout, _ = process.communicate(timeout=args.timeout)
         except subprocess.TimeoutExpired:
@@ -274,6 +410,10 @@ def run_one(
     except OSError as error:
         process = None
         stdout = f"cannot start benchmark process: {error}\n"
+    memory = sampler.stop() if sampler is not None else {
+        "peakTreeRssKiB": 0,
+        "peakSolverRssKiB": 0,
+    }
     elapsed = time.monotonic() - start
     (run_dir / "stdout.log").write_text(stdout)
     reports = read_reports(performance_dir) if performance_dir.exists() else []
@@ -292,9 +432,11 @@ def run_one(
         "mode": args.mode,
         "modeNote": mode_note,
         "command": command,
+        "environment": tracked_environment,
         "elapsedSeconds": elapsed,
         "returncode": None if process is None else process.returncode,
         "status": status,
+        "memory": memory,
         "performance": reports,
         "results": result_manifest(args.case, run_name),
     }
@@ -410,6 +552,7 @@ def write_summary(
         "warmup": args.warmup,
         "git": git_metadata(),
         "host": host_metadata(),
+        "build": build_metadata(),
         "runs": runs,
         "wallClockByRank": wall_clock_by_rank,
         "convergedWallClock": statistics_by_rank,
