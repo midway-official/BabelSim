@@ -1,0 +1,59 @@
+{
+  "name": "lid-driven-cavity-re1000-1000000",
+  "cells": 1000000,
+  "grid": "1000x1000x1",
+  "reynolds": 1000,
+  "density": 1.0,
+  "dynamicViscosity": 0.001,
+  "lidVelocity": 1.0,
+  "turbulence": "none",
+  "frozenMethods": {
+    "interpolation": "linear",
+    "gradient": "greenGauss",
+    "convection": "linearUpwind",
+    "diffusion": "orthogonal",
+    "time": "steady"
+  },
+  "generator": [
+    "python3",
+    "cases/cavity/validation/generate_cavity_case.py",
+    "<case-directory>",
+    "--cells",
+    "1000",
+    "--re",
+    "1000",
+    "--cluster",
+    "0",
+    "--convection",
+    "linearUpwind",
+    "--gradient",
+    "greenGauss",
+    "--velocity-relaxation",
+    "0.3",
+    "--pressure-relaxation",
+    "0.3",
+    "--max-iterations",
+    "30000"
+  ],
+  "pilot": {
+    "description": "One complete SIMPLE outer iteration; temporary maxIterations=1 copy outside the repository",
+    "ranks": [1, 2, 4, 8],
+    "repeat": 1,
+    "warmup": 0,
+    "timeoutSeconds": 600,
+    "mode": "throughput",
+    "observedPeakTreeRssGiB": {
+      "1": 2.99,
+      "2": 3.70,
+      "4": 6.03,
+      "8": 12.90
+    }
+  },
+  "acceptance": {
+    "sameProductionConvergence": true,
+    "relativeL2FieldDifference": 1e-5,
+    "linfFieldDifference": 1e-4,
+    "completeConvergenceRequiredForRanking": true,
+    "smtRanksDeferredForMemorySafety": true
+  }
+}
