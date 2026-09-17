@@ -8,23 +8,27 @@ AR := gcc-ar
 # 显式关闭融合乘加，避免它在不同分区的 Krylov 路径上额外放大舍入差异。
 # 保留 NaN/Inf 检查，不能让非法输入或发散结果被视为正常收敛。
 # fat LTO 同时保存机器码，允许外部 Solver 不启用 LTO 时链接静态库。
-OPTFLAGS ?= -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
-            -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
-ASYNC_HALO ?= 1
+# Production defaults are the measured fast path.  Use ordinary assignments
+# so stale environment variables cannot silently select an A/B fallback;
+# command-line assignments (for example `make CSR_SPMV=0`) still override
+# these values when an experiment explicitly requests one.
+OPTFLAGS = -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
+           -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
+ASYNC_HALO = 1
 # Backend A/B switches.  Keep them independent so communication and SpMV
 # changes can be measured one variable at a time without touching Physics.
-CSR_SPMV ?= 1
+CSR_SPMV = 1
 # Serial Krylov SpMV A/B switch; 0 keeps Eigen's column-major path.
-SERIAL_CSR_SPMV ?= 1
+SERIAL_CSR_SPMV = 1
 # Keep Eigen's original preconditioner solve as a backend A/B fallback.  The
 # default reuses factor work vectors in place; it does not alter factors or
 # operation order.
-INPLACE_PRECONDITIONER ?= 1
-CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -DBABELSIM_ASYNC_KRYLOV_HALO=$(ASYNC_HALO) \
-            -DBABELSIM_CSR_SPMV=$(CSR_SPMV) -DBABELSIM_SERIAL_CSR_SPMV=$(SERIAL_CSR_SPMV) \
-            -DBABELSIM_INPLACE_PRECONDITIONER=$(INPLACE_PRECONDITIONER) \
-            -Wall -Wextra -Wpedantic -Wshadow \
-            -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
+INPLACE_PRECONDITIONER = 1
+CXXFLAGS = -std=c++17 $(OPTFLAGS) -DBABELSIM_ASYNC_KRYLOV_HALO=$(ASYNC_HALO) \
+           -DBABELSIM_CSR_SPMV=$(CSR_SPMV) -DBABELSIM_SERIAL_CSR_SPMV=$(SERIAL_CSR_SPMV) \
+           -DBABELSIM_INPLACE_PRECONDITIONER=$(INPLACE_PRECONDITIONER) \
+           -Wall -Wextra -Wpedantic -Wshadow \
+           -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
 CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
 
 BUILD := build

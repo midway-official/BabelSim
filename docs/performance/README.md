@@ -4,6 +4,11 @@
 Physics 不打印性能信息，也不判断物理收敛；`-performance <目录>` 只在调用者明确启用时
 让应用写出每个 rank 的结构化 JSON。普通求解命令的输出行为保持不变。
 
+普通 `make` 使用 Makefile 中锁定的生产快速路径：`-O3 -march=native -mtune=native`
+配合 LTO、异步 halo、行式 CSR SpMV 和原位 IC/ILUT。环境变量不会覆盖这些默认值；如需
+A/B 回退，必须在命令行显式传入 `ASYNC_HALO=0`、`CSR_SPMV=0`、`SERIAL_CSR_SPMV=0`
+或 `INPLACE_PRECONDITIONER=0`。
+
 ## 固定顶盖驱动流案例
 
 `tests/performance/cavity-100k.json` 冻结了 320×320×1、102400 单元、Re=1000、
