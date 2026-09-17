@@ -18,13 +18,20 @@ python3 cases/cavity/validation/generate_cavity_case.py \
   --max-iterations 30000
 python3 tools/benchmark_backend.py \
   --case /tmp/babelsim-cavity-100k \
-  --ranks 1,2,4,6,8,12 --repeat 3 --timeout 1800 \
+  --ranks 1,2,4,6,8,12 --warmup 1 --repeat 3 --timeout 1800 \
   --mode complete --output /tmp/babelsim-evidence/cavity-100k
 ```
 
+驱动先为每个 rank 执行一次不计入统计的 warmup，然后再执行 `--repeat` 个正式样本。
+物理核范围内使用 `mpirun --bind-to core --map-by core`；超过可用物理核但不超过可见
+逻辑 CPU 时，使用独立的 `--bind-to hwthread --map-by hwthread` SMT 策略。每次运行的
+启动命令、绑定策略和可见 CPU 拓扑都写入 `run.json`/`metadata.json`，并通过
+`--report-bindings` 把实际 rank 绑定写入原始日志。超过可见逻辑 CPU 的 rank 会在启动
+前拒绝，驱动不会主动添加 `--oversubscribe`。
+
 驱动为每次执行建立独立目录，保存 `stdout.log`、`run.json`、rank 性能 JSON、Git
 dirty diff、二进制 SHA-256、编译器/MPI/CPU/线程环境和 `results.csv`。`--resume` 会
-跳过已有终态记录；成功返回但缺少性能 JSON 会直接报错。超时会清理整个 MPI 子进程组，
+跳过已有终态记录（warmup 也有独立记录）；成功返回但缺少性能 JSON 会直接报错。超时会清理整个 MPI 子进程组，
 并且只记录为 `timeout`，不会进入收敛排名。
 
 rank JSON 还记录 `mpiInitSeconds`（每个进程的 MPI 初始化，一次性启动开支）、

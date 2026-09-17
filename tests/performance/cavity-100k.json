@@ -42,6 +42,8 @@
     "<case-directory>",
     "--ranks",
     "1,2,4,6,8,12",
+    "--warmup",
+    "1",
     "--repeat",
     "3",
     "--timeout",

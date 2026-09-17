@@ -26,6 +26,34 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def cpu_topology() -> dict[str, Any]:
+    """Return CPUs visible to this process and their physical-core mapping."""
+    allowed = set(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else None
+    records: list[tuple[int, int, int]] = []
+    topology = run_text(["lscpu", "-p=CPU,CORE,SOCKET"])
+    for line in topology.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        try:
+            cpu, core, socket = (int(value) for value in line.split(",")[:3])
+        except (TypeError, ValueError):
+            continue
+        if allowed is None or cpu in allowed:
+            records.append((cpu, core, socket))
+    if not records:
+        logical = len(allowed) if allowed is not None else (os.cpu_count() or 1)
+        return {
+            "allowedCpus": sorted(allowed) if allowed is not None else [],
+            "logicalCpus": logical,
+            "physicalCores": logical,
+        }
+    return {
+        "allowedCpus": sorted(cpu for cpu, _, _ in records),
+        "logicalCpus": len(records),
+        "physicalCores": len({(core, socket) for _, core, socket in records}),
+    }
+
+
 def run_text(command: list[str], *, timeout: float = 30.0) -> str:
     try:
         result = subprocess.run(
@@ -92,6 +120,7 @@ def git_metadata() -> dict[str, Any]:
 
 def host_metadata() -> dict[str, Any]:
     cpuinfo = Path("/proc/cpuinfo")
+    topology = cpu_topology()
     return {
         "hostname": platform.node(),
         "platform": platform.platform(),
@@ -111,12 +140,23 @@ def host_metadata() -> dict[str, Any]:
                   if line.lower().startswith("flags")), "<unavailable>")
             if cpuinfo.exists() else "<unavailable>"
         ),
+        "cpuTopology": topology,
         "environment": {
             name: os.environ.get(name, "")
             for name in ("CXXFLAGS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                          "MKL_NUM_THREADS", "GOMP_CPU_AFFINITY", "OMP_PROC_BIND")
         },
     }
+
+
+def binding_options(rank: int, topology: dict[str, Any]) -> tuple[list[str], str]:
+    """Select a non-oversubscribed binding policy for physical cores or SMT."""
+    if rank <= 0 or rank > int(topology["logicalCpus"]):
+        raise ValueError(
+            f"rank count {rank} exceeds visible logical CPUs {topology['logicalCpus']}")
+    if rank <= int(topology["physicalCores"]):
+        return ["--bind-to", "core", "--map-by", "core"], "physical-core"
+    return ["--bind-to", "hwthread", "--map-by", "hwthread"], "smt-hwthread"
 
 
 def parse_ranks(value: str) -> list[int]:
@@ -180,8 +220,16 @@ def read_reports(directory: Path) -> list[dict[str, Any]]:
     return reports
 
 
-def run_one(args: argparse.Namespace, output: Path, rank: int, repeat: int) -> dict[str, Any]:
-    run_dir = output / f"ranks-{rank}" / f"repeat-{repeat:02d}"
+def run_one(
+    args: argparse.Namespace,
+    output: Path,
+    rank: int,
+    repeat: int,
+    *,
+    warmup: bool = False,
+) -> dict[str, Any]:
+    run_label = f"warmup-{rank:02d}" if warmup else f"repeat-{repeat:02d}"
+    run_dir = output / f"ranks-{rank}" / run_label
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest = run_dir / "run.json"
     if args.resume and manifest.exists():
@@ -194,9 +242,11 @@ def run_one(args: argparse.Namespace, output: Path, rank: int, repeat: int) -> d
             pass
 
     performance_dir = run_dir / "performance"
-    run_name = f"benchmark-r{rank}-n{repeat:02d}"
+    run_name = f"benchmark-r{rank}-{'warmup' if warmup else f'n{repeat:02d}'}"
+    topology = cpu_topology()
+    binding, binding_name = binding_options(rank, topology)
     command = [
-        "mpirun", "-np", str(rank), str(args.binary),
+        "mpirun", *binding, "--report-bindings", "-np", str(rank), str(args.binary),
         "-case", str(args.case), "-time", run_name,
         "-performance", str(performance_dir),
     ]
@@ -236,6 +286,9 @@ def run_one(args: argparse.Namespace, output: Path, rank: int, repeat: int) -> d
         "binary": str(args.binary),
         "ranks": rank,
         "repeat": repeat,
+        "warmup": warmup,
+        "binding": binding_name,
+        "cpuTopology": topology,
         "mode": args.mode,
         "modeNote": mode_note,
         "command": command,
@@ -255,8 +308,9 @@ def write_summary(
     runs: list[dict[str, Any]],
     input_manifest: dict[str, Any],
 ) -> None:
+    measured_runs = [run for run in runs if not run.get("warmup", False)]
     by_rank: dict[str, list[float]] = {}
-    for run in runs:
+    for run in measured_runs:
         if run["status"] == "converged":
             by_rank.setdefault(str(run["ranks"]), []).append(run["elapsedSeconds"])
     statistics_by_rank = {}
@@ -284,7 +338,7 @@ def write_summary(
         "applicationSeconds",
     )
     phase_times_by_rank: dict[str, dict[str, dict[str, float]]] = {}
-    for run in runs:
+    for run in measured_runs:
         for report in run.get("performance", []):
             local = report.get("local", report)
             rank_key = str(report.get("rank", run["ranks"]))
@@ -312,6 +366,7 @@ def write_summary(
         "mode": args.mode,
         "timeoutSeconds": args.timeout,
         "repeat": args.repeat,
+        "warmup": args.warmup,
         "git": git_metadata(),
         "host": host_metadata(),
         "runs": runs,
@@ -335,6 +390,9 @@ def main() -> int:
     parser.add_argument("--case", type=Path, required=True)
     parser.add_argument("--ranks", type=parse_ranks, default=[1])
     parser.add_argument("--repeat", type=int, default=3)
+    parser.add_argument(
+        "--warmup", type=int, default=1,
+        help="number of uncounted warmup runs per rank (default: 1)")
     parser.add_argument("--timeout", type=float, default=600.0)
     parser.add_argument("--mode", choices=("complete", "throughput"), default="complete")
     parser.add_argument("--output", type=Path, required=True)
@@ -348,12 +406,16 @@ def main() -> int:
         parser.error(f"case directory does not exist: {args.case}")
     if not args.binary.is_file():
         parser.error(f"solver binary does not exist: {args.binary}")
-    if args.repeat <= 0 or args.timeout <= 0:
-        parser.error("repeat and timeout must be positive")
+    if args.repeat <= 0 or args.warmup < 0 or args.timeout <= 0:
+        parser.error("repeat and timeout must be positive; warmup cannot be negative")
     args.output.mkdir(parents=True, exist_ok=True)
     input_manifest = case_manifest(args.case)
     runs = []
     for rank in args.ranks:
+        for warmup in range(args.warmup):
+            print(f"benchmark warmup case={args.case} ranks={rank} run={warmup + 1}", flush=True)
+            runs.append(run_one(args, args.output, rank, 0, warmup=True))
+            write_summary(args, args.output, runs, input_manifest)
         for repeat in range(1, args.repeat + 1):
             print(f"benchmark case={args.case} ranks={rank} repeat={repeat}", flush=True)
             runs.append(run_one(args, args.output, rank, repeat))
