@@ -86,6 +86,9 @@ ghost 比例和通信面增长；它们只用于解释性能，不参与求解�
 稀疏乘，`ASYNC_HALO=0` 可切换回阻塞 halo，两个开关都只影响后端。CSR 视图不替代
 Eigen 矩阵，预条件器和 AMG 仍使用原有实现。这些机制位于 `src/parallel` 和
 `src/algebra`，公共 Physics DSL 不可见。
+CSR 的 interior/boundary 分块会缓存 active 行和 inactive 行。interior 乘法完整覆盖
+active 行，只清零随后由 boundary 分块累加的 inactive 行，避免每次 SpMV 对整个输出
+向量做一次无条件清零；boundary 分块仍按原顺序累加，矩阵乘的数值顺序保持不变。
 串行 `PreparedLinearSolver` 也复用后端 CSR SpMV；首次 `compute` 建立 pattern，后续
 `factorize` 只复制连续系数并检查 pattern，避免每个外迭代重新分配稀疏结构。该视图同样
 是内部实现，Eigen 仍保留给 IC、ILUT、AMG 和其他因子化操作。串行 A/B 可用

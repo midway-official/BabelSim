@@ -67,6 +67,9 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
     `right_hand_side - A*x` 改成复用向量的原地更新；分布式 AMG 的 fine-level residual
     同样复用已有 buffer。V-cycle 两条入口路径都会完整覆盖输出，因此 `apply` 不再
     预先清零输出向量。层级、聚合、平滑次数、Galerkin 矩阵和粗层求解器均未改变。
+13. 分布式私有 CSR SpMV 缓存每个分块的 active/inactive 行。interior 分块只清零
+    inactive 行，再完整写入 active 行；boundary 分块继续向同一输出累加。该优化只改变
+    清零范围，不改变每行累加顺序或跨 rank halo 合同。
 
 ## 性能假设和实测结果
 
@@ -119,6 +122,19 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 收敛时间或物理精度提升。相同配置下 solver 阶段约减少 28--29%，SpMV 阶段约减少
 26--40%；墙钟仍包含 MPI/Case/输出等一次性开支。`make -j4 test` 和 `make test-mpi`
 在该改动后通过，现有数值合同未发现迭代数或场结果变化。
+
+在 102400 单元、2 ranks、固定一次外迭代的五次 A/B 中，使用 `INPLACE_PRECONDITIONER=0`
+固定预条件器路径，只比较 CSR interior 分块的“整向量清零”和“仅清零 inactive 行”。两组
+的 Krylov 迭代均为 978、SpMV 次数均为 986、halo 次数均为 1006：
+
+| 路径 | 墙钟中位数 | solver 均值 | SpMV 均值 | application 均值 |
+| --- | ---: | ---: | ---: | ---: |
+| 整向量清零 | 5.088 s（CV 0.65%） | 0.988 s | 0.211 s | 2.689 s |
+| 仅清零 inactive 行 | 3.983 s（CV 10.0%） | 0.948 s | 0.201 s | 2.615 s |
+
+该组新路径墙钟样本存在一次明显抖动，故只把约 4.0% 的 solver 下降、约 4.8% 的 SpMV
+下降作为阶段性证据；application 下降约 2.8%，尚不足以声称稳定端到端收益。该改动保留
+active 行完整覆盖和 boundary 行累加语义，并通过串行/并行数值合同。
 
 AMG 也做了独立的 160²、50 外迭代 A/B。标量压力方程将平滑步数从 2 调到 1 时，solver
 中位数从约 6.03 s 降到约 5.79 s（约 4.5%），但 Krylov 迭代从约 15.7k 增到约 22.1k；

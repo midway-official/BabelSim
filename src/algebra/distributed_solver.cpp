@@ -68,6 +68,7 @@ struct CsrSpmvBlock {
         source_positions.clear();
         values.clear();
         active_rows.clear();
+        inactive_rows.clear();
         std::vector<std::vector<Entry>> rows(static_cast<std::size_t>(source.rows()));
         for (Eigen::Index column = 0; column < source.outerSize(); ++column) {
             Eigen::Index source_position = source.outerIndexPtr()[column];
@@ -90,7 +91,11 @@ struct CsrSpmvBlock {
             row_offsets[static_cast<std::size_t>(row + 1)] =
                 row_offsets[static_cast<std::size_t>(row)] +
                 static_cast<Eigen::Index>(entries.size());
-            if (!entries.empty()) active_rows.push_back(static_cast<int>(row));
+            if (!entries.empty()) {
+                active_rows.push_back(static_cast<int>(row));
+            } else {
+                inactive_rows.push_back(static_cast<int>(row));
+            }
         }
         columns.resize(static_cast<std::size_t>(row_offsets.back()));
         source_positions.resize(columns.size());
@@ -125,7 +130,14 @@ struct CsrSpmvBlock {
         const int* offsets = row_offsets.data();
         const int* columns_data = columns.data();
         const double* values_data = values.data();
-        if (!add) output.setZero();
+        // The interior block fully overwrites active rows.  Only rows without
+        // an interior contribution need clearing before the boundary block is
+        // accumulated; this avoids streaming over the whole vector each SpMV.
+        if (!add) {
+            for (const int row_value : inactive_rows) {
+                y[static_cast<std::size_t>(row_value)] = 0.0;
+            }
+        }
         for (const int row_value : active_rows) {
             const std::size_t row = static_cast<std::size_t>(row_value);
             double sum = 0.0;
@@ -147,6 +159,7 @@ private:
     std::vector<int> columns;
     std::vector<int> source_positions;
     std::vector<int> active_rows;
+    std::vector<int> inactive_rows;
     std::vector<double> values;
 };
 
