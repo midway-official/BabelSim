@@ -1,6 +1,7 @@
 #include "babelsim/linear_solver.h"
 
 #include "backend/algebraic_multigrid.h"
+#include "algebra/inplace_preconditioner.h"
 
 #include <Eigen/IterativeLinearSolvers>
 
@@ -17,6 +18,10 @@ namespace {
 
 #ifndef BABELSIM_SERIAL_CSR_SPMV
 #define BABELSIM_SERIAL_CSR_SPMV 1
+#endif
+
+#ifndef BABELSIM_INPLACE_PRECONDITIONER
+#define BABELSIM_INPLACE_PRECONDITIONER 1
 #endif
 
 // A nonzero inner product must not be rejected merely because of physical units.
@@ -192,11 +197,21 @@ struct PreparedLinearSolver::Implementation {
                     amg->lastSparseMatvecSeconds();
             }
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
+#if BABELSIM_INPLACE_PRECONDITIONER
+            incomplete_cholesky.solveInPlace(input, output);
+            success = incomplete_cholesky.info() == Eigen::Success;
+#else
             output = incomplete_cholesky.solve(input);
             success = incomplete_cholesky.info() == Eigen::Success;
+#endif
         } else {
+#if BABELSIM_INPLACE_PRECONDITIONER
+            ilut.solveInPlace(input, output);
+            success = ilut.info() == Eigen::Success;
+#else
             output = ilut.solve(input);
             success = ilut.info() == Eigen::Success;
+#endif
         }
         if (hasPreconditioner(config)) {
             ++current_performance.preconditioner_applications;
@@ -336,8 +351,13 @@ struct PreparedLinearSolver::Implementation {
     LinearSolverConfig config;
     Eigen::SparseMatrix<double> matrix;
     RowCsrSpmv spmv;
+#if BABELSIM_INPLACE_PRECONDITIONER
+    detail::InPlaceIncompleteCholesky incomplete_cholesky;
+    detail::InPlaceIncompleteLut ilut;
+#else
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
+#endif
     std::unique_ptr<detail::AlgebraicMultigrid> amg;
     KrylovWorkspace workspace;
     PerformanceCounters current_performance;

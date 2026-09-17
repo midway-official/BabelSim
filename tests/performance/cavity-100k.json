@@ -59,6 +59,8 @@
     "optimizedBuild": "make BUILD=build CSR_SPMV=1 ASYNC_HALO=1",
     "eigenSpmvBuild": "make BUILD=build-eigen CSR_SPMV=0 ASYNC_HALO=1",
     "blockingHaloBuild": "make BUILD=build-sync CSR_SPMV=1 ASYNC_HALO=0",
+    "eigenPreconditionerBuild": "make BUILD=build-eigen-preconditioner CSR_SPMV=1 ASYNC_HALO=1 INPLACE_PRECONDITIONER=0",
+    "inplacePreconditionerBuild": "make BUILD=build INPLACE_PRECONDITIONER=1",
     "ranks": [2],
     "repeat": 5,
     "requiredCounters": [

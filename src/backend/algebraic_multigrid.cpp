@@ -25,6 +25,9 @@ struct Level {
     SparseMatrix matrix;
     SparseMatrix prolongation;
     Eigen::VectorXd inverse_diagonal;
+    // Keep A*x separate from the residual so smoothing can update both
+    // vectors in place without allocating a temporary difference vector.
+    Eigen::VectorXd product;
     Eigen::VectorXd residual;
     Eigen::VectorXd right_hand_side;
     Eigen::VectorXd correction;
@@ -88,6 +91,7 @@ SparseMatrix galerkin(const SparseMatrix& matrix, const SparseMatrix& interpolat
 bool initializeDiagonal(Level& level) {
     const Eigen::Index rows = level.matrix.rows();
     level.inverse_diagonal.resize(rows);
+    level.product.resize(rows);
     level.residual.resize(rows);
     level.right_hand_side.resize(rows);
     level.correction.resize(rows);
@@ -122,8 +126,9 @@ struct AlgebraicMultigrid::Implementation {
 
     void smooth(Level& level, const Eigen::VectorXd& right_hand_side, Eigen::VectorXd& solution) {
         for (int sweep = 0; sweep < config.amg_smoothing_steps; ++sweep) {
-            multiply(level.matrix, solution, level.residual);
-            level.residual = right_hand_side - level.residual;
+            multiply(level.matrix, solution, level.product);
+            level.residual.noalias() = right_hand_side;
+            level.residual.noalias() -= level.product;
             solution.noalias() += smoothing_weight *
                 level.inverse_diagonal.cwiseProduct(level.residual);
         }
@@ -139,8 +144,9 @@ struct AlgebraicMultigrid::Implementation {
         solution.noalias() = smoothing_weight *
             level.inverse_diagonal.cwiseProduct(right_hand_side);
         for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
-            multiply(level.matrix, solution, level.residual);
-            level.residual = right_hand_side - level.residual;
+            multiply(level.matrix, solution, level.product);
+            level.residual.noalias() = right_hand_side;
+            level.residual.noalias() -= level.product;
             solution.noalias() += smoothing_weight *
                 level.inverse_diagonal.cwiseProduct(level.residual);
         }
@@ -154,8 +160,9 @@ struct AlgebraicMultigrid::Implementation {
         }
 
         smoothFromZero(level, right_hand_side, solution);
-        multiply(level.matrix, solution, level.residual);
-        level.residual = right_hand_side - level.residual;
+        multiply(level.matrix, solution, level.product);
+        level.residual.noalias() = right_hand_side;
+        level.residual.noalias() -= level.product;
         Level& coarse = levels[index + 1U];
         coarse.right_hand_side.noalias() = level.prolongation.transpose() * level.residual;
         coarse.correction.setZero();
@@ -248,7 +255,9 @@ bool AlgebraicMultigrid::apply(const Eigen::VectorXd& input, Eigen::VectorXd& ou
     }
     m_implementation->last_sparse_matvecs = 0;
     m_implementation->last_sparse_matvec_seconds = 0.0;
-    output.setZero(input.size());
+    // vCycle overwrites the solution on both paths: smoothFromZero initializes
+    // a non-coarsest level, while SparseLU assigns the coarsest solve result.
+    // Do not clear this vector before every AMG apply.
     return m_implementation->vCycle(0, input, output);
 }
 

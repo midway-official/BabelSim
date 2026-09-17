@@ -90,6 +90,16 @@ Eigen 矩阵，预条件器和 AMG 仍使用原有实现。这些机制位于 `s
 `factorize` 只复制连续系数并检查 pattern，避免每个外迭代重新分配稀疏结构。该视图同样
 是内部实现，Eigen 仍保留给 IC、ILUT、AMG 和其他因子化操作。串行 A/B 可用
 `SERIAL_CSR_SPMV=0` 恢复 Eigen SpMV。
+IC 和 ILUT 的因子仍由 Eigen 计算，但 Krylov 每次 apply 默认走后端私有的原地三角求解
+路径：直接复用调用方输出向量、因子内部的三角求解工作区和一个预分配的置换 scratch
+向量，避免 `preconditioner.solve(input)` 为每次迭代生成中间向量。该路径保持 Eigen 的
+置换、缩放和前后代入顺序，Physics 和公共线性求解器接口不可见；`INPLACE_PRECONDITIONER=0`
+可在同一编译配置下恢复 Eigen 原始 solve，作为数值和性能 A/B 回退。
+AMG 的每个层级现在长期保存独立的 `A*x` 工作向量，平滑和残差计算使用原地差分，避免
+每个 Jacobi sweep 产生临时向量；分布式 AMG 也采用同样的残差更新方式。这只减少工作区
+分配和复制，不改变聚合、Galerkin 粗化、平滑步数或粗网格求解顺序。V-cycle 的输出在
+平滑初始化或粗层直接求解中都会被完整覆盖，因此 `apply` 也不再先做一次无效的全向量
+清零。
 CSR 热循环使用连续数组指针和 GCC/Clang 的最多 8 次循环展开提示；这是后端编译优化，
 不改变 Physics DSL、稀疏模式或每行累加顺序。该优化在 102400 单元 pilot 中的 A/B 数值
 见 [`backend-audit-2026-09.md`](/home/midway/BabelSim/docs/performance/backend-audit-2026-09.md)。
@@ -135,6 +145,29 @@ CSR 热循环使用连续数组指针和 GCC/Clang 的最多 8 次循环展开�
 单元 1 rank 约 68.8 s（solver 85.1 s），大网格的首要热点仍是预条件器 apply，而不是
 方程装配。上述均为固定一次外迭代的吞吐证据，不是完整收敛时间；完整收敛实验必须使用
 `mode=complete`，并且只对 `converged` 样本排名。
+
+### 预条件器 A/B（同一因子、同一迭代次数）
+
+原地 IC/ILUT 路径在 500k 单元的固定一次外迭代 pilot 中显示出明显的 apply 成本下降，
+但基线 1 rank 的运行间变异较大，因此表中保留均值、范围和迭代计数，不把它当作稳定的
+端到端最终收益。两组均为 Re=1000、相同线性配置和 `maxIterations=1`：
+
+| ranks | 路径 | 总墙钟（s） | solver（s） | preconditioner apply（s） | Krylov 迭代 |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 1 | Eigen 原始 solve | 中位数 47.58（35.93--69.86） | 均值 44.58 | 均值 36.98 | 2003 |
+| 1 | 原地 IC/ILUT | 中位数 21.80（21.74--22.08） | 均值 15.40 | 均值 8.01 | 2003 |
+| 2 | Eigen 原始 solve | 36.17 | 23.67 | 18.04 | 2003 |
+| 2 | 原地 IC/ILUT | 22.13 | 10.63 | 4.96 | 2003 |
+
+在完整的 4096 单元稳态 cavity 收敛运行中，两条路径都在第 2756 个 SIMPLE 外迭代
+收敛，`U` 与 `p` 的 global cell ID 对齐比较得到 `max_abs_difference=0`；原地路径的
+solver 阶段为 28.77 s，Eigen 路径为 33.24 s（约 13.4% 的该阶段下降），预条件器
+apply 为 11.63/16.26 s。这个结果说明优化没有改变收敛轨迹；更大网格和其他稀疏模式仍
+需要按 benchmark manifest 重复验证。
+
+AMG 工作区优化在小规模独立 pilot 中只有约 2--4% 的 solver 波动，尚无足够证据声称
+稳定加速。AMG 的粗层构造、全局粗矩阵归约和分区策略仍应单独做规模化 A/B，不能把
+IC/ILUT 的收益套用到 AMG。
 
 ## 计时和复现审计
 

@@ -60,6 +60,13 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 10. `Mesh::partitionInfo()` 为通用观测接口返回 global/local/owned/ghost cell、面和
     processor-neighbor 统计；性能 JSON 和 benchmark 的 `partitionByRank` 按 MPI size
     与 local rank 保存这些数据。该接口不参与方程组、场同步或收敛决策。
+11. IC/ILUT 的因子化仍由 Eigen 完成；`src/algebra/inplace_preconditioner.h` 只在
+    backend 内继承 Eigen 因子类型并复用输出向量及置换 scratch，保持原有缩放、置换和
+    三角代入顺序。`INPLACE_PRECONDITIONER=0` 选择 Eigen 原始 `solve()`，便于逐配置回退。
+12. `src/backend/algebraic_multigrid.cpp` 的每个 AMG level 预分配 `product`，将
+    `right_hand_side - A*x` 改成复用向量的原地更新；分布式 AMG 的 fine-level residual
+    同样复用已有 buffer。V-cycle 两条入口路径都会完整覆盖输出，因此 `apply` 不再
+    预先清零输出向量。层级、聚合、平滑次数、Galerkin 矩阵和粗层求解器均未改变。
 
 ## 性能假设和实测结果
 
@@ -147,6 +154,26 @@ SIMPLE 外迭代 pilot。50 万单元的 solver 关键路径为 33.54/16.62/9.13
 进程树峰值 RSS 约 12.90 GiB，已经接近当前主机的可用内存，故未启动 12/24 ranks。
 这些样本都返回 `maxIterations`，只用于规模、内存和阶段成本分析，不能用于完整收敛排名。
 
+在同一机器上又对 IC/ILUT apply 做了后端 A/B。500k 单元、`maxIterations=1`、相同
+2003 次 Krylov 迭代的 1-rank 三次正式样本中，Eigen 原始路径的 solver 均值为 44.58 s、
+预条件器 apply 均值为 36.98 s；原地路径分别为 15.40 s 和 8.01 s。原始路径墙钟中位数
+为 47.58 s（35.93--69.86 s），原地路径为 21.80 s（21.74--22.08 s），因此基线噪声
+较大，不能只用这个 pilot 推出固定百分比的端到端收益。2-rank 单次样本的 solver 为
+23.67/10.63 s，apply 为 18.04/4.96 s（Eigen/原地）。
+
+为了检查是否改变数值轨迹，完整 4096 单元 cavity 的两条路径都在 SIMPLE 第 2756 次
+外迭代收敛，线性求解次数、Krylov 迭代和预条件器调用数相同；按 global cell ID 比较
+`U`、`p` 的最大绝对差均为 0。solver 阶段从 33.24 s 降到 28.77 s，预条件器 apply
+从 16.26 s 降到 11.63 s。该证据支持原地路径作为默认后端实现，但仍保留编译期开关和
+Eigen 回退。
+
+AMG 工作区 A/B 使用约 50k 单元的固定一次外迭代 pilot。1-rank solver 为 0.611/0.589 s，
+预条件器 apply 为 0.171/0.159 s；2-rank solver 为 0.288/0.295 s，apply 为 0.138/0.145 s
+（原 AMG/工作区复用），差异与运行噪声同量级。因此当前只记录“减少临时向量”的实现事实，
+不宣称 AMG 已获得稳定速度提升；随后去掉无效输出清零的 65536 单元复测中，1-rank
+solver 均值为 0.599 s、2-rank 为 0.283 s，仍不足以单独归因出稳定收益。粗层构造和
+全局粗矩阵归约仍是后续独立热点。
+
 ## 尚未验证的风险
 
 - OpenMPI 的非阻塞集体是否在当前环境真正推进，需要用等待时间、SpMV 时间和 profiler
@@ -157,5 +184,7 @@ SIMPLE 外迭代 pilot。50 万单元的 solver 关键路径为 33.54/16.62/9.13
   值语义、global ID 对齐、边界方向和 poisoned-halo 测试，并分别验证标量/矢量/张量。
 - 当前 pilot 是 `maxIterations`，不属于完整收敛结果；超时和数值失败不计入最快配置排名。
 - 行式 CSR 目前仅覆盖双精度标量 Krylov SpMV（串行与分布式）；预条件器仍使用 Eigen，
-  尚未证明在所有网格形状、非结构网格和高阶稀疏模式上都优于 Eigen。默认路径必须继续
-  保留 `CSR_SPMV=0`/`SERIAL_CSR_SPMV=0` 回退和数值 A/B 检查。
+  尚未证明在所有网格形状、非结构网格和高阶稀疏模式上都优于 Eigen。IC/ILUT 的原地
+  wrapper 依赖 Eigen 因子类型的受保护成员，升级 Eigen 时必须重新检查 ABI 和操作顺序；
+  默认路径继续保留 `INPLACE_PRECONDITIONER=0`、`CSR_SPMV=0`/`SERIAL_CSR_SPMV=0` 回退
+  和数值 A/B 检查。

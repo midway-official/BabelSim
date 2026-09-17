@@ -181,7 +181,10 @@ def build_metadata() -> dict[str, Any]:
         "compilerFlags": assignment("CXXFLAGS"),
         "backendDefaults": {
             name: assignment(name)
-            for name in ("ASYNC_HALO", "CSR_SPMV", "SERIAL_CSR_SPMV")
+            for name in (
+                "ASYNC_HALO", "CSR_SPMV", "SERIAL_CSR_SPMV",
+                "INPLACE_PRECONDITIONER",
+            )
         },
     }
 
@@ -389,6 +392,7 @@ def run_one(
             "TMPDIR", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
             "GOMP_CPU_AFFINITY", "OMP_PROC_BIND", "BABELSIM_ASYNC_KRYLOV_HALO",
             "BABELSIM_CSR_SPMV", "BABELSIM_SERIAL_CSR_SPMV",
+            "BABELSIM_INPLACE_PRECONDITIONER",
         )
     }
     start = time.monotonic()

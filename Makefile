@@ -16,8 +16,13 @@ ASYNC_HALO ?= 1
 CSR_SPMV ?= 1
 # Serial Krylov SpMV A/B switch; 0 keeps Eigen's column-major path.
 SERIAL_CSR_SPMV ?= 1
+# Keep Eigen's original preconditioner solve as a backend A/B fallback.  The
+# default reuses factor work vectors in place; it does not alter factors or
+# operation order.
+INPLACE_PRECONDITIONER ?= 1
 CXXFLAGS ?= -std=c++17 $(OPTFLAGS) -DBABELSIM_ASYNC_KRYLOV_HALO=$(ASYNC_HALO) \
             -DBABELSIM_CSR_SPMV=$(CSR_SPMV) -DBABELSIM_SERIAL_CSR_SPMV=$(SERIAL_CSR_SPMV) \
+            -DBABELSIM_INPLACE_PRECONDITIONER=$(INPLACE_PRECONDITIONER) \
             -Wall -Wextra -Wpedantic -Wshadow \
             -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
 CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
@@ -111,6 +116,9 @@ $(LIB): $(OBJECTS) $(PHYSICS_DIRECTORIES) Makefile
 $(BUILD)/%.o: src/%.cpp Makefile
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD)/algebra/linear_solver.o $(BUILD)/algebra/distributed_solver.o: \
+	src/algebra/inplace_preconditioner.h
 
 $(BUILD)/%: tests/%.cpp tests/test_util.h $(TEST_SUPPORT_HEADERS) $(HEADERS) $(LIB)
 	@mkdir -p $(dir $@)

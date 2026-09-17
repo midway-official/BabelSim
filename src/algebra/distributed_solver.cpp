@@ -2,6 +2,7 @@
 #include "babelsim/distributed_solver.h"
 
 #include "babelsim/mpi_support.h"
+#include "algebra/inplace_preconditioner.h"
 
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/SparseLU>
@@ -22,6 +23,10 @@ namespace {
 
 #ifndef BABELSIM_CSR_SPMV
 #define BABELSIM_CSR_SPMV 1
+#endif
+
+#ifndef BABELSIM_INPLACE_PRECONDITIONER
+#define BABELSIM_INPLACE_PRECONDITIONER 1
 #endif
 
 constexpr double breakdown_tolerance = 0.0;
@@ -585,12 +590,14 @@ struct DistributedLinearSolver::Implementation {
         output.noalias() = weight * amg_inverse_diagonal.cwiseProduct(input);
         for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
             apply(output, amg_product);
-            amg_residual = input - amg_product;
+            amg_residual.noalias() = input;
+            amg_residual.noalias() -= amg_product;
             output.noalias() += weight *
                 amg_inverse_diagonal.cwiseProduct(amg_residual);
         }
         apply(output, amg_product);
-        amg_residual = input - amg_product;
+        amg_residual.noalias() = input;
+        amg_residual.noalias() -= amg_product;
         amg_coarse_rhs.setZero();
         for (Eigen::Index row = 0; row < amg_residual.size(); ++row) {
             amg_coarse_rhs[amg_aggregate[static_cast<std::size_t>(row)]] +=
@@ -607,7 +614,8 @@ struct DistributedLinearSolver::Implementation {
         }
         for (int sweep = 0; sweep < config.amg_smoothing_steps; ++sweep) {
             apply(output, amg_product);
-            amg_residual = input - amg_product;
+            amg_residual.noalias() = input;
+            amg_residual.noalias() -= amg_product;
             output.noalias() += weight *
                 amg_inverse_diagonal.cwiseProduct(amg_residual);
         }
@@ -704,11 +712,21 @@ struct DistributedLinearSolver::Implementation {
         } else if (usesAmg(config)) {
             local_success = applyDistributedAmg(input, output);
         } else if (config.solver == LinearSolverType::ConjugateGradient) {
+#if BABELSIM_INPLACE_PRECONDITIONER
+            incomplete_cholesky.solveInPlace(input, output);
+            local_success = incomplete_cholesky.info() == Eigen::Success;
+#else
             output = incomplete_cholesky.solve(input);
             local_success = incomplete_cholesky.info() == Eigen::Success;
+#endif
         } else {
+#if BABELSIM_INPLACE_PRECONDITIONER
+            ilut.solveInPlace(input, output);
+            local_success = ilut.info() == Eigen::Success;
+#else
             output = ilut.solve(input);
             local_success = ilut.info() == Eigen::Success;
+#endif
         }
         if (hasPreconditioner(config)) {
             ++current_performance.preconditioner_applications;
@@ -960,8 +978,13 @@ struct DistributedLinearSolver::Implementation {
 #endif
     std::vector<char> boundary_rows;
     std::vector<RemoteCoupling> remote;
+#if BABELSIM_INPLACE_PRECONDITIONER
+    detail::InPlaceIncompleteCholesky incomplete_cholesky;
+    detail::InPlaceIncompleteLut ilut;
+#else
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
+#endif
     std::vector<int> amg_cell_to_coarse;
     std::vector<int> amg_aggregate;
     std::vector<double> amg_local_coarse;
