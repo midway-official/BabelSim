@@ -102,7 +102,8 @@ AMG 的每个层级现在长期保存独立的 `A*x` 工作向量，平滑和残
 每个 Jacobi sweep 产生临时向量；分布式 AMG 也采用同样的残差更新方式。这只减少工作区
 分配和复制，不改变聚合、Galerkin 粗化、平滑步数或粗网格求解顺序。V-cycle 的输出在
 平滑初始化或粗层直接求解中都会被完整覆盖，因此 `apply` 也不再先做一次无效的全向量
-清零。
+清零。`factorize` 对 fine-level 和刷新后 coarse-level 的相同稀疏模式只覆盖 value 数组，
+复用已有稀疏索引存储；候选粗矩阵仍由原有 Galerkin 乘法产生。
 CSR 热循环使用连续数组指针和 GCC/Clang 的最多 8 次循环展开提示；这是后端编译优化，
 不改变 Physics DSL、稀疏模式或每行累加顺序。该优化在 102400 单元 pilot 中的 A/B 数值
 见 [`backend-audit-2026-09.md`](/home/midway/BabelSim/docs/performance/backend-audit-2026-09.md)。

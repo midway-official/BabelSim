@@ -88,6 +88,27 @@ SparseMatrix galerkin(const SparseMatrix& matrix, const SparseMatrix& interpolat
     return coarse;
 }
 
+bool samePattern(const SparseMatrix& left, const SparseMatrix& right) {
+    return left.rows() == right.rows() && left.cols() == right.cols() &&
+        left.isCompressed() && right.isCompressed() &&
+        left.nonZeros() == right.nonZeros() &&
+        std::equal(left.outerIndexPtr(), left.outerIndexPtr() + left.outerSize() + 1,
+                   right.outerIndexPtr()) &&
+        std::equal(left.innerIndexPtr(), left.innerIndexPtr() + left.nonZeros(),
+                   right.innerIndexPtr());
+}
+
+// Keep the sparse allocation when a refreshed hierarchy has the same graph.
+// The candidate values still come from Eigen's Galerkin product, so this is
+// only a storage update and does not change its accumulation order.
+void replaceValuesOrMove(SparseMatrix& target, SparseMatrix&& candidate) {
+    if (samePattern(target, candidate)) {
+        std::copy_n(candidate.valuePtr(), candidate.nonZeros(), target.valuePtr());
+    } else {
+        target = std::move(candidate);
+    }
+}
+
 bool initializeDiagonal(Level& level) {
     const Eigen::Index rows = level.matrix.rows();
     level.inverse_diagonal.resize(rows);
@@ -204,10 +225,16 @@ struct AlgebraicMultigrid::Implementation {
                 levels.back().matrix = std::move(coarse);
             }
         } else {
-            levels.front().matrix = matrix;
+            if (samePattern(levels.front().matrix, matrix)) {
+                std::copy_n(matrix.valuePtr(), matrix.nonZeros(),
+                            levels.front().matrix.valuePtr());
+            } else {
+                levels.front().matrix = matrix;
+            }
             for (std::size_t index = 0; index + 1U < levels.size(); ++index) {
-                levels[index + 1U].matrix =
-                    galerkin(levels[index].matrix, levels[index].prolongation);
+                replaceValuesOrMove(
+                    levels[index + 1U].matrix,
+                    galerkin(levels[index].matrix, levels[index].prolongation));
             }
         }
 

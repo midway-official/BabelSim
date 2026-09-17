@@ -70,6 +70,9 @@ Physics 看不到 `MPI_Comm`、CSR、Eigen 或 `MeshStorage` 原始数组。`Run
 13. 分布式私有 CSR SpMV 缓存每个分块的 active/inactive 行。interior 分块只清零
     inactive 行，再完整写入 active 行；boundary 分块继续向同一输出累加。该优化只改变
     清零范围，不改变每行累加顺序或跨 rank halo 合同。
+14. AMG `factorize` 在 fine-level 和已有 coarse-level 的压缩模式相同时只复制 value
+    数组；模式变化时仍移动候选矩阵。候选 coarse 矩阵始终由原 Galerkin 乘法生成，
+    因此该路径只复用稀疏存储，不改变粗矩阵数值的累加顺序。
 
 ## 性能假设和实测结果
 
@@ -189,6 +192,11 @@ AMG 工作区 A/B 使用约 50k 单元的固定一次外迭代 pilot。1-rank so
 不宣称 AMG 已获得稳定速度提升；随后去掉无效输出清零的 65536 单元复测中，1-rank
 solver 均值为 0.599 s、2-rank 为 0.283 s，仍不足以单独归因出稳定收益。粗层构造和
 全局粗矩阵归约仍是后续独立热点。
+
+针对 AMG refresh 的稀疏存储复用，在相同 65536 单元 pilot 中，1-rank 的
+`preconditionerSeconds` 均值由 0.339 s 降至 0.332 s，2-rank 由 0.0389 s 降至
+0.0379 s；solver 阶段差异仍处于样本噪声内。该改动的收益主要体现在 refresh 时减少
+稀疏索引分配和容量增长，不能替代后续对粗层全局归约的优化。
 
 ## 尚未验证的风险
 
