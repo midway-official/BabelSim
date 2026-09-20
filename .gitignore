@@ -8,3 +8,4 @@ cases/*/post/
 __pycache__/
 *.pyc
 essay/
+backup/

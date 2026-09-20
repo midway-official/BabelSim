@@ -51,17 +51,22 @@ Field、`equ/math`、离散、线性代数和 MPI Runtime，不建立两套 Fram
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
 - 分布式网格读取：rank 0 解析原生 `.mesh`，并由并行层按单元邻接图构造每个 rank
   的 owned+ghost 局部 Mesh；
-- 不可压 SIMPLE；动量插值与压力修正作为其私有、具有独立数值语义的数值步骤；
-- 过程式 `equ/math` 编程模型：离散项立即组装、场运算立即求值，solve 只求解已组装方程；
+- 不可压 SIMPLE（稳态 `simple`、瞬态 `transientSimple`）与瞬态 PISO（`piso`）；
+  动量插值（Rhie–Chow）与压力修正作为各自求解器的私有数值步骤，不下沉到通用层；
+- RANS 湍流：Wilcox 1988 k-ω、标准 k-ε、Spalart–Allmaras，经 `rans::load` /
+  `effectiveViscosity` / `deviatoricStressRemainder` / `solveTransport` 与动量方程耦合；
+- 过程式 `equ/math` 编程模型：方程只有显式组装一层（`equ::createEquation` + 逐项装配），
+  离散项写入绑定未知量的方程、场运算立即求值，`equ::solve` 只求解已组装方程，没有延迟表达式；
 - `heat` 常物性瞬态热传导入口；通用方程 API 同时支持常数或 Field 系数；
 - `transport` 瞬态对流-扩散 Solver，使用标量 Field、`equ::ddt/div/laplacian` 与边界；
 - 对流支持一阶迎风、梯度重构的二阶 `linearUpwind` 和中心格式，扩散保持中心型有限体积离散；
 - 原生 case/mesh/field 文件、通用并行结果写出与独立 VTK/Tecplot 后处理。
 
-本轮 [DSL 审计、迁移表与验证](docs/design/dsl-api-audit.md) 说明最新接口和数值不变量。
-维护者同时参考 [架构与文件边界](docs/architecture.md)：公开 Equation 只描述绑定未知量和
-离散项，内部离散存储与 Physics 分开，SIMPLE 状态只归算法，线性控制只归运行配置。
-Heat/Transport 不再维护重复的库式入口。`make test-architecture` 自动检查项目头依赖和分层约束。
+完整的 DSL、运行时 API、全部算子、配置键与文件格式见
+[DSL 与运行时用户手册](docs/dsl-runtime-manual.md)；[架构与维护边界](docs/architecture.md)
+说明公开接口的分层约束：Equation 只描述绑定未知量和离散项，内部离散存储与 Physics 分开，
+SIMPLE 状态只归算法，线性控制只归运行配置。`make test-architecture` 自动检查项目头依赖和
+分层约束，文档总入口见 [docs/](docs/README.md)。
 
 ## 构建与运行
 
@@ -87,7 +92,7 @@ fat LTO 让静态库保留普通机器码，外部程序可用 `-fno-lto` 禁用
 计算后端采用构建期替换，避免运行时注册和热循环虚分派。框架维护者可令
 `COMPUTE_BACKEND_SOURCES='src/backend/other.cpp ...'`；该源文件组实现内部
 `makeComputeBackend()` 工厂及所需代数能力即可，并会整体排除默认 Eigen 装配/求解源码。
-普通 Solver 作者不需要看到或选择这个接口，且替换后端不应修改 Physics、`eqn/math` 或
+普通 Solver 作者不需要看到或选择这个接口，且替换后端不应修改 Physics、`equ/math` 或
 FVM 离散源码。当前没有承诺动态插件或稳定后端 ABI。
 
 ```bash
@@ -151,11 +156,13 @@ ParaView 可直接打开的 `post/series.pvd`。
 
 ```bash
 make test                 # 几何、算子、case/field IO、Heat/标量输运/SIMPLE、通用输出
+make test-architecture    # 头依赖与分层门禁（Physics 不得越界依赖）
 make test-workflow        # 新 Solver 单函数开发、双场耦合、时间序列、真实 ParaView 读取
 make test-external        # 仓库外 Solver 构建、1/2/4 进程、负向 API 编译、无 MPI 结果读取器
 make test-mpi             # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
 make test-mpi-heat        # 1/2 rank 热传导场比较
 make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处理
+make test-rans            # RANS 方程与模型常数
 make validate-cavity      # Re=100、二阶迎风的 Ghia 腔体快速回归
 make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 ```
@@ -174,22 +181,32 @@ Heat、transport 的完整入口各自是一个短函数；SIMPLE 主循环明�
 输入场、命名中间场及其生命周期由 Case 管理，`solver.h` 不包含 Runtime/MPI/代数实现头。
 矢量场源、方程欠松弛、标量参考规范和动量对角响应均有公开数学入口。
 Field 原始指针/索引及 Mesh 缓存/分区修改已限制到内部维护接口；按位置定义场可用 evaluate。
-Case 的 validate 只校验，start/loop 才关闭声明；文件加载场默认输出，程序创建的场使用
-`create*Field`，已创建场使用 `existing*Field`，派生 cell 场可通过 output(field) 选择输出。
+Case 的 validate 只校验，`time::start` / `start` / `setTime` 才关闭声明阶段；文件加载场
+默认输出，程序创建的场使用 `create*Field`，已创建场使用 `existing*Field`，派生 cell 场
+可通过 output(field) 选择输出。
 公开 math 统一为整场同步契约，结果读取头和实现均不再要求 MPI。
 
 默认瞬态结果按 `output.bs` 中 `writeInterval` 保存（省略时每步写出），最终时刻总会保存。
 `-time mpi4/all` 后处理命名运行的完整序列；ParaView 打开对应的 `post/mpi4/series.pvd`。
-案例名称现为 `heat/simple/transport`，线性配置统一为 `scalarSolver/vectorSolver`。
-所有 Case 的 `solution.bs` 必须同时填写这两项，缺项报错，不使用隐式默认选择。
+内置求解器注册名为 `heat / transport / simple / transientSimple / piso`（RANS 由动量方程
+求解器按 `physics` 字典的 `turbulenceModel` 启用）；线性配置统一为
+`scalarSolver/vectorSolver`，所有 Case 的 `solution.bs` 必须同时填写这两项，缺项报错，
+不使用隐式默认选择。
 
-当前 DSL 的完整开发入口是 [新物理求解器开发指南](docs/dsl-solver-guide.md)；详细架构见
-[架构说明](docs/architecture.md)，API 语义见 [过程式 DSL 参考](docs/procedural-dsl.md)，
-案例组织见 [Case 结构](docs/case-structure.md)，Heat/Transport 见 [标量 Solver](docs/heat-solver.md)，
-SIMPLE/RANS 见 [SIMPLE Solver](docs/simple-solver.md)，维护验收见 [验证说明](docs/validation.md)。
-多 Reynolds 数、网格无关性、格式与 MPI 对照见
+文档入口见 [docs/README.md](docs/README.md)：
+
+- [DSL 与运行时用户手册](docs/dsl-runtime-manual.md)：写求解器的唯一手册。最小可运行示例、
+  Case 与全部配置键、场/网格文件格式、Field/geometry/math/equ 全部算子、时间与历史、
+  线性求解契约、诊断与监视、结果与后处理、并行边界、内置求解器与 RANS、开发检查清单、
+  旧接口迁移表。
+- [内置求解器手册](docs/solvers.md)：每个内置求解器与 RANS 模块的方程、配置键、运行方式、
+  验证证据与验证边界。
+- [架构与维护边界](docs/architecture.md)：分层、依赖禁令、所有权、维护流程与验收命令。
+- [验证与维护检查](docs/validation.md)：串行/并行验证入口与新 Solver 的最低验收线。
+- [性能工具说明](docs/performance/README.md)：`-performance` JSON、构建开关与 benchmark 驱动。
+
+历史证据归档在 [docs/reports/](docs/reports/)：多 Reynolds 数、网格无关性、格式与 MPI 对照见
 [Ghia 方腔验证报告](docs/reports/cavity-ghia-validation.md)及其
-[PDF 版本](docs/reports/cavity-ghia-validation.pdf)；线性后端 Re=1000 性能对照见
-[当前分布式后端报告](docs/reports/backend-performance-optimization.md)和
-[历史线性后端报告](docs/reports/re1000-linear-solver-benchmark.md)。历史报告保留已移除 GMRES
-的对照；当前后端只提供 CG/BiCGSTAB 与 IC/ILUT/AMG 预条件组合。
+[PDF 版本](docs/reports/cavity-ghia-validation.pdf)；线性后端性能对照见
+[分布式后端优化报告](docs/reports/backend-performance-optimization.md)。归档报告中的接口与
+性能数字反映当时提交状态，当前后端只提供 CG/BiCGSTAB 与 IC/ILUT/AMG 预条件组合。

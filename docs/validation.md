@@ -1,7 +1,8 @@
 # BabelSim 验证与维护检查
 
-本文记录当前源码应执行的验证入口。历史性能和物理研究报告保存在 docs/reports/，它们是带日期
-的证据，不是当前 DSL API 的规范；新开发者以本目录的架构、Case、DSL 和 Solver 指南为准。
+本文记录当前源码应执行的验证入口。历史性能和物理研究报告保存在 [reports/](reports/)，它们是
+带日期的证据，不是当前 API 的规范；接口与用法以
+[DSL 与运行时用户手册](dsl-runtime-manual.md) 和 [架构与维护边界](architecture.md) 为准。
 
 ## 1. 快速回归
 
@@ -37,9 +38,9 @@ make -j4 test
 ## 2. 工作流、外部 Solver 和 RANS
 
 ~~~bash
-python3 tests/solver_workflow_test.py
-python3 tests/external_solver_test.py
-python3 tests/rans_validation_test.py
+make test-workflow        # tests/solver_workflow_test.py
+make test-external        # tests/external_solver_test.py
+make test-rans            # tests/rans_validation_test.py
 ~~~
 
 工作流测试覆盖 Heat/Transport/耦合时间序列、结果读取和失败路径。外部 Solver 测试在仓库

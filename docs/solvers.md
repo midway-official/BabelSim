@@ -1,0 +1,328 @@
+# BabelSim 内置求解器手册
+
+本手册逐个说明当前仓库里的内置求解器与湍流模块：**控制方程与算法**、**需要的场与边界条件**、
+**全部配置键（含默认值）**、**收敛与失败语义**、**怎么跑**，以及**验证到什么程度、证据在哪**。
+
+求解器作者想自己写一个新求解器，读 [DSL 与运行时用户手册](dsl-runtime-manual.md)（尤其是第 1、7、9
+节）；本文只讲已经装好的这些求解器。验证状态用
+[验证与维护检查](validation.md) 的五级词汇描述：源码存在 → 调用链接入 → 回归通过 →
+短跑稳定 → 物理验证。
+
+## 1. 状态总表
+
+| 求解器 | 覆盖的问题 | 最高验证级别 | 主要证据 | 复现命令 |
+|---|---|---|---|---|
+| `heat` | 瞬态/稳态导热（标量） | 物理验证（解析解） | `T=2t` 逐点精确、1/2/4 rank 一致 | `make test-workflow` |
+| `transport` | 标量对流-扩散（速度给定） | 回归通过 + 短跑稳定 | 单胞解析值、1/2/4 rank 逐时刻一致 | `make test-workflow`、`make test-mpi` |
+| `simple` | 稳态不可压层流 | 物理验证（基准数据 + 解析解） | Ghia Re=100/400/1000、Poiseuille 抛物线 | `make validate-cavity`、`make validate-poiseuille` |
+| `transientSimple` | 瞬态不可压（含 RANS） | 短跑稳定 | 1/2/4 rank 的 Euler/BDF2 逐步一致 | `make test-simple-parallel`、`make test-mpi` |
+| `piso` | 瞬态不可压（算子分裂） | 源码存在 + 结构门禁 | 仓库内**没有**定量验证用例 | `make test-architecture` |
+| RANS（k-ω / k-ε / SA） | 湍流黏性输运 | 回归通过（方程核对 + 收敛阶） | TMR/OpenFOAM 逐项核对、Euler≈2/BDF2≈4 | `make test-rans` |
+
+RANS 是模块而不是注册名：由 `simple` / `transientSimple` / `piso` 按 `physics` 字典里的
+`turbulenceModel` 启用（第 7 节）。
+
+## 2. 通用约定
+
+**启动**：`build/babelsim-solve -case <算例目录> [-time <名称>]`。`-time` 给本次运行命名，
+结果写到 `<case>/<output.directory>/<名称>/`；不写 `-time` 就用 `output.bs` 的 `timeName`。
+
+**五个求解器都从 `case.bs` 读同一套结构**（键名与用法见用户手册第 3.1 节）：
+
+```text
+solver   <注册名>          # heat / transport / simple / transientSimple / piso
+mesh     mesh/xxx.mesh
+fields   fields/initial    # 初值 + 每个场的边界条件
+physics  physics/xxx.bs    # 物性与模型常数
+methods  numerics/methods.bs   # 空间/时间离散格式
+solution numerics/solution.bs  # 线性求解与算法数值控制
+control  control.bs        # 时间区间与步长
+output   output.bs         # 结果目录、时刻名、写出间隔
+ghostLayers 3              # 可选，MPI 分区 halo 层数（>=3）
+```
+
+**`solution.bs` 的 `scalarSolver` / `vectorSolver` 两类线性配置都是必填**，即使求解器只解标量
+（`heat`）也不能省略：缺项直接报错，不静默回退（`make test-workflow` 覆盖）。
+
+**`physics` 字典里的键必须全部被消费**：拼错或多余的键会被拒绝（`unused or unknown entry`），
+所以每个求解器只写它真正读的键。
+
+**退出码**：`0` 求解完成（所有 rank 的线性/算法判据都满足）、`2` 未收敛或数值失败、
+`1` 配置或运行错误。MPI 下取所有 rank 的最坏状态，单个 rank 失败不会被其它 rank 掩盖。
+
+**写出**：稳态 `simple` 只写最终结果；瞬态求解器按 `output.bs` 的 `writeInterval`
+（默认 `1`，即每步）写出，最终时刻总是写出。每一步只在收敛后被写出，失败的步不会落盘。
+
+## 3. `heat`：瞬态/稳态导热
+
+```text
+ρc_p ∂T/∂t = ∇·(k∇T) + Q
+```
+
+每个时间步组装一次并线性求解：`ddt(ρc_p, T)`、`laplacian(k, T, -1)`、`source(Q)`。
+`methods.time = steady` 时时间项不加入，退化为“每步重解一次稳态导热”。密度与热容以乘积
+`ρc_p` 进入时间项，`T` 初值来自 `fields/initial/T.field`。
+
+**场与边界**
+
+| 场 | 类型 | 位置 | 说明 |
+|---|---|---|---|
+| `T` | scalar | cell | 未知温度；边界可用 `fixedValue` / `zeroGradient` / `symmetry` |
+
+**配置键**
+
+| 文件 | 键 | 类型 | 说明 |
+|---|---|---|---|
+| `physics` | `density` | positive | ρ |
+| `physics` | `heatCapacity` | positive | c_p |
+| `physics` | `conductivity` | nonnegative | k，可为 0（纯瞬态蓄热） |
+| `physics` | `source` | number | Q，可为负 |
+| `solution` | `scalarSolver` / `vectorSolver` | — | 均必填 |
+
+**收敛语义**：每步只有一次线性求解，`SolveResult` 即状态；未收敛返回退出码 2。
+
+**运行**
+
+```bash
+build/babelsim-solve -case cases/heat                 # 0→0.05s，dt=0.01
+mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
+```
+
+**验证**：`make test-workflow` 把算例改成“绝热 + 均匀源 2”，此时解析解为 `T = 2t`，测试要求
+1/2/4 rank 的所有单元在 0.02/0.04/0.05s 与解析解相差小于 `1e-11`；`make test` 里的
+`heat_solver_test` 另用单胞 FVM 手算结果（`T=10/22`、变系数 `T=20/32`）作精确回归。
+
+## 4. `transport`：标量对流-扩散
+
+```text
+∂(storage·C)/∂t + ∇·(phi·C) = ∇·(D∇C) + S,    phi = U·Sf（面积积分通量）
+```
+
+速度场 `U` 是**给定**的：启动时算一次面通量 `phi = math::flux(U)`，此后保持不变；只有 `C` 是未知量。
+
+**场与边界**
+
+| 场 | 类型 | 位置 | 说明 |
+|---|---|---|---|
+| `C` | scalar | cell | 未知浓度；入口 `fixedValue`、出口 `zeroGradient`、侧壁 `symmetry` |
+| `U` | vector | cell | 预设速度场；入口 `fixedValue`、出口 `zeroGradient`、壁面 `fixedValue (0 0 0)` |
+
+求解器自己创建并登记 `phi`（face 标量）作为输出场。
+
+**配置键**
+
+| 文件 | 键 | 类型 | 说明 |
+|---|---|---|---|
+| `physics` | `storage` | positive | 时间项系数（蓄积系数） |
+| `physics` | `diffusivity` | nonnegative | D，可为 0 |
+| `physics` | `source` | number | 体源 S |
+| `solution` | `scalarSolver` / `vectorSolver` | — | 均必填（框架级校验，与是否解矢量方程无关） |
+| `methods` | `convection` | upwind / linearUpwind / central | 可对 `C` 单独覆盖：`convection C upwind` |
+
+**收敛语义**：与 `heat` 相同——每步一次线性求解。
+
+**运行**
+
+```bash
+build/babelsim-solve -case cases/transport             # 0→0.05s，dt=0.01
+mpirun -np 4 build/babelsim-solve -case cases/transport -time mpi4
+```
+
+**验证**：`make test-workflow` 检查 1/2/4 rank 在同一物理时刻的 `C` 一致（阈值 `1e-8`）与时间序列
+目录；`make test-mpi` 的 `parallel_transport_test` 用零通量单胞算例比对解析值 `C=0.3`（2 rank，
+误差 < `1e-12`）。仓库内没有对标准对流的基准数据验证。
+
+## 5. `simple`：稳态不可压 SIMPLE
+
+每个外迭代做五个显式步骤（源码 `src/physics/simple/main.cpp`，无隐藏的算法封装）：
+
+1. 组装动量方程 `div(phi,U,ρ) - div(μ_eff∇U) = -∇p`（湍流时另加显式应力余项）；
+2. 测残差 → 欠松弛 `equ::relax(αU)` → `equ::scale(αU)` 保持行归一化 → 求解，得 `V/aP = rAU`；
+3. Rhie–Chow：在内部面上把 `phi` 关联到压力梯度；
+4. 压力修正方程 `-div(rAU ∇p') = -div(phi_H)`，先 `referenceIfUnanchored(0)`，解完后
+   `p += αP·p'`、`U -= rAU·∇p'`、`phi = phi_H + flux(p')`；
+5. 湍流输运（若启用）→ 用 `rU / dU / dP / mass` 判收敛。
+
+`methods.time` 必须是 `steady`，否则直接报错。
+
+**场与边界**
+
+| 场 | 类型 | 位置 | 说明 |
+|---|---|---|---|
+| `U` | vector | cell | 未知速度 |
+| `p` | scalar | cell | 未知压力 |
+
+求解器创建 `phi`（face）、`pPrime`（修正场，与 `p` 同边界但齐次）、`muEffective`
+（湍流时另创建 `mut`）。推荐边界组合（`cases/cavity`、`cases/poiseuille` 即此约定）：
+
+| Patch 角色 | `U` | `p` |
+|---|---|---|
+| 入口 | `fixedValue` | `zeroGradient` |
+| 出口 | `zeroGradient` | `fixedValue` |
+| 壁面 | `fixedValue`（静止则 0） | `zeroGradient` |
+| 对称/二维退化 | `symmetry` | `symmetry` |
+| 通用 / processor | `zeroGradient` | `zeroGradient` |
+
+封闭腔体（无压力出口）依赖压力修正的零空间参考值，不需要额外设置。
+
+**配置键**
+
+| 文件 | 键 | 默认值 | 说明 |
+|---|---|---|---|
+| `physics` | `density` | 必填 | ρ |
+| `physics` | `dynamicViscosity` | 必填 | μ；**层流也必须给**，它是 `muEffective` 的初值 |
+| `physics` | `turbulenceModel` 等 | 可选 | 见第 7 节 |
+| `solution` | `maxIterations` | 1000 | 外迭代上限 |
+| `solution` | `velocityRelaxation` | 0.7 | αU |
+| `solution` | `pressureRelaxation` | 0.3 | αP |
+| `solution` | `nonOrthogonalCorrections` | 1 | 压力修正中非正交项的显式遍数 |
+| `solution` | `continuityTolerance` | 1e-8 | 连续性（面通量守恒）相对不平衡 |
+| `solution` | `velocityTolerance` | 1e-7 | 相邻外迭代 `‖ΔU‖` |
+| `solution` | `momentumTolerance` | 1e-6 | 动量方程相对残差 `rU` |
+| `solution` | `pressureCorrectionTolerance` | 1e-6 | `p'` 相对 `p` 的幅值 |
+| `solution` | `scalarSolver` / `vectorSolver` | 必填 | 压力用 scalar，动量用 vector |
+
+**收敛语义**：`converged = 线性全部收敛 && rU ≤ momentumTolerance && dU ≤ velocityTolerance
+&& dP ≤ pressureCorrectionTolerance && mass ≤ continuityTolerance`；启用湍流时还要求
+`dTurb ≤ turbulenceTolerance && rTurb ≤ turbulenceTolerance`。达到收敛才写出最终结果；
+迭代耗尽返回 `notConverged`（退出码 2），不写出“看起来完成”的结果。
+
+**运行**
+
+```bash
+build/babelsim-solve -case cases/cavity                       # 64² Re=100 方腔
+mpirun -np 4 build/babelsim-solve -case cases/poiseuille       # 通道流
+mpirun -np 8 build/babelsim-solve -case /tmp/cavity-Re1000-N128 -time validation
+```
+
+**验证（本仓库验证程度最高的求解器）**
+
+| 内容 | 结论 | 证据 |
+|---|---|---|
+| Ghia 方腔 Re=100/400/1000，128² 壁面加密 | 中心线两个速度分量的 Ghia 采样点 RMS < 顶盖速度 1% | [Ghia 方腔验证报告](reports/cavity-ghia-validation.md) |
+| 网格收敛 | 32²→64²→128² 整线 RMS 差异逐级下降 4.1–6.2 倍 | 同上，`cases/cavity/validation/plot_cavity_convergence.py` |
+| 对流格式 | Re=1000、64²：一阶迎风 `u/v` RMS `6.20e-2/7.31e-2` → 二阶 `linearUpwind` `2.64e-3/6.51e-3` | 同上 |
+| 串并行一致 | 1 vs 2/4 rank 最大绝对差 `3.63e-9`–`1.98e-8`（U）、`1.46e-9`–`1.37e-8`（p） | 同上；`make test-simple-parallel` |
+| Poiseuille 解析解 | 出口剖面与抛物线比较，L2 门限 `5e-3` | `make validate-poiseuille` |
+| 快速回归 | 2D 64²、3D 8×8×6、2D/3D 扭曲网格（非正交修正） | `make test`、[simple-parallel 一致性报告](reports/simple-parallel-consistency-2026-09-10.md) |
+| Re=10000 | `256²` 准稳态快照，只检查离散稳定性，**不作为精度验收** | [Re=10000 报告](reports/cavity-re10000.md) |
+
+报告明确限定：验证支持 **Re ≤ 1000、稳态层流、二维退化三维**；不证明更高 Re、非稳态转捩或任意网格上的精度。
+
+## 6. `transientSimple` 与 `piso`：瞬态不可压
+
+两者共用与 `simple` 相同的动量预测 / Rhie–Chow / 压力修正部件，区别在时间步内的组织方式：
+
+| | `transientSimple` | `piso` |
+|---|---|---|
+| 时间步内结构 | 反复做带欠松弛的动量/压力迭代，直到步内收敛 | 一次动量预测 + `nCorrectors` 次压力修正（修正步不欠松弛） |
+| `maxIterations` | 步内迭代上限（默认 1000） | 预测–修正流程的额外外层遍数，**默认 1 即标准 PISO** |
+| 时间格式 | `euler` / `bdf2`（BDF2 首步自动降为 Euler） | 同左；必须瞬态 |
+| 时间步接受判据 | 步内迭代达到与 `simple` 相同的收敛组合 | 只要求守恒 `mass ≤ continuityTolerance`；`maxIterations > 1` 时额外要求外层收敛 |
+| 动量预测欠松弛 | `velocityRelaxation`（默认 0.7） | 同左，但修正步始终施加完整修正 |
+| 压力欠松弛 | `pressureRelaxation`（默认 0.3） | 不适用（修正不做欠松弛） |
+
+`piso` 使用的键：`maxIterations`(1)、`nCorrectors`(2)、`nonOrthogonalCorrections`(1)、
+`velocityRelaxation`(0.7)、`continuityTolerance`(1e-8)、`velocityTolerance`(1e-7)、
+`momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。守恒判据不满足时立即
+`notConverged`（退出码 2），不会带着质量不平衡继续推进。
+
+场与边界、`physics` 键与 `simple` 相同（`density`、`dynamicViscosity`，湍流时可加模型键）。
+瞬态算例的 `control.bs` 必须给出正的 `deltaT`；`output.bs` 的 `writeInterval` 控制写出间隔。
+
+**运行**
+
+```bash
+mpirun -np 4 build/babelsim-solve -case cases/naca0012 -time run1     # transientSimple + k-ω
+build/babelsim-solve -case <自己的瞬态算例>                            # solver piso
+```
+
+**验证状态**
+
+- `transientSimple`：**短跑稳定**。[1/2/4 rank 一致性报告](reports/simple-parallel-consistency-2026-09-10.md)
+  在 2D、3D、扭曲方腔上用 Euler 与 BDF2 各跑 5 个时间步，逐时刻比较全部 U 分量与 p
+  （阈值 `5e-6 + 5e-6·max|·|`），并复核每个时间步都收敛；`make test-mpi` 与
+  `make test-simple-parallel` 可在当前源码上复跑。`cases/naca0012` 是可运行示例，
+  **没有**对应的定量验证报告。
+- `piso`：**只有结构门禁**。`make test-architecture` 保证它是一个自包含模块
+  （`equ::solve` + 显式循环，不含 `coupling::`/`solveIncompressible` 之类共享封装），
+  但仓库内没有 PISO 的回归用例或基准对比。要用它出结论，请按
+  [validation.md](validation.md) 第 5 节为新算例补验证：守恒判据、解析解或基准数据、
+  串并行一致性和失败路径。
+
+## 7. RANS 湍流模块
+
+在 `physics/*.bs` 写 `turbulenceModel <名称>` 即启用（`simple` / `transientSimple` / `piso` 自动接入）：
+
+| 名称（忽略大小写与下划线） | 模型 |
+|---|---|
+| `none` / `laminar` / `off`（或不写） | 层流 |
+| `kOmega` / `wilcox1988` | Wilcox 1988m 高 Re k-ω，无 SST 交叉扩散 |
+| `kEpsilon` / `standardKepsilon` | 标准高 Re k-ε |
+| `SA` / `spalartAllmaras` | 标准 Spalart–Allmaras（正变量、无 trip 源、保留 ft2） |
+
+写错模型名会报 `unsupported turbulenceModel; expected none, SA, kOmega or kEpsilon`。
+
+**需要的场**（放在 `fields/initial/`，初值与壁面渐近值都要给）
+
+| 模型 | 输运场 | 说明 |
+|---|---|---|
+| k-ω | `k`、`omega` | 壁面 `omega` 需按高 Re 渐近式给大值（`cases/naca0012` 用 `1e4`） |
+| k-ε | `k`、`epsilon` | 壁面同样按渐近式给 |
+| SA | `nuTilda`、`wallDistance` | `wallDistance` 是几何到最近壁面的距离场，由用户提供 |
+
+模块自己创建 `mut`（涡黏）与 `muEffective`（`μ + μ_t`，层流分支等于 μ）两个程序自有场：启用模型时
+`mut` 自动登记为输出场，`muEffective` 默认不写出（需要时在 `output.bs` 的 `writeFields` 里列出）。
+
+**模型常数（`physics/*.bs`，全部有默认值）**
+
+| 模型 | 键 |
+|---|---|
+| 公共 | `density`、`dynamicViscosity`（进入 `muEffective`） |
+| k-ω | `kOmegaBetaStar` 0.09、`kOmegaBeta` 0.075、`kOmegaGamma` 5/9、`kOmegaSigmaK` 0.5、`kOmegaSigmaOmega` 0.5、`kMin` 1e-12、`omegaMin` 1e-12 |
+| k-ε | `kEpsilonCmu` 0.09、`kEpsilonC1` 1.44、`kEpsilonC2` 1.92、`kEpsilonSigmaK` 1.0、`kEpsilonSigmaEpsilon` 1.3、`kMin` 1e-12、`epsilonMin` 1e-12 |
+| SA | `saCb1` 0.1355、`saCb2` 0.622、`saSigma` 2/3、`saKappa` 0.41、`saCw1`、`saCw2` 0.3、`saCw3` 2.0、`saCv1` 7.1、`saCt3` 1.2、`saCt4` 0.5、`saNuTildaMin` 1e-14、`saWallDistanceMin` 1e-12 |
+
+**耦合与收敛**：动量方程用 `muEffective` 做隐式扩散，涡黏应力的转置/无迹余项显式加入右端
+（不要重复加整项）。每条输运方程在松弛前记录归一化残差、用 `turbulenceRelaxation`（默认 0.7）
+欠松弛，并由 `turbulenceTolerance`（默认 1e-6）与外层收敛判据一起决定时间步/外迭代是否接受。
+`k`、`omega`、`epsilon`、`nuTilda` 有下限保护，避免除零和非物理负值。
+
+**验证**：[RANS 方程核对报告](reports/rans-equation-verification.md) 逐项对照
+TMR 的 SA/Wilcox1988 定义与 OpenFOAM v7 的标准 k-ε 实现，并给出时间格式的收敛阶检验
+（Euler 相邻加密误差比 ≈ 2，BDF2 ≈ 4）；`make test-rans` 在当前源码上复跑三个模型的
+稳态/瞬态、1/2/4 rank 比较与下限裁剪拒绝。报告同时限定：**这不等于自动壁函数或复杂工程
+壁流已经过验证**；k-ε 的原始论文未能逐式核读，采用的是标准实现交叉核对。
+
+## 8. 怎么选
+
+| 问题 | 选择 |
+|---|---|
+| 只算温度/标量、速度已知或不需要流场 | `heat`（纯导热）或 `transport`（对流-扩散） |
+| 稳态不可压层流（腔体、通道、外流） | `simple` |
+| 瞬态不可压、时间步内需要迭代收敛 | `transientSimple` |
+| 瞬态不可压、希望每个时间步便宜且守恒（大 Co 需减小 `deltaT`） | `piso` |
+| 湍流 | 在上面的动量求解器上加 `turbulenceModel`；高 Re 内外流优先 k-ω，工程边界层可用 SA，自由剪切层可用 k-ε |
+
+## 9. 复现全部验证
+
+```bash
+make -j4
+make test                    # 基础回归（含 heat/transport/simple 与三维/非正交腔体）
+make test-architecture       # 分层门禁
+make test-workflow           # heat/transport/coupled 的 1/2/4 rank 与时间序列
+make test-external           # 仓库外 Solver 构建
+make test-mpi                # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
+make test-simple-parallel    # 稳态/瞬态 SIMPLE 的 1/2/4 rank 一致性
+make test-rans               # 三个 RANS 模型
+make validate-cavity         # Re=100 Ghia 快速回归
+make validate-poiseuille     # Poiseuille 解析解
+```
+
+## 10. 验证边界
+
+- 上述“通过”只覆盖报告写明的网格、Re 数、格式与进程数；换问题类型、格式或网格后需要重新验证。
+- 未收敛或迭代耗尽的结果不会被写出为成功结果；报告与结论只应引用收敛状态。
+- 本框架使用 `-ffast-math`（见 [根 README](../README.md#构建与运行)），不保证逐位可复现；
+  跨进程数的比较阈值按绝对/相对容差给出，不是 bit 级。
+- 新求解器或新物理的最低验证线见 [validation.md](validation.md) 第 5 节。

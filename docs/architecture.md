@@ -1,8 +1,7 @@
 # BabelSim 架构与维护边界
 
-本文面向框架维护者。Solver 作者请先读
-[新物理求解器开发](solver-development.md) 和 [DSL 参考](procedural-dsl.md)。本页只说明
-当前源码中的层次、允许的依赖和验证方式。
+本文面向框架维护者。Solver 作者请读 [DSL 与运行时用户手册](dsl-runtime-manual.md)。
+本页只说明当前源码中的层次、允许的依赖和验证方式。
 
 ## 1. 设计目标
 
@@ -28,7 +27,7 @@ SolverResult 映射为命令行退出码。
 | 几何 | include/babelsim/geometry.h、src/geometry | 将 Mesh 的体积、面积、中心和法向表示为普通 Field |
 | 方法 | include/babelsim/methods.h、src/io/numerics_reader.cpp | 一次性读取空间/时间离散及按场覆盖 |
 | math | include/babelsim/math.h、src/discretization/operators.cpp | grad/div/flux/interpolate 等显式场运算 |
-| equ | include/babelsim/equ.h、src/discretization/procedural_equation.cpp | Equation 生命周期、逐项装配、面通量和求解 |
+| equ | include/babelsim/equ.h、src/discretization/procedural_equation.cpp | Equation 生命周期、逐项装配、面通量和求解；唯一的方程入口 |
 | 时间 | include/babelsim/time.h、history.h | TimeStepper、History；不存储算法状态 |
 | 诊断/监视 | solver.h、monitor.h | 只读 residual/change/flux；通用 metric 报告 |
 | Runtime/FVM | src/runtime、src/internal/fvm_execution.h | 活动运行域、同步、离散工作区、后端调用 |
@@ -59,12 +58,16 @@ Equation 和 History 的析构顺序由 Case/Runtime 保证，Solver 不管理�
 
 math 运算要求同一 Mesh 和位置，必要同步由运行时完成；它们返回已经计算的 Field。
 equ 操作立即修改已经绑定的 Equation，不延迟解析表达式。Equation 不暴露矩阵布局。
+方程 API 只有 equ:: 这一层：表达式式方程、它的解释器和方程级控制都已删除，装配、
+时间历史和求解时机全部写在 Physics 源码里，不存在第二套生命周期。div 绑定的面通量
+同时成为该方程唯一的边界通量上下文，换通量要 reset() 后重新装配。
 equ::faceFlux 读取实际离散项，因此 Physics 不应复制通量公式。
 
 equ::laplacian(eq, coefficient, multiplier) 的统一定义是
 multiplier * div(coefficient * grad(unknown))；调用点允许直接使用 -1 表示常用扩散左端。
 math::interpolate 只有插值语义。Rhie–Chow、SIMPLE pressure correction 和其它专用算法
-只能在相应 Physics main.cpp 中组合。
+只能在相应 Physics main.cpp 中组合。逐项语义、全部算子与配置键见
+[DSL 与运行时用户手册](dsl-runtime-manual.md) 第 6、7 节；本文档不再重述签名。
 
 ## 5. Solver 独立性
 
@@ -106,13 +109,14 @@ Solver 计算。运行时无打印逻辑。Case::output 或 output.bs 选择字�
 ## 8. 验收命令
 
 ~~~bash
-make -j4 all
-make -j4 test
-python3 tests/solver_workflow_test.py
-python3 tests/external_solver_test.py
-python3 tests/rans_validation_test.py
+make -j4 all          # lib + solve + post
+make -j4 test         # 串行单元/集成测试（含 test-architecture）
+make test-workflow    # 新 Solver 工作流、时间序列、ParaView 读取
+make test-external    # 仓库外用公共 include 构建 Solver（含负向 API 检查）
+make test-rans        # RANS 方程与常数
 ~~~
 
-涉及并行和非正交时运行 make test-mpi、make test-mpi-poiseuille 及对应回归。架构测试
-检查 include 闭包和 Physics 越界依赖；外部 Solver 测试确认只用公共 include。验证报告中的
-历史结果只表示当时提交的证据，不替代当前构建测试。
+涉及并行和非正交时运行 `make test-mpi`、`make test-mpi-poiseuille` 及对应回归。
+完整验证入口见 [验证与维护检查](validation.md)。架构测试检查 include 闭包和 Physics
+越界依赖；外部 Solver 测试确认只用公共 include。验证报告中的历史结果只表示当时提交的
+证据，不替代当前构建测试。
