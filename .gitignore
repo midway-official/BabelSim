@@ -7,3 +7,4 @@ cases/*/*/results/
 cases/*/post/
 __pycache__/
 *.pyc
+essay/
