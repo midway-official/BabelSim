@@ -85,25 +85,10 @@ double linearUpwindCorrection(
     Index cell,
     Index face)
 {
-    const double raw = dot(
+    return dot(
         detail::fieldData(field_gradient)[cell],
         detail::meshData(field.mesh()).face_centres[static_cast<std::size_t>(face)] -
             detail::meshData(field.mesh()).cell_centres[static_cast<std::size_t>(cell)]);
-    const double base = detail::fieldData(field)[cell];
-    double lower = base;
-    double upper = base;
-    const Index neighbour = detail::meshData(field.mesh()).face_neighbour[
-        static_cast<std::size_t>(face)];
-    if (neighbour != invalid_index) {
-        const double other = detail::fieldData(field)[neighbour];
-        lower = std::min(lower, other);
-        upper = std::max(upper, other);
-    } else {
-        const double boundary = boundaryFaceValue(field, face);
-        lower = std::min(lower, boundary);
-        upper = std::max(upper, boundary);
-    }
-    return std::clamp(base + raw, lower, upper) - base;
 }
 
 Vec3 linearUpwindCorrection(
@@ -114,27 +99,11 @@ Vec3 linearUpwindCorrection(
 {
     const Vec3 offset =
         detail::meshData(field.mesh()).face_centres[static_cast<std::size_t>(face)] -
-        detail::meshData(field.mesh()).cell_centres[static_cast<std::size_t>(cell)];
+            detail::meshData(field.mesh()).cell_centres[static_cast<std::size_t>(cell)];
     Vec3 correction{};
-    const Index neighbour = detail::meshData(field.mesh()).face_neighbour[
-        static_cast<std::size_t>(face)];
-    const Vec3 boundary = neighbour == invalid_index
-        ? boundaryFaceValue(field, face) : Vec3{};
     for (std::size_t component = 0; component < 3; ++component) {
-        const double raw = dot(
+        correction[component] = dot(
             detail::fieldData(field_gradient)[cell][component], offset);
-        const double base = detail::fieldData(field)[cell][component];
-        double lower = base;
-        double upper = base;
-        if (neighbour != invalid_index) {
-            const double other = detail::fieldData(field)[neighbour][component];
-            lower = std::min(lower, other);
-            upper = std::max(upper, other);
-        } else {
-            lower = std::min(lower, boundary[component]);
-            upper = std::max(upper, boundary[component]);
-        }
-        correction[component] = std::clamp(base + raw, lower, upper) - base;
     }
     return correction;
 }
