@@ -36,7 +36,9 @@ private:
 template<class T> Equation<T> createEquation(Field<T>& unknown) { return Equation<T>(unknown); }
 
 // Operators add to the LHS, source adds to the RHS. For bound unknown x:
-// div(eq, phi, c) adds c*div(phi*x); phi is an oriented, integrated face flux.
+// div(eq, phi, c) adds c*div(phi*x); phi is an oriented, integrated face flux and
+// becomes the boundary-flux context of the equation: a second, different phi is
+// rejected instead of silently overwriting the unknown's boundary traces.
 // laplacian adds multiplier*div(coefficient*grad(x)); -1 is usual LHS diffusion.
 template<class T> void div(Equation<T>&, const ScalarField& flux, double scale = 1.0);
 template<class T> void laplacian(Equation<T>&, double coefficient, double multiplier);

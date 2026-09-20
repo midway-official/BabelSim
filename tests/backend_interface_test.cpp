@@ -1,5 +1,8 @@
 #include "internal/compute_backend.h"
-#include "internal/fvm_execution.h"
+
+#include "babelsim/equ.h"
+#include "babelsim/parallel.h"
+#include "babelsim/runtime.h"
 
 #include "test_util.h"
 
@@ -49,32 +52,55 @@ public:
     int synchronizations = 0;
 };
 
+RecordingBackend* recording = nullptr;
+
 }  // 匿名命名空间
+
+// 计算后端只有一个替换点：实现 makeComputeBackend() 即可整体换掉默认的 Eigen/MPI
+// 装配与求解实现。本测试安装记录型后端，验证 equ:: 与 math:: 只通过 ComputeBackend
+// 契约访问后端，而不依赖任何具体矩阵或通信实现。
+namespace babelsim::detail {
+std::unique_ptr<ComputeBackend> makeComputeBackend(
+    const Mesh&, const LinearSolverConfig&, const LinearSolverConfig&, ParallelContext)
+{
+    auto backend = std::make_unique<RecordingBackend>();
+    recording = backend.get();
+    return backend;
+}
+}  // babelsim::detail 命名空间
 
 int main() {
     const Mesh mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
-    auto backend = std::make_unique<RecordingBackend>();
-    RecordingBackend* recording = backend.get();
-    Methods methods;
-    methods.time = TimeMethod::Euler;
-    detail::FvmExecution fvm(mesh, methods, std::move(backend), 0.1);
-    fvm.beginStep(0.1);
+    RuntimeControl control;
+    control.methods.time = TimeMethod::Euler;
+    RunTime run_time = RunTime::forMesh(mesh, control);
+    require(recording != nullptr, "the run did not install the replaceable backend");
 
     ScalarField temperature(mesh, FieldLocation::Cell, "T");
-    VectorField velocity(mesh, FieldLocation::Cell, "U");
-    VectorField gradient(mesh, FieldLocation::Cell, "gradT");
-
+    ScalarField old_temperature(mesh, FieldLocation::Cell, "Told");
+    equ::Equation<double> scalar = equ::createEquation(temperature);
+    equ::ddt(scalar, 1.0, old_temperature, 0.1);
+    equ::source(scalar, 1.0);
     require(
-        fvm.solve(eqn::ddt(temperature) == eqn::source(1.0), {}).converged(),
+        equ::solve(scalar).converged(),
         "replaceable backend did not solve a scalar equation");
+
+    VectorField velocity(mesh, FieldLocation::Cell, "U");
+    VectorField old_velocity(mesh, FieldLocation::Cell, "Uold");
+    equ::Equation<Vec3> vector = equ::createEquation(velocity);
+    equ::ddt(vector, 1.0, old_velocity, 0.1);
     require(
-        fvm.solve(eqn::ddt(velocity) == Vec3{}, {}).front().converged(),
+        equ::solve(vector).converged(),
         "replaceable backend did not solve a vector equation");
-    fvm.evaluate(math::ScalarGradient{temperature}, gradient);
 
     require(recording->scalar_solves == 1, "scalar equation bypassed compute backend");
     require(recording->vector_solves == 1, "vector equation bypassed compute backend");
-    require(recording->synchronizations == 2, "explicit operator bypassed backend synchronization");
-    require(fvm.all(true), "global logical reduction bypassed compute backend");
+
+    const int synchronizations = recording->synchronizations;
+    VectorField gradient(mesh, FieldLocation::Cell, "gradT");
+    math::evaluate(math::ScalarGradient{temperature}, gradient);
+    require(recording->synchronizations == synchronizations + 2,
+            "explicit operator bypassed backend synchronization");
+    require(diagnostics::all(true), "global logical reduction bypassed compute backend");
     std::cout << "backend_interface_test: replaceable coarse-grained backend passed\n";
 }

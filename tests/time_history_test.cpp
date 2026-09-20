@@ -1,5 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
+#include "babelsim/equ.h"
 #include "babelsim/runtime.h"
 #include "test_util.h"
 
@@ -15,12 +16,22 @@ void checkHistory(TimeMethod method) {
     control.methods.time = method;
     control.time = {0.0, 0.3, 0.1};
     RunTime time = RunTime::forMesh(mesh, control);
+    time::History<double> scalar_history = time::history(T);
+    time::History<Vec3> vector_history = time::history(U);
     while (time.loop()) {
+        // 时间层只由 History::save 推进，每个物理步恰好一次。
+        scalar_history.save(T, time.deltaT());
+        vector_history.save(U, time.deltaT());
         // 内迭代不是时间推进：重复求解同一方程，结果仍在同一个物理时间层。
         for (int correction = 0; correction < 3; ++correction) {
-            require(solve(eqn::ddt(T) == eqn::source(2.0)).converged(), "scalar solve failed");
-            require(solve(eqn::ddt(U) == eqn::source(Vec3{1, 2, 3})).converged(),
-                    "vector solve failed");
+            equ::Equation<double> scalar = equ::createEquation(T);
+            equ::ddt(scalar, 1.0, scalar_history);
+            equ::source(scalar, 2.0);
+            require(equ::solve(scalar).converged(), "scalar solve failed");
+            equ::Equation<Vec3> vector = equ::createEquation(U);
+            equ::ddt(vector, 1.0, vector_history);
+            equ::source(vector, Vec3{1, 2, 3});
+            require(equ::solve(vector).converged(), "vector solve failed");
             require(near(detail::fieldData(T)[0], 2.0 * time.time(), 1e-12), "inner solve advanced scalar history");
             require(near(detail::fieldData(U)[0], Vec3{time.time(), 2*time.time(), 3*time.time()}, 1e-12),
                     "inner solve advanced vector history");
@@ -39,8 +50,13 @@ int main() {
         control.methods.time = TimeMethod::Euler;
         control.time = {0.0, 0.25, 0.1};
         RunTime time = RunTime::forMesh(mesh, control);
+        time::History<double> history = time::history(T);
         while (time.loop()) {
-            require(solve(eqn::ddt(T) == eqn::source(1.0)).converged(), "short-step solve failed");
+            history.save(T, time.deltaT());
+            equ::Equation<double> equation = equ::createEquation(T);
+            equ::ddt(equation, 1.0, history);
+            equ::source(equation, 1.0);
+            require(equ::solve(equation).converged(), "short-step solve failed");
             require(near(detail::fieldData(T)[0], time.time(), 1e-12), "short final step used wrong deltaT");
         }
         require(time.step() == 3 && near(time.time(), 0.25), "endTime was not respected");
@@ -52,8 +68,8 @@ int main() {
         control.methods.time = TimeMethod::BDF2;
         control.time = {0, 0.25, 0.1};
         control.validate();
-        // Only the legacy loop uses uniform-step coefficients. The procedural
-        // history API supports a shortened final BDF2 step.
+        // RunTime::loop 只做等步长时间推进；变步长 BDF2 由显式 time::History 承担，
+        // 因此这条路必须整体拒绝，而不是静默按等步长系数推进。
         const Mesh mesh = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
         RunTime time = RunTime::forMesh(mesh, control);
         time.loop();
@@ -69,8 +85,10 @@ int main() {
         control.vector_solver.absolute_tolerance = 1e-30;
         control.vector_solver.relative_tolerance = 1e-25;
         RunTime time = RunTime::forMesh(mesh, control);
-        const SolveResult result = solve(
-            -eqn::laplacian(0.7, U) == eqn::source(Vec3{0, 1, 0}));
+        equ::Equation<Vec3> equation = equ::createEquation(U);
+        equ::laplacian(equation, 0.7, -1.0);  // 左端 -div(0.7 grad U)
+        equ::source(equation, Vec3{0, 1, 0});
+        const SolveResult result = equ::solve(equation);
         require(!result.converged(), "zero x/z components hid the unconverged y equation");
     }
     std::cout << "time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed\n";

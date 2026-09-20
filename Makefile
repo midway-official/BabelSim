@@ -55,7 +55,6 @@ SOURCES := src/core/mesh.cpp \
            src/io/monitor.cpp \
            src/geometry/geometry.cpp \
            src/discretization/operators.cpp \
-           src/discretization/equation_expression.cpp \
            src/discretization/fvm_execution.cpp \
            src/discretization/procedural_equation.cpp \
            src/discretization/field_math.cpp \

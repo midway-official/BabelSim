@@ -2,6 +2,7 @@
 #include "babelsim/parallel.h"
 #include "babelsim/mpi_support.h"
 #include "babelsim/linear_solver.h"
+#include "babelsim/equ.h"
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
 #include "test_util.h"
@@ -22,12 +23,28 @@ void mixedBoundary() {
     VectorField u(mesh,FieldLocation::Cell,"u");
     u.setBoundary(0,BoundaryCondition<Vec3>::inletOutlet({1,2,3}));
     u.setBoundary(1,fixedValue(Vec3{}));
-    require(solve(eqn::div(phi,c)==eqn::laplacian(1.0,c)).converged(),"mixed scalar solve failed");
+    {
+        // div(phi,c) == laplacian(1.0,c)；通量先绑定，扩散面处理据此判断入流/出流。
+        equ::Equation<double> equation = equ::createEquation(c);
+        equ::div(equation, phi);
+        equ::laplacian(equation, 1.0, -1.0);
+        require(equ::solve(equation).converged(), "mixed scalar solve failed");
+    }
     require(std::abs(detail::fieldData(c)[0]-0.6)<1e-12,"inflow diffusion contribution missing");
-    require(solve(eqn::div(phi,u)==eqn::laplacian(1.0,u)).converged(),"mixed vector solve failed");
+    {
+        equ::Equation<Vec3> equation = equ::createEquation(u);
+        equ::div(equation, phi);
+        equ::laplacian(equation, 1.0, -1.0);
+        require(equ::solve(equation).converged(), "mixed vector solve failed");
+    }
     require(norm(detail::fieldData(u)[0]-Vec3{0.6,1.2,1.8})<1e-12,"vector mixed boundary mismatch");
     phi.assignScaled(-1,phi);
-    require(solve(eqn::div(phi,c)==eqn::laplacian(1.0,c)).converged(),"reversed flow solve failed");
+    {
+        equ::Equation<double> equation = equ::createEquation(c);
+        equ::div(equation, phi);
+        equ::laplacian(equation, 1.0, -1.0);
+        require(equ::solve(equation).converged(), "reversed flow solve failed");
+    }
     require(std::abs(detail::fieldData(c)[0])<1e-12,"outflow retained inlet Dirichlet constraint");
 }
 
@@ -52,26 +69,37 @@ void boundaryAndAlgebra(const Mesh& mesh) {
     require(x.boundary(0).value == 0.0, "unknown value update modified its constraint");
 
     ScalarField a(mesh, FieldLocation::Cell, "a", 4.0), u(mesh, FieldLocation::Cell, "u", 0.0);
-    const auto equation = eqn::Sp(a, u) == 12.0;
-    auto r = solve(equation, relaxed(0.3));
+    // a(x)*u == 12：显式体源与局部隐式线性项。
+    equ::Equation<double> equation = equ::createEquation(u);
+    equ::reaction(equation, a, 1.0);
+    equ::source(equation, 12.0);
+    // 欠松弛只写进副本；原方程保持未松弛，才能用它判断真实残差。
+    equ::Equation<double> relaxed_equation = equation.copy();
+    equ::relax(relaxed_equation, u, 0.3);
+    auto r = equ::solve(relaxed_equation, u);
     require(r.converged(), "linear Sp equation failed");
-    require(!diagnostics::residual(equation).converged(1e-14, 1e-10),
+    require(diagnostics::relativeResidual(equation, u) > 1e-10,
             "relaxed-system success mistaken for original-equation convergence");
-    r = solve(equation);
-    require(r.converged() && diagnostics::residual(equation).converged(1e-14, 1e-10),
+    r = equ::solve(equation, u);
+    require(r.converged() && diagnostics::relativeResidual(equation, u) <= 1e-10,
             "original scalar equation residual is incorrect");
     for (Index cell : detail::meshData(mesh).owned_cells)
         require(near(detail::fieldData(u)[cell], 3.0), "implicit source has wrong sign/volume");
     u.fill(1.0);
-    require(!diagnostics::residual(equation).converged(1e-14, 1e-10),
+    require(diagnostics::relativeResidual(equation, u) > 1e-10,
             "post-update residual failed to detect a changed solution");
     u.fill(0.0);
-    require(!solve(eqn::Sp(1.0, u) == 1e200).converged(),
+    equ::Equation<double> overflow = equ::createEquation(u);
+    equ::reaction(overflow, 1.0);
+    equ::source(overflow, 1e200);
+    require(!equ::solve(overflow).converged(),
             "overflowed residual norm was reported as linear convergence");
     VectorField vector_unknown(mesh, FieldLocation::Cell, "vectorSp");
-    const auto vector_equation = eqn::Sp(a, vector_unknown) == eqn::source(Vec3{12,-8,20});
-    require(solve(vector_equation).converged() &&
-            diagnostics::residual(vector_equation).converged(1e-14, 1e-10),
+    equ::Equation<Vec3> vector_equation = equ::createEquation(vector_unknown);
+    equ::reaction(vector_equation, a, 1.0);
+    equ::source(vector_equation, Vec3{12,-8,20});
+    require(equ::solve(vector_equation).converged() &&
+            diagnostics::relativeResidual(vector_equation, vector_unknown) <= 1e-10,
             "vector implicit source or original-equation residual is incorrect");
     for (Index cell : detail::meshData(mesh).owned_cells)
         require(norm(detail::fieldData(vector_unknown)[cell]-Vec3{3,-2,5}) < 1e-12,
@@ -121,17 +149,18 @@ void preconditioners(const Mesh& mesh) {
                 VectorField velocity(mesh, FieldLocation::Face, "velocity", {1,0,0});
                 ScalarField phi(mesh, FieldLocation::Face, "phi");
                 math::evaluate(math::flux(velocity), phi);
-                auto lhs = -eqn::laplacian(scale, u);
-                if (solver == LinearSolverType::BiCGSTAB) lhs = lhs + eqn::div(scale, phi, u);
-                const auto equation = lhs == eqn::source(
-                    solver == LinearSolverType::BiCGSTAB ? scale : 0.0);
-                const auto result = solve(equation);
+                equ::Equation<double> assembled = equ::createEquation(u);
+                // 通量上下文先于扩散装配绑定：-div(scale grad u) [+ scale div(phi u)] == source。
+                if (solver == LinearSolverType::BiCGSTAB) equ::div(assembled, phi, scale);
+                equ::laplacian(assembled, scale, -1.0);
+                equ::source(assembled, solver == LinearSolverType::BiCGSTAB ? scale : 0.0);
+                const auto result = equ::solve(assembled);
                 if (!result.converged()) std::cerr << "solver=" << int(solver) << " pc=" << int(pc)
                     << " scale=" << scale << " residual=" << result.relative_residual << '\n';
                 require(result.converged(), "scale/preconditioner convergence contract failed");
                 require(result.final_residual <= std::max(cfg.absolute_tolerance,
                     cfg.relative_tolerance * result.initial_residual), "false linear convergence");
-                require(diagnostics::residual(equation).converged(scale*1e-12, 1e-8),
+                require(diagnostics::relativeResidual(assembled, u) <= 1e-8,
                         "preconditioned solve did not satisfy original equation");
                 for (Index cell : detail::meshData(mesh).owned_cells)
                     require(std::abs(detail::fieldData(u)[cell]-mesh.cellCentre(cell).x) < 1e-8,

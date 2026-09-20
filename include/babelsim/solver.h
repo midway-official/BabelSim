@@ -1,10 +1,9 @@
 #pragma once
 
-#include "babelsim/eqn.h"
+#include "babelsim/field.h"
+#include "babelsim/math.h"
 #include "babelsim/methods.h"
 #include "babelsim/solver_control.h"
-
-#include <string_view>
 
 namespace babelsim {
 
@@ -24,38 +23,10 @@ struct FluxBalance {
     double relative = 0.0;
 };
 
-// Runtime 之外的 Solver API：显式量属于 math，收敛与守恒量属于 diagnostics，
-// 隐式方程由 solve() 处理。它们自动使用当前线程唯一活动的 RunTime，因此 Solver
-// 不需要在每个数学操作中传递执行对象。
-// 方程级数值控制，不含矩阵、工作区或通信参数。referenceValue 是零空间的定值规范：
-// 在框架选定的固定参考单元设置值，适用于具有常数零空间且满足相容条件的标量方程。
-struct EquationControl {
-    double relaxation = 1.0;
-    bool fix_reference = false;
-    double reference_value = 0.0;
-};
-
-inline EquationControl relaxed(double factor) { return {factor, false, 0.0}; }
-inline EquationControl referenceValue(double value) { return {1.0, true, value}; }
-
-[[nodiscard]] SolveResult solve(
-    const ScalarEquationDefinition& equation, EquationControl control = {});
-// 标量和矢量方程都返回一个方程级结果；分量细节仅留在内部数值诊断。
-[[nodiscard]] SolveResult solve(
-    const VectorEquationDefinition& equation, EquationControl control = {});
-
-// 求解矢量方程并返回对体源的对角响应 V/aP；用于 SIMPLE 等算法，而不是暴露 aP 存储。
-// aP 为当前缩放行的对角，沿用 SIMPLE 约定；欠松弛时原始体源本身另乘 relaxation。
-// response 必须是独立的同网格 cell 场，不得覆盖方程的输入系数或压力。
-[[nodiscard]] SolveResult solveWithResponse(
-    const VectorEquationDefinition& equation, ScalarField& response,
-    EquationControl control = {});
-
-
+// Runtime 之外的 Solver API：显式量属于 math，隐式方程由 equ:: 组装并用 equ::solve
+// 求解，收敛与守恒量属于 diagnostics。它们自动使用当前线程唯一活动的 RunTime，
+// 因此 Solver 不需要在每个数学操作中传递执行对象。
 namespace diagnostics {
-// 在当前字段与时间历史上重新装配原方程，不求解、不推进时间、不欠松弛。
-EquationResidual residual(const ScalarEquationDefinition& equation);
-EquationResidual residual(const VectorEquationDefinition& equation);
 double relativeChange(const VectorField& current, const VectorField& previous);
 double relativeChange(const ScalarField& current, const ScalarField& previous);
 double relativeMagnitude(const ScalarField& value, const ScalarField& reference);

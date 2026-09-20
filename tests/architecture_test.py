@@ -28,9 +28,12 @@ def closure(path, stack=()):
 
 
 closures = {path: closure(path) for path in files}
-# 公开语义只使用 eqn/math；保留内部 FvmExecution 这个有限体积后端名称。
+# 公开语义只有 equ/math 一层：表达式式方程及其解释器、方程级控制已随层一起删除，
+# 方程必须显式组装；保留内部 FvmExecution 这个有限体积后端名称。
 for retired in ("include/babelsim/fvm.h", "include/babelsim/fvc.h",
-                "src/discretization/fvm_expression.cpp"):
+                "include/babelsim/eqn.h", "src/discretization/fvm_expression.cpp",
+                "src/discretization/equation_expression.cpp",
+                "src/internal/equation_control.h"):
     assert not (ROOT / retired).exists(), retired
 # Keep removed convenience wrappers from silently returning through a future
 # compatibility patch.  The backend contract is the reusable assembly/solve
@@ -55,7 +58,7 @@ implementation_headers = {
     "runtime.h", "parallel.h", "mpi_support.h", "linear_solver.h", "assembly.h",
     "distributed_solver.h", "discrete_equation.h", "operators.h",
 }
-for name in ("case.h", "solver.h", "math.h", "equ.h", "eqn.h", "application.h", "postprocess.h",
+for name in ("case.h", "solver.h", "math.h", "equ.h", "application.h", "postprocess.h",
              "result_reader.h", "monitor.h", "geometry.h"):
     for path in closures[ROOT / "include/babelsim" / name]:
         assert path.name not in implementation_headers, (name, path)

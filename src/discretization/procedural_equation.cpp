@@ -1,4 +1,5 @@
 #include "babelsim/equ.h"
+#include "babelsim/math.h"
 #include "babelsim/operators.h"
 #include "internal/fvm_execution.h"
 #include "internal/compute_backend.h"
@@ -14,6 +15,9 @@ template<class T> struct Equation<T>::Storage {
     explicit Storage(Field<T>& x) : unknown(&x), coefficients(x.mesh()) {}
     Field<T>* unknown;
     DiscreteEquation<T> coefficients;
+    // 本方程已绑定的唯一面通量上下文。不同通量会给出不同的边界迹，
+    // 一个方程只能用一个；记录首个指针以便不一致时立即报错。
+    const ScalarField* boundary_flux = nullptr;
     struct DiffusionSnapshot {
         ScalarField coefficient;
         ScalarField boundary;
@@ -75,15 +79,21 @@ template<class T> Equation<T>::Equation(Field<T>& x) : storage_(std::make_unique
 template<class T> Equation<T>::~Equation() = default;
 template<class T> Equation<T>::Equation(Equation&&) noexcept = default;
 template<class T> Equation<T>& Equation<T>::operator=(Equation&&) noexcept = default;
-template<class T> void clear(Equation<T>& a) { state(a).coefficients.reset(); state(a).diffusion.clear(); }
+template<class T> void clear(Equation<T>& a) {
+    state(a).coefficients.reset(); state(a).diffusion.clear(); state(a).boundary_flux = nullptr;
+}
 template<class T> Equation<T> copy(const Equation<T>& a) {
-    Equation<T> b(*state(a).unknown); state(b).coefficients = state(a).coefficients; state(b).diffusion=state(a).diffusion; return b;
+    Equation<T> b(*state(a).unknown); state(b).coefficients = state(a).coefficients;
+    state(b).diffusion=state(a).diffusion; state(b).boundary_flux=state(a).boundary_flux; return b;
 }
 template<class T> void div(Equation<T>& a, const ScalarField& phi, double factor) {
     finite(factor);
     auto& s = state(a); auto& x = *s.unknown;
     if (&phi.mesh()!=&x.mesh() || phi.location()!=FieldLocation::Face)
         throw std::invalid_argument("equ::div requires a face flux");
+    if (s.boundary_flux != nullptr && s.boundary_flux != &phi)
+        throw std::invalid_argument("one equation requires one boundary flux context");
+    s.boundary_flux = &phi;
     backend().synchronize(const_cast<ScalarField&>(phi));
     x.setBoundaryFlux(phi); finish(x);
     const auto& m = numericalMethods();
@@ -201,6 +211,11 @@ template<class T> void scale(Equation<T>& a,double f) {
 template<class T> void add(Equation<T>& a,const Equation<T>& b,double f) {
     auto& sa=state(a); const auto& sb=state(b);
     if (sa.unknown != sb.unknown) throw std::invalid_argument("matrix addition requires same unknown binding");
+    if (sb.boundary_flux != nullptr) {
+        if (sa.boundary_flux != nullptr && sa.boundary_flux != sb.boundary_flux)
+            throw std::invalid_argument("one equation requires one boundary flux context");
+        sa.boundary_flux = sb.boundary_flux;
+    }
     // Copy first so self-addition does not invalidate iterators.
     auto contributions=sb.diffusion;
     accumulate(sa.coefficients,sb.coefficients,f);

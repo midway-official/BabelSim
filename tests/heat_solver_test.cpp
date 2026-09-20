@@ -1,8 +1,7 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
+#include "babelsim/equ.h"
 #include "babelsim/runtime.h"
-
-#include "babelsim/eqn.h"
 
 #include "test_util.h"
 
@@ -28,8 +27,13 @@ int main() {
     RunTime run_time = RunTime::forMesh(mesh, control);
 
     require(run_time.loop(), "heat run did not start its time step");
-    const SolveResult result = solve(
-        eqn::ddt(temperature) == eqn::laplacian(1.0, temperature));
+    // 时间层由求解器唯一显式推进：每物理步恰好 save 一次。
+    time::History<double> history = time::history(temperature);
+    history.save(temperature, run_time.deltaT());
+    equ::Equation<double> equation = equ::createEquation(temperature);
+    equ::ddt(equation, 1.0, history);
+    equ::laplacian(equation, 1.0, -1.0);
+    const SolveResult result = equ::solve(equation);
     require(result.converged(), "heat equation did not converge");
     require(!run_time.loop(), "heat run used an unexpected number of time steps");
     require(
@@ -37,17 +41,20 @@ int main() {
         "implicit heat equation does not match the one-cell FVM result");
     require(run_time.step() == 1, "runtime did not advance exactly one step");
 
-    // 系数也可以是 cell Field。RunTime 自动将扩散系数插值到面，同时保持 ddt
-    // 系数在单元上；Solver 不需要编写插值、矩阵组装或并行同步。
+    // 系数也可以是 cell Field：扩散系数由算子插值到面，ddt 系数保持在单元上；
+    // Solver 不需要编写插值、矩阵组装或并行同步。
     ScalarField variable_temperature(mesh, FieldLocation::Cell, "Tv", 1.0);
     ScalarField heat_capacity(mesh, FieldLocation::Cell, "rhoCp", 2.0);
     ScalarField conductivity(mesh, FieldLocation::Cell, "k", 1.0);
     for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         variable_temperature.boundary(patch) = fixedValue(0.0);
     }
-    const SolveResult variable_result = solve(
-        eqn::ddt(heat_capacity, variable_temperature) ==
-            eqn::laplacian(conductivity, variable_temperature));
+    time::History<double> variable_history = time::history(variable_temperature);
+    variable_history.save(variable_temperature, run_time.deltaT());
+    equ::Equation<double> variable_equation = equ::createEquation(variable_temperature);
+    equ::ddt(variable_equation, heat_capacity, variable_history);
+    equ::laplacian(variable_equation, conductivity, -1.0);
+    const SolveResult variable_result = equ::solve(variable_equation);
     require(variable_result.converged(), "variable-coefficient heat solve did not converge");
     require(
         near(detail::fieldData(variable_temperature)[0], 20.0 / 32.0, 1e-12),
@@ -60,9 +67,13 @@ int main() {
     for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch) {
         field_temperature.boundary(patch) = fixedValue(0.0);
     }
-    const SolveResult field_result = solve(
-        eqn::ddt(heat_capacity, field_temperature) ==
-            eqn::laplacian(conductivity, field_temperature) + eqn::source(field_source));
+    time::History<double> field_history = time::history(field_temperature);
+    field_history.save(field_temperature, run_time.deltaT());
+    equ::Equation<double> field_equation = equ::createEquation(field_temperature);
+    equ::ddt(field_equation, heat_capacity, field_history);
+    equ::laplacian(field_equation, conductivity, -1.0);
+    equ::source(field_equation, field_source);
+    const SolveResult field_result = equ::solve(field_equation);
     require(field_result.converged(), "Field-material heat step did not converge");
 
     std::cout << "heat_solver_test: T=" << detail::fieldData(temperature)[0]

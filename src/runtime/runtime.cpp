@@ -21,8 +21,8 @@ struct RunTime::Implementation {
           fvm(mesh_value, control.methods,
               detail::makeComputeBackend(
                   mesh_value, control.scalar_solver, control.vector_solver,
-              std::move(parallel_value)),
-              control.time.delta_t), started(std::chrono::steady_clock::now()) {}
+              std::move(parallel_value))),
+          started(std::chrono::steady_clock::now()) {}
     const Mesh* mesh;
     RuntimeControl control;
     bool primary_rank;
@@ -134,7 +134,6 @@ bool RunTime::loop() {
         static_cast<long double>(state.current_step + 1) * control.delta_t);
     state.current_delta_t = remaining < control.delta_t - tolerance ? remaining : control.delta_t;
     state.current_time = next >= control.end_time - tolerance ? control.end_time : next;
-    state.fvm.beginStep(state.current_delta_t);
     ++state.current_step;
     return true;
 }

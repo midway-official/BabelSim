@@ -1,48 +1,10 @@
 #include "babelsim/runtime.h"
 #include "internal/fvm_execution.h"
 
-#include <algorithm>
-#include <cmath>
-#include <stdexcept>
-
 namespace babelsim {
 
 const Methods& numericalMethods() { return RunTime::current().methods(); }
 bool primaryProcess() { return RunTime::current().primary(); }
-
-SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control) {
-    return detail::execution().solve(equation, control);
-}
-
-namespace {
-SolveResult aggregate(const std::array<SolveResult, 3>& components) {
-    SolveResult result;
-    result.status = SolveStatus::Converged;
-    for (const SolveResult& component : components) {
-        if (!component.healthy()) result.status = SolveStatus::NumericalFailure;
-        else if (!component.converged() && result.status != SolveStatus::NumericalFailure)
-            result.status = SolveStatus::MaxIterations;
-        result.iterations += component.iterations;
-        result.initial_residual = std::hypot(result.initial_residual, component.initial_residual);
-        result.final_residual = std::hypot(result.final_residual, component.final_residual);
-        result.relative_residual = std::max(result.relative_residual, component.relative_residual);
-        result.performance += component.performance;
-    }
-    return result;
-}
-
-}  // 匿名命名空间
-
-SolveResult solve(const VectorEquationDefinition& equation, EquationControl control) {
-    if (control.fix_reference) throw std::invalid_argument("referenceValue requires a scalar equation");
-    return aggregate(detail::execution().solve(equation, {control.relaxation, nullptr}));
-}
-
-SolveResult solveWithResponse(const VectorEquationDefinition& equation, ScalarField& response,
-                              EquationControl control) {
-    if (control.fix_reference) throw std::invalid_argument("referenceValue requires a scalar equation");
-    return aggregate(detail::execution().solve(equation, {control.relaxation, &response}));
-}
 
 namespace math {
 
@@ -112,13 +74,6 @@ void subtract(ScalarDiffusionFlux operation, ScalarField& target, FaceRegion reg
 }  // math 命名空间
 
 namespace diagnostics {
-EquationResidual residual(const ScalarEquationDefinition& equation) {
-    return detail::execution().residual(equation);
-}
-EquationResidual residual(const VectorEquationDefinition& equation) {
-    return detail::execution().residual(equation);
-}
-
 double relativeChange(const VectorField& current, const VectorField& previous) {
     return detail::execution().relativeChange(current, previous);
 }

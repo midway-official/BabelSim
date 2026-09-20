@@ -56,10 +56,11 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
                      "-fsyntax-only", "case_api.cpp", cwd=work, success=success)
         if not success:
             assert method in result.stderr
-    for name in ("fvm", "fvc"):
+    # 已删除的方程层：表达式式 eqn::、更早的 fvm/fvc 都不能再从公开头到达。
+    for name in ("fvm", "fvc", "eqn"):
         assert not (work / "include/babelsim" / (name + ".h")).exists()
         (work / "retired_api.cpp").write_text(
-            '#include "babelsim/eqn.h"\nusing namespace babelsim;\n'
+            '#include "babelsim/equ.h"\nusing namespace babelsim;\n'
             f'void retired(ScalarField& T){{ {name}::laplacian(1.0,T); }}\n')
         failure = run("g++", "-std=c++17", "-Iinclude", "-fsyntax-only",
                       "retired_api.cpp", cwd=work, success=False)
@@ -112,7 +113,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "mesh_partition": 'auto cells = mesh.ownedCellCount(); (void)cells;',
         "mesh_mutation": 'mesh.setOwnership({1,1,1}, 0, 0, 1, 0);',
         "mesh_replacement": 'mesh = explicitHex();',
-        "equation_storage": 'auto e = eqn::ddt(field) == 0.0; e.discrete();',
+        "equation_storage": 'auto equation = equ::createEquation(field); equation.discrete();',
         "face_kernel": 'math::integratedNormalGradient(field, field, 0);',
     }
     expected_diagnostics = {
@@ -129,7 +130,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         '{{0,3,2,1},0},{{4,5,6,7},0}}); }\n')
     for name, body in negative.items():
         source = work / f"{name}.cpp"
-        source.write_text('#include "babelsim/solver.h"\nusing namespace babelsim;\n'
+        source.write_text('#include "babelsim/equ.h"\n#include "babelsim/solver.h"\n'
+                          'using namespace babelsim;\n'
                           + mesh_initialization + 'int main(){ Mesh mesh = explicitHex();\n'
                           'ScalarField field(mesh, FieldLocation::Cell);\n' + body + '\n}\n')
         failure = run("g++", "-std=c++17", "-Iinclude", "-fsyntax-only", source, cwd=work, success=False)

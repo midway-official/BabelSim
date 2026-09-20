@@ -1,35 +1,27 @@
 #pragma once
 
+#include "babelsim/math.h"
 #include "babelsim/methods.h"
 #include "babelsim/solver.h"
-#include "internal/equation_control.h"
 
-#include <array>
 #include <memory>
 
 namespace babelsim::detail {
 class ComputeBackend;
 
-// FVM 数值执行层：解释数学描述并调用通用算子；计算后端负责同步、归约、装配与求解。
-// 该类独占离散工作区和时间历史，不依赖 MPI、Eigen 或具体稀疏矩阵实现。
+// FVM 数值执行层：解释数学描述并调用通用算子；计算后端负责同步、归约与装配。
+// 该类独占离散工作区，不依赖 MPI、Eigen 或具体稀疏矩阵实现；方程装配与求解由
+// equ:: 显式对象承担，执行层只提供后端、网格与显式算法求值。
 class FvmExecution {
 public:
     FvmExecution(
-        const Mesh&, const Methods&, std::unique_ptr<ComputeBackend>, double delta_t);
+        const Mesh&, const Methods&, std::unique_ptr<ComputeBackend>);
     ~FvmExecution();
     FvmExecution(const FvmExecution&) = delete;
     FvmExecution& operator=(const FvmExecution&) = delete;
-    void beginStep(double delta_t);
     // Internal bridge for the immediate procedural assembler.
     ComputeBackend& backend();
     const Mesh& mesh() const;
-    SolveResult solve(const ScalarEquationDefinition& equation, EquationControl control,
-                      EquationResidual* residual = nullptr);
-    std::array<SolveResult, 3> solve(
-        const VectorEquationDefinition& equation,
-        VectorEquationControl control, EquationResidual* residual = nullptr);
-    EquationResidual residual(const ScalarEquationDefinition& equation);
-    EquationResidual residual(const VectorEquationDefinition& equation);
     void evaluate(math::ScalarGradient operation, VectorField& result);
     void evaluate(math::NormalGradient operation, ScalarField& result);
     void evaluate(math::ScalarDiffusionFlux operation, ScalarField& result);

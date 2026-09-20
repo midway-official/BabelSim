@@ -4,7 +4,6 @@
 #include "internal/boundary_evaluation.h"
 #include "internal/fvm_execution.h"
 
-#include "babelsim/discrete_equation.h"
 #include "babelsim/operators.h"
 
 #include <algorithm>
@@ -13,7 +12,6 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <type_traits>
 #include <vector>
 
 namespace babelsim {
@@ -35,10 +33,6 @@ void requireFaceField(const ScalarField& field, const Mesh& mesh, const char* na
     }
 }
 
-int residualSign(bool lhs, int term_sign) {
-    return (lhs ? 1 : -1) * term_sign;
-}
-
 void requireDistinct(const void* input, const void* result) {
     if (input == result)
         throw std::invalid_argument("explicit operator input and result must not alias");
@@ -47,58 +41,19 @@ void requireDistinct(const void* input, const void* result) {
 }  // 匿名命名空间
 
 struct FvmExecution::Implementation {
-    template <typename T>
-    struct History {
-        explicit History(const Field<T>& field)
-            : source(&field), previous(field), older(field)
-        {}
-
-        const Field<T>* source;
-        Field<T> previous;
-        Field<T> older;
-        bool has_older = false;
-
-        void advance(const Field<T>& current) {
-            older.assign(previous);
-            previous.assign(current);
-            has_older = true;
-        }
-    };
-
-    using ScalarHistory = History<double>;
-    using VectorHistory = History<Vec3>;
-
     Implementation(const Mesh& mesh_value, const Methods& methods_value,
-                   std::unique_ptr<ComputeBackend> backend_value,
-                   double initial_delta_t)
+                   std::unique_ptr<ComputeBackend> backend_value)
         : mesh(&mesh_value),
           methods(methods_value),
           backend(std::move(backend_value)),
           gradient_workspace(mesh_value, FieldLocation::Cell, "grad"),
           face_coefficient_workspace(mesh_value, FieldLocation::Face, "faceCoefficient"),
-          face_flux_workspace(mesh_value, FieldLocation::Face, "faceFlux"),
-          delta_t(initial_delta_t)
+          face_flux_workspace(mesh_value, FieldLocation::Face, "faceFlux")
     {
         mesh->validate();
         if (meshData(*mesh).ghost_layers != 0 && meshData(*mesh).ghost_layers < 3)
             throw std::invalid_argument("FVM composite operators require ghostLayers >= 3");
         if (!backend) throw std::invalid_argument("FVM execution requires a compute backend");
-    }
-
-    ScalarHistory& history(const ScalarField& field) {
-        for (ScalarHistory& value : scalar_histories) {
-            if (value.source == &field) return value;
-        }
-        scalar_histories.emplace_back(field);
-        return scalar_histories.back();
-    }
-
-    VectorHistory& history(const VectorField& field) {
-        for (VectorHistory& value : vector_histories) {
-            if (value.source == &field) return value;
-        }
-        vector_histories.emplace_back(field);
-        return vector_histories.back();
     }
 
     template <typename T>
@@ -119,63 +74,22 @@ struct FvmExecution::Implementation {
         synchronize(target);
     }
 
-    template <typename T>
-    EquationResidual measure(const DiscreteEquation<T>& equation, Field<T>& unknown) {
-        synchronize(unknown);
-        const auto* x = fieldData(static_cast<const Field<T>&>(unknown));
-        std::vector<T> ax(mesh->cellCount());
-        for (Index cell : meshData(*mesh).owned_cells)
-            ax[cell] = equation.diagonal[cell] * x[cell];
-        for (Index face = 0; face < mesh->faceCount(); ++face) {
-            const Index owner = mesh->owner(face), neighbour = mesh->neighbour(face);
-            if (neighbour == invalid_index) continue;
-            if (isOwned(*mesh, owner)) ax[owner] += equation.upper[face] * x[neighbour];
-            if (isOwned(*mesh, neighbour)) ax[neighbour] += equation.lower[face] * x[owner];
-        }
-        double local[3]{}, global[3]{};
-        const auto squared = [](const auto& value) {
-            if constexpr (std::is_same_v<std::decay_t<decltype(value)>, double>) return value * value;
-            else return squaredNorm(value);
-        };
-        for (Index cell : meshData(*mesh).owned_cells) {
-            local[0] += squared(ax[cell] - equation.source[cell]);
-            local[1] += squared(ax[cell]);
-            local[2] += squared(equation.source[cell]);
-        }
-        backend->sum(local, global, 3);
-        return {std::sqrt(global[0]), std::sqrt(global[1]) + std::sqrt(global[2])};
-    }
-
     const Mesh* mesh;
     Methods methods;
     std::unique_ptr<ComputeBackend> backend;
-    std::vector<ScalarHistory> scalar_histories;
-    std::vector<VectorHistory> vector_histories;
     VectorField gradient_workspace;
     ScalarField face_coefficient_workspace;
     ScalarField face_flux_workspace;
-    double delta_t;
-    bool has_time_step = false;
 };
 
 
 FvmExecution::FvmExecution(const Mesh& mesh, const Methods& methods,
-                           std::unique_ptr<ComputeBackend> backend, double delta_t)
+                           std::unique_ptr<ComputeBackend> backend)
     : m_implementation(std::make_unique<Implementation>(
-          mesh, methods, std::move(backend), delta_t)) {}
+          mesh, methods, std::move(backend))) {}
 FvmExecution::~FvmExecution() = default;
 ComputeBackend& FvmExecution::backend() { return *m_implementation->backend; }
 const Mesh& FvmExecution::mesh() const { return *m_implementation->mesh; }
-
-void FvmExecution::beginStep(double delta_t) {
-    Implementation& state = *m_implementation;
-    if (state.has_time_step) {
-        for (auto& history : state.scalar_histories) history.advance(*history.source);
-        for (auto& history : state.vector_histories) history.advance(*history.source);
-    }
-    state.delta_t = delta_t;
-    state.has_time_step = true;
-}
 
 double FvmExecution::relativeChange(
     const VectorField& current,
@@ -271,421 +185,6 @@ bool FvmExecution::all(bool local_condition) const {
 
 PerformanceCounters FvmExecution::performance() const {
     return m_implementation->backend->performance();
-}
-
-namespace {
-
-void addScalarSource(
-    ScalarDiscreteEquation& equation, const Mesh& mesh, const ScalarEquationTerm& term, int canonical)
-{
-    const double scale = -static_cast<double>(canonical) * term.coefficient;
-    if (term.field == nullptr) {
-        for (Index cell : detail::meshData(mesh).owned_cells) {
-            equation.source[static_cast<std::size_t>(cell)] +=
-                scale * detail::meshData(mesh).cell_volumes[static_cast<std::size_t>(cell)];
-        }
-        return;
-    }
-    requireCellField(*term.field, mesh, "scalar source");
-    for (Index cell : detail::meshData(mesh).owned_cells) {
-        equation.source[static_cast<std::size_t>(cell)] +=
-            scale * detail::fieldData((*term.field))[cell] * detail::meshData(mesh).cell_volumes[static_cast<std::size_t>(cell)];
-    }
-}
-
-void addVectorSource(
-    VectorDiscreteEquation& equation, const Mesh& mesh, const VectorEquationTerm& term, int canonical)
-{
-    const double scale = -static_cast<double>(canonical) * term.coefficient;
-    if (term.vector_field != nullptr) requireCellField(*term.vector_field, mesh, "vector source");
-    for (Index cell : detail::meshData(mesh).owned_cells) {
-        equation.source[static_cast<std::size_t>(cell)] +=
-            scale * (term.vector_field != nullptr ? detail::fieldData((*term.vector_field))[cell] : term.vector_source) *
-                detail::meshData(mesh).cell_volumes[static_cast<std::size_t>(cell)];
-    }
-}
-
-}  // 匿名命名空间
-
-SolveResult FvmExecution::solve(
-    const ScalarEquationDefinition& expression,
-    EquationControl equation_control, EquationResidual* residual_result)
-{
-    Implementation& state = *m_implementation;
-    if (!(equation_control.relaxation > 0.0 && equation_control.relaxation <= 1.0) ||
-        !std::isfinite(equation_control.reference_value))
-        throw std::invalid_argument("invalid equation relaxation or reference value");
-    const ScalarField* unknown_pointer = nullptr;
-    const auto inspect_unknown = [&unknown_pointer](const std::vector<ScalarEquationTerm>& terms) {
-        for (const ScalarEquationTerm& term : terms) {
-            if (term.kind == EquationTermKind::Source || term.field == nullptr) continue;
-            if (unknown_pointer != nullptr && unknown_pointer != term.field) {
-                throw std::invalid_argument("a scalar equation must have one transported field");
-            }
-            unknown_pointer = term.field;
-        }
-    };
-    inspect_unknown(expression.lhs.m_terms);
-    inspect_unknown(expression.rhs.m_terms);
-    if (unknown_pointer == nullptr) {
-        throw std::invalid_argument("scalar equation has no unknown field");
-    }
-    ScalarField& unknown = const_cast<ScalarField&>(*unknown_pointer);
-    requireCellField(unknown, *state.mesh, "scalar unknown");
-    if (unknown.calculatedBoundary())
-        throw std::invalid_argument("calculated boundary traces cannot constrain an unknown equation");
-    const ScalarField* boundary_flux = nullptr;
-    const auto inspect_flux = [&](const auto& terms) {
-        for (const auto& term : terms) if (term.kind == EquationTermKind::Convection) {
-            if (boundary_flux && boundary_flux != term.flux)
-                throw std::invalid_argument("one equation requires one boundary flux context");
-            boundary_flux = term.flux;
-        }
-    };
-    inspect_flux(expression.lhs.m_terms);
-    inspect_flux(expression.rhs.m_terms);
-    if (boundary_flux) {
-        requireFaceField(*boundary_flux, *state.mesh, "boundary flux");
-        state.synchronize(const_cast<ScalarField&>(*boundary_flux));
-        unknown.setBoundaryFlux(*boundary_flux);
-    }
-
-    ScalarDiscreteEquation equation(*state.mesh);
-
-    const auto add = [&](const std::vector<ScalarEquationTerm>& terms, bool lhs) {
-        for (const ScalarEquationTerm& term : terms) {
-            const int canonical = residualSign(lhs, term.sign);
-            switch (term.kind) {
-                case EquationTermKind::TimeDerivative: {
-                    if (canonical != 1 || term.field != &unknown) {
-                        throw std::invalid_argument("ddt must be a positive left-hand-side term");
-                    }
-                    Implementation::ScalarHistory& history = state.history(unknown);
-                    // BDF2 首步还没有两个历史层，用 Euler 启动。
-                    const TimeMethod method = state.methods.time == TimeMethod::BDF2 &&
-                        !history.has_older ? TimeMethod::Euler : state.methods.time;
-                    if (term.coefficient_field != nullptr) {
-                        requireCellField(
-                            *term.coefficient_field, *state.mesh, "time coefficient");
-                        state.synchronize(const_cast<ScalarField&>(*term.coefficient_field));
-                        addTimeDerivative(
-                            equation, history.previous, state.delta_t, *term.coefficient_field,
-                            method,
-                            history.has_older ? &history.older : nullptr);
-                    } else {
-                        addTimeDerivative(
-                            equation, history.previous, state.delta_t, term.coefficient,
-                            method,
-                            history.has_older ? &history.older : nullptr);
-                    }
-                    break;
-                }
-                case EquationTermKind::Convection:
-                    if (canonical != 1 || term.field != &unknown || term.flux == nullptr) {
-                        throw std::invalid_argument("implicit convection must be a positive left-hand-side term");
-                    }
-                    requireFaceField(*term.flux, *state.mesh, "convection flux");
-                    state.synchronize(const_cast<ScalarField&>(*term.flux));
-                    state.synchronize(unknown);
-                    addConvection(
-                        equation, *term.flux, unknown,
-                        state.methods.convectionFor(unknown.name()),
-                        state.methods.interpolationFor(unknown.name()),
-                        state.methods.gradientFor(unknown.name()),
-                        term.coefficient);
-                    break;
-                case EquationTermKind::Laplacian:
-                    if (canonical != -1 || term.field != &unknown) {
-                        throw std::invalid_argument("laplacian must appear on the right-hand side or negated on the left");
-                    }
-                    state.synchronize(unknown);
-                    if (term.coefficient_field != nullptr) {
-                        const ScalarField& coefficient = *term.coefficient_field;
-                        if (&coefficient.mesh() != state.mesh ||
-                            (coefficient.location() != FieldLocation::Cell &&
-                             coefficient.location() != FieldLocation::Face)) {
-                            throw std::invalid_argument("diffusivity must be a cell or face field");
-                        }
-                        state.synchronize(const_cast<ScalarField&>(coefficient));
-                        const ScalarField* face_coefficient = &coefficient;
-                        if (coefficient.location() == FieldLocation::Cell) {
-                            interpolate(
-                                coefficient, state.face_coefficient_workspace,
-                                state.methods.interpolationFor(unknown.name()),
-                                state.methods.gradientFor(unknown.name()));
-                            state.synchronize(state.face_coefficient_workspace);
-                            face_coefficient = &state.face_coefficient_workspace;
-                        }
-                        addDiffusion(
-                            equation, *face_coefficient, unknown,
-                            state.methods.gradientFor(unknown.name()),
-                            state.methods.diffusionFor(unknown.name()));
-                    } else {
-                        addDiffusion(
-                            equation, term.coefficient, unknown,
-                            state.methods.gradientFor(unknown.name()),
-                            state.methods.diffusionFor(unknown.name()));
-                    }
-                    break;
-                case EquationTermKind::LinearSource: {
-                    if (term.coefficient_field)
-                        requireCellField(*term.coefficient_field, *state.mesh, "linear coefficient");
-                    for (Index cell : meshData(*state.mesh).owned_cells) {
-                        const double value = term.coefficient * (term.coefficient_field
-                            ? fieldData(*term.coefficient_field)[cell] : 1.0);
-                        if (!std::isfinite(value)) throw std::invalid_argument("nonfinite linear coefficient");
-                        equation.diagonal[cell] += canonical * value * state.mesh->cellVolume(cell);
-                    }
-                    break;
-                }
-                case EquationTermKind::Source:
-                    addScalarSource(equation, *state.mesh, term, canonical);
-                    break;
-                case EquationTermKind::Gradient:
-                    throw std::invalid_argument("gradient is not a scalar implicit term");
-            }
-        }
-    };
-    add(expression.lhs.m_terms, true);
-    add(expression.rhs.m_terms, false);
-    if (residual_result) {
-        *residual_result = state.measure(equation, unknown);
-        return {};
-    }
-
-
-    if (equation_control.relaxation != 1.0) {
-        for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-            const std::size_t index = static_cast<std::size_t>(cell);
-            const double added = equation.diagonal[index] * (1.0 / equation_control.relaxation - 1.0);
-            equation.diagonal[index] += added;
-            equation.source[index] += added * detail::fieldData(unknown)[cell];
-        }
-    }
-    if (equation_control.fix_reference) {
-        for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-            if (detail::globalCellId(*state.mesh, cell) != 0) continue;
-            const std::size_t index = static_cast<std::size_t>(cell);
-            if (!(equation.diagonal[index] > 0.0)) {
-                throw std::runtime_error("reference equation diagonal is invalid");
-            }
-            equation.source[index] += equation.diagonal[index] * equation_control.reference_value;
-            equation.diagonal[index] += equation.diagonal[index];
-            break;
-        }
-    }
-
-    return state.backend->solve(equation, unknown);
-}
-
-std::array<SolveResult, 3> FvmExecution::solve(
-    const VectorEquationDefinition& expression,
-    VectorEquationControl equation_control, EquationResidual* residual_result)
-{
-    Implementation& state = *m_implementation;
-    if (!(equation_control.relaxation > 0.0 &&
-          equation_control.relaxation <= 1.0)) {
-        throw std::invalid_argument("vector equation relaxation must be in (0, 1]");
-    }
-    if (equation_control.mobility != nullptr) {
-        requireCellField(*equation_control.mobility, *state.mesh, "equation mobility");
-    }
-    const VectorField* unknown_pointer = nullptr;
-    const auto inspect_unknown = [&unknown_pointer, &equation_control](const std::vector<VectorEquationTerm>& terms) {
-        for (const VectorEquationTerm& term : terms) {
-            if (equation_control.mobility != nullptr &&
-                (term.scalar_field == equation_control.mobility ||
-                 term.coefficient_field == equation_control.mobility ||
-                 term.flux == equation_control.mobility))
-                throw std::invalid_argument("equation response must not alias an input field");
-            if (term.kind == EquationTermKind::Source || term.vector_field == nullptr) continue;
-            if (unknown_pointer != nullptr && unknown_pointer != term.vector_field) {
-                throw std::invalid_argument("a vector equation must have one transported field");
-            }
-            unknown_pointer = term.vector_field;
-        }
-    };
-    inspect_unknown(expression.lhs.m_terms);
-    inspect_unknown(expression.rhs.m_terms);
-    if (unknown_pointer == nullptr) {
-        throw std::invalid_argument("vector equation has no unknown field");
-    }
-    VectorField& unknown = const_cast<VectorField&>(*unknown_pointer);
-    requireCellField(unknown, *state.mesh, "vector unknown");
-    if (unknown.calculatedBoundary())
-        throw std::invalid_argument("calculated boundary traces cannot constrain an unknown equation");
-    const ScalarField* boundary_flux = nullptr;
-    const auto inspect_flux = [&](const auto& terms) {
-        for (const auto& term : terms) if (term.kind == EquationTermKind::Convection) {
-            if (boundary_flux && boundary_flux != term.flux)
-                throw std::invalid_argument("one equation requires one boundary flux context");
-            boundary_flux = term.flux;
-        }
-    };
-    inspect_flux(expression.lhs.m_terms);
-    inspect_flux(expression.rhs.m_terms);
-    if (boundary_flux) {
-        requireFaceField(*boundary_flux, *state.mesh, "boundary flux");
-        state.synchronize(const_cast<ScalarField&>(*boundary_flux));
-        unknown.setBoundaryFlux(*boundary_flux);
-    }
-
-    VectorDiscreteEquation equation(*state.mesh);
-
-    const auto add = [&](const std::vector<VectorEquationTerm>& terms, bool lhs) {
-        for (const VectorEquationTerm& term : terms) {
-            const int canonical = residualSign(lhs, term.sign);
-            switch (term.kind) {
-                case EquationTermKind::TimeDerivative: {
-                    if (canonical != 1 || term.vector_field != &unknown) {
-                        throw std::invalid_argument("ddt must be a positive left-hand-side term");
-                    }
-                    Implementation::VectorHistory& history = state.history(unknown);
-                    // BDF2 首步还没有两个历史层，用 Euler 启动。
-                    const TimeMethod method = state.methods.time == TimeMethod::BDF2 &&
-                        !history.has_older ? TimeMethod::Euler : state.methods.time;
-                    if (term.coefficient_field != nullptr) {
-                        requireCellField(
-                            *term.coefficient_field, *state.mesh, "time coefficient");
-                        state.synchronize(const_cast<ScalarField&>(*term.coefficient_field));
-                        addTimeDerivative(
-                            equation, history.previous, state.delta_t, *term.coefficient_field,
-                            method,
-                            history.has_older ? &history.older : nullptr);
-                    } else {
-                        addTimeDerivative(
-                            equation, history.previous, state.delta_t, term.coefficient,
-                            method,
-                            history.has_older ? &history.older : nullptr);
-                    }
-                    break;
-                }
-                case EquationTermKind::Convection:
-                    if (canonical != 1 || term.vector_field != &unknown || term.flux == nullptr) {
-                        throw std::invalid_argument("implicit convection must be a positive left-hand-side term");
-                    }
-                    requireFaceField(*term.flux, *state.mesh, "convection flux");
-                    state.synchronize(const_cast<ScalarField&>(*term.flux));
-                    state.synchronize(unknown);
-                    addConvection(
-                        equation, *term.flux, unknown,
-                        state.methods.convectionFor(unknown.name()),
-                        state.methods.interpolationFor(unknown.name()),
-                        state.methods.gradientFor(unknown.name()),
-                        term.coefficient);
-                    break;
-                case EquationTermKind::Laplacian:
-                    if (canonical != -1 || term.vector_field != &unknown) {
-                        throw std::invalid_argument("laplacian must appear on the right-hand side or negated on the left");
-                    }
-                    state.synchronize(unknown);
-                    if (term.coefficient_field != nullptr) {
-                        const ScalarField& coefficient = *term.coefficient_field;
-                        if (&coefficient.mesh() != state.mesh ||
-                            (coefficient.location() != FieldLocation::Cell &&
-                             coefficient.location() != FieldLocation::Face)) {
-                            throw std::invalid_argument("diffusivity must be a cell or face field");
-                        }
-                        state.synchronize(const_cast<ScalarField&>(coefficient));
-                        const ScalarField* face_coefficient = &coefficient;
-                        if (coefficient.location() == FieldLocation::Cell) {
-                            interpolate(
-                                coefficient, state.face_coefficient_workspace,
-                                state.methods.interpolationFor(unknown.name()),
-                                state.methods.gradientFor(unknown.name()));
-                            state.synchronize(state.face_coefficient_workspace);
-                            face_coefficient = &state.face_coefficient_workspace;
-                        }
-                        addDiffusion(
-                            equation, *face_coefficient, unknown,
-                            state.methods.gradientFor(unknown.name()),
-                            state.methods.diffusionFor(unknown.name()));
-                    } else {
-                        addDiffusion(
-                            equation, term.coefficient, unknown,
-                            state.methods.gradientFor(unknown.name()),
-                            state.methods.diffusionFor(unknown.name()));
-                    }
-                    break;
-                case EquationTermKind::Gradient:
-                    if (term.scalar_field == nullptr) {
-                        throw std::invalid_argument("gradient term has no scalar field");
-                    }
-                    requireCellField(*term.scalar_field, *state.mesh, "gradient field");
-                    state.synchronize(const_cast<ScalarField&>(*term.scalar_field));
-                    gradient(
-                        *term.scalar_field, state.gradient_workspace,
-                        state.methods.gradientFor(term.scalar_field->name()));
-                    state.synchronize(state.gradient_workspace);
-                    for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-                        equation.source[static_cast<std::size_t>(cell)] -=
-                            static_cast<double>(canonical) *
-                            detail::meshData(*state.mesh).cell_volumes[static_cast<std::size_t>(cell)] *
-                            detail::fieldData(state.gradient_workspace)[cell];
-                    }
-                    break;
-                case EquationTermKind::LinearSource: {
-                    if (term.coefficient_field)
-                        requireCellField(*term.coefficient_field, *state.mesh, "linear coefficient");
-                    for (Index cell : meshData(*state.mesh).owned_cells) {
-                        const double value = term.coefficient * (term.coefficient_field
-                            ? fieldData(*term.coefficient_field)[cell] : 1.0);
-                        if (!std::isfinite(value)) throw std::invalid_argument("nonfinite linear coefficient");
-                        equation.diagonal[cell] += canonical * value * state.mesh->cellVolume(cell);
-                    }
-                    break;
-                }
-                case EquationTermKind::Source:
-                    addVectorSource(equation, *state.mesh, term, canonical);
-                    break;
-            }
-        }
-    };
-    add(expression.lhs.m_terms, true);
-    add(expression.rhs.m_terms, false);
-    if (residual_result) {
-        *residual_result = state.measure(equation, unknown);
-        return {};
-    }
-
-
-    if (equation_control.relaxation != 1.0) {
-        for (Index face : detail::meshData(*state.mesh).owned_faces) {
-            equation.upper[static_cast<std::size_t>(face)] *= equation_control.relaxation;
-            equation.lower[static_cast<std::size_t>(face)] *= equation_control.relaxation;
-        }
-    }
-    for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-        const std::size_t index = static_cast<std::size_t>(cell);
-        if (!(equation.diagonal[index] > 0.0) || !std::isfinite(equation.diagonal[index])) {
-            throw std::runtime_error("vector equation diagonal is not positive and finite");
-        }
-        if (equation_control.relaxation != 1.0) {
-            equation.source[index] = equation_control.relaxation * equation.source[index] +
-                (1.0 - equation_control.relaxation) *
-                equation.diagonal[index] * detail::fieldData(unknown)[cell];
-        }
-        if (equation_control.mobility != nullptr) {
-            detail::fieldData((*equation_control.mobility))[cell] =
-                detail::meshData(*state.mesh).cell_volumes[index] / equation.diagonal[index];
-        }
-    }
-    if (equation_control.mobility != nullptr) {
-        state.synchronize(*equation_control.mobility);
-    }
-
-    return state.backend->solve(equation, unknown);
-}
-
-EquationResidual FvmExecution::residual(const ScalarEquationDefinition& equation) {
-    EquationResidual result;
-    solve(equation, {}, &result);
-    return result;
-}
-EquationResidual FvmExecution::residual(const VectorEquationDefinition& equation) {
-    EquationResidual result;
-    solve(equation, {}, &result);
-    return result;
 }
 
 void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result) {

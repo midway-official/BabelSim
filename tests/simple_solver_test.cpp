@@ -90,7 +90,7 @@ int main() {
     try { solveIncompressible(other_fields, {1.0, 0.01}, control); }
     catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "SIMPLE accepted fields from a different execution domain");
-    // rho=2 同时验证 eqn::div(rho, phi, U) 的常数通量缩放路径；保持相同运动
+    // rho=2 同时验证 equ::div(A, phi, rho) 的常数通量缩放路径；保持相同运动
     // 黏度以维持该回归的 Reynolds 数。
     int iterations = 0;
     const auto result = solveIncompressible(fields, {2.0, 0.2}, control, &iterations);

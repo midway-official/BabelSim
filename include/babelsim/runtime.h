@@ -45,8 +45,8 @@ public:
     int step() const;
     bool primary() const;
 
-    // 仅供 eqn/math、诊断和内部算法桥接使用。每个线程同时只能有一个活动运行域，
-    // 使 solve(equation) 的含义明确，同时避免 Field/Mesh 反向依赖 Runtime。
+    // 仅供 math、equ、诊断和内部算法桥接使用。每个线程同时只能有一个活动运行域，
+    // 使显式场运算与方程装配共享同一个执行域，同时避免 Field/Mesh 反向依赖 Runtime。
     static RunTime& current();
 
 private:
