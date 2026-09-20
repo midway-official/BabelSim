@@ -128,7 +128,7 @@ def check_solver(path, text, dependencies):
     module = ROOT / "src/physics" / path.relative_to(ROOT / "src/physics").parts[0]
     for dependency in dependencies:
         allowed_model_interface = (dependency == ROOT / "src/physics/RANS/api.h" and
-                                   module.name in {"simple", "transient_simple"})
+                                   module.name in {"simple", "transient_simple", "piso"})
         assert (dependency.is_relative_to(ROOT / "include") or
                 dependency.is_relative_to(module) or allowed_model_interface), (path, dependency)
         assert dependency.name not in implementation_headers, (path, dependency)
@@ -165,7 +165,7 @@ for path in list((ROOT / "src/physics").glob("*/main.cpp")) + [
     assert not re.search(r'MPI_|ParallelContext|HaloExchange|mutableData|\.data\(|'
                          r'RunTime|SparseAssembly', path.read_text()), path
 # Each SIMPLE is a self-contained program, not a shared algorithm wrapper.
-for module in ("simple", "transient_simple"):
+for module in ("simple", "transient_simple", "piso"):
     assert sorted(p.name for p in (ROOT / "src/physics" / module).iterdir()) == ["main.cpp"]
     text = texts[ROOT / "src/physics" / module / "main.cpp"]
     assert "equ::solve" in text and "for (int iter" in text
