@@ -91,7 +91,8 @@ build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每�
   网格文件格式、Field/geometry/math/equ 全部算子与语义、时间与历史、线性求解契约、诊断与监视、
   结果与后处理、并行边界、内置求解器与 RANS、开发检查清单、旧接口迁移表。
 - **[solvers.md](solvers.md)** — 内置求解器手册：`heat`/`transport`/`simple`/`transientSimple`/
-  `piso` 与 RANS 模块的方程、算法、配置键、场与边界、运行命令、验证证据与验证边界。
+  `piso` 与 RANS 模块的方程、算法、配置键、场与边界、从构建到看图（`babelsim-post`）的完整
+  运行流程、验证证据与验证边界。
 - **[architecture.md](architecture.md)** — 面向框架维护者：层次与依赖禁令、所有权与生命周期、
   DSL 契约、Solver 独立性、配置/报告边界、维护流程与验收命令。
 - **[validation.md](validation.md)** — 验证入口与最低验收线：串行/并行测试目标、工作流与外部

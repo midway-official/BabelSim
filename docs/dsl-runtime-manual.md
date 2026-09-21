@@ -4,7 +4,7 @@
 MPI。本文覆盖当前 DSL 的全部算子、运行时 API、配置文件键和文件格式，语义以
 `include/babelsim/*.h` 为准（本文与头文件不一致时以头文件为准）。
 
-阅读顺序建议：第 1 节跑通最小例子 → 第 2 节建立心智模型 → 写自己的方程时查
+阅读顺序建议：第 1 节跑通最小例子 → 第 2 节了解各模块与抽象层的职责划分 → 写自己的方程时查
 第 6/7 节（math/equ）→ 配置与文件格式查第 3/4 节 → 出问题查第 15 节附录。
 
 ---
@@ -70,9 +70,9 @@ mpic++ solver.o build/libbabelsim.a -o my-solver
 
 ---
 
-## 2. 心智模型：谁能碰什么
+## 2. 各个模块和抽象层职责划分
 
-| 层 | 头文件 | 职责 | Solver 可否直接使用 |
+| 模块 / 抽象层 | 头文件 | 职责 | Solver 可否直接使用 |
 |---|---|---|---|
 | Case | `case.h` | 命名场、物性、配置、结果写出、时间元数据 | 是（唯一入口对象） |
 | Field | `field.h` | 连续存储的 scalar/vector/tensor 场、边界条件 | 是 |
@@ -86,7 +86,7 @@ mpic++ solver.o build/libbabelsim.a -o my-solver
 | Runtime | `runtime.h` | 时间推进、运行域与后端生命周期；内部对象 | 否（普通 Solver 不构造） |
 | Backend | 内部 | halo、全局归约、稀疏装配、线性求解 | 否 |
 
-两条硬边界：
+两条职责边界：
 
 1. **Physics 不接触实现细节。** 内置求解器源码不出现 MPI、halo、CSR/LDU、Eigen、
    `src/internal/*`、field 底层存储指针或单元索引。`make test-architecture` 与
