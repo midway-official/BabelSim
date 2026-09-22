@@ -89,7 +89,18 @@ def prepare(base, name, mode, ghost=3):
         solution.write_text(s)
     (target/'output.bs').write_text('directory results\ntimeName final\nwriteInterval 1\n')
     mesh=next((target/'mesh').glob('*.mesh'))
-    count=int(re.search(r'^cells (\d+)$',mesh.read_text(),re.M)[1])
+    mesh_text = mesh.read_text()
+    if 'BABELSIM_MESH 3' not in mesh_text.splitlines()[:1]:
+        raise AssertionError('simple parallel fixture did not produce v3 mesh')
+    cell_ids = []
+    for line in mesh_text.splitlines():
+        tokens = line.split()
+        if len(tokens) >= 5 and tokens[0] == 'face':
+            cell_ids.extend((int(tokens[2]), int(tokens[3])))
+    cell_ids = [cell for cell in cell_ids if cell >= 0]
+    if not cell_ids:
+        raise AssertionError('v3 mesh has no owner/neighbour cell IDs')
+    count = max(cell_ids) + 1
     return target,count
 
 
@@ -100,7 +111,7 @@ def snapshot(path,ranks,count,expected_time):
     for rank,directory in enumerate(directories):
         lines=[s.split() for s in (directory/'metadata.bs').read_text().splitlines()]
         metadata={s[0]:s[1:] for s in lines if s[0]!='field'}
-        assert metadata['format']==['babelsim_result','2']
+        assert metadata['format']==['babelsim_result','3']
         assert int(metadata['rank'][0])==rank and int(metadata['ranks'][0])==ranks
         assert int(metadata['global_cell_count'][0])==count
         assert abs(float(metadata['time'][0])-expected_time)<1e-12
@@ -108,7 +119,10 @@ def snapshot(path,ranks,count,expected_time):
         assert len(rows)==int(metadata['owned_cells'][0])
         for row in rows:
             t=row.split(','); gid=int(t[0]); assert gid not in geometry
-            geometry[gid]=tuple(map(float,t[1:]))
+            vertex_count=int(t[1]); values=tuple(map(float,t[2:]))
+            assert len(values)==3*vertex_count
+            points=tuple(sorted(values[index:index+3] for index in range(0,len(values),3)))
+            geometry[gid]=(vertex_count,points)
     fields=read_result(path)
     assert set(fields)=={'U','p'},(path,fields.keys())
     assert set(geometry)==set(range(count))

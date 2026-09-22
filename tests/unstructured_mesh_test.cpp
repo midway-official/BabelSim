@@ -1,5 +1,7 @@
 #include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/mesh.h"
+#include "babelsim/operators.h"
 
 #include "test_util.h"
 
@@ -53,6 +55,58 @@ Mesh pentagonalPrismMesh() {
                             {{"wall", PatchKind::Wall}});
 }
 
+Mesh tetrahedronMesh() {
+    return Mesh::polyhedral(
+        {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
+        {
+            {{{0, 2, 1}}, 0, invalid_index, 0},
+            {{{0, 1, 3}}, 0, invalid_index, 0},
+            {{{1, 2, 3}}, 0, invalid_index, 0},
+            {{{2, 0, 3}}, 0, invalid_index, 0}},
+        {{"boundary", PatchKind::Generic}});
+}
+
+Mesh triangularPrismMesh() {
+    return Mesh::polyhedral(
+        {{0, 0, 0}, {1, 0, 0}, {0, 1, 0},
+         {0, 0, 1}, {1, 0, 1}, {0, 1, 1}},
+        {
+            {{{0, 2, 1}}, 0, invalid_index, 0},
+            {{{3, 4, 5}}, 0, invalid_index, 0},
+            {{{0, 1, 4, 3}}, 0, invalid_index, 0},
+            {{{1, 2, 5, 4}}, 0, invalid_index, 0},
+            {{{2, 0, 3, 5}}, 0, invalid_index, 0}},
+        {{"boundary", PatchKind::Generic}});
+}
+
+Mesh squarePyramidMesh() {
+    return Mesh::polyhedral(
+        {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0.5, 0.5, 1}},
+        {
+            {{{0, 3, 2, 1}}, 0, invalid_index, 0},
+            {{{0, 1, 4}}, 0, invalid_index, 0},
+            {{{1, 2, 4}}, 0, invalid_index, 0},
+            {{{2, 3, 4}}, 0, invalid_index, 0},
+            {{{3, 0, 4}}, 0, invalid_index, 0}},
+        {{"boundary", PatchKind::Generic}});
+}
+
+Mesh concavePrismMesh() {
+    const std::vector<Vec3> base{
+        {0, 0, 0}, {2, 0, 0}, {2, 1, 0}, {1, 1, 0}, {1, 2, 0}, {0, 2, 0}};
+    std::vector<Vec3> vertices = base;
+    for (const Vec3& point : base) vertices.push_back({point.x, point.y, 1.0});
+    std::vector<PolyhedralFaceSpec> faces{
+        {{{0, 5, 4, 3, 2, 1}}, 0, invalid_index, 0},
+        {{{6, 7, 8, 9, 10, 11}}, 0, invalid_index, 0}};
+    for (Index vertex = 0; vertex < 6; ++vertex) {
+        const Index next = (vertex + 1) % 6;
+        faces.push_back({{{vertex, next, next + 6, vertex + 6}}, 0, invalid_index, 0});
+    }
+    return Mesh::polyhedral(std::move(vertices), std::move(faces),
+                            {{"boundary", PatchKind::Generic}});
+}
+
 template <typename Build>
 void requireRejected(Build&& build, const char* message) {
     bool rejected = false;
@@ -67,6 +121,26 @@ void requireRejected(Build&& build, const char* message) {
 }  // namespace
 
 int main() {
+    const Mesh tetrahedron = tetrahedronMesh();
+    const Mesh triangular_prism = triangularPrismMesh();
+    const Mesh square_pyramid = squarePyramidMesh();
+    const Mesh concave_prism = concavePrismMesh();
+    require(tetrahedron.faceCount() == 4 && near(tetrahedron.cellVolume(0), 1.0 / 6.0),
+            "tetrahedral polyhedral geometry is invalid");
+    require(triangular_prism.faceCount() == 5 && near(triangular_prism.cellVolume(0), 0.5),
+            "triangular-prism polyhedral geometry is invalid");
+    require(square_pyramid.faceCount() == 5 && near(square_pyramid.cellVolume(0), 1.0 / 3.0),
+            "pyramid polyhedral geometry is invalid");
+    require(concave_prism.faceCount() == 8 && near(concave_prism.cellVolume(0), 3.0),
+            "concave polyhedral face triangulation is invalid");
+    for (const Mesh* mesh : {&tetrahedron, &triangular_prism, &square_pyramid, &concave_prism}) {
+        ScalarField constant(*mesh, FieldLocation::Cell, "constant", 4.0);
+        VectorField constant_gradient(*mesh, FieldLocation::Cell, "constantGradient");
+        gradient(constant, constant_gradient, GradientMethod::LeastSquares);
+        require(norm(detail::fieldData(constant_gradient)[0]) < 1e-12,
+                "polyhedral least-squares gradient was not constant-preserving");
+    }
+
     const Mesh polyhedron = pentagonalPrismMesh();
     require(polyhedron.cellCount() == 1 && polyhedron.faceCount() == 7,
             "variable-face polyhedron topology has the wrong size");
@@ -121,6 +195,12 @@ int main() {
              {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
             {{{0, 1, 2, 3, 4, 5, 6, 6}}}, {{"boundary", PatchKind::Generic}}, {});
     }, "degenerate Hex was accepted");
+    requireRejected([] {
+        Mesh::polyhedral(
+            {{0, 0, 0}, {1, 1, 0}, {0, 1, 0}, {1, 0, 0}},
+            {{{{0, 1, 2, 3}}, 0, invalid_index, 0}},
+            {{"boundary", PatchKind::Generic}});
+    }, "self-intersecting polygon was accepted");
 
     std::cout << "unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed\n";
 }

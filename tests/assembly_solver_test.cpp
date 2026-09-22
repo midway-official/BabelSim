@@ -10,6 +10,58 @@
 using namespace babelsim;
 
 int main() {
+    const Mesh split_mesh = makeSplitInterfaceMesh();
+    require(split_mesh.cellCount() == 2 && split_mesh.faceCount() == 12,
+            "split-interface polyhedral fixture has the wrong topology");
+    ScalarDiscreteEquation repeated_equation(split_mesh);
+    repeated_equation.diagonal = {5.0, 7.0};
+    const Index first_interface = 1;
+    const Index second_interface = 2;
+    repeated_equation.upper[static_cast<std::size_t>(first_interface)] = 2.0;
+    repeated_equation.upper[static_cast<std::size_t>(second_interface)] = 11.0;
+    repeated_equation.lower[static_cast<std::size_t>(first_interface)] = 3.0;
+    repeated_equation.lower[static_cast<std::size_t>(second_interface)] = 13.0;
+    SparseAssembly repeated_assembly(split_mesh);
+    repeated_assembly.update(repeated_equation);
+    require(
+        near(repeated_assembly.matrix().coeff(0, 0), 5.0) &&
+            near(repeated_assembly.matrix().coeff(1, 1), 7.0) &&
+            near(repeated_assembly.matrix().coeff(0, 1), 13.0) &&
+            near(repeated_assembly.matrix().coeff(1, 0), 16.0),
+        "repeated subface coupling was not reduced into one matrix entry");
+    Eigen::MatrixXd dense_oracle(2, 2);
+    dense_oracle << 5.0, 13.0, 16.0, 7.0;
+    require(
+        (repeated_assembly.matrix().toDense() - dense_oracle).norm() < 1e-14,
+        "polyhedral sparse matrix differs from the independent dense oracle");
+    LinearSolverConfig replay_config;
+    replay_config.solver = LinearSolverType::BiCGSTAB;
+    replay_config.preconditioner = PreconditionerType::None;
+    replay_config.absolute_tolerance = 1e-14;
+    replay_config.relative_tolerance = 1e-14;
+    PreparedLinearSolver replay_solver(replay_config);
+    replay_solver.compute(repeated_assembly.matrix());
+    Eigen::VectorXd frozen_x(2);
+    frozen_x << 1.25, -0.75;
+    const Eigen::VectorXd frozen_b = dense_oracle * frozen_x;
+    Eigen::VectorXd replay_x;
+    const SolveResult replay_result = replay_solver.solve(frozen_b, replay_x);
+    require(
+        replay_result.converged() && (replay_x - frozen_x).norm() < 1e-12,
+        "frozen polyhedral A/b/x0 algebra replay did not reproduce x0");
+    repeated_equation.diagonal = {17.0, 19.0};
+    repeated_equation.upper[static_cast<std::size_t>(first_interface)] = 1.0;
+    repeated_equation.upper[static_cast<std::size_t>(second_interface)] = -2.0;
+    repeated_equation.lower[static_cast<std::size_t>(first_interface)] = 4.0;
+    repeated_equation.lower[static_cast<std::size_t>(second_interface)] = 8.0;
+    repeated_assembly.update(repeated_equation);
+    require(
+        near(repeated_assembly.matrix().coeff(0, 0), 17.0) &&
+            near(repeated_assembly.matrix().coeff(1, 1), 19.0) &&
+            near(repeated_assembly.matrix().coeff(0, 1), -1.0) &&
+            near(repeated_assembly.matrix().coeff(1, 0), 12.0),
+        "repeated subface assembly accumulated stale coefficient values");
+
     auto patches = boxPatches();
     patches[static_cast<std::size_t>(2)].kind = PatchKind::Symmetry;
     patches[static_cast<std::size_t>(3)].kind = PatchKind::Symmetry;

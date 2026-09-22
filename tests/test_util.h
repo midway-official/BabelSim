@@ -184,3 +184,31 @@ inline babelsim::Mesh makeHexBox(
     }
     return makeHexFromVertices(counts, std::move(vertices), patches);
 }
+
+// A two-cell polyhedral fixture whose planar interface is split into two
+// triangular subfaces.  Both subfaces connect the same owner/neighbour pair;
+// this exercises the repeated-coupling path in SparseAssembly without adding
+// any special case to the production topology.
+inline babelsim::Mesh makeSplitInterfaceMesh() {
+    using namespace babelsim;
+    const std::vector<Vec3> vertices{
+        {0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
+        {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1},
+        {2, 0, 0}, {2, 1, 0}, {2, 0, 1}, {2, 1, 1}};
+    const std::vector<PolyhedralFaceSpec> faces{
+        {{{0, 4, 7, 3}}, 0, invalid_index, 0},
+        {{{1, 2, 6}}, 0, 1, invalid_index},
+        {{{1, 6, 5}}, 0, 1, invalid_index},
+        {{{0, 1, 5, 4}}, 0, invalid_index, 0},
+        {{{3, 7, 6, 2}}, 0, invalid_index, 0},
+        {{{0, 3, 2, 1}}, 0, invalid_index, 0},
+        {{{4, 5, 6, 7}}, 0, invalid_index, 0},
+        {{{8, 10, 11, 9}}, 1, invalid_index, 0},
+        {{{1, 8, 10, 5}}, 1, invalid_index, 0},
+        {{{2, 6, 11, 9}}, 1, invalid_index, 0},
+        {{{1, 2, 9, 8}}, 1, invalid_index, 0},
+        {{{5, 10, 11, 6}}, 1, invalid_index, 0}};
+    return Mesh::polyhedral(
+        std::vector<Vec3>(vertices), std::vector<PolyhedralFaceSpec>(faces),
+        {{"boundary", PatchKind::Generic}});
+}

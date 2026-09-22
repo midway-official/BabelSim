@@ -1,6 +1,6 @@
 # BabelSim 通用 face-based polyhedral FVM 重构方案
 
-日期：2026-09-22。源码审计基线：`c6c9dfa`。本文保留设计及验收方案；当前实现和实际验证状态见 [2026-09-22-status.md](reports/polyhedral-fvm/2026-09-22-status.md)。
+日期：2026-09-22。源码审计基线：`c6c9dfa`。本文保留设计及验收方案；当前实现和实际验证状态见 [2026-09-22-status.md](reports/polyhedral-fvm/2026-09-22-status.md)。实现分支为 `codex/polyhedral-fvm`，运行时只保留 v3 通用面拓扑，旧 hex 只通过离线迁移工具转换。
 配套执行指令：`polyhedral-fvm-refactor-prompts.md`。
 
 ## 1. 目标与硬约束
@@ -167,7 +167,7 @@ v3 主数据：header/version、points、faces(vertex count + ordered IDs + owne
 
 ## 9. 性能门禁与证据
 
-本次仅制定门禁，没有测量结果。P0 先建立可复跑的旧版 release 基线；后续每阶段复测受影响部分。
+门禁仍按同一机器、同一编译器和同一求解配置执行。当前已有旧版 release 与 v3 运行时的 7 组交错 heat 全流程测量，原始数据摘要见 [2026-09-22-performance-gate.md](reports/polyhedral-fvm/2026-09-22-performance-gate.md)；目标规模和冻结分区的更大矩阵仍需在部署硬件上补测。
 
 冻结条件：同一机器、编译器、优化参数、Eigen/MPI 版本、rank 数、绑定、线程数、输入、行列/分区映射、初值、容差、预条件器、停止准则、输出开关。明确记录 CSR_SPMV/ASYNC_HALO 等实际 build 开关。
 

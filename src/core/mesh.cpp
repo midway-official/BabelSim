@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -21,13 +22,151 @@ void requireIndex(Index value, Index count, const char* what) {
 
 namespace {
 
+struct PolygonTriangle {
+    Index a;
+    Index b;
+    Index c;
+};
+
+struct ProjectedPoint {
+    double x;
+    double y;
+};
+
+ProjectedPoint project(const Vec3& point, int dropped_axis) {
+    if (dropped_axis == 0) return {point.y, point.z};
+    if (dropped_axis == 1) return {point.z, point.x};
+    return {point.x, point.y};
+}
+
+double cross2d(const ProjectedPoint& a, const ProjectedPoint& b, const ProjectedPoint& c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+bool insideOrOnTriangle(
+    const ProjectedPoint& point,
+    const ProjectedPoint& a,
+    const ProjectedPoint& b,
+    const ProjectedPoint& c,
+    double orientation,
+    double tolerance)
+{
+    const double ab = orientation * cross2d(a, b, point);
+    const double bc = orientation * cross2d(b, c, point);
+    const double ca = orientation * cross2d(c, a, point);
+    return ab >= -tolerance && bc >= -tolerance && ca >= -tolerance;
+}
+
+std::vector<PolygonTriangle> polygonTriangles(
+    const std::vector<Index>& ids, const MeshStorage<Vec3>& vertices)
+{
+    if (ids.size() < 3) throw std::invalid_argument("polyhedral face has fewer than three vertices");
+
+    Vec3 normal{};
+    double minimum[3]{
+        std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity(),
+        std::numeric_limits<double>::infinity()};
+    double maximum[3]{
+        -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity()};
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        const Vec3& current = vertices[static_cast<std::size_t>(ids[i])];
+        const Vec3& next = vertices[static_cast<std::size_t>(ids[(i + 1U) % ids.size()])];
+        normal += 0.5 * cross(current, next);
+        minimum[0] = std::min(minimum[0], current.x);
+        minimum[1] = std::min(minimum[1], current.y);
+        minimum[2] = std::min(minimum[2], current.z);
+        maximum[0] = std::max(maximum[0], current.x);
+        maximum[1] = std::max(maximum[1], current.y);
+        maximum[2] = std::max(maximum[2], current.z);
+    }
+    const double normal_components[3]{std::abs(normal.x), std::abs(normal.y), std::abs(normal.z)};
+    const int dropped_axis = normal_components[1] > normal_components[0]
+        ? (normal_components[2] > normal_components[1] ? 2 : 1)
+        : (normal_components[2] > normal_components[0] ? 2 : 0);
+    const double scale = std::max({
+        maximum[0] - minimum[0], maximum[1] - minimum[1], maximum[2] - minimum[2], 1.0});
+    const double tolerance = 1e-13 * scale * scale;
+    std::vector<ProjectedPoint> projected;
+    projected.reserve(ids.size());
+    for (Index id : ids) projected.push_back(project(vertices[static_cast<std::size_t>(id)], dropped_axis));
+
+    double signed_area = 0.0;
+    for (std::size_t i = 0; i < projected.size(); ++i) {
+        const auto& current = projected[i];
+        const auto& next = projected[(i + 1U) % projected.size()];
+        signed_area += current.x * next.y - next.x * current.y;
+    }
+    if (std::abs(signed_area) <= tolerance) {
+        throw std::invalid_argument("polyhedral face projects to zero area");
+    }
+    const double orientation = signed_area > 0.0 ? 1.0 : -1.0;
+
+    bool convex = true;
+    bool saw_turn = false;
+    for (std::size_t i = 0; i < projected.size(); ++i) {
+        const double turn = orientation * cross2d(
+            projected[(i + projected.size() - 1U) % projected.size()],
+            projected[i], projected[(i + 1U) % projected.size()]);
+        saw_turn = saw_turn || std::abs(turn) > tolerance;
+        if (turn < -tolerance) {
+            convex = false;
+            break;
+        }
+    }
+    if (!saw_turn) throw std::invalid_argument("polyhedral face is collinear");
+    if (convex) {
+        std::vector<PolygonTriangle> triangles;
+        triangles.reserve(ids.size() - 2U);
+        for (Index i = 1; i + 1 < static_cast<Index>(ids.size()); ++i)
+            triangles.push_back({ids[0], ids[static_cast<std::size_t>(i)], ids[static_cast<std::size_t>(i + 1)]});
+        return triangles;
+    }
+
+    // Ear clipping is only needed for concave rings.  Convex rings retain the
+    // historical fan triangulation so old warped-hex geometry remains stable.
+    std::vector<std::size_t> remaining(ids.size());
+    for (std::size_t i = 0; i < remaining.size(); ++i) remaining[i] = i;
+    std::vector<PolygonTriangle> triangles;
+    triangles.reserve(ids.size() - 2U);
+    while (remaining.size() > 3U) {
+        bool clipped = false;
+        for (std::size_t position = 0; position < remaining.size(); ++position) {
+            const std::size_t previous = remaining[(position + remaining.size() - 1U) % remaining.size()];
+            const std::size_t current = remaining[position];
+            const std::size_t next = remaining[(position + 1U) % remaining.size()];
+            if (orientation * cross2d(projected[previous], projected[current], projected[next]) <= tolerance)
+                continue;
+            bool contains_vertex = false;
+            for (std::size_t candidate : remaining) {
+                if (candidate == previous || candidate == current || candidate == next) continue;
+                if (insideOrOnTriangle(projected[candidate], projected[previous], projected[current],
+                                       projected[next], orientation, tolerance)) {
+                    contains_vertex = true;
+                    break;
+                }
+            }
+            if (contains_vertex) continue;
+            triangles.push_back({ids[previous], ids[current], ids[next]});
+            remaining.erase(remaining.begin() + static_cast<std::ptrdiff_t>(position));
+            clipped = true;
+            break;
+        }
+        if (!clipped) throw std::invalid_argument("polyhedral face is self-intersecting or not simple");
+    }
+    triangles.push_back({ids[remaining[0]], ids[remaining[1]], ids[remaining[2]]});
+    return triangles;
+}
+
 Vec3 polygonAreaVector(const std::vector<Index>& ids, const MeshStorage<Vec3>& vertices) {
     Vec3 area{};
-    const Vec3& origin = vertices[static_cast<std::size_t>(ids.front())];
-    for (std::size_t i = 1; i + 1 < ids.size(); ++i) {
-        const Vec3& a = vertices[static_cast<std::size_t>(ids[i])];
-        const Vec3& b = vertices[static_cast<std::size_t>(ids[i + 1])];
-        area += 0.5 * cross(a - origin, b - origin);
+    for (const PolygonTriangle& triangle : polygonTriangles(ids, vertices)) {
+        const Vec3& a = vertices[static_cast<std::size_t>(triangle.a)];
+        const Vec3& b = vertices[static_cast<std::size_t>(triangle.b)];
+        const Vec3& c = vertices[static_cast<std::size_t>(triangle.c)];
+        area += 0.5 * cross(b - a, c - a);
     }
     return area;
 }
@@ -35,18 +174,18 @@ Vec3 polygonAreaVector(const std::vector<Index>& ids, const MeshStorage<Vec3>& v
 std::pair<Vec3, double> polygonGeometry(
     const std::vector<Index>& ids, const MeshStorage<Vec3>& vertices)
 {
-    const Vec3& origin = vertices[static_cast<std::size_t>(ids.front())];
     Vec3 centre{};
     double total = 0.0;
-    for (std::size_t i = 1; i + 1 < ids.size(); ++i) {
-        const Vec3& a = vertices[static_cast<std::size_t>(ids[i])];
-        const Vec3& b = vertices[static_cast<std::size_t>(ids[i + 1])];
-        const Vec3 area = 0.5 * cross(a - origin, b - origin);
+    for (const PolygonTriangle& triangle : polygonTriangles(ids, vertices)) {
+        const Vec3& a = vertices[static_cast<std::size_t>(triangle.a)];
+        const Vec3& b = vertices[static_cast<std::size_t>(triangle.b)];
+        const Vec3& c = vertices[static_cast<std::size_t>(triangle.c)];
+        const Vec3 area = 0.5 * cross(b - a, c - a);
         const double weight = norm(area);
         if (!(weight > 0.0) || !std::isfinite(weight)) {
             throw std::invalid_argument("polyhedral mesh contains a degenerate face triangle");
         }
-        centre += weight * ((origin + a + b) / 3.0);
+        centre += weight * ((a + b + c) / 3.0);
         total += weight;
     }
     if (!(total > 0.0) || !std::isfinite(total)) {
@@ -359,16 +498,17 @@ Mesh Mesh::polyhedral(
             const Index sign = mesh.m_storage.face_owner[f] == cell ? 1 : -1;
             const Index first = mesh.m_storage.face_point_offsets[f];
             const Index last = mesh.m_storage.face_point_offsets[f + 1U];
-            const Vec3& origin = mesh.m_storage.vertices[static_cast<std::size_t>(
-                mesh.m_storage.face_point_ids[static_cast<std::size_t>(first)])];
-            for (Index i = first + 1; i + 1 < last; ++i) {
-                const Vec3& a = mesh.m_storage.vertices[static_cast<std::size_t>(
-                    mesh.m_storage.face_point_ids[static_cast<std::size_t>(i)])];
-                const Vec3& b = mesh.m_storage.vertices[static_cast<std::size_t>(
-                    mesh.m_storage.face_point_ids[static_cast<std::size_t>(i + 1)])];
-                const double tetra = sign * dot(origin - reference, cross(a - reference, b - reference)) / 6.0;
+            std::vector<Index> ids;
+            ids.reserve(static_cast<std::size_t>(last - first));
+            for (Index i = first; i < last; ++i)
+                ids.push_back(mesh.m_storage.face_point_ids[static_cast<std::size_t>(i)]);
+            for (const PolygonTriangle& triangle : polygonTriangles(ids, mesh.m_storage.vertices)) {
+                const Vec3& a = mesh.m_storage.vertices[static_cast<std::size_t>(triangle.a)];
+                const Vec3& b = mesh.m_storage.vertices[static_cast<std::size_t>(triangle.b)];
+                const Vec3& d = mesh.m_storage.vertices[static_cast<std::size_t>(triangle.c)];
+                const double tetra = sign * dot(a - reference, cross(b - reference, d - reference)) / 6.0;
                 volume += tetra;
-                moment += tetra * ((reference + origin + a + b) / 4.0);
+                moment += tetra * ((reference + a + b + d) / 4.0);
             }
         }
         if (!(volume > 0.0) || !std::isfinite(volume)) {
@@ -562,6 +702,55 @@ void Mesh::validate() const
             const Index vertex = m_storage.face_point_ids[static_cast<std::size_t>(i)];
             if (vertex < 0 || vertex >= vertexCount() || !unique.insert(vertex).second) {
                 throw std::runtime_error("polyhedral face vertex connectivity is invalid");
+            }
+        }
+    }
+
+    // A face based mesh is only usable for finite-volume assembly when every
+    // cell is a closed oriented surface.  Check both the vector area closure
+    // and the edge manifold here, once at mesh setup time.  The edge test is
+    // deliberately performed on each cell's outward orientation, so explicit
+    // coarse/fine subfaces are valid as long as their shared edge appears once
+    // in each adjacent face with opposite direction.
+    for (Index cell = 0; cell < cells; ++cell) {
+        const std::size_t c = static_cast<std::size_t>(cell);
+        Vec3 closure{};
+        double total_area = 0.0;
+        std::map<std::pair<Index, Index>, std::pair<Index, Index>> edges;
+        const Index first = m_storage.cell_face_offsets[c];
+        const Index last = m_storage.cell_face_offsets[c + 1U];
+        for (Index position = first; position < last; ++position) {
+            const Index face = m_storage.cell_face_ids[static_cast<std::size_t>(position)];
+            const Index sign = m_storage.cell_face_signs[static_cast<std::size_t>(position)];
+            const std::size_t f = static_cast<std::size_t>(face);
+            closure += static_cast<double>(sign) * m_storage.face_area_vectors[f];
+            total_area += m_storage.face_areas[f];
+            const Index point_first = m_storage.face_point_offsets[f];
+            const Index point_last = m_storage.face_point_offsets[f + 1U];
+            std::vector<Index> ring;
+            ring.reserve(static_cast<std::size_t>(point_last - point_first));
+            for (Index point = point_first; point < point_last; ++point) {
+                ring.push_back(m_storage.face_point_ids[static_cast<std::size_t>(point)]);
+            }
+            if (sign < 0) std::reverse(ring.begin(), ring.end());
+            for (std::size_t edge = 0; edge < ring.size(); ++edge) {
+                const Index from = ring[edge];
+                const Index to = ring[(edge + 1U) % ring.size()];
+                const auto key = std::minmax(from, to);
+                auto& count_and_orientation = edges[key];
+                ++count_and_orientation.first;
+                count_and_orientation.second += from == key.first ? 1 : -1;
+            }
+        }
+        const double closure_tolerance = 1e-9 * std::max(total_area, 1.0);
+        if (!(std::isfinite(total_area) && norm(closure) <= closure_tolerance)) {
+            throw std::runtime_error("polyhedral cell face area vectors do not close");
+        }
+        for (const auto& [edge, count_and_orientation] : edges) {
+            if (count_and_orientation.first != 2 || count_and_orientation.second != 0) {
+                throw std::runtime_error(
+                    "polyhedral cell surface has a non-manifold or inconsistently oriented edge " +
+                    std::to_string(edge.first) + "-" + std::to_string(edge.second));
             }
         }
     }
