@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -12,78 +11,49 @@
 namespace babelsim {
 namespace {
 
-using Quad = std::array<Index, 4>;
-using Hex = std::array<Index, 8>;
-
-constexpr std::array<std::array<int, 4>, 6> hex_faces{{
-    {{0, 4, 7, 3}}, {{1, 2, 6, 5}}, {{0, 1, 5, 4}},
-    {{3, 7, 6, 2}}, {{0, 3, 2, 1}}, {{4, 5, 6, 7}},
-}};
-
-Quad canonical(Quad vertices) {
-    std::sort(vertices.begin(), vertices.end());
-    return vertices;
-}
-
 void requireIndex(Index value, Index count, const char* what) {
     if (value < 0 || value >= count) {
         throw std::invalid_argument(std::string(what) + " references an invalid vertex");
     }
 }
 
-std::pair<Vec3, Vec3> quadGeometry(const Quad& ids, const MeshStorage<Vec3>& vertices) {
-    const Vec3& a = vertices[static_cast<std::size_t>(ids[0])];
-    const Vec3& b = vertices[static_cast<std::size_t>(ids[1])];
-    const Vec3& c = vertices[static_cast<std::size_t>(ids[2])];
-    const Vec3& d = vertices[static_cast<std::size_t>(ids[3])];
-    const Vec3 area_abc = 0.5 * cross(b - a, c - a);
-    const Vec3 area_acd = 0.5 * cross(c - a, d - a);
-    const double magnitude_abc = norm(area_abc);
-    const double magnitude_acd = norm(area_acd);
-    const double magnitude = magnitude_abc + magnitude_acd;
-    if (!(magnitude > 0.0) || !std::isfinite(magnitude)) {
-        throw std::runtime_error("unstructured mesh contains a degenerate quadrilateral");
+}  // namespace
+
+namespace {
+
+Vec3 polygonAreaVector(const std::vector<Index>& ids, const MeshStorage<Vec3>& vertices) {
+    Vec3 area{};
+    const Vec3& origin = vertices[static_cast<std::size_t>(ids.front())];
+    for (std::size_t i = 1; i + 1 < ids.size(); ++i) {
+        const Vec3& a = vertices[static_cast<std::size_t>(ids[i])];
+        const Vec3& b = vertices[static_cast<std::size_t>(ids[i + 1])];
+        area += 0.5 * cross(a - origin, b - origin);
     }
-    const Vec3 centre =
-        (magnitude_abc * ((a + b + c) / 3.0) +
-         magnitude_acd * ((a + c + d) / 3.0)) / magnitude;
-    return {centre, area_abc + area_acd};
+    return area;
 }
 
-void addTetrahedron(
-    const Vec3& reference,
-    const Vec3& a,
-    const Vec3& b,
-    const Vec3& c,
-    double& volume,
-    Vec3& first_moment)
+std::pair<Vec3, double> polygonGeometry(
+    const std::vector<Index>& ids, const MeshStorage<Vec3>& vertices)
 {
-    const double tetra_volume =
-        std::abs(dot(a - reference, cross(b - reference, c - reference))) / 6.0;
-    volume += tetra_volume;
-    first_moment += tetra_volume * ((reference + a + b + c) / 4.0);
-}
-
-double signedHexVolume(const Hex& cell, const MeshStorage<Vec3>& vertices) {
-    double volume = 0.0;
-    for (const auto& face : hex_faces) {
-        const Vec3& a = vertices[static_cast<std::size_t>(cell[static_cast<std::size_t>(face[0])])];
-        const Vec3& b = vertices[static_cast<std::size_t>(cell[static_cast<std::size_t>(face[1])])];
-        const Vec3& c = vertices[static_cast<std::size_t>(cell[static_cast<std::size_t>(face[2])])];
-        const Vec3& d = vertices[static_cast<std::size_t>(cell[static_cast<std::size_t>(face[3])])];
-        volume += dot(a, cross(b, c)) / 6.0;
-        volume += dot(a, cross(c, d)) / 6.0;
+    const Vec3& origin = vertices[static_cast<std::size_t>(ids.front())];
+    Vec3 centre{};
+    double total = 0.0;
+    for (std::size_t i = 1; i + 1 < ids.size(); ++i) {
+        const Vec3& a = vertices[static_cast<std::size_t>(ids[i])];
+        const Vec3& b = vertices[static_cast<std::size_t>(ids[i + 1])];
+        const Vec3 area = 0.5 * cross(a - origin, b - origin);
+        const double weight = norm(area);
+        if (!(weight > 0.0) || !std::isfinite(weight)) {
+            throw std::invalid_argument("polyhedral mesh contains a degenerate face triangle");
+        }
+        centre += weight * ((origin + a + b) / 3.0);
+        total += weight;
     }
-    return volume;
+    if (!(total > 0.0) || !std::isfinite(total)) {
+        throw std::invalid_argument("polyhedral mesh contains a degenerate face");
+    }
+    return {centre / total, total};
 }
-
-struct FaceCandidate {
-    Quad vertices{};
-    Index owner = invalid_index;
-    Index owner_slot = invalid_index;
-    Index neighbour = invalid_index;
-    Index neighbour_slot = invalid_index;
-};
 
 }  // namespace
 
@@ -209,224 +179,244 @@ void Mesh::setPartition(
     }
 }
 
-Mesh Mesh::unstructured(
+Mesh Mesh::polyhedral(
     std::vector<Vec3> vertices,
-    std::vector<Hex> cells,
-    std::vector<PatchSpec> patches,
-    std::vector<BoundaryFaceSpec> boundary_faces)
+    std::vector<PolyhedralFaceSpec> faces,
+    std::vector<PatchSpec> patches)
 {
-    if (vertices.empty() || cells.empty() || patches.empty() ||
+    if (vertices.empty() || faces.empty() || patches.empty() ||
         vertices.size() > static_cast<std::size_t>(std::numeric_limits<Index>::max()) ||
-        cells.size() > static_cast<std::size_t>(std::numeric_limits<Index>::max())) {
-        throw std::invalid_argument("unstructured mesh arrays are empty or exceed 32-bit indexing");
+        faces.size() > static_cast<std::size_t>(std::numeric_limits<Index>::max())) {
+        throw std::invalid_argument("polyhedral mesh arrays are empty or exceed 32-bit indexing");
     }
     if (!std::all_of(vertices.begin(), vertices.end(), isFinite)) {
-        throw std::invalid_argument("unstructured mesh has a non-finite vertex");
+        throw std::invalid_argument("polyhedral mesh has a non-finite vertex");
     }
     for (const PatchSpec& patch : patches) {
-        if (patch.name.empty()) throw std::invalid_argument("unstructured mesh has an unnamed patch");
+        if (patch.name.empty()) throw std::invalid_argument("polyhedral mesh has an unnamed patch");
     }
+
+    Index cell_count = 0;
+    for (const PolyhedralFaceSpec& face : faces) {
+        if (face.owner < 0 || face.neighbour < invalid_index ||
+            (face.neighbour != invalid_index && face.neighbour == face.owner)) {
+            throw std::invalid_argument("polyhedral face has invalid owner/neighbour");
+        }
+        cell_count = std::max(cell_count, face.owner + 1);
+        if (face.neighbour != invalid_index) cell_count = std::max(cell_count, face.neighbour + 1);
+    }
+    if (cell_count <= 0) throw std::invalid_argument("polyhedral mesh has no cells");
 
     Mesh mesh;
     mesh.m_storage.vertices.assign(std::move(vertices));
-    mesh.m_storage.cell_vertices.assign(std::move(cells));
-    const Index vertex_count = mesh.vertexCount();
-    const Index cell_count = mesh.cellCount();
-    mesh.m_storage.cell_centres.resize(static_cast<std::size_t>(cell_count));
-    mesh.m_storage.cell_volumes.resize(static_cast<std::size_t>(cell_count));
-    mesh.m_storage.cell_inverse_volumes.resize(static_cast<std::size_t>(cell_count));
-    mesh.m_storage.cell_faces.resize(static_cast<std::size_t>(cell_count));
-    mesh.m_storage.cell_neighbours.resize(static_cast<std::size_t>(cell_count));
-    for (auto& values : mesh.m_storage.cell_faces) values.fill(invalid_index);
-    for (auto& values : mesh.m_storage.cell_neighbours) values.fill(invalid_index);
     mesh.m_storage.patches.reserve(patches.size());
     for (PatchSpec& patch : patches) {
         mesh.m_storage.patches.push_back({std::move(patch.name), patch.kind, {}});
     }
 
-    for (Index cell = 0; cell < cell_count; ++cell) {
-        const Hex& vertices_of_cell = mesh.m_storage.cell_vertices[static_cast<std::size_t>(cell)];
+    std::vector<Vec3> cell_point_sums(static_cast<std::size_t>(cell_count));
+    std::vector<Index> cell_point_counts(static_cast<std::size_t>(cell_count), 0);
+    std::vector<std::vector<Index>> cell_faces(static_cast<std::size_t>(cell_count));
+    std::vector<std::vector<Index>> cell_signs(static_cast<std::size_t>(cell_count));
+    std::vector<std::set<Index>> cell_neighbours(static_cast<std::size_t>(cell_count));
+
+    // Establish a stable orientation reference before processing any face.  A
+    // running average would make the orientation depend on input face order.
+    for (const PolyhedralFaceSpec& face : faces) {
+        Vec3 sum{};
+        for (Index vertex : face.vertices) {
+            requireIndex(vertex, mesh.vertexCount(), "face");
+            sum += mesh.m_storage.vertices[static_cast<std::size_t>(vertex)];
+        }
+        cell_point_sums[static_cast<std::size_t>(face.owner)] += sum;
+        cell_point_counts[static_cast<std::size_t>(face.owner)] +=
+            static_cast<Index>(face.vertices.size());
+        if (face.neighbour != invalid_index) {
+            cell_point_sums[static_cast<std::size_t>(face.neighbour)] += sum;
+            cell_point_counts[static_cast<std::size_t>(face.neighbour)] +=
+                static_cast<Index>(face.vertices.size());
+        }
+    }
+
+    mesh.m_storage.face_point_offsets.push_back(0);
+    mesh.m_storage.face_neighbour.reserve(faces.size());
+    mesh.m_storage.face_owner.reserve(faces.size());
+    mesh.m_storage.face_patch.reserve(faces.size());
+    mesh.m_storage.face_centres.reserve(faces.size());
+    mesh.m_storage.face_area_vectors.reserve(faces.size());
+
+    for (std::size_t input_face = 0; input_face < faces.size(); ++input_face) {
+        PolyhedralFaceSpec face = std::move(faces[input_face]);
+        if (face.vertices.size() < 3) {
+            throw std::invalid_argument("polyhedral face has fewer than three vertices");
+        }
         std::set<Index> unique;
-        Vec3 centre{};
-        for (Index vertex : vertices_of_cell) {
-            requireIndex(vertex, vertex_count, "cell");
-            unique.insert(vertex);
-            centre += mesh.m_storage.vertices[static_cast<std::size_t>(vertex)];
-        }
-        if (unique.size() != vertices_of_cell.size()) {
-            throw std::invalid_argument("unstructured cell repeats a vertex");
-        }
-        if (!(signedHexVolume(vertices_of_cell, mesh.m_storage.vertices) > 0.0)) {
-            throw std::invalid_argument("unstructured cell has negative or degenerate orientation");
-        }
-        mesh.m_storage.cell_centres[static_cast<std::size_t>(cell)] = centre / 8.0;
-    }
-
-    std::map<Quad, Index> boundary_patch;
-    for (const BoundaryFaceSpec& boundary : boundary_faces) {
-        if (boundary.patch < 0 || boundary.patch >= mesh.patchCount()) {
-            throw std::invalid_argument("boundary face references an invalid patch");
-        }
-        std::set<Index> unique;
-        for (Index vertex : boundary.vertices) {
-            requireIndex(vertex, vertex_count, "boundary face");
-            unique.insert(vertex);
-        }
-        if (unique.size() != boundary.vertices.size() ||
-            !boundary_patch.emplace(canonical(boundary.vertices), boundary.patch).second) {
-            throw std::invalid_argument("unstructured mesh repeats a boundary face");
-        }
-    }
-
-    std::map<Quad, Index> face_lookup;
-    std::vector<FaceCandidate> candidates;
-    candidates.reserve(static_cast<std::size_t>(cell_count) * 3U);
-    for (Index cell = 0; cell < cell_count; ++cell) {
-        const Hex& vertices_of_cell = mesh.m_storage.cell_vertices[static_cast<std::size_t>(cell)];
-        for (Index slot = 0; slot < 6; ++slot) {
-            Quad vertices_of_face{};
-            for (Index local = 0; local < 4; ++local) {
-                vertices_of_face[static_cast<std::size_t>(local)] =
-                    vertices_of_cell[static_cast<std::size_t>(hex_faces[static_cast<std::size_t>(slot)]
-                        [static_cast<std::size_t>(local)])];
+        Vec3 face_point_sum{};
+        for (Index vertex : face.vertices) {
+            requireIndex(vertex, mesh.vertexCount(), "face");
+            if (!unique.insert(vertex).second) {
+                throw std::invalid_argument("polyhedral face repeats a vertex");
             }
-            const Quad key = canonical(vertices_of_face);
-            const auto [position, inserted] = face_lookup.emplace(
-                key, static_cast<Index>(candidates.size()));
-            if (inserted) {
-                candidates.push_back({vertices_of_face, cell, slot, invalid_index, invalid_index});
-            } else {
-                FaceCandidate& candidate = candidates[static_cast<std::size_t>(position->second)];
-                if (candidate.neighbour != invalid_index) {
-                    throw std::invalid_argument("unstructured mesh contains a non-manifold face");
-                }
-                candidate.neighbour = cell;
-                candidate.neighbour_slot = slot;
+            face_point_sum += mesh.m_storage.vertices[static_cast<std::size_t>(vertex)];
+        }
+        const Vec3 point_average = face_point_sum / static_cast<double>(face.vertices.size());
+        cell_faces[static_cast<std::size_t>(face.owner)].push_back(static_cast<Index>(input_face));
+        cell_signs[static_cast<std::size_t>(face.owner)].push_back(1);
+        if (face.neighbour != invalid_index) {
+            cell_faces[static_cast<std::size_t>(face.neighbour)].push_back(static_cast<Index>(input_face));
+            cell_signs[static_cast<std::size_t>(face.neighbour)].push_back(-1);
+            cell_neighbours[static_cast<std::size_t>(face.owner)].insert(face.neighbour);
+            cell_neighbours[static_cast<std::size_t>(face.neighbour)].insert(face.owner);
+            if (face.patch != invalid_index) {
+                throw std::invalid_argument("internal polyhedral face cannot belong to a boundary patch");
             }
-        }
-    }
-
-    for (const auto& entry : boundary_patch) {
-        const auto face = face_lookup.find(entry.first);
-        if (face == face_lookup.end()) {
-            throw std::invalid_argument("boundary declaration does not match a cell face");
-        }
-        if (candidates[static_cast<std::size_t>(face->second)].neighbour != invalid_index) {
-            throw std::invalid_argument("internal face cannot be assigned to a boundary patch");
-        }
-    }
-
-    for (const FaceCandidate& candidate : candidates) {
-        const Quad key = canonical(candidate.vertices);
-        const auto boundary = boundary_patch.find(key);
-        const Index patch = boundary == boundary_patch.end() ? invalid_index : boundary->second;
-        if ((candidate.neighbour == invalid_index) != (patch != invalid_index)) {
-            throw std::invalid_argument("every exterior face must be assigned to exactly one patch");
+        } else if (face.patch < 0 || face.patch >= mesh.patchCount()) {
+            throw std::invalid_argument("boundary polyhedral face " + std::to_string(input_face) +
+                                        " has invalid patch " +
+                                        std::to_string(face.patch) + " of " +
+                                        std::to_string(mesh.patchCount()));
         }
 
-        Quad face_vertices = candidate.vertices;
-        auto [centre, area_vector] = quadGeometry(face_vertices, mesh.m_storage.vertices);
-        const Vec3 direction = candidate.neighbour == invalid_index
-            ? centre - mesh.m_storage.cell_centres[static_cast<std::size_t>(candidate.owner)]
-            : mesh.m_storage.cell_centres[static_cast<std::size_t>(candidate.neighbour)] -
-                mesh.m_storage.cell_centres[static_cast<std::size_t>(candidate.owner)];
-        if (dot(area_vector, direction) < 0.0) {
-            std::swap(face_vertices[1], face_vertices[3]);
-            area_vector = -area_vector;
+        // Orient the ring from the owner toward the exterior.  The arithmetic
+        // average is only used to choose orientation; the final cell centre is
+        // computed from signed face tetrahedra below.
+        Vec3 area = polygonAreaVector(face.vertices, mesh.m_storage.vertices);
+        // A provisional owner centre based on all owner face points gives a
+        // deterministic outward direction for non-centred input rings.
+        const Vec3 owner_estimate = cell_point_sums[static_cast<std::size_t>(face.owner)] /
+            static_cast<double>(std::max<Index>(1, cell_point_counts[static_cast<std::size_t>(face.owner)]));
+        if (dot(area, point_average - owner_estimate) < 0.0) {
+            std::reverse(face.vertices.begin() + 1, face.vertices.end());
+            area = polygonAreaVector(face.vertices, mesh.m_storage.vertices);
         }
-        const Index face = mesh.faceCount();
-        mesh.m_storage.face_vertices.push_back(face_vertices);
-        mesh.m_storage.face_owner.push_back(candidate.owner);
-        mesh.m_storage.face_neighbour.push_back(candidate.neighbour);
-        mesh.m_storage.face_patch.push_back(patch);
+        if (!(norm(area) > 0.0) || !isFinite(area)) {
+            throw std::invalid_argument("polyhedral face has zero area");
+        }
+        auto [centre, area_size] = polygonGeometry(face.vertices, mesh.m_storage.vertices);
+        for (Index vertex : face.vertices) mesh.m_storage.face_point_ids.push_back(vertex);
+        mesh.m_storage.face_point_offsets.push_back(
+            static_cast<Index>(mesh.m_storage.face_point_ids.size()));
+        mesh.m_storage.face_owner.push_back(face.owner);
+        mesh.m_storage.face_neighbour.push_back(face.neighbour);
+        mesh.m_storage.face_patch.push_back(face.patch);
         mesh.m_storage.face_centres.push_back(centre);
-        mesh.m_storage.face_area_vectors.push_back(area_vector);
-        mesh.m_storage.cell_faces[static_cast<std::size_t>(candidate.owner)]
-            [static_cast<std::size_t>(candidate.owner_slot)] = face;
-        if (candidate.neighbour != invalid_index) {
-            mesh.m_storage.cell_faces[static_cast<std::size_t>(candidate.neighbour)]
-                [static_cast<std::size_t>(candidate.neighbour_slot)] = face;
-            mesh.m_storage.cell_neighbours[static_cast<std::size_t>(candidate.owner)]
-                [static_cast<std::size_t>(candidate.owner_slot)] = candidate.neighbour;
-            mesh.m_storage.cell_neighbours[static_cast<std::size_t>(candidate.neighbour)]
-                [static_cast<std::size_t>(candidate.neighbour_slot)] = candidate.owner;
-        } else {
-            mesh.m_storage.patches[static_cast<std::size_t>(patch)].faces.push_back(face);
+        mesh.m_storage.face_area_vectors.push_back(area);
+        mesh.m_storage.face_areas.push_back(area_size);
+        mesh.m_storage.face_normals.push_back(area / area_size);
+        mesh.m_storage.face_owner_weights.push_back(1.0);
+        mesh.m_storage.face_non_orthogonal.push_back({});
+        mesh.m_storage.face_skewness.push_back({});
+        mesh.m_storage.face_orthogonal_coefficients.push_back(0.0);
+        if (face.patch != invalid_index) {
+            mesh.m_storage.patches[static_cast<std::size_t>(face.patch)].faces.push_back(
+                static_cast<Index>(input_face));
         }
     }
 
+    mesh.m_storage.cell_face_offsets.push_back(0);
     for (Index cell = 0; cell < cell_count; ++cell) {
-        const Vec3 reference = mesh.m_storage.cell_centres[static_cast<std::size_t>(cell)];
+        for (std::size_t i = 0; i < cell_faces[static_cast<std::size_t>(cell)].size(); ++i) {
+            mesh.m_storage.cell_face_ids.push_back(cell_faces[static_cast<std::size_t>(cell)][i]);
+            mesh.m_storage.cell_face_signs.push_back(cell_signs[static_cast<std::size_t>(cell)][i]);
+        }
+        mesh.m_storage.cell_face_offsets.push_back(
+            static_cast<Index>(mesh.m_storage.cell_face_ids.size()));
+        for (Index neighbour : cell_neighbours[static_cast<std::size_t>(cell)]) {
+            mesh.m_storage.cell_neighbour_ids.push_back(neighbour);
+        }
+        if (mesh.m_storage.cell_neighbour_offsets.empty()) {
+            mesh.m_storage.cell_neighbour_offsets.push_back(0);
+        }
+        mesh.m_storage.cell_neighbour_offsets.push_back(
+            static_cast<Index>(mesh.m_storage.cell_neighbour_ids.size()));
+    }
+
+    mesh.m_storage.cell_vertex_offsets.clear();
+    mesh.m_storage.cell_vertex_ids.clear();
+    mesh.m_storage.cell_vertex_offsets.push_back(0);
+    for (Index cell = 0; cell < cell_count; ++cell) {
+        std::set<Index> unique;
+        for (Index face : mesh.cellFaces(cell)) {
+            for (Index vertex : mesh.facePoints(face)) unique.insert(vertex);
+        }
+        for (Index vertex : unique) mesh.m_storage.cell_vertex_ids.push_back(vertex);
+        mesh.m_storage.cell_vertex_offsets.push_back(
+            static_cast<Index>(mesh.m_storage.cell_vertex_ids.size()));
+    }
+
+    mesh.m_storage.cell_centres.resize(static_cast<std::size_t>(cell_count));
+    mesh.m_storage.cell_volumes.resize(static_cast<std::size_t>(cell_count));
+    mesh.m_storage.cell_inverse_volumes.resize(static_cast<std::size_t>(cell_count));
+    for (Index cell = 0; cell < cell_count; ++cell) {
+        const std::size_t c = static_cast<std::size_t>(cell);
+        if (cell_faces[c].empty()) throw std::invalid_argument("polyhedral cell has no faces");
+        const Vec3 reference = cell_point_sums[c] /
+            static_cast<double>(std::max<Index>(1, cell_point_counts[c]));
         double volume = 0.0;
-        Vec3 first_moment{};
-        for (Index face : mesh.m_storage.cell_faces[static_cast<std::size_t>(cell)]) {
-            if (face == invalid_index) throw std::logic_error("cell face construction is incomplete");
-            const Quad& ids = mesh.m_storage.face_vertices[static_cast<std::size_t>(face)];
-            const Vec3& a = mesh.m_storage.vertices[static_cast<std::size_t>(ids[0])];
-            const Vec3& b = mesh.m_storage.vertices[static_cast<std::size_t>(ids[1])];
-            const Vec3& c = mesh.m_storage.vertices[static_cast<std::size_t>(ids[2])];
-            const Vec3& d = mesh.m_storage.vertices[static_cast<std::size_t>(ids[3])];
-            addTetrahedron(reference, a, b, c, volume, first_moment);
-            addTetrahedron(reference, a, c, d, volume, first_moment);
+        Vec3 moment{};
+        for (Index face : cell_faces[c]) {
+            const std::size_t f = static_cast<std::size_t>(face);
+            const Index sign = mesh.m_storage.face_owner[f] == cell ? 1 : -1;
+            const Index first = mesh.m_storage.face_point_offsets[f];
+            const Index last = mesh.m_storage.face_point_offsets[f + 1U];
+            const Vec3& origin = mesh.m_storage.vertices[static_cast<std::size_t>(
+                mesh.m_storage.face_point_ids[static_cast<std::size_t>(first)])];
+            for (Index i = first + 1; i + 1 < last; ++i) {
+                const Vec3& a = mesh.m_storage.vertices[static_cast<std::size_t>(
+                    mesh.m_storage.face_point_ids[static_cast<std::size_t>(i)])];
+                const Vec3& b = mesh.m_storage.vertices[static_cast<std::size_t>(
+                    mesh.m_storage.face_point_ids[static_cast<std::size_t>(i + 1)])];
+                const double tetra = sign * dot(origin - reference, cross(a - reference, b - reference)) / 6.0;
+                volume += tetra;
+                moment += tetra * ((reference + origin + a + b) / 4.0);
+            }
         }
         if (!(volume > 0.0) || !std::isfinite(volume)) {
-            throw std::invalid_argument("unstructured mesh contains a non-positive cell");
+            throw std::invalid_argument("polyhedral cell has non-positive signed volume");
         }
-        mesh.m_storage.cell_volumes[static_cast<std::size_t>(cell)] = volume;
-        mesh.m_storage.cell_inverse_volumes[static_cast<std::size_t>(cell)] = 1.0 / volume;
-        mesh.m_storage.cell_centres[static_cast<std::size_t>(cell)] = first_moment / volume;
+        mesh.m_storage.cell_volumes[c] = volume;
+        mesh.m_storage.cell_inverse_volumes[c] = 1.0 / volume;
+        mesh.m_storage.cell_centres[c] = moment / volume;
     }
 
-    const std::size_t face_count = mesh.m_storage.face_owner.size();
-    mesh.m_storage.face_areas.resize(face_count);
-    mesh.m_storage.face_normals.resize(face_count);
-    mesh.m_storage.face_orthogonal_coefficients.resize(face_count);
-    mesh.m_storage.face_owner_weights.resize(face_count);
-    mesh.m_storage.face_non_orthogonal.resize(face_count);
-    mesh.m_storage.face_skewness.resize(face_count);
     mesh.m_storage.orthogonal_geometry = true;
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const std::size_t f = static_cast<std::size_t>(face);
         const Index owner = mesh.m_storage.face_owner[f];
         const Index neighbour = mesh.m_storage.face_neighbour[f];
-        const Vec3& centre = mesh.m_storage.face_centres[f];
-        const Vec3& area_vector = mesh.m_storage.face_area_vectors[f];
         const Vec3 delta = neighbour == invalid_index
-            ? centre - mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)]
+            ? mesh.m_storage.face_centres[f] - mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)]
             : mesh.m_storage.cell_centres[static_cast<std::size_t>(neighbour)] -
                 mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)];
         const double delta_squared = squaredNorm(delta);
-        const double area = norm(area_vector);
-        const double projected = dot(area_vector, delta);
-        if (!(delta_squared > 0.0) || !(area > 0.0) || !(projected > 0.0)) {
-            throw std::invalid_argument("face orientation or geometry is invalid");
+        const double projected = dot(mesh.m_storage.face_area_vectors[f], delta);
+        if (!(delta_squared > 0.0) || !(projected > 0.0)) {
+            throw std::invalid_argument("polyhedral face geometry has invalid owner/neighbour direction");
         }
-        const double orthogonal = projected / delta_squared;
-        mesh.m_storage.face_areas[f] = area;
-        mesh.m_storage.face_normals[f] = area_vector / area;
-        mesh.m_storage.face_orthogonal_coefficients[f] = orthogonal;
-        mesh.m_storage.face_non_orthogonal[f] = area_vector - orthogonal * delta;
-        if (norm(mesh.m_storage.face_non_orthogonal[f]) > 1e-12 * area) {
+        const Vec3 normal = mesh.m_storage.face_normals[f];
+        mesh.m_storage.face_orthogonal_coefficients[f] = projected / delta_squared;
+        mesh.m_storage.face_non_orthogonal[f] =
+            mesh.m_storage.face_area_vectors[f] -
+            mesh.m_storage.face_orthogonal_coefficients[f] * delta;
+        if (norm(mesh.m_storage.face_non_orthogonal[f]) > 1e-12 * mesh.m_storage.face_areas[f]) {
             mesh.m_storage.orthogonal_geometry = false;
         }
-        if (neighbour == invalid_index) {
-            mesh.m_storage.face_owner_weights[f] = 1.0;
-            mesh.m_storage.face_skewness[f] = {};
-        } else {
-            const Vec3 normal = mesh.m_storage.face_normals[f];
+        if (neighbour != invalid_index) {
             const double owner_distance = std::abs(dot(
-                centre - mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)], normal));
+                mesh.m_storage.face_centres[f] - mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)], normal));
             const double neighbour_distance = std::abs(dot(
-                mesh.m_storage.cell_centres[static_cast<std::size_t>(neighbour)] - centre, normal));
+                mesh.m_storage.cell_centres[static_cast<std::size_t>(neighbour)] - mesh.m_storage.face_centres[f], normal));
             const double distance_sum = owner_distance + neighbour_distance;
-            if (!(distance_sum > 0.0)) {
-                throw std::invalid_argument("face interpolation distance is invalid");
-            }
+            if (!(distance_sum > 0.0)) throw std::invalid_argument("polyhedral interpolation distance is invalid");
             mesh.m_storage.face_owner_weights[f] = neighbour_distance / distance_sum;
             const double denominator = dot(delta, normal);
-            const double fraction = dot(centre -
-                mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)], normal) / denominator;
-            mesh.m_storage.face_skewness[f] = centre -
+            if (!(denominator > 0.0) || !std::isfinite(denominator)) {
+                throw std::invalid_argument("polyhedral face interpolation direction is invalid");
+            }
+            const double fraction = dot(
+                mesh.m_storage.face_centres[f] - mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)],
+                normal) / denominator;
+            mesh.m_storage.face_skewness[f] = mesh.m_storage.face_centres[f] -
                 (mesh.m_storage.cell_centres[static_cast<std::size_t>(owner)] + fraction * delta);
             if (norm(mesh.m_storage.face_skewness[f]) > 1e-12 * std::sqrt(delta_squared)) {
                 mesh.m_storage.orthogonal_geometry = false;
@@ -447,16 +437,46 @@ Mesh Mesh::unstructured(
     return mesh;
 }
 
-void Mesh::validate() const {
+Mesh Mesh::polyhedral(
+    std::vector<Vec3> vertices,
+    std::vector<std::vector<Index>> face_vertices,
+    std::vector<Index> owners,
+    std::vector<Index> neighbours,
+    std::vector<Index> face_patches,
+    std::vector<PatchSpec> patches)
+{
+    if (face_vertices.size() != owners.size() || owners.size() != neighbours.size() ||
+        owners.size() != face_patches.size()) {
+        throw std::invalid_argument("polyhedral face arrays have mismatched lengths");
+    }
+    std::vector<PolyhedralFaceSpec> faces;
+    faces.reserve(face_vertices.size());
+    for (std::size_t i = 0; i < face_vertices.size(); ++i) {
+        faces.push_back({std::move(face_vertices[i]), owners[i], neighbours[i], face_patches[i]});
+    }
+    return polyhedral(std::move(vertices), std::move(faces), std::move(patches));
+}
+
+void Mesh::validate() const
+{
     const Index cells = cellCount();
     const Index faces = faceCount();
-    if (cells <= 0 || faces <= 0 || vertexCount() <= 0 || m_storage.global_cell_count <= 0 ||
+    if (cells <= 0 || faces <= 0 || vertexCount() <= 0 || patchCount() <= 0 ||
+        m_storage.global_cell_count <= 0 ||
+        m_storage.face_point_offsets.size() != static_cast<std::size_t>(faces) + 1U ||
+        m_storage.cell_face_offsets.size() != static_cast<std::size_t>(cells) + 1U ||
+        m_storage.cell_face_signs.size() != m_storage.cell_face_ids.size() ||
+        m_storage.cell_vertex_offsets.size() != static_cast<std::size_t>(cells) + 1U ||
+        m_storage.cell_neighbour_offsets.size() != static_cast<std::size_t>(cells) + 1U ||
         m_storage.cell_centres.size() != static_cast<std::size_t>(cells) ||
         m_storage.cell_volumes.size() != static_cast<std::size_t>(cells) ||
         m_storage.cell_inverse_volumes.size() != static_cast<std::size_t>(cells) ||
-        m_storage.cell_faces.size() != static_cast<std::size_t>(cells) ||
-        m_storage.cell_neighbours.size() != static_cast<std::size_t>(cells) ||
-        m_storage.face_vertices.size() != static_cast<std::size_t>(faces) ||
+        m_storage.cell_global_ids.size() != static_cast<std::size_t>(cells) ||
+        m_storage.cell_owner_ranks.size() != static_cast<std::size_t>(cells) ||
+        m_storage.cell_ghost_depths.size() != static_cast<std::size_t>(cells) ||
+        m_storage.cell_owned_indices.size() != static_cast<std::size_t>(cells) ||
+        m_storage.face_global_ids.size() != static_cast<std::size_t>(faces) ||
+        m_storage.face_owner_ranks.size() != static_cast<std::size_t>(faces) ||
         m_storage.face_neighbour.size() != static_cast<std::size_t>(faces) ||
         m_storage.face_patch.size() != static_cast<std::size_t>(faces) ||
         m_storage.face_centres.size() != static_cast<std::size_t>(faces) ||
@@ -466,82 +486,115 @@ void Mesh::validate() const {
         m_storage.face_orthogonal_coefficients.size() != static_cast<std::size_t>(faces) ||
         m_storage.face_owner_weights.size() != static_cast<std::size_t>(faces) ||
         m_storage.face_non_orthogonal.size() != static_cast<std::size_t>(faces) ||
-        m_storage.face_skewness.size() != static_cast<std::size_t>(faces) ||
-        m_storage.cell_global_ids.size() != static_cast<std::size_t>(cells) ||
-        m_storage.cell_owner_ranks.size() != static_cast<std::size_t>(cells) ||
-        m_storage.cell_ghost_depths.size() != static_cast<std::size_t>(cells) ||
-        m_storage.face_global_ids.size() != static_cast<std::size_t>(faces) ||
-        m_storage.face_owner_ranks.size() != static_cast<std::size_t>(faces) ||
-        m_storage.cell_owned_indices.size() != static_cast<std::size_t>(cells) ||
-        m_storage.patches.empty()) {
-        throw std::runtime_error("unstructured mesh storage is inconsistent");
+        m_storage.face_skewness.size() != static_cast<std::size_t>(faces)) {
+        throw std::runtime_error("polyhedral mesh storage is inconsistent");
     }
+
     std::set<Index> cell_ids;
-    std::set<Index> face_ids;
-    std::vector<bool> patch_seen(static_cast<std::size_t>(faces), false);
     for (Index cell = 0; cell < cells; ++cell) {
         const std::size_t c = static_cast<std::size_t>(cell);
-        const Hex& vertices = m_storage.cell_vertices[c];
-        std::set<Index> unique(vertices.begin(), vertices.end());
-        if (unique.size() != vertices.size() || !cell_ids.insert(m_storage.cell_global_ids[c]).second ||
-            m_storage.cell_global_ids[c] < 0 || m_storage.cell_global_ids[c] >= m_storage.global_cell_count ||
+        if (m_storage.cell_global_ids[c] < 0 ||
+            m_storage.cell_global_ids[c] >= m_storage.global_cell_count ||
+            !cell_ids.insert(m_storage.cell_global_ids[c]).second ||
             m_storage.cell_owner_ranks[c] < 0 || m_storage.cell_ghost_depths[c] < 0 ||
             !(m_storage.cell_volumes[c] > 0.0) || !std::isfinite(m_storage.cell_volumes[c])) {
-            throw std::runtime_error("unstructured cell metadata is invalid");
+            throw std::runtime_error("polyhedral cell metadata is invalid");
         }
-        for (Index vertex : vertices) {
-            if (vertex < 0 || vertex >= vertexCount()) throw std::runtime_error("cell vertex is invalid");
+        const Index face_first = m_storage.cell_face_offsets[c];
+        const Index face_last = m_storage.cell_face_offsets[c + 1U];
+        const Index vertex_first = m_storage.cell_vertex_offsets[c];
+        const Index vertex_last = m_storage.cell_vertex_offsets[c + 1U];
+        const Index neighbour_first = m_storage.cell_neighbour_offsets[c];
+        const Index neighbour_last = m_storage.cell_neighbour_offsets[c + 1U];
+        if (face_first < 0 || face_last <= face_first ||
+            face_last > static_cast<Index>(m_storage.cell_face_ids.size()) ||
+            vertex_first < 0 || vertex_last <= vertex_first ||
+            vertex_last > static_cast<Index>(m_storage.cell_vertex_ids.size()) ||
+            neighbour_first < 0 || neighbour_last < neighbour_first ||
+            neighbour_last > static_cast<Index>(m_storage.cell_neighbour_ids.size())) {
+            throw std::runtime_error("polyhedral cell connectivity is invalid");
         }
-        for (Index slot = 0; slot < 6; ++slot) {
-            const Index face = m_storage.cell_faces[c][static_cast<std::size_t>(slot)];
-            const Index neighbour = m_storage.cell_neighbours[c][static_cast<std::size_t>(slot)];
-            if (face < 0 || face >= faces || (neighbour != invalid_index &&
-                (neighbour < 0 || neighbour >= cells))) {
-                throw std::runtime_error("cell connectivity is invalid");
+        for (Index i = face_first; i < face_last; ++i) {
+            const Index face = m_storage.cell_face_ids[static_cast<std::size_t>(i)];
+            const Index sign = m_storage.cell_face_signs[static_cast<std::size_t>(i)];
+            if (face < 0 || face >= faces || (sign != 1 && sign != -1)) {
+                throw std::runtime_error("polyhedral cell-face sign is invalid");
+            }
+        }
+        for (Index i = vertex_first; i < vertex_last; ++i) {
+            const Index vertex = m_storage.cell_vertex_ids[static_cast<std::size_t>(i)];
+            if (vertex < 0 || vertex >= vertexCount()) {
+                throw std::runtime_error("polyhedral cell vertex is invalid");
+            }
+        }
+        for (Index i = neighbour_first; i < neighbour_last; ++i) {
+            const Index neighbour = m_storage.cell_neighbour_ids[static_cast<std::size_t>(i)];
+            if (neighbour < 0 || neighbour >= cells || neighbour == cell) {
+                throw std::runtime_error("polyhedral cell neighbour is invalid");
             }
         }
     }
+
+    std::set<Index> face_ids;
+    std::vector<bool> patch_seen(static_cast<std::size_t>(faces), false);
     for (Index face = 0; face < faces; ++face) {
         const std::size_t f = static_cast<std::size_t>(face);
+        const Index first = m_storage.face_point_offsets[f];
+        const Index last = m_storage.face_point_offsets[f + 1U];
         const Index owner = m_storage.face_owner[f];
         const Index neighbour = m_storage.face_neighbour[f];
         const Index patch = m_storage.face_patch[f];
-        if (owner < 0 || owner >= cells || (neighbour != invalid_index &&
-            (neighbour < 0 || neighbour >= cells || neighbour == owner)) ||
-            m_storage.face_owner_ranks[f] < 0 || !face_ids.insert(m_storage.face_global_ids[f]).second ||
-            m_storage.face_global_ids[f] < 0 || (neighbour == invalid_index) != (patch != invalid_index) ||
+        if (first < 0 || last - first < 3 ||
+            last > static_cast<Index>(m_storage.face_point_ids.size()) ||
+            owner < 0 || owner >= cells ||
+            (neighbour != invalid_index &&
+             (neighbour < 0 || neighbour >= cells || neighbour == owner)) ||
+            (neighbour == invalid_index) != (patch != invalid_index) ||
             (patch != invalid_index && (patch < 0 || patch >= patchCount())) ||
+            !face_ids.insert(m_storage.face_global_ids[f]).second ||
+            m_storage.face_global_ids[f] < 0 ||
+            m_storage.face_owner_ranks[f] < 0 ||
             !(m_storage.face_areas[f] > 0.0) || !std::isfinite(m_storage.face_areas[f])) {
-            throw std::runtime_error("face metadata is invalid");
+            throw std::runtime_error("polyhedral face metadata is invalid");
+        }
+        std::set<Index> unique;
+        for (Index i = first; i < last; ++i) {
+            const Index vertex = m_storage.face_point_ids[static_cast<std::size_t>(i)];
+            if (vertex < 0 || vertex >= vertexCount() || !unique.insert(vertex).second) {
+                throw std::runtime_error("polyhedral face vertex connectivity is invalid");
+            }
         }
     }
     for (Index patch = 0; patch < patchCount(); ++patch) {
         const BoundaryPatch& boundary = m_storage.patches[static_cast<std::size_t>(patch)];
         if (boundary.name.empty()) throw std::runtime_error("mesh has an unnamed patch");
         for (Index face : boundary.faces) {
-            if (face < 0 || face >= faces || m_storage.face_patch[static_cast<std::size_t>(face)] != patch ||
+            if (face < 0 || face >= faces ||
+                m_storage.face_patch[static_cast<std::size_t>(face)] != patch ||
                 patch_seen[static_cast<std::size_t>(face)]) {
-                throw std::runtime_error("boundary patch connectivity is invalid");
+                throw std::runtime_error("polyhedral patch connectivity is invalid");
             }
             patch_seen[static_cast<std::size_t>(face)] = true;
         }
     }
     for (Index face = 0; face < faces; ++face) {
-        const std::size_t f = static_cast<std::size_t>(face);
-        if ((m_storage.face_patch[f] != invalid_index) != patch_seen[f]) {
-            throw std::runtime_error("boundary face is missing from its patch");
+        if (m_storage.face_neighbour[static_cast<std::size_t>(face)] == invalid_index &&
+            !patch_seen[static_cast<std::size_t>(face)]) {
+            throw std::runtime_error("polyhedral boundary face is not assigned to a patch");
         }
     }
     Index owned_count = 0;
     for (Index cell = 0; cell < cells; ++cell) {
         const Index owned = m_storage.cell_owned_indices[static_cast<std::size_t>(cell)];
         if (owned != invalid_index) {
-            if (owned != owned_count++ || m_storage.cell_ghost_depths[static_cast<std::size_t>(cell)] != 0) {
+            if (owned != owned_count++ ||
+                m_storage.cell_ghost_depths[static_cast<std::size_t>(cell)] != 0) {
                 throw std::runtime_error("owned cell mapping is invalid");
             }
         }
     }
-    if (owned_count != ownedCellCount()) throw std::runtime_error("owned cell count is invalid");
+    if (owned_count != ownedCellCount() || owned_count == 0) {
+        throw std::runtime_error("owned cell count is invalid");
+    }
 }
-
 }  // namespace babelsim

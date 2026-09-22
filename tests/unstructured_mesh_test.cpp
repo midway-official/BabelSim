@@ -27,9 +27,30 @@ Mesh arbitraryHexMesh() {
         {{{8, 11, 5, 2}}, 1}, {{{3, 8, 2, 6}}, 1}, {{{9, 0, 5, 11}}, 1},
         {{{3, 9, 11, 8}}, 1}, {{{6, 2, 5, 0}}, 1},
     }};
-    return Mesh::unstructured(std::move(vertices), std::move(cells),
+    return meshFromHexInput(std::move(vertices), std::move(cells),
                               {{"left", PatchKind::Generic}, {"right", PatchKind::Wall}},
                               std::move(boundaries));
+}
+
+Mesh pentagonalPrismMesh() {
+    std::vector<Vec3> vertices;
+    vertices.reserve(10);
+    for (Index layer = 0; layer < 2; ++layer) {
+        for (Index vertex = 0; vertex < 5; ++vertex) {
+            const double angle = 2.0 * 3.14159265358979323846 * vertex / 5.0;
+            vertices.push_back({std::cos(angle), std::sin(angle), static_cast<double>(layer)});
+        }
+    }
+    std::vector<PolyhedralFaceSpec> faces{
+        {{{0, 4, 3, 2, 1}}, 0, invalid_index, 0},
+        {{{5, 6, 7, 8, 9}}, 0, invalid_index, 0},
+    };
+    for (Index vertex = 0; vertex < 5; ++vertex) {
+        const Index next = (vertex + 1) % 5;
+        faces.push_back({{{vertex, next, next + 5, vertex + 5}}, 0, invalid_index, 0});
+    }
+    return Mesh::polyhedral(std::move(vertices), std::move(faces),
+                            {{"wall", PatchKind::Wall}});
 }
 
 template <typename Build>
@@ -46,6 +67,14 @@ void requireRejected(Build&& build, const char* message) {
 }  // namespace
 
 int main() {
+    const Mesh polyhedron = pentagonalPrismMesh();
+    require(polyhedron.cellCount() == 1 && polyhedron.faceCount() == 7,
+            "variable-face polyhedron topology has the wrong size");
+    require(polyhedron.cellFaces(0).size() == 7 && polyhedron.facePoints(0).size() == 5,
+            "variable-face polyhedron connectivity was truncated");
+    require(polyhedron.cellVertices(0).size() == 10 && near(polyhedron.cellVolume(0), 2.377641290737884),
+            "variable-face polyhedron geometry is invalid");
+
     const Mesh mesh = arbitraryHexMesh();
     require(mesh.cellCount() == 2 && mesh.globalCellCount() == 2, "explicit Hex cell IDs are invalid");
     require(mesh.vertexCount() == 12 && mesh.faceCount() == 11, "explicit Hex face matching failed");
@@ -67,7 +96,7 @@ int main() {
             {{{0, 4, 7, 3}}, 0}, {{{1, 2, 6, 5}}, 0}, {{{0, 1, 5, 4}}, 0},
             {{{3, 7, 6, 2}}, 0}, {{{0, 3, 2, 1}}, 0},
         }};
-        Mesh::unstructured(
+        meshFromHexInput(
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
              {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
             {{{0, 1, 2, 3, 4, 5, 6, 7}}}, {{"boundary", PatchKind::Generic}},
@@ -78,16 +107,16 @@ int main() {
             {0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
             {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}};
         const std::array<Index, 8> cell{{0, 1, 2, 3, 4, 5, 6, 7}};
-        Mesh::unstructured(vertices, {cell, cell, cell}, {{"boundary", PatchKind::Generic}}, {});
+        meshFromHexInput(vertices, {cell, cell, cell}, {{"boundary", PatchKind::Generic}}, {});
     }, "non-manifold face was accepted");
     requireRejected([] {
-        Mesh::unstructured(
+        meshFromHexInput(
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
              {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
             {{{1, 0, 3, 2, 5, 4, 7, 6}}}, {{"boundary", PatchKind::Generic}}, {});
     }, "negative Hex orientation was accepted");
     requireRejected([] {
-        Mesh::unstructured(
+        meshFromHexInput(
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0},
              {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}},
             {{{0, 1, 2, 3, 4, 5, 6, 6}}}, {{"boundary", PatchKind::Generic}}, {});

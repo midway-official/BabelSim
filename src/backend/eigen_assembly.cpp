@@ -2,6 +2,7 @@
 #include "internal/mesh_access.h"
 
 #include <stdexcept>
+#include <map>
 #include <vector>
 
 namespace babelsim {
@@ -89,6 +90,22 @@ SparseAssembly::SparseAssembly(const Mesh& mesh)
                 m_matrix, detail::ownedIndex(mesh, neighbour), detail::ownedIndex(mesh, owner));
         }
     }
+    std::map<std::pair<Eigen::Index, Eigen::Index>, std::vector<Index>> grouped;
+    for (Index face : m_coupled_faces) {
+        const std::size_t f = static_cast<std::size_t>(face);
+        grouped[{m_upper_positions[f], m_lower_positions[f]}].push_back(face);
+    }
+    for (auto& entry : grouped) {
+        if (entry.second.size() == 1U) {
+            m_single_coupled_faces.push_back(entry.second.front());
+        } else {
+            RepeatedCoupling coupling;
+            coupling.upper_position = entry.first.first;
+            coupling.lower_position = entry.first.second;
+            coupling.faces = std::move(entry.second);
+            m_repeated_couplings.push_back(std::move(coupling));
+        }
+    }
 }
 
 void SparseAssembly::update(
@@ -109,10 +126,21 @@ void SparseAssembly::update(
         const auto row = static_cast<std::size_t>(detail::ownedIndex(*m_mesh, cell));
         values[m_diagonal_positions[row]] = diagonal[c];
     }
-    for (Index face_index : m_coupled_faces) {
+    for (Index face_index : m_single_coupled_faces) {
         const std::size_t face = static_cast<std::size_t>(face_index);
         values[m_upper_positions[face]] = upper[face];
         values[m_lower_positions[face]] = lower[face];
+    }
+    for (const RepeatedCoupling& coupling : m_repeated_couplings) {
+        double upper_sum = 0.0;
+        double lower_sum = 0.0;
+        for (Index face_index : coupling.faces) {
+            const std::size_t face = static_cast<std::size_t>(face_index);
+            upper_sum += upper[face];
+            lower_sum += lower[face];
+        }
+        values[coupling.upper_position] = upper_sum;
+        values[coupling.lower_position] = lower_sum;
     }
 }
 

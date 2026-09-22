@@ -1,5 +1,6 @@
-BABELSIM_MESH 2
-vertices 8
+BABELSIM_MESH 3
+vertices
+8
 0 0 0
 1 0 0
 0 1 0
@@ -8,19 +9,32 @@ vertices 8
 1 0 1
 0 1 1
 1 1 1
-cells 1
-0 1 3 2 4 5 7 6
-patches 6
-patch xmin generic 1
-0 4 6 2
-patch xmax generic 1
-1 3 7 5
-patch ymin generic 1
-0 1 5 4
-patch ymax generic 1
-2 6 7 3
-patch zmin symmetry 1
-0 2 3 1
-patch zmax symmetry 1
-4 5 7 6
+faces
+6
+face 4 0 -1 0 0 4 6 2
+face 4 0 -1 1 1 3 7 5
+face 4 0 -1 2 0 1 5 4
+face 4 0 -1 3 2 6 7 3
+face 4 0 -1 4 0 2 3 1
+face 4 0 -1 5 4 5 7 6
+patches
+6
+patch
+xmin
+generic
+patch
+xmax
+generic
+patch
+ymin
+generic
+patch
+ymax
+generic
+patch
+zmin
+symmetry
+patch
+zmax
+symmetry
 end

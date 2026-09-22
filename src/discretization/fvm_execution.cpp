@@ -154,7 +154,7 @@ FluxBalance FvmExecution::fluxBalance(const ScalarField& face_flux) const {
     double scale = 0.0;
     for (Index cell : detail::meshData(*state.mesh).owned_cells) {
         double imbalance = 0.0;
-        for (Index face : detail::meshData(*state.mesh).cell_faces[static_cast<std::size_t>(cell)]) {
+        for (Index face : state.mesh->cellFaces(cell)) {
             const std::size_t index = static_cast<std::size_t>(face);
             const double outward = detail::meshData(*state.mesh).face_owner[index] == cell
                 ? detail::fieldData(face_flux)[face] : -detail::fieldData(face_flux)[face];

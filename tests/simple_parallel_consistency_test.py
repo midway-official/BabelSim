@@ -16,6 +16,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from compare_parallel_results import read_result
+from polyhedral_mesh import write_hex_v3
 
 
 def generated_mesh(path, shape, warp):
@@ -39,16 +40,9 @@ def generated_mesh(path, shape, warp):
                     (2,j==0,[0,1,5,4]),(3,j==ny-1,[3,7,6,2]),
                     (4,k==0,[0,3,2,1]),(5,k==nz-1,[4,5,6,7])]:
                     if yes: faces[side].append([c[t] for t in ids])
-    with path.open('w') as f:
-        f.write(f'BABELSIM_MESH 2\nvertices {len(points)}\n')
-        for p in points: f.write(' '.join(format(x,'.17g') for x in p)+'\n')
-        f.write(f'cells {len(cells)}\n')
-        for c in cells: f.write(' '.join(map(str,c))+'\n')
-        f.write('patches 6\n')
-        for name,patch in zip(['cavity_left','cavity_right','cavity_bottom','lid','front','back'],faces):
-            f.write(f'patch {name} wall {len(patch)}\n')
-            for face in patch: f.write(' '.join(map(str,face))+'\n')
-        f.write('end\n')
+    write_hex_v3(path, points, cells, [
+        (name, 'wall', patch) for name, patch in zip(
+            ['cavity_left','cavity_right','cavity_bottom','lid','front','back'], faces)])
 
 
 def prepare(base, name, mode, ghost=3):

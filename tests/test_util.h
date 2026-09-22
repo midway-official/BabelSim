@@ -7,10 +7,52 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+inline babelsim::Mesh meshFromHexInput(
+    std::vector<babelsim::Vec3> vertices,
+    std::vector<std::array<babelsim::Index, 8>> cells,
+    std::vector<babelsim::PatchSpec> patches,
+    std::vector<babelsim::BoundaryFaceSpec> boundaries)
+{
+    using namespace babelsim;
+    static constexpr int face_layout[6][4] = {
+        {0, 4, 7, 3}, {1, 2, 6, 5}, {0, 1, 5, 4},
+        {3, 7, 6, 2}, {0, 3, 2, 1}, {4, 5, 6, 7}};
+    std::map<std::vector<Index>, Index> lookup;
+    std::vector<PolyhedralFaceSpec> faces;
+    for (Index cell = 0; cell < static_cast<Index>(cells.size()); ++cell) {
+        for (int local_face = 0; local_face < 6; ++local_face) {
+            std::vector<Index> ring;
+            for (int vertex = 0; vertex < 4; ++vertex) {
+                ring.push_back(cells[static_cast<std::size_t>(cell)]
+                    [static_cast<std::size_t>(face_layout[local_face][vertex])]);
+            }
+            std::vector<Index> key = ring;
+            std::sort(key.begin(), key.end());
+            const auto [it, inserted] = lookup.emplace(key, static_cast<Index>(faces.size()));
+            if (inserted) {
+                faces.push_back({std::move(ring), cell, invalid_index, invalid_index});
+            } else {
+                PolyhedralFaceSpec& face = faces[static_cast<std::size_t>(it->second)];
+                if (face.neighbour != invalid_index) throw std::invalid_argument("non-manifold test face");
+                face.neighbour = cell;
+            }
+        }
+    }
+    for (const BoundaryFaceSpec& boundary : boundaries) {
+        std::vector<Index> key(boundary.vertices.begin(), boundary.vertices.end());
+        std::sort(key.begin(), key.end());
+        const auto it = lookup.find(key);
+        if (it == lookup.end()) throw std::invalid_argument("test boundary does not match a face");
+        faces[static_cast<std::size_t>(it->second)].patch = boundary.patch;
+    }
+    return Mesh::polyhedral(std::move(vertices), std::move(faces), std::move(patches));
+}
 
 inline babelsim::EquationControl testEquationControl(
     const std::string& name,
@@ -110,7 +152,7 @@ inline babelsim::Mesh makeHexFromVertices(
             }
         }
     }
-    return Mesh::unstructured(
+    return meshFromHexInput(
         std::move(vertices), std::move(cells),
         std::vector<PatchSpec>(patches.begin(), patches.end()), std::move(boundaries));
 }

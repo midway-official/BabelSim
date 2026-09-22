@@ -71,7 +71,7 @@ python3 tools/compare_parallel_results.py \
 ```text
 cases/<名字>/
 ├── case.bs                  # solver <注册名> 与其余文件的相对路径
-├── mesh/*.mesh              # 六面体网格，patch 带角色（wall/inlet/outlet/symmetry…）
+├── mesh/*.mesh              # BABELSIM_MESH 3 polyhedral 网格，patch 带角色（wall/inlet/outlet/symmetry…）
 ├── fields/initial/*.field   # 每个场的初值与边界条件
 ├── physics/*.bs             # 物性/模型常数（各求解器读哪些键见对应章节）
 ├── numerics/methods.bs      # 空间/时间离散格式
@@ -143,7 +143,8 @@ build/babelsim-post -case cases/poiseuille -format vtk tecplot     # post/final.
 build/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*.vtu + post/mpi4/series.pvd
 ```
 
-`.vtu` 用 ParaView 打开，`.dat` 是 Tecplot FEBRICK。后处理会核对每个 rank 的 metadata
+`.vtu` 用 ParaView 打开；`.dat` 是八顶点六面体兼容的 Tecplot FEBRICK。任意面数的 polyhedral 网格使用 VTK
+输出。后处理会核对每个 rank 的 metadata
 与全局单元完整性并检查结果与网格一致，缺 rank、混入别的运行或网格不匹配都会报错。
 
 ### 2.6 退出码与失败语义

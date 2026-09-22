@@ -60,10 +60,12 @@ int main(int argc, char* argv[]) {
         halo.finishFirstLayer(asynchronous);
         require(owned_sum > 0.0, "asynchronous halo test did not read owned values");
         for (Index cell = 0; cell < local.cellCount(); ++cell) {
+            const Index depth = detail::meshData(local).cell_ghost_depths[static_cast<std::size_t>(cell)];
+            if (depth > 1) continue;
             require(
                 near(asynchronous[static_cast<std::size_t>(cell)],
                      detail::globalCellId(local, cell) + 0.5),
-                "asynchronous halo exchange did not reconstruct global values");
+                "asynchronous first-layer halo exchange did not reconstruct global values");
         }
         for (Index cell = 0; cell < local.cellCount(); ++cell) {
             const double id = detail::globalCellId(local, cell);
@@ -427,7 +429,7 @@ int main(int argc, char* argv[]) {
             local_operator_error = std::max(
                 local_operator_error,
                 std::abs(detail::fieldData(skew_divergence)[cell] - 3.0));
-            for (Index face : detail::meshData(skew).cell_faces[static_cast<std::size_t>(cell)]) {
+            for (Index face : skew.cellFaces(cell)) {
                 const auto f = static_cast<std::size_t>(face);
                 const Vec3& point = detail::meshData(skew).face_centres[f];
                 local_operator_error = std::max(
@@ -451,7 +453,7 @@ int main(int argc, char* argv[]) {
                 skew_convection.diagonal[static_cast<std::size_t>(cell)] *
                     detail::fieldData(skew_linear)[cell] -
                 skew_convection.source[static_cast<std::size_t>(cell)];
-            for (Index face : detail::meshData(skew).cell_faces[static_cast<std::size_t>(cell)]) {
+            for (Index face : skew.cellFaces(cell)) {
                 const auto f = static_cast<std::size_t>(face);
                 const Index owner = detail::meshData(skew).face_owner[f];
                 const Index neighbour = detail::meshData(skew).face_neighbour[f];

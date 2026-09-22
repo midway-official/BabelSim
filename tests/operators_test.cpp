@@ -189,7 +189,7 @@ int main() {
     flux(
         warped_vector, warped_flux,
         InterpolationMethod::Corrected, GradientMethod::LeastSquares);
-    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : warped.cellFaces(warped_centre)) {
         const auto f = static_cast<std::size_t>(face);
         require(
             near(detail::fieldData(warped_faces)[face], linearValue(detail::meshData(warped).face_centres[f]), 1e-10),
@@ -226,7 +226,7 @@ int main() {
         warped_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
             detail::fieldData(warped_linear)[warped_centre] -
         warped_convection.source[static_cast<std::size_t>(warped_centre)];
-    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : warped.cellFaces(warped_centre)) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(warped).face_owner[f];
         const Index neighbour = detail::meshData(warped).face_neighbour[f];
@@ -249,7 +249,7 @@ int main() {
         linear_upwind_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
             detail::fieldData(warped_linear)[warped_centre] -
         linear_upwind_convection.source[static_cast<std::size_t>(warped_centre)];
-    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : warped.cellFaces(warped_centre)) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(warped).face_owner[f];
         const Index neighbour = detail::meshData(warped).face_neighbour[f];
@@ -278,7 +278,7 @@ int main() {
         warped_vector_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
             detail::fieldData(warped_vector)[warped_centre] -
         warped_vector_convection.source[static_cast<std::size_t>(warped_centre)];
-    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : warped.cellFaces(warped_centre)) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(warped).face_owner[f];
         const Index neighbour = detail::meshData(warped).face_neighbour[f];
@@ -305,7 +305,7 @@ int main() {
         linear_upwind_vector_convection.diagonal[static_cast<std::size_t>(warped_centre)] *
             detail::fieldData(warped_vector)[warped_centre] -
         linear_upwind_vector_convection.source[static_cast<std::size_t>(warped_centre)];
-    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : warped.cellFaces(warped_centre)) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(warped).face_owner[f];
         const Index neighbour = detail::meshData(warped).face_neighbour[f];
@@ -330,7 +330,7 @@ int main() {
     // Isolate each interior face in both directions. Reconstruction must stay
     // within adjacent cell values, and its two integrated contributions cancel.
     ScalarField isolated_flux(warped, FieldLocation::Face, "isolatedFlux");
-    for (Index face : detail::meshData(warped).cell_faces[static_cast<std::size_t>(warped_centre)]) {
+    for (Index face : warped.cellFaces(warped_centre)) {
         const Index owner = detail::meshData(warped).face_owner[face];
         const Index neighbour = detail::meshData(warped).face_neighbour[face];
         require(neighbour != invalid_index, "limiter test requires an interior face");
@@ -369,7 +369,7 @@ int main() {
         vector_diffusion.diagonal[static_cast<std::size_t>(skewed_centre)] *
             detail::fieldData(skewed_vector)[skewed_centre] -
         vector_diffusion.source[static_cast<std::size_t>(skewed_centre)];
-    for (Index face : detail::meshData(skewed).cell_faces[static_cast<std::size_t>(skewed_centre)]) {
+    for (Index face : skewed.cellFaces(skewed_centre)) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(skewed).face_owner[f];
         const Index neighbour = detail::meshData(skewed).face_neighbour[f];
@@ -388,7 +388,7 @@ int main() {
     VectorField reconstructed_vector(skewed, FieldLocation::Face, "vectorFace");
     reconstruct(skewed_linear, skewed_gradient, reconstructed_scalar);
     reconstruct(skewed_vector, skewed_tensor, reconstructed_vector);
-    for (Index face : detail::meshData(skewed).cell_faces[static_cast<std::size_t>(skewed_centre)]) {
+    for (Index face : skewed.cellFaces(skewed_centre)) {
         const auto f = static_cast<std::size_t>(face);
         if (detail::meshData(skewed).face_neighbour[f] == invalid_index) {
             continue;
@@ -432,7 +432,7 @@ int main() {
     double maximum_constant_residual = 0.0;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         double row_value = convection.diagonal[static_cast<std::size_t>(cell)] * 2.0;
-        for (Index face : detail::meshData(mesh).cell_faces[static_cast<std::size_t>(cell)]) {
+        for (Index face : mesh.cellFaces(cell)) {
             const auto f = static_cast<std::size_t>(face);
             if (detail::meshData(mesh).face_neighbour[f] == invalid_index) {
                 continue;
@@ -456,7 +456,7 @@ int main() {
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
         double row_value =
             central_convection.diagonal[static_cast<std::size_t>(cell)] * 2.0;
-        for (Index face : detail::meshData(mesh).cell_faces[static_cast<std::size_t>(cell)]) {
+        for (Index face : mesh.cellFaces(cell)) {
             const auto f = static_cast<std::size_t>(face);
             if (detail::meshData(mesh).face_neighbour[f] == invalid_index) {
                 continue;

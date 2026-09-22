@@ -34,13 +34,15 @@ Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poi
 Field、`equ/math`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
 稳态与瞬态 SIMPLE 各自在独立 main.cpp 展开所有算法步骤和 Rhie–Chow，不共享 SIMPLE 实现。
 
-当前实现只使用显式连接的三维非结构六面体网格；薄域问题仍是六面体层，
-不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、
-正交系数、非正交修正向量、偏斜量和插值权重，以少量内存换取迭代热点中的计算速度。
+当前实现使用显式 face-based 的三维非结构 polyhedral 网格；每个 face 有一个 owner 和至多一个
+neighbour，face 顶点数与 cell 面数都可变。薄域问题仍是三维层，不会维护独立的二维算子或二维求解器。
+网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量和
+插值权重，以少量内存换取迭代热点中的计算速度。旧 hex 算例通过一次性 v2→v3 工具迁移，运行时
+reader 只接受显式 face 的 v3 格式。
 
 已实现：
 
-- 三维非结构六面体网格、边界 patch、cell/face/vertex 拓扑；
+- 通用三维 polyhedral cell/face/vertex 拓扑、边界 patch、可变长度 CSR 连接和只读 range；
 - 连续存储的 scalar/vector/tensor Field 与通用边界条件；
 - Gradient、Interpolation、Flux、Divergence、Convection、Diffusion、Laplacian、
   TimeDerivative 等有限体积算子；
@@ -143,9 +145,10 @@ cases/poiseuille/
 ```
 
 每个 MPI rank 仅写出 owned cell 的 `U.csv`、`p.csv` 与 `metadata.bs`；ghost cell
-不会写出。`babelsim-post` 按 global ID 检查完整性并合并为原始六面体网格的 VTK
-XML `.vtu` 或 Tecplot `FEBRICK` 文件；`-time all -format vtk` 还会产生
-ParaView 可直接打开的 `post/series.pvd`。
+不会写出。`babelsim-post` 按 global ID 检查完整性并合并为真实 polyhedron 的 VTK
+XML `.vtu`；`-time all -format vtk` 还会产生 ParaView 可直接打开的
+`post/series.pvd`。Tecplot `FEBRICK` 输出保留给八顶点六面体兼容结果；任意面数的网格使用 VTK
+输出查看。
 
 库代码需要从已存在的全局网格分区时仍可使用 `decompose()`；启动器和文件型并行程序
 应使用 `readDistributedMesh(path, parallel)`。该接口在 rank 0 读取网格，Parallel 层

@@ -446,26 +446,60 @@ struct DistributedLinearSolver::Implementation {
 
     void buildCoarseMapping() {
         const Index global_cells = mesh.globalCellCount();
-        std::vector<int> adjacency(static_cast<std::size_t>(global_cells) * 6U, invalid_index);
-        // 每个 owned cell 恰由一个 rank 发布其图邻接。MAX 归约在 -1 哨兵与合法
-        // 非负 global ID 之间得到唯一结果，随后每个 rank 都拥有相同的粗化图。
+        // Publish variable-length, de-duplicated graph rows.  The old fixed
+        // six-neighbour padding made a polyhedral cell silently lose edges.
+        // Rows are gathered once during AMG setup; Krylov iterations never see
+        // this representation.
+        std::vector<int> packed;
         for (Index cell : detail::meshData(mesh).owned_cells) {
             const Index global_cell = detail::globalCellId(mesh, cell);
-            for (Index slot = 0; slot < 6; ++slot) {
-                const Index neighbour = detail::meshData(mesh).cell_neighbours[static_cast<std::size_t>(cell)]
-                    [static_cast<std::size_t>(slot)];
-                adjacency[6U * static_cast<std::size_t>(global_cell) + static_cast<std::size_t>(slot)] =
-                    neighbour == invalid_index ? invalid_index : detail::globalCellId(mesh, neighbour);
+            std::vector<int> row;
+            for (Index neighbour : mesh.cellNeighbours(cell)) {
+                if (neighbour != invalid_index) row.push_back(detail::globalCellId(mesh, neighbour));
             }
+            std::sort(row.begin(), row.end());
+            row.erase(std::unique(row.begin(), row.end()), row.end());
+            packed.push_back(global_cell);
+            packed.push_back(static_cast<int>(row.size()));
+            packed.insert(packed.end(), row.begin(), row.end());
         }
-        std::vector<int> global_adjacency(adjacency.size(), invalid_index);
+        int local_count = static_cast<int>(packed.size());
+        std::vector<int> counts(static_cast<std::size_t>(parallel.size));
+        detail::checkMpi(MPI_Allgather(&local_count, 1, MPI_INT, counts.data(), 1, MPI_INT,
+                                       parallel.communicator), "MPI_Allgather(AMG graph row sizes)");
+        std::vector<int> displacements(counts.size(), 0);
+        for (std::size_t rank = 1; rank < counts.size(); ++rank) {
+            displacements[rank] = displacements[rank - 1] + counts[rank - 1];
+        }
+        const int total_count = displacements.empty() ? 0 :
+            displacements.back() + counts.back();
+        std::vector<int> gathered(static_cast<std::size_t>(total_count));
         const Clock::time_point adjacency_start = Clock::now();
-        detail::checkMpi(MPI_Allreduce(
-            adjacency.data(), global_adjacency.data(),
-            detail::mpiCount(adjacency.size(), "AMG graph adjacency"), MPI_INT, MPI_MAX,
-            parallel.communicator), "MPI_Allreduce(AMG graph adjacency)");
+        detail::checkMpi(MPI_Allgatherv(
+            packed.data(), local_count, MPI_INT, gathered.data(), counts.data(),
+            displacements.data(), MPI_INT, parallel.communicator),
+            "MPI_Allgatherv(AMG graph rows)");
         ++pending_performance.global_reductions;
         pending_performance.global_reduction_seconds += secondsSince(adjacency_start);
+
+        std::vector<std::vector<int>> global_adjacency(static_cast<std::size_t>(global_cells));
+        for (std::size_t cursor = 0; cursor < gathered.size();) {
+            if (cursor + 2 > gathered.size()) throw std::runtime_error("truncated AMG graph row");
+            const int row = gathered[cursor++];
+            const int degree = gathered[cursor++];
+            if (row < 0 || row >= global_cells || degree < 0 ||
+                cursor + static_cast<std::size_t>(degree) > gathered.size()) {
+                throw std::runtime_error("invalid AMG graph row");
+            }
+            auto& links = global_adjacency[static_cast<std::size_t>(row)];
+            links.insert(links.end(), gathered.begin() + static_cast<std::ptrdiff_t>(cursor),
+                         gathered.begin() + static_cast<std::ptrdiff_t>(cursor + degree));
+            cursor += static_cast<std::size_t>(degree);
+        }
+        for (auto& links : global_adjacency) {
+            std::sort(links.begin(), links.end());
+            links.erase(std::unique(links.begin(), links.end()), links.end());
+        }
 
         amg_cell_to_coarse.resize(static_cast<std::size_t>(global_cells));
         for (Index cell = 0; cell < global_cells; ++cell) {
@@ -477,10 +511,7 @@ struct DistributedLinearSolver::Implementation {
             std::vector<std::vector<int>> graph(static_cast<std::size_t>(groups));
             for (Index cell = 0; cell < global_cells; ++cell) {
                 const int source = amg_cell_to_coarse[static_cast<std::size_t>(cell)];
-                for (Index slot = 0; slot < 6; ++slot) {
-                    const int neighbour = global_adjacency[
-                        6U * static_cast<std::size_t>(cell) + static_cast<std::size_t>(slot)];
-                    if (neighbour == invalid_index) continue;
+                for (const int neighbour : global_adjacency[static_cast<std::size_t>(cell)]) {
                     const int target = amg_cell_to_coarse[static_cast<std::size_t>(neighbour)];
                     if (target != source) graph[static_cast<std::size_t>(source)].push_back(target);
                 }

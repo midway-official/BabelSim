@@ -105,8 +105,10 @@ with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
     mesh_path = heat / "mesh/heat.mesh"
     original_mesh = mesh_path.read_text()
     lines = original_mesh.splitlines()
-    count = int(lines[1].split()[1])
-    for i in range(2, 2 + count):
+    vertex_header = lines.index("vertices")
+    count = int(lines[vertex_header + 1])
+    first_vertex = vertex_header + 2
+    for i in range(first_vertex, first_vertex + count):
         xyz = list(map(float, lines[i].split()))
         xyz[0] += 10.0
         lines[i] = " ".join(map(str, xyz))

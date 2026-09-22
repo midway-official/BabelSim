@@ -22,6 +22,12 @@ public:
     const Eigen::SparseMatrix<double>& matrix() const { return m_matrix; }
 
 private:
+    struct RepeatedCoupling {
+        Eigen::Index upper_position = Eigen::Index{-1};
+        Eigen::Index lower_position = Eigen::Index{-1};
+        std::vector<Index> faces;
+    };
+
     void update(
         const Mesh* equation_mesh,
         const std::vector<double>& diagonal,
@@ -34,6 +40,8 @@ private:
     std::vector<Eigen::Index> m_upper_positions;
     std::vector<Eigen::Index> m_lower_positions;
     std::vector<Index> m_coupled_faces;
+    std::vector<Index> m_single_coupled_faces;
+    std::vector<RepeatedCoupling> m_repeated_couplings;
 };
 
 void assembleSource(const ScalarDiscreteEquation& equation, Eigen::VectorXd& result);

@@ -265,7 +265,7 @@ void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
         Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
         Eigen::Vector3d rhs = Eigen::Vector3d::Zero();
         const auto c = static_cast<std::size_t>(cell);
-        for (Index face : detail::meshData(mesh).cell_faces[c]) {
+        for (Index face : mesh.cellFaces(cell)) {
             const auto f = static_cast<std::size_t>(face);
             const Index owner = detail::meshData(mesh).face_owner[f];
             const Index neighbour = detail::meshData(mesh).face_neighbour[f];
@@ -352,7 +352,7 @@ void leastSquaresGradient(const VectorField& vector, TensorField& result) {
         Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
         Eigen::Matrix3d rhs = Eigen::Matrix3d::Zero();
         const auto c = static_cast<std::size_t>(cell);
-        for (Index face : detail::meshData(mesh).cell_faces[c]) {
+        for (Index face : mesh.cellFaces(cell)) {
             const auto f = static_cast<std::size_t>(face);
             const Index owner = detail::meshData(mesh).face_owner[f];
             const Index neighbour = detail::meshData(mesh).face_neighbour[f];

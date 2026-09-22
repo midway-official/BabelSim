@@ -7,7 +7,11 @@ import argparse
 import csv
 import json
 import math
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from polyhedral_mesh import write_hex_v3
 
 
 def naca0012_thickness(x: float) -> float:
@@ -348,19 +352,8 @@ def quality(surface, outer, vertices, cells, n_z, patches):
 def write_mesh(path: Path, vertices, cells, patches):
     kind = {"airfoil": "wall", "inlet": "inlet", "outlet": "outlet", "farfield": "generic",
             "front": "symmetry", "back": "symmetry"}
-    with path.open("w", encoding="utf-8") as output:
-        output.write("BABELSIM_MESH 2\nvertices %d\n" % len(vertices))
-        for x, y, z in vertices:
-            output.write("%.17g %.17g %.17g\n" % (x, y, z))
-        output.write("cells %d\n" % len(cells))
-        for cell in cells:
-            output.write("%d %d %d %d %d %d %d %d\n" % cell)
-        output.write("patches %d\n" % len(patches))
-        for name, faces in patches.items():
-            output.write("patch %s %s %d\n" % (name, kind[name], len(faces)))
-            for face in faces:
-                output.write("%d %d %d %d\n" % face)
-        output.write("end\n")
+    write_hex_v3(path, vertices, cells,
+                 [(name, kind[name], faces) for name, faces in patches.items()])
 
 
 def write_surface_map(path: Path, surface, n_z: int):

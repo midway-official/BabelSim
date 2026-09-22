@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](../README.md#构建与运行)
 [![tests](https://img.shields.io/badge/tests-make%20test-brightgreen.svg)](validation.md)
 
-BabelSim 用显式连接的三维非结构六面体网格求解不可压流动、对流扩散与多物理场问题。框架把
+BabelSim 用显式 face-based 的三维非结构 polyhedral 网格求解不可压流动、对流扩散与多物理场问题。框架把
 网格、场、离散算子、方程、运行时和计算后端切成可独立替换的层：Physics 只用公开的
 Case / Field / `math` / `equ` 接口写方程和算法循环，不接触 MPI、halo、CSR/LDU、Eigen 或
 Field 底层存储；这一边界由 `make test-architecture` 与 `make test-external` 自动守门。
@@ -22,8 +22,9 @@ Field 底层存储；这一边界由 `make test-architecture` 与 `make test-ext
 
 ## 特性
 
-- **网格与几何**：三维非结构六面体网格、边界 patch 与 cell/face/vertex 拓扑；体积、逆体积、
-  中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量与插值权重在建网格时预计算。
+- **网格与几何**：通用三维 polyhedral 网格、边界 patch 与 cell/face/vertex 拓扑；face 顶点数和
+  cell 面数可变，体积、逆体积、中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量与
+  插值权重在建网格时预计算。
 - **场与边界**：连续存储的 scalar/vector/tensor Field（cell/face），通用边界条件
   （`fixedValue`、`fixedGradient`、`zeroGradient`、`inletOutlet`、`symmetry`、计算边界迹）。
 - **离散算子**：gradient、interpolation、flux、divergence、convection、diffusion、laplacian、

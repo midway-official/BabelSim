@@ -120,7 +120,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "mesh_arrays": 'mesh.cell_volumes[0] = 0.0;',
         "mesh_partition": 'auto cells = mesh.ownedCellCount(); (void)cells;',
         "mesh_mutation": 'mesh.setOwnership({1,1,1}, 0, 0, 1, 0);',
-        "mesh_replacement": 'mesh = explicitHex();',
+        "mesh_replacement": 'mesh = explicitPoly();',
         "equation_storage": 'auto equation = equ::createEquation(field); equation.discrete();',
         "face_kernel": 'math::integratedNormalGradient(field, field, 0);',
     }
@@ -131,11 +131,13 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         "equation_storage": "discrete", "face_kernel": "integratedNormalGradient",
     }
     mesh_initialization = (
-        'Mesh explicitHex(){ return Mesh::unstructured('
-        '{{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}},'
-        '{{{0,1,2,3,4,5,6,7}}},{{"all",PatchKind::Generic}},'
-        '{{{0,4,7,3},0},{{1,2,6,5},0},{{0,1,5,4},0},{{3,7,6,2},0},'
-        '{{0,3,2,1},0},{{4,5,6,7},0}}); }\n')
+        'Mesh explicitPoly(){ '
+        'std::vector<Vec3> points{{{0,0,0},{1,0,0},{1,1,0},{0,1,0},'
+        '{0,0,1},{1,0,1},{1,1,1},{0,1,1}}}; '
+        'std::vector<PolyhedralFaceSpec> faces{{'
+        '{{0,4,7,3},0,-1,0},{{1,2,6,5},0,-1,0},{{0,1,5,4},0,-1,0},'
+        '{{3,7,6,2},0,-1,0},{{0,3,2,1},0,-1,0},{{4,5,6,7},0,-1,0}}}; '
+        'return Mesh::polyhedral(points,faces,{{"all",PatchKind::Generic}}); }\n')
     for name, body in negative.items():
         source = work / f"{name}.cpp"
         source.write_text('#include "babelsim/equ.h"\n#include "babelsim/solver.h"\n'

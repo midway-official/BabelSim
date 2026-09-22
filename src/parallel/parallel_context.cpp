@@ -19,13 +19,6 @@
 namespace babelsim {
 namespace {
 
-using Quad = std::array<Index, 4>;
-
-Quad canonical(Quad vertices) {
-    std::sort(vertices.begin(), vertices.end());
-    return vertices;
-}
-
 void requireCommunicator(MPI_Comm communicator, const char* operation) {
     if (communicator == MPI_COMM_NULL) {
         throw std::invalid_argument(std::string(operation) + " received MPI_COMM_NULL");
@@ -72,32 +65,39 @@ void broadcastPatch(std::vector<PatchSpec>& patches, const ParallelContext& para
 }
 
 void broadcastMesh(Mesh& mesh, const ParallelContext& parallel) {
-    Index counts[3]{};
+    Index counts[4]{};
     std::vector<PatchSpec> patches;
-    std::vector<BoundaryFaceSpec> boundaries;
+    std::vector<PolyhedralFaceSpec> faces;
     if (parallel.rank == 0) {
         counts[0] = mesh.vertexCount();
-        counts[1] = mesh.cellCount();
+        counts[1] = mesh.faceCount();
         for (Index patch = 0; patch < mesh.patchCount(); ++patch) {
             patches.push_back({mesh.patchName(patch), mesh.patchKind(patch)});
         }
         for (Index face = 0; face < mesh.faceCount(); ++face) {
-            if (!mesh.boundaryFace(face)) continue;
-            boundaries.push_back({mesh.faceVertices(face), detail::meshData(mesh).face_patch[face]});
+            PolyhedralFaceSpec specification;
+            specification.owner = mesh.owner(face);
+            specification.neighbour = mesh.neighbour(face);
+            specification.patch = mesh.boundaryPatch(face);
+            for (Index vertex : mesh.facePoints(face)) specification.vertices.push_back(vertex);
+            counts[2] += static_cast<Index>(specification.vertices.size());
+            faces.push_back(std::move(specification));
         }
-        counts[2] = static_cast<Index>(boundaries.size());
+        counts[3] = static_cast<Index>(patches.size());
     }
-    detail::checkMpi(MPI_Bcast(counts, 3, MPI_INT, 0, parallel.communicator),
+    detail::checkMpi(MPI_Bcast(counts, 4, MPI_INT, 0, parallel.communicator),
                      "MPI_Bcast(mesh counts)");
-    if (counts[0] <= 0 || counts[1] <= 0 || counts[2] <= 0) {
+    if (counts[0] <= 0 || counts[1] <= 0 || counts[2] < 3 || counts[3] <= 0) {
         throw std::runtime_error("distributed mesh counts are invalid");
     }
     broadcastPatch(patches, parallel);
 
     std::vector<double> coordinates(static_cast<std::size_t>(counts[0]) * 3U);
-    std::vector<Index> connectivity(static_cast<std::size_t>(counts[1]) * 8U);
-    std::vector<Index> boundary_vertices(static_cast<std::size_t>(counts[2]) * 4U);
-    std::vector<Index> boundary_patches(static_cast<std::size_t>(counts[2]));
+    std::vector<Index> face_offsets(static_cast<std::size_t>(counts[1]) + 1U);
+    std::vector<Index> face_vertices(static_cast<std::size_t>(counts[2]));
+    std::vector<Index> face_owners(static_cast<std::size_t>(counts[1]));
+    std::vector<Index> face_neighbours(static_cast<std::size_t>(counts[1]));
+    std::vector<Index> face_patches(static_cast<std::size_t>(counts[1]));
     if (parallel.rank == 0) {
         for (Index vertex = 0; vertex < mesh.vertexCount(); ++vertex) {
             const Vec3& point = mesh.vertex(vertex);
@@ -105,53 +105,49 @@ void broadcastMesh(Mesh& mesh, const ParallelContext& parallel) {
             coordinates[3U * static_cast<std::size_t>(vertex) + 1U] = point.y;
             coordinates[3U * static_cast<std::size_t>(vertex) + 2U] = point.z;
         }
-        for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-            for (Index local = 0; local < 8; ++local) {
-                connectivity[8U * static_cast<std::size_t>(cell) + static_cast<std::size_t>(local)] =
-                    mesh.cellVertices(cell)[static_cast<std::size_t>(local)];
-            }
-        }
-        for (std::size_t face = 0; face < boundaries.size(); ++face) {
-            for (std::size_t local = 0; local < 4; ++local) {
-                boundary_vertices[4U * face + local] = boundaries[face].vertices[local];
-            }
-            boundary_patches[face] = boundaries[face].patch;
+        face_offsets[0] = 0;
+        Index vertex_cursor = 0;
+        for (Index face = 0; face < mesh.faceCount(); ++face) {
+            const auto f = static_cast<std::size_t>(face);
+            face_owners[f] = mesh.owner(face);
+            face_neighbours[f] = mesh.neighbour(face);
+            face_patches[f] = mesh.boundaryPatch(face);
+            for (Index vertex : mesh.facePoints(face)) face_vertices[static_cast<std::size_t>(vertex_cursor++)] = vertex;
+            face_offsets[f + 1U] = vertex_cursor;
         }
     }
     detail::checkMpi(MPI_Bcast(coordinates.data(), detail::mpiCount(coordinates.size(), "mesh coordinates"),
                                MPI_DOUBLE, 0, parallel.communicator), "MPI_Bcast(mesh coordinates)");
-    detail::checkMpi(MPI_Bcast(connectivity.data(), detail::mpiCount(connectivity.size(), "mesh cells"),
-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh cells)");
-    detail::checkMpi(MPI_Bcast(boundary_vertices.data(),
-                               detail::mpiCount(boundary_vertices.size(), "mesh boundary vertices"),
+    detail::checkMpi(MPI_Bcast(face_offsets.data(), detail::mpiCount(face_offsets.size(), "mesh face offsets"),
+                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face offsets)");
+    detail::checkMpi(MPI_Bcast(face_vertices.data(),
+                               detail::mpiCount(face_vertices.size(), "mesh face vertices"),
                                MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh boundary vertices)");
-    detail::checkMpi(MPI_Bcast(boundary_patches.data(),
-                               detail::mpiCount(boundary_patches.size(), "mesh boundary patches"),
-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh boundary patches)");
+    detail::checkMpi(MPI_Bcast(face_owners.data(), detail::mpiCount(face_owners.size(), "mesh face owners"),
+                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face owners)");
+    detail::checkMpi(MPI_Bcast(face_neighbours.data(), detail::mpiCount(face_neighbours.size(), "mesh face neighbours"),
+                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face neighbours)");
+    detail::checkMpi(MPI_Bcast(face_patches.data(), detail::mpiCount(face_patches.size(), "mesh face patches"),
+                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face patches)");
     if (parallel.rank != 0) {
         std::vector<Vec3> vertices(static_cast<std::size_t>(counts[0]));
-        std::vector<std::array<Index, 8>> cells(static_cast<std::size_t>(counts[1]));
-        boundaries.resize(static_cast<std::size_t>(counts[2]));
         for (Index vertex = 0; vertex < counts[0]; ++vertex) {
             vertices[static_cast<std::size_t>(vertex)] = {
                 coordinates[3U * static_cast<std::size_t>(vertex)],
                 coordinates[3U * static_cast<std::size_t>(vertex) + 1U],
                 coordinates[3U * static_cast<std::size_t>(vertex) + 2U]};
         }
-        for (Index cell = 0; cell < counts[1]; ++cell) {
-            for (Index local = 0; local < 8; ++local) {
-                cells[static_cast<std::size_t>(cell)][static_cast<std::size_t>(local)] =
-                    connectivity[8U * static_cast<std::size_t>(cell) + static_cast<std::size_t>(local)];
-            }
+        faces.resize(static_cast<std::size_t>(counts[1]));
+        for (Index face = 0; face < counts[1]; ++face) {
+            const std::size_t f = static_cast<std::size_t>(face);
+            faces[f].owner = face_owners[f];
+            faces[f].neighbour = face_neighbours[f];
+            faces[f].patch = face_patches[f];
+            faces[f].vertices.assign(
+                face_vertices.begin() + face_offsets[f], face_vertices.begin() + face_offsets[f + 1U]);
         }
-        for (std::size_t face = 0; face < boundaries.size(); ++face) {
-            for (std::size_t local = 0; local < 4; ++local) {
-                boundaries[face].vertices[local] = boundary_vertices[4U * face + local];
-            }
-            boundaries[face].patch = boundary_patches[face];
-        }
-        detail::MeshAccess::replace(mesh, Mesh::unstructured(std::move(vertices), std::move(cells),
-                                                               std::move(patches), std::move(boundaries)));
+        detail::MeshAccess::replace(mesh, Mesh::polyhedral(std::move(vertices), std::move(faces),
+                                                           std::move(patches)));
     }
 }
 
@@ -160,7 +156,6 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
     if (partitions <= 0 || cells < partitions) {
         throw std::invalid_argument("graph partition has an invalid number of parts");
     }
-    const auto& neighbours = detail::meshData(mesh).cell_neighbours;
     std::vector<Index> capacities(static_cast<std::size_t>(partitions));
     std::vector<Index> filled(static_cast<std::size_t>(partitions), 0);
     for (int part = 0; part < partitions; ++part) {
@@ -194,7 +189,7 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
         while (!frontier.empty()) {
             const Index cell = frontier.front();
             frontier.pop_front();
-            for (Index neighbour : neighbours[static_cast<std::size_t>(cell)]) {
+            for (Index neighbour : mesh.cellNeighbours(cell)) {
                 if (neighbour == invalid_index ||
                     distance[static_cast<std::size_t>(neighbour)] != invalid_index) continue;
                 distance[static_cast<std::size_t>(neighbour)] =
@@ -230,7 +225,7 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
             while (!frontier.empty() && !assigned) {
                 const Index cell = frontier.front();
                 frontier.pop_front();
-                for (Index neighbour : neighbours[static_cast<std::size_t>(cell)]) {
+                for (Index neighbour : mesh.cellNeighbours(cell)) {
                     if (neighbour == invalid_index ||
                         owners[static_cast<std::size_t>(neighbour)] != invalid_index) continue;
                     owners[static_cast<std::size_t>(neighbour)] = part;
@@ -298,7 +293,7 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
         frontier.pop_front();
         const Index current_depth = depth[static_cast<std::size_t>(cell)];
         if (current_depth >= ghost_layers) continue;
-        for (Index neighbour : detail::meshData(global).cell_neighbours[static_cast<std::size_t>(cell)]) {
+        for (Index neighbour : global.cellNeighbours(cell)) {
             if (neighbour == invalid_index || depth[static_cast<std::size_t>(neighbour)] != invalid_index) continue;
             depth[static_cast<std::size_t>(neighbour)] = current_depth + 1;
             frontier.push_back(neighbour);
@@ -315,24 +310,11 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
     }
     std::vector<Index> vertex_to_local(static_cast<std::size_t>(global.vertexCount()), invalid_index);
     std::vector<Vec3> vertices;
-    std::vector<std::array<Index, 8>> cells;
     std::vector<Index> cell_ids;
     std::vector<Index> cell_owners;
     std::vector<Index> cell_depths;
     vertices.reserve(selected.size() * 4U);
-    cells.reserve(selected.size());
     for (Index source : selected) {
-        std::array<Index, 8> local_vertices{};
-        for (Index local = 0; local < 8; ++local) {
-            const Index original = global.cellVertices(source)[static_cast<std::size_t>(local)];
-            Index& mapped = vertex_to_local[static_cast<std::size_t>(original)];
-            if (mapped == invalid_index) {
-                mapped = static_cast<Index>(vertices.size());
-                vertices.push_back(global.vertex(original));
-            }
-            local_vertices[static_cast<std::size_t>(local)] = mapped;
-        }
-        cells.push_back(local_vertices);
         cell_ids.push_back(detail::globalCellId(global, source));
         cell_owners.push_back(owners[static_cast<std::size_t>(source)]);
         cell_depths.push_back(depth[static_cast<std::size_t>(source)]);
@@ -365,8 +347,9 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
             face_patch[static_cast<std::size_t>(face)] = patch;
         }
     }
-    std::vector<BoundaryFaceSpec> boundaries;
-    std::map<Quad, Index> global_face_by_local_vertices;
+    std::vector<PolyhedralFaceSpec> local_faces;
+    std::vector<Index> local_global_face_ids;
+    std::vector<Index> local_face_owner_ranks;
     for (Index face = 0; face < global.faceCount(); ++face) {
         const Index patch = face_patch[static_cast<std::size_t>(face)];
         const Index owner = global.owner(face);
@@ -374,28 +357,50 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
         const bool attached = source_to_local[static_cast<std::size_t>(owner)] != invalid_index ||
             (neighbour != invalid_index && source_to_local[static_cast<std::size_t>(neighbour)] != invalid_index);
         if (!attached) continue;
-        Quad local_vertices{};
-        for (std::size_t local = 0; local < local_vertices.size(); ++local) {
-            const Index original = global.faceVertices(face)[local];
-            local_vertices[local] = vertex_to_local[static_cast<std::size_t>(original)];
-            if (local_vertices[local] == invalid_index) {
-                throw std::logic_error("local mesh omitted a face vertex");
-            }
+        const bool owner_inside = source_to_local[static_cast<std::size_t>(owner)] != invalid_index;
+        const Index local_owner = owner_inside ? source_to_local[static_cast<std::size_t>(owner)]
+                                               : source_to_local[static_cast<std::size_t>(neighbour)];
+        const bool neighbour_inside = neighbour != invalid_index &&
+            source_to_local[static_cast<std::size_t>(neighbour)] != invalid_index;
+        PolyhedralFaceSpec specification;
+        specification.owner = local_owner;
+        const bool both_inside = owner_inside && neighbour_inside;
+        specification.neighbour = both_inside ? source_to_local[static_cast<std::size_t>(neighbour)]
+                                              : invalid_index;
+        specification.patch = both_inside ? invalid_index : patch;
+        if (specification.neighbour == invalid_index && specification.patch == invalid_index) {
+            throw std::logic_error("local face " + std::to_string(face) +
+                                   " lost boundary/processor patch owner=" +
+                                   std::to_string(owner) + " neighbour=" +
+                                   std::to_string(neighbour) + " owner_inside=" +
+                                   std::to_string(owner_inside) + " neighbour_inside=" +
+                                   std::to_string(neighbour_inside));
         }
-        global_face_by_local_vertices.emplace(canonical(local_vertices), face);
-        if (patch != invalid_index) boundaries.push_back({local_vertices, patch});
+        for (Index original : global.facePoints(face)) {
+            Index& mapped = vertex_to_local[static_cast<std::size_t>(original)];
+            if (mapped == invalid_index) {
+                mapped = static_cast<Index>(vertices.size());
+                vertices.push_back(global.vertex(original));
+            }
+            specification.vertices.push_back(mapped);
+        }
+        if (!owner_inside && neighbour_inside) {
+            std::reverse(specification.vertices.begin() + 1, specification.vertices.end());
+        }
+        local_faces.push_back(std::move(specification));
+        local_global_face_ids.push_back(detail::globalFaceId(global, face));
+        // Communication ownership is a global face property.  A local copy
+        // may reverse its geometric owner when the global owner is outside
+        // this rank, but requests must still go to the rank owning the global
+        // owner cell so every copy shares one authoritative face record.
+        local_face_owner_ranks.push_back(owners[static_cast<std::size_t>(owner)]);
     }
-    Mesh local = Mesh::unstructured(std::move(vertices), std::move(cells), std::move(patches),
-                                    std::move(boundaries));
+    Mesh local = Mesh::polyhedral(std::move(vertices), std::move(local_faces), std::move(patches));
     std::vector<Index> face_ids(static_cast<std::size_t>(local.faceCount()));
     std::vector<Index> face_owners(static_cast<std::size_t>(local.faceCount()));
     for (Index face = 0; face < local.faceCount(); ++face) {
-        const auto original = global_face_by_local_vertices.find(canonical(local.faceVertices(face)));
-        if (original == global_face_by_local_vertices.end()) {
-            throw std::logic_error("local face has no source global face");
-        }
-        face_ids[static_cast<std::size_t>(face)] = detail::globalFaceId(global, original->second);
-        face_owners[static_cast<std::size_t>(face)] = owners[static_cast<std::size_t>(global.owner(original->second))];
+        face_ids[static_cast<std::size_t>(face)] = local_global_face_ids[static_cast<std::size_t>(face)];
+        face_owners[static_cast<std::size_t>(face)] = local_face_owner_ranks[static_cast<std::size_t>(face)];
     }
     detail::MeshAccess::setPartition(local, global_cells, ghost_layers, std::move(cell_ids),
                                      std::move(cell_owners), std::move(cell_depths),
@@ -605,7 +610,11 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
         }
         for (Index id : incoming_ids) {
             const auto local = owned.find(id);
-            if (local == owned.end()) throw std::runtime_error("halo request is not owned by this rank");
+            if (local == owned.end()) {
+                throw std::runtime_error(std::string("halo request is not owned by rank ") +
+                                         std::to_string(m_parallel.rank) + " (entity=" +
+                                         std::to_string(id) + (faces ? ",faces)" : ",cells)"));
+            }
             plan.send_indices.push_back(local->second);
         }
     };
