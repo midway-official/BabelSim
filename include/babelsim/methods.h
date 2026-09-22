@@ -1,7 +1,9 @@
 #pragma once
 
 #include <string>
-#include <vector>
+#include <optional>
+#include <map>
+#include <stdexcept>
 
 namespace babelsim {
 
@@ -33,60 +35,80 @@ enum class TimeMethod {
     BDF2,
 };
 
+// Per-call spatial choices. A numerical operation must receive a complete
+// equation/operation profile; there is no global or field-level fallback.
+// Coefficient reconstruction is independent from reconstruction of the unknown.
+struct OperatorOptions {
+    std::optional<InterpolationMethod> interpolation;
+    std::optional<GradientMethod> gradient;
+    std::optional<ConvectionMethod> convection;
+    std::optional<DiffusionMethod> diffusion;
+    std::optional<InterpolationMethod> coefficientInterpolation;
+    std::optional<GradientMethod> coefficientGradient;
+
+    void requireComplete(const std::string& context) const {
+        if (!interpolation || !gradient || !convection || !diffusion)
+            throw std::invalid_argument("incomplete spatial configuration for " + context);
+    }
+
+    // Options for an explicitly evaluated diffusion coefficient interpolation.
+    OperatorOptions coefficientOptions() const {
+        auto result = *this;
+        if (coefficientInterpolation) result.interpolation = coefficientInterpolation;
+        if (coefficientGradient) result.gradient = coefficientGradient;
+        return result;
+    }
+
+    void overlay(const OperatorOptions& other) {
+        if (other.interpolation) interpolation = other.interpolation;
+        if (other.gradient) gradient = other.gradient;
+        if (other.convection) convection = other.convection;
+        if (other.diffusion) diffusion = other.diffusion;
+        if (other.coefficientInterpolation) coefficientInterpolation = other.coefficientInterpolation;
+        if (other.coefficientGradient) coefficientGradient = other.coefficientGradient;
+    }
+};
+
 struct Methods {
-    InterpolationMethod interpolation = InterpolationMethod::Corrected;
-    GradientMethod gradient = GradientMethod::LeastSquares;
-    ConvectionMethod convection = ConvectionMethod::Upwind;
-    DiffusionMethod diffusion = DiffusionMethod::Corrected;
     TimeMethod time = TimeMethod::Steady;
 
-    // 默认格式适用于未单独指定的 Field。覆盖只在一次算子求值/装配开始时按 Field 名查找，
-    // 不进入 cell/face 热循环，因此不会改变核心数值路径的数据布局。
-    struct InterpolationOverride {
-        std::string field;
-        InterpolationMethod method = InterpolationMethod::Corrected;
+    struct NamedOptions {
+        OperatorOptions options;
+        std::string source;
+        mutable bool used = false;
     };
-    struct GradientOverride {
-        std::string field;
-        GradientMethod method = GradientMethod::LeastSquares;
-    };
-    struct ConvectionOverride {
-        std::string field;
-        ConvectionMethod method = ConvectionMethod::Upwind;
-    };
-    struct DiffusionOverride {
-        std::string field;
-        DiffusionMethod method = DiffusionMethod::Corrected;
-    };
+    // Keys are equation.<name>[.term.<name>] or operation.<name>.
+    std::map<std::string, NamedOptions> named;
 
-    std::vector<InterpolationOverride> interpolation_overrides;
-    std::vector<GradientOverride> gradient_overrides;
-    std::vector<ConvectionOverride> convection_overrides;
-    std::vector<DiffusionOverride> diffusion_overrides;
-
-    InterpolationMethod interpolationFor(const std::string& field_name) const {
-        for (const InterpolationOverride& entry : interpolation_overrides) {
-            if (entry.field == field_name) return entry.method;
-        }
-        return interpolation;
+    OperatorOptions equationOptions(const std::string& name) const {
+        const auto key = "equation." + name;
+        const auto found = named.find(key);
+        if (found == named.end())
+            throw std::invalid_argument("missing numerical configuration " + key);
+        found->second.used = true;
+        found->second.options.requireComplete(key);
+        return found->second.options;
     }
-    GradientMethod gradientFor(const std::string& field_name) const {
-        for (const GradientOverride& entry : gradient_overrides) {
-            if (entry.field == field_name) return entry.method;
-        }
-        return gradient;
+    OperatorOptions operationOptions(const std::string& name) const {
+        const auto key = "operation." + name;
+        const auto found = named.find(key);
+        if (found == named.end())
+            throw std::invalid_argument("missing numerical configuration " + key);
+        found->second.used = true;
+        found->second.options.requireComplete(key);
+        return found->second.options;
     }
-    ConvectionMethod convectionFor(const std::string& field_name) const {
-        for (const ConvectionOverride& entry : convection_overrides) {
-            if (entry.field == field_name) return entry.method;
-        }
-        return convection;
+    OperatorOptions equationTermOptions(const std::string& equation, const std::string& term) const {
+        const auto key = "equation." + equation + ".term." + term;
+        const auto found = named.find(key);
+        if (found == named.end()) return {};
+        found->second.used = true;
+        return found->second.options;
     }
-    DiffusionMethod diffusionFor(const std::string& field_name) const {
-        for (const DiffusionOverride& entry : diffusion_overrides) {
-            if (entry.field == field_name) return entry.method;
-        }
-        return diffusion;
+    void requireAllUsed() const {
+        for (const auto& entry : named)
+            if (!entry.second.used)
+                throw std::runtime_error(entry.second.source + ": unused numerical configuration " + entry.first);
     }
 };
 

@@ -107,41 +107,41 @@ struct Answers {
     }
 };
 
-void exercise(Fields& f, Answers& answers, bool record) {
+void exercise(Fields& f, Answers& answers, bool record, const OperatorOptions& options) {
     const auto check = [&](const auto& field) { answers.check(field, record); };
-    poison(f.p); math::evaluate(math::grad(f.p), f.gradP); check(f.gradP);
-    poison(f.U); math::evaluate(math::grad(f.U), f.gradU); check(f.gradU);
-    poison(f.U); math::evaluate(math::flux(f.U), f.phi); check(f.phi);
+    poison(f.p); math::evaluate(math::grad(f.p, options), f.gradP); check(f.gradP);
+    poison(f.U); math::evaluate(math::grad(f.U, options), f.gradU); check(f.gradU);
+    poison(f.U); math::evaluate(math::flux(f.U, options), f.phi); check(f.phi);
     poison(f.phi); math::evaluate(math::div(f.phi), f.scalar); check(f.scalar);
-    poison(f.U); math::evaluate(math::div(f.U), f.scalar); check(f.scalar);
-    poison(f.p); math::evaluate(math::interpolate(f.p), f.faceScalar); check(f.faceScalar);
-    poison(f.U); math::evaluate(math::interpolate(f.U), f.faceVector); check(f.faceVector);
+    poison(f.U); math::evaluate(math::div(f.U, options), f.scalar); check(f.scalar);
+    poison(f.p); math::evaluate(math::interpolate(f.p, options), f.faceScalar); check(f.faceScalar);
+    poison(f.U); math::evaluate(math::interpolate(f.U, options), f.faceVector); check(f.faceVector);
     poison(f.p); poison(f.gradP);
     math::evaluate(math::reconstruct(f.p, f.gradP), f.faceScalar); check(f.faceScalar);
     poison(f.U); poison(f.gradU);
     math::evaluate(math::reconstruct(f.U, f.gradU), f.faceVector); check(f.faceVector);
-    poison(f.phi); poison(f.p); math::evaluate(math::div(f.phi, f.p), f.scalar); check(f.scalar);
-    poison(f.phi); poison(f.U); math::evaluate(math::div(f.phi, f.U), f.vector); check(f.vector);
-    poison(f.p); math::evaluate(math::laplacian(f.p), f.scalar); check(f.scalar);
-    poison(f.p); poison(f.k); math::evaluate(math::laplacian(f.k, f.p), f.scalar); check(f.scalar);
-    poison(f.p); poison(f.k); math::evaluate(math::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
-    poison(f.p); math::evaluate(math::normalGradient(f.p), f.faceScalar); check(f.faceScalar);
+    poison(f.phi); poison(f.p); math::evaluate(math::div(f.phi, f.p, options), f.scalar); check(f.scalar);
+    poison(f.phi); poison(f.U); math::evaluate(math::div(f.phi, f.U, options), f.vector); check(f.vector);
+    poison(f.p); math::evaluate(math::laplacian(f.p, options), f.scalar); check(f.scalar);
+    poison(f.p); poison(f.k); math::evaluate(math::laplacian(f.k, f.p, options), f.scalar); check(f.scalar);
+    poison(f.p); poison(f.k); math::evaluate(math::flux(f.k, f.p, options), f.faceScalar); check(f.faceScalar);
+    poison(f.p); math::evaluate(math::normalGradient(f.p, options), f.faceScalar); check(f.faceScalar);
     f.vector.fill({1, 2, 3}); poison(f.k); poison(f.p);
-    math::subtract(f.k, math::grad(f.p), f.vector); check(f.vector);
+    math::subtract(f.k, math::grad(f.p, options), f.vector); check(f.vector);
     f.faceScalar.fill(3); poison(f.k); poison(f.p);
-    math::subtract(math::flux(f.k, f.p), f.faceScalar); check(f.faceScalar);
+    math::subtract(math::flux(f.k, f.p, options), f.faceScalar); check(f.faceScalar);
 
     poison(f.faceVector);
-    math::evaluate(math::flux(f.faceVector), f.phi); check(f.phi);
+    math::evaluate(math::flux(f.faceVector, options), f.phi); check(f.phi);
     f.phi.fill(3); poison(f.phi); poison(f.faceVector);
-    math::add(math::flux(f.faceVector), f.phi); check(f.phi);
+    math::add(math::flux(f.faceVector, options), f.phi); check(f.phi);
     f.phi.fill(3); poison(f.phi); poison(f.faceVector);
-    math::add(math::flux(f.faceVector), f.phi, math::FaceRegion::Interior); check(f.phi);
+    math::add(math::flux(f.faceVector, options), f.phi, math::FaceRegion::Interior); check(f.phi);
     // 给定梯度有意不等于 grad(p)，确保执行层确实使用传入的重构量。
     f.gradP.fill({0.7, -0.2, 0.4});
     f.faceScalar.evaluate([](Vec3 x) { return 1.7 + 0.1*x.x; });
     poison(f.faceScalar); poison(f.p); poison(f.gradP); poison(f.phi);
-    math::subtract(math::flux(f.faceScalar, f.p, f.gradP),
+    math::subtract(math::flux(f.faceScalar, f.p, f.gradP, options),
                   f.phi, math::FaceRegion::Interior); check(f.phi);
     // 与原 Rhie--Chow 逐面数学式直接对照，尤其检查分区界面与物理边界的区别。
     const Mesh& mesh = f.p.mesh();
@@ -150,12 +150,12 @@ void exercise(Fields& f, Answers& answers, bool record) {
         if (detail::meshData(mesh).face_neighbour[face] != invalid_index)
             expected += dot(detail::fieldData(f.faceVector)[face], mesh.faceAreaVector(face)) -
                 detail::fieldData(f.faceScalar)[face] * integratedNormalGradient(
-                    f.p, f.gradP, face, numericalMethods().diffusion);
+                    f.p, f.gradP, face, *options.diffusion);
         require(near(detail::fieldData(f.phi)[face], expected, 1e-12), "composed flux differs from the original face formula");
     }
     poison(f.faceScalar); poison(f.p); poison(f.gradP);
-    math::evaluate(math::flux(f.faceScalar, f.p, f.gradP), f.phi); check(f.phi);
-    poison(f.gradU); math::evaluate(math::div(f.gradU), f.vector); check(f.vector);
+    math::evaluate(math::flux(f.faceScalar, f.p, f.gradP, options), f.phi); check(f.phi);
+    poison(f.gradU); math::evaluate(math::div(f.gradU, options), f.vector); check(f.vector);
 }
 }  // 匿名命名空间
 
@@ -173,12 +173,14 @@ int main(int argc, char* argv[]) {
     for (GradientMethod gradient : {GradientMethod::LeastSquares, GradientMethod::GreenGauss})
     for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
                                    DiffusionMethod::LimitedCorrected}) {
-        RuntimeControl control;
-        control.methods.diffusion = method;
-        control.methods.gradient = gradient;
-        RunTime time = RunTime::forMesh(global, control);
+        OperatorOptions options;
+        options.interpolation = InterpolationMethod::Corrected;
+        options.gradient = gradient;
+        options.convection = ConvectionMethod::Upwind;
+        options.diffusion = method;
+        RunTime time = RunTime::forMesh(global);
         Fields serial(global);
-        exercise(serial, answers, true);
+        exercise(serial, answers, true, options);
     }
     detail::checkMpi(MPI_Init(&argc, &argv), "MPI_Init");
     try {
@@ -187,17 +189,19 @@ int main(int argc, char* argv[]) {
         for (GradientMethod gradient : {GradientMethod::LeastSquares, GradientMethod::GreenGauss})
         for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
                                        DiffusionMethod::LimitedCorrected}) {
-            RuntimeControl control;
-            control.methods.diffusion = method;
-            control.methods.gradient = gradient;
-            RunTime time = RunTime::forMesh(local, control);
+            OperatorOptions options;
+            options.interpolation = InterpolationMethod::Corrected;
+            options.gradient = gradient;
+            options.convection = ConvectionMethod::Upwind;
+            options.diffusion = method;
+            RunTime time = RunTime::forMesh(local);
             Fields fields(local);
-            exercise(fields, answers, false);
+            exercise(fields, answers, false, options);
             const PerformanceCounters before = detail::execution().performance();
             poison(fields.p);
-            math::evaluate(math::grad(fields.p), fields.gradP);
+            math::evaluate(math::grad(fields.p, options), fields.gradP);
             const PerformanceCounters first = detail::execution().performance();
-            math::evaluate(math::grad(fields.p), fields.gradP);
+            math::evaluate(math::grad(fields.p, options), fields.gradP);
             const PerformanceCounters second = detail::execution().performance();
             if (parallel.distributed()) {
                 require(first.halo_exchanges > before.halo_exchanges,

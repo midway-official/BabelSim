@@ -93,8 +93,7 @@ build/babelsim-solve -case /tmp/my-heat
 
 - `solver` 必须是注册名之一（`heat`/`transport`/`simple`/`transientSimple`/`piso`），
   否则报 `unknown BabelSim solver`；
-- `solution.bs` 的 `scalarSolver` 与 `vectorSolver` 必须同时存在，只解标量的 `heat`
-  也不例外（`make test-workflow` 覆盖）；
+- 每个实际使用的方程必须在 `equation.<name>.*` 中提供完整线性配置（`make test-workflow` 覆盖）；
 - `physics/` 与 `solution.bs` 里的键必须全部被本次运行的求解器消费，拼错或留了别的
   求解器才用的键（例如把 `simple` 算例原样改成 `piso`，留下 `pressureRelaxation`）
   会报 `unused or unknown entry`。
@@ -176,7 +175,7 @@ build/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*
 | `physics`  | `heatCapacity`                  | positive    | c\_p          |
 | `physics`  | `conductivity`                  | nonnegative | k，可为 0（纯瞬态蓄热） |
 | `physics`  | `source`                        | number      | Q，可为负         |
-| `solution` | `scalarSolver` / `vectorSolver` | —           | 均必填           |
+| `solution` | `equation.temperature.*` | 完整配置 | 温度方程的线性求解设置 |
 
 **收敛语义**：每步只有一次线性求解，`SolveResult` 即状态；未收敛返回退出码 2。
 
@@ -241,8 +240,8 @@ build/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/s
 | `physics`  | `storage`                       | positive                        | 时间项系数（蓄积系数）                       |
 | `physics`  | `diffusivity`                   | nonnegative                     | D，可为 0                            |
 | `physics`  | `source`                        | number                          | 体源 S                              |
-| `solution` | `scalarSolver` / `vectorSolver` | —                               | 均必填（框架级校验，与是否解矢量方程无关）             |
-| `methods`  | `convection`                    | upwind / linearUpwind / central | 可对 `C` 单独覆盖：`convection C upwind` |
+| `solution` | `equation.transport.*`          | 完整配置                        | 输运方程的线性求解设置                    |
+| `methods`  | `equation.transport.convection` | upwind / linearUpwind / central | 或使用 `equation.transport.term.convection.convection` 覆盖项 |
 
 **收敛语义**：与 `heat` 相同——每步一次线性求解。
 
@@ -262,7 +261,8 @@ build/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
 ```
 
 改这个算例：`physics/transport.bs` 的 `storage`/`diffusivity`/`source` 是物性；
-`numerics/methods.bs` 可给 `C` 单独换对流格式（`convection C linearUpwind`），
+`numerics/methods.bs` 可给 `transport` 方程单独换对流格式（
+`equation.transport.convection linearUpwind`），
 格式只影响对流项的离散精度，求解流程不变。速度场 `U` 来自 `fields/initial/U.field`，
 不参与求解——换速度只需改这个文件，不需要动求解器。
 
@@ -318,7 +318,7 @@ build/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
 | `solution` | `velocityTolerance`             | 1e-7 | 相邻外迭代 `‖ΔU‖`                      |
 | `solution` | `momentumTolerance`             | 1e-6 | 动量方程相对残差 `rU`                     |
 | `solution` | `pressureCorrectionTolerance`   | 1e-6 | `p'` 相对 `p` 的幅值                   |
-| `solution` | `scalarSolver` / `vectorSolver` | 必填   | 压力用 scalar，动量用 vector             |
+| `solution` | `equation.pressureCorrection.*` / `equation.momentum.*` | 完整配置 | 压力修正与动量的独立线性配置 |
 
 **收敛语义**：`converged = 线性全部收敛 && rU ≤ momentumTolerance && dU ≤ velocityTolerance
 && dP ≤ pressureCorrectionTolerance && mass ≤ continuityTolerance`；启用湍流时还要求
@@ -354,7 +354,7 @@ build/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu�
 改这个算例：Re 由 `physics/simple.bs` 的 `density`/`dynamicViscosity` 决定（腔体边长 1、
 盖速 1 时 Re = ρ·U·L/μ，`cases/cavity` 是 1/0.01 = 100）；松弛因子与收敛容差在
 `numerics/solution.bs`，放宽 `momentumTolerance` 等可以更快结束；`numerics/methods.bs` 的
-`convection`/`gradient` 影响精度与鲁棒性（一阶迎风稳但耗散大，验证数据见下表）。
+`equation.momentum.convection`/`equation.momentum.gradient` 影响精度与鲁棒性（一阶迎风稳但耗散大，验证数据见下表）。
 
 **验证（本仓库验证程度最高的求解器）**
 
@@ -519,4 +519,3 @@ make validate-poiseuille     # Poiseuille 解析解
 - 本框架使用 `-ffast-math`（见 [根 README](../README.md#构建与运行)），不保证逐位可复现；
   跨进程数的比较阈值按绝对/相对容差给出，不是 bit 级。
 - 新求解器或新物理的最低验证线见 [validation.md](validation.md) 第 5 节。
-

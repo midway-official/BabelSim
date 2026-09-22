@@ -1,7 +1,6 @@
 #pragma once
 
 #include "babelsim/math.h"
-#include "babelsim/methods.h"
 #include "babelsim/solver.h"
 
 #include <memory>
@@ -15,7 +14,7 @@ class ComputeBackend;
 class FvmExecution {
 public:
     FvmExecution(
-        const Mesh&, const Methods&, std::unique_ptr<ComputeBackend>);
+        const Mesh&, std::unique_ptr<ComputeBackend>);
     ~FvmExecution();
     FvmExecution(const FvmExecution&) = delete;
     FvmExecution& operator=(const FvmExecution&) = delete;

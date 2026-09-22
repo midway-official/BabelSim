@@ -16,6 +16,7 @@ int main() {
     control.time.end_time = 0.1;
     control.methods.time = TimeMethod::Euler;
     RunTime run_time = RunTime::forMesh(mesh, control);
+    const auto options = testEquationControl("public").spatial;
     VectorField U(mesh, FieldLocation::Cell, "U");
     VectorField force(mesh, FieldLocation::Cell, "force");
     detail::fieldData(force)[0] = {1, 2, 3};
@@ -24,7 +25,7 @@ int main() {
     require(run_time.loop(), "time step did not begin");
     time::History<Vec3> velocity_history = time::history(U);
     velocity_history.save(U, run_time.deltaT());
-    equ::Equation<Vec3> momentum = equ::createEquation(U);
+    auto momentum = testEquation(U);
     equ::ddt(momentum, 1.0, velocity_history);
     equ::source(momentum, force, 2.0);
     require(equ::solve(momentum).converged(), "vector Field source did not converge");
@@ -37,7 +38,7 @@ int main() {
 
     // 具有常数零空间的 Neumann 方程由参考值确定唯一解。
     ScalarField p(mesh, FieldLocation::Cell, "p");
-    equ::Equation<double> poisson = equ::createEquation(p);
+    auto poisson = testEquation(p);
     equ::laplacian(poisson, 1.0, -1.0);  // 左端 -div(grad p)
     poisson.reference(0, 3.0);
     require(equ::solve(poisson).converged(), "reference-constrained Poisson equation did not converge");
@@ -45,11 +46,11 @@ int main() {
     ScalarField normal(mesh, FieldLocation::Face, "normal");
     ScalarField flux(mesh, FieldLocation::Face, "flux");
     ScalarField coefficient(mesh, FieldLocation::Cell, "k", 2.0);
-    math::evaluate(math::normalGradient(p), normal);
-    const auto pGradient = math::grad(p);
+    math::evaluate(math::normalGradient(p, options), normal);
+    const auto pGradient = math::grad(p, options);
     ScalarField normalWithGradient(mesh, FieldLocation::Face, "normalWithGradient");
-    math::evaluate(math::normalGradient(p, pGradient), normalWithGradient);
-    math::evaluate(math::flux(coefficient, p), flux);
+    math::evaluate(math::normalGradient(p, pGradient, options), normalWithGradient);
+    math::evaluate(math::flux(coefficient, p, options), flux);
     for (Index face : detail::meshData(mesh).owned_faces) {
         require(near(detail::fieldData(normalWithGradient)[face], detail::fieldData(normal)[face], 1e-12),
                 "supplied gradient changed normal-gradient semantics");
@@ -60,11 +61,11 @@ int main() {
     try { momentum.reference(0, 0.0); }
     catch (const std::invalid_argument&) { rejected = true; }
     require(rejected, "vector equation silently ignored a scalar reference constraint");
-    const auto expectedLaplacian = math::laplacian(p);
-    math::evaluate(math::laplacian(p), p);
+    const auto expectedLaplacian = math::laplacian(p, options);
+    math::evaluate(math::laplacian(p, options), p);
     require(near(math::normL2(p-expectedLaplacian),0), "eager in-place laplacian changed result");
-    const auto expectedFlux = math::flux(flux,p);
-    math::evaluate(math::flux(flux,p),flux);
+    const auto expectedFlux = math::flux(flux,p,options);
+    math::evaluate(math::flux(flux,p,options),flux);
     require(near(math::normL2(flux-expectedFlux),0), "eager flux coefficient alias changed result");
     rejected = false;
     try { equ::relax(poisson, p, 0.0); }
@@ -76,7 +77,7 @@ int main() {
     try {
         ScalarField transported(mesh, FieldLocation::Cell, "transported");
         ScalarField other_flux(mesh, FieldLocation::Face, "otherFlux");
-        equ::Equation<double> equation = equ::createEquation(transported);
+    auto equation = testEquation(transported);
         equ::div(equation, flux);
         equ::div(equation, other_flux);
     } catch (const std::invalid_argument&) { rejected = true; }
@@ -85,7 +86,7 @@ int main() {
     ScalarField T(mesh, FieldLocation::Cell, "T");
     time::History<double> temperature_history = time::history(T);
     temperature_history.save(T, run_time.deltaT());
-    equ::Equation<double> energy = equ::createEquation(T);
+    auto energy = testEquation(T);
     equ::ddt(energy, 1.0, temperature_history);
     equ::source(energy, 2.0);
     equ::relax(energy, T, 0.5);

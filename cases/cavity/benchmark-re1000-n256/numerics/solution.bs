@@ -4,5 +4,15 @@ pressureRelaxation 0.25
 # 固定的吞吐判据：用于比较线性后端，不作为 Ghia 精度或严格网格无关性结论。
 continuityTolerance 1e-8
 velocityTolerance 3e-3
-vectorSolver bicgstab ilut 1e-10 3e-3 1000
-scalarSolver cg incompleteCholesky 1e-10 3e-3 1000
+# momentum
+equation.momentum.solver bicgstab
+equation.momentum.preconditioner ilut
+equation.momentum.absoluteTolerance 1e-10
+equation.momentum.relativeTolerance 3e-3
+equation.momentum.maxIterations 1000
+# pressureCorrection
+equation.pressureCorrection.solver cg
+equation.pressureCorrection.preconditioner incompleteCholesky
+equation.pressureCorrection.absoluteTolerance 1e-10
+equation.pressureCorrection.relativeTolerance 3e-3
+equation.pressureCorrection.maxIterations 1000

@@ -1,6 +1,6 @@
-interpolation linear
-gradient greenGauss
-convection upwind
-convection C upwind
-diffusion orthogonal
 time euler
+equation.transport.interpolation linear
+equation.transport.gradient greenGauss
+equation.transport.convection upwind
+equation.transport.diffusion orthogonal
+equation.transport.term.convection.convection upwind

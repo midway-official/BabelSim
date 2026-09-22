@@ -20,8 +20,6 @@ SolverResult runSimple(Case& problem) {
     const auto V = geometry::cellVolumes(problem.mesh());
     const auto Sf = geometry::faceAreaVectors(problem.mesh());
     const auto Af = geometry::faceAreas(problem.mesh());
-    const auto velocitySolver = readLinearControl(problem, U);
-    const auto pressureSolver = readLinearControl(problem, p);
     const auto& settings = problem.solution();
     const int maxIterations = settings.integer("maxIterations", 1000, 1, std::numeric_limits<int>::max());
     const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections", 1, 0, 20);
@@ -35,11 +33,12 @@ SolverResult runSimple(Case& problem) {
     auto turbulence = rans::load(problem, U, phi);
     const auto& muEff = turbulence.effectiveViscosity();
     auto pPrime = field::homogeneousLike(p, "pPrime");
-    const int pressureSolves = methods.diffusionFor(pPrime.name()) == DiffusionMethod::Orthogonal
+    auto momentumEquation = equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
+    auto pressureCorrectionEquation = equ::createEquation(problem, "pressureCorrection", pPrime, {"diffusion"});
+    const auto pressureOptions = pressureCorrectionEquation.options("diffusion");
+    const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
         ? 1 : nonOrthogonalCorrections + 1;
-    auto momentumEquation = equ::createEquation(U);
-    auto pressureCorrectionEquation = equ::createEquation(pPrime);
-    phi = math::flux(U);
+    phi = math::flux(U, momentumEquation.options());
     if (methods.time != TimeMethod::Steady)
         throw std::invalid_argument("steady SIMPLE requires a steady time scheme");
     problem.validate();
@@ -50,11 +49,12 @@ SolverResult runSimple(Case& problem) {
 
         // Assemble the momentum equation.
         momentumEquation.reset();
-        equ::div(momentumEquation, phi, rho);
-        equ::laplacian(momentumEquation, muEff, -1);
-        equ::source(momentumEquation, -math::grad(p));
+        equ::div(momentumEquation, phi, rho, "convection");
+        equ::laplacian(momentumEquation, muEff, -1, "diffusion");
+        equ::source(momentumEquation, -math::grad(p, pressureOptions));
         if (turbulence)
-            equ::source(momentumEquation, math::div(turbulence.deviatoricStressRemainder(U)));
+            equ::source(momentumEquation, math::div(
+                turbulence.deviatoricStressRemainder(U), momentumEquation.options()));
 
         // Measure the current outer iterate before relaxation or prediction.
         const double rU = diagnostics::relativeResidual(momentumEquation, U);
@@ -64,16 +64,16 @@ SolverResult runSimple(Case& problem) {
         equ::scale(momentumEquation, alphaU);
         const auto aP = momentumEquation.diagonal();
         const auto rAU = V / aP;
-        const auto velocitySolve = equ::solve(momentumEquation, velocitySolver);
+        const auto velocitySolve = equ::solve(momentumEquation);
         if (!diagnostics::all(velocitySolve.healthy())) return SolverResult::numericalFailure();
 
         // Rhie-Chow interpolation; physical boundary fluxes remain unchanged.
-        const auto gradP = math::grad(p);
-        auto phiH = math::flux(U);
+        const auto gradP = math::grad(p, pressureOptions);
+        auto phiH = math::flux(U, momentumEquation.options());
         const auto interpolatedGradientFlux =
-            math::dot(math::interpolate(rAU * gradP), Sf);
+            math::dot(math::interpolate(rAU * gradP, pressureOptions), Sf);
         const auto normalGradientFlux =
-            math::interpolate(rAU) * math::normalGradient(p, gradP) * Af;
+            math::interpolate(rAU, pressureOptions.coefficientOptions()) * math::normalGradient(p, gradP, pressureOptions) * Af;
         math::add(interpolatedGradientFlux, phiH, math::FaceRegion::Interior);
         math::subtract(normalGradientFlux, phiH, math::FaceRegion::Interior);
         const auto divPhiH = math::div(phiH);
@@ -83,10 +83,10 @@ SolverResult runSimple(Case& problem) {
         double pressureLinearResidual = 0.0;
         for (int correction = 0; correction < pressureSolves; ++correction) {
             pressureCorrectionEquation.reset();
-            equ::laplacian(pressureCorrectionEquation, rAU, -1);
+            equ::laplacian(pressureCorrectionEquation, rAU, -1, "diffusion");
             equ::source(pressureCorrectionEquation, -divPhiH);
             pressureCorrectionEquation.referenceIfUnanchored(0.0);
-            const auto pressureSolve = equ::solve(pressureCorrectionEquation, pressureSolver);
+            const auto pressureSolve = equ::solve(pressureCorrectionEquation);
             if (!diagnostics::all(pressureSolve.healthy())) return SolverResult::numericalFailure();
             pressureConverged = pressureConverged && pressureSolve.converged();
             pressureLinearResidual = pressureSolve.relative_residual;
@@ -94,7 +94,7 @@ SolverResult runSimple(Case& problem) {
 
         p += alphaP * pPrime;
         auto pressureFlux = equ::faceFlux(pressureCorrectionEquation, pPrime);
-        U -= rAU * math::grad(pPrime);
+        U -= rAU * math::grad(pPrime, pressureOptions);
         phi = phiH + pressureFlux;
 
         bool turbulenceConverged = true;

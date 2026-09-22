@@ -76,13 +76,6 @@ int main() {
         BoundaryCondition<Vec3>::fixedValue({1.0, 0.0, 0.0}));
 
     RuntimeControl run_control;
-    run_control.scalar_solver.solver = LinearSolverType::ConjugateGradient;
-    run_control.scalar_solver.preconditioner = PreconditionerType::IncompleteCholesky;
-    Methods& methods = run_control.methods;
-    methods.interpolation = InterpolationMethod::Corrected;
-    methods.gradient = GradientMethod::LeastSquares;
-    methods.convection = ConvectionMethod::Upwind;
-    methods.diffusion = DiffusionMethod::Corrected;
     SimpleControl control;
     control.max_iterations = 3000;
     control.non_orthogonal_corrections = 2;
@@ -90,10 +83,17 @@ int main() {
     control.pressure_relaxation = 0.2;
     control.continuity_tolerance = 2e-8;
     control.velocity_tolerance = 2e-6;
-    run_control.vector_solver.absolute_tolerance = 1e-15;
-    run_control.vector_solver.relative_tolerance = 1e-9;
-    run_control.scalar_solver.absolute_tolerance = 1e-15;
-    run_control.scalar_solver.relative_tolerance = 1e-9;
+    control.momentum_equation.spatial.interpolation = InterpolationMethod::Corrected;
+    control.momentum_equation.spatial.gradient = GradientMethod::LeastSquares;
+    control.momentum_equation.spatial.convection = ConvectionMethod::Upwind;
+    control.momentum_equation.spatial.diffusion = DiffusionMethod::Corrected;
+    control.pressure_equation.spatial = control.momentum_equation.spatial;
+    control.pressure_equation.linear.solver = LinearSolverType::ConjugateGradient;
+    control.pressure_equation.linear.preconditioner = PreconditionerType::IncompleteCholesky;
+    control.momentum_equation.linear.absolute_tolerance = 1e-15;
+    control.momentum_equation.linear.relative_tolerance = 1e-9;
+    control.pressure_equation.linear.absolute_tolerance = 1e-15;
+    control.pressure_equation.linear.relative_tolerance = 1e-9;
 
     RunTime run_time = RunTime::forMesh(mesh, run_control);
     int iterations = 0;

@@ -1,5 +1,5 @@
-interpolation linear
-gradient greenGauss
-convection upwind
-diffusion orthogonal
 time euler
+equation.temperature.interpolation linear
+equation.temperature.gradient greenGauss
+equation.temperature.convection upwind
+equation.temperature.diffusion orthogonal

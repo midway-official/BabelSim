@@ -1,5 +1,13 @@
-interpolation linear
-gradient leastSquares
-convection upwind
-diffusion orthogonal
 time steady
+equation.momentum.interpolation linear
+equation.momentum.gradient leastSquares
+equation.momentum.convection upwind
+equation.momentum.diffusion orthogonal
+equation.pressureCorrection.interpolation linear
+equation.pressureCorrection.gradient leastSquares
+equation.pressureCorrection.convection upwind
+equation.pressureCorrection.diffusion orthogonal
+equation.nuTildaTransport.interpolation linear
+equation.nuTildaTransport.gradient leastSquares
+equation.nuTildaTransport.convection upwind
+equation.nuTildaTransport.diffusion orthogonal

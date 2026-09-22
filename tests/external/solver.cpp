@@ -12,12 +12,12 @@ SolverResult transport(Case& problem) {
     ScalarField& C = problem.scalarField("C");
     VectorField& U = problem.createVectorField("U", Vec3{});
     ScalarField& phi = problem.createFaceScalarField("phi");
-    phi = math::flux(U);
     const double D = problem.physics().nonnegative("diffusivity");
     const double Q = problem.physics().number("source");
     auto time=time::start(problem);
     auto old=time::history(C);
-    auto A=equ::createEquation(C);
+    auto A=equ::createEquation(problem, "transport", C, {"convection", "diffusion"});
+    phi = math::flux(U, A.options());
     while(time.value()<time.end()) {
         time.advance(); old.save(C, time.dt());
         A.reset(); equ::ddt(A,1.0,old); equ::div(A,phi);
@@ -42,7 +42,8 @@ SolverResult coupled(Case& problem) {
     problem.output(C);
     auto time=time::start(problem);
     auto oldT=time::history(T),oldC=time::history(C);
-    auto A=equ::createEquation(T),B=equ::createEquation(C);
+    auto A=equ::createEquation(problem, "temperature", T, {"diffusion"});
+    auto B=equ::createEquation(problem, "concentration", C, {"diffusion"});
     while(time.value()<time.end()) {
         time.advance();
         oldT.save(T, time.dt()); oldC.save(C, time.dt());
@@ -77,8 +78,7 @@ SolverResult vectorResponse(Case& problem) {
     ScalarField& energy = problem.createScalarField("energy", 0.0);
     const double strength = problem.physics().number("strength");
     force.evaluate([](Vec3 position) { return Vec3{1 + position.x, 2 + position.y, 3 + position.z}; });
-    problem.validate();
-    // 校验不应抢先关闭声明阶段；新的组合算法仍能声明自己的数学场。
+    // 新的组合算法仍能在声明阶段继续声明自己的数学场。
     TensorField& stress = problem.createTensorField("stress", Tensor3{});
     stress.evaluate([](Vec3) { return Tensor3{{Vec3{1, 2, 3}, Vec3{4, 5, 6}, Vec3{7, 8, 9}}}; });
     problem.createFaceVectorField("faceU");
@@ -90,8 +90,9 @@ SolverResult vectorResponse(Case& problem) {
     problem.output(stress);
     auto time=time::start(problem);
     auto old=time::history(U);
-    auto A=equ::createEquation(U);
-    auto P=equ::createEquation(p);
+    auto A=equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
+    auto P=equ::createEquation(problem, "pressureCorrection", p, {"diffusion"});
+    problem.validate();
     const auto V = geometry::cellVolumes(problem.mesh());
     while(time.value()<time.end()) {
         time.advance(); old.save(U, time.dt());
@@ -100,7 +101,7 @@ SolverResult vectorResponse(Case& problem) {
         if(!equ::solve(A,U).converged()) return SolverResult::notConverged();
         P.reset(); equ::laplacian(P,1.0, -1); P.reference(0, 3.0);
         if(!equ::solve(P,p).converged()) return SolverResult::notConverged();
-        math::subtract(rAU, math::grad(p), U);
+        math::subtract(rAU, math::grad(p, P.options()), U);
         energy.evaluate(U, [](Vec3 velocity) { return 0.5*squaredNorm(velocity); });
         write(problem,time);
     }

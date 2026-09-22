@@ -1,6 +1,5 @@
 #include "babelsim/numerics_io.h"
 
-#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -27,16 +26,6 @@ double number(const std::filesystem::path& path, const ConfigLine& line, std::si
     invalid(path, line, "expected a finite number");
 }
 
-int integer(const std::filesystem::path& path, const ConfigLine& line, std::size_t index) {
-    try {
-        std::size_t consumed = 0;
-        const int value = std::stoi(line.tokens.at(index), &consumed);
-        if (consumed == line.tokens.at(index).size()) return value;
-    } catch (const std::exception&) {
-    }
-    invalid(path, line, "expected an integer");
-}
-
 void oneValue(const std::filesystem::path& path, const ConfigLine& line) {
     if (line.tokens.size() != 2) invalid(path, line, "expected one value for " + line.tokens.front());
 }
@@ -45,7 +34,7 @@ InterpolationMethod interpolation(
     const std::filesystem::path& path, const ConfigLine& line, const std::string& value)
 {
     if (value == "linear") return InterpolationMethod::Linear;
-    if (value == "corrected" || value == "linearCorrected" || value == "linear_corrected") {
+    if (value == "corrected") {
         return InterpolationMethod::Corrected;
     }
     invalid(path, line, "unknown interpolation method " + value);
@@ -54,8 +43,8 @@ InterpolationMethod interpolation(
 GradientMethod gradient(
     const std::filesystem::path& path, const ConfigLine& line, const std::string& value)
 {
-    if (value == "greenGauss" || value == "green_gauss") return GradientMethod::GreenGauss;
-    if (value == "leastSquares" || value == "least_squares") return GradientMethod::LeastSquares;
+    if (value == "greenGauss") return GradientMethod::GreenGauss;
+    if (value == "leastSquares") return GradientMethod::LeastSquares;
     invalid(path, line, "unknown gradient method " + value);
 }
 
@@ -63,8 +52,7 @@ ConvectionMethod convection(
     const std::filesystem::path& path, const ConfigLine& line, const std::string& value)
 {
     if (value == "upwind") return ConvectionMethod::Upwind;
-    if (value == "linearUpwind" || value == "linear_upwind" ||
-        value == "secondOrderUpwind") return ConvectionMethod::LinearUpwind;
+    if (value == "linearUpwind") return ConvectionMethod::LinearUpwind;
     if (value == "central") return ConvectionMethod::Central;
     invalid(path, line, "unknown convection method " + value);
 }
@@ -74,7 +62,7 @@ DiffusionMethod diffusion(
 {
     if (value == "orthogonal") return DiffusionMethod::Orthogonal;
     if (value == "corrected") return DiffusionMethod::Corrected;
-    if (value == "limitedCorrected" || value == "limited_corrected") {
+    if (value == "limitedCorrected") {
         return DiffusionMethod::LimitedCorrected;
     }
     invalid(path, line, "unknown diffusion method " + value);
@@ -89,31 +77,10 @@ TimeMethod timeMethod(
     invalid(path, line, "unknown time method " + value);
 }
 
-// 四种空间方法共用相同的“Field 名不能重复”规则；类型仍由各自的 enum 保证。
-template <typename Entry, typename Method>
-void addOverride(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    std::vector<Entry>& entries,
-    Method method)
-{
-    const std::string& field = line.tokens[1];
-    if (field.empty() || std::find_if(entries.begin(), entries.end(), [&](const Entry& entry) {
-            return entry.field == field;
-        }) != entries.end()) {
-        invalid(path, line, "duplicate or empty Field method override");
-    }
-    entries.push_back({field, method});
-}
-
 }  // 匿名命名空间
 
 Methods readMethodsFile(const std::filesystem::path& path) {
     Methods result;
-    bool has_interpolation = false;
-    bool has_gradient = false;
-    bool has_convection = false;
-    bool has_diffusion = false;
     bool has_time = false;
     for (const ConfigLine& line : readConfigLines(path)) {
         const std::string& key = line.tokens.front();
@@ -124,38 +91,41 @@ Methods readMethodsFile(const std::filesystem::path& path) {
             has_time = true;
             continue;
         }
-        if (line.tokens.size() != 2 && line.tokens.size() != 3) {
-            invalid(path, line, "method needs a default value or a Field name and value");
+
+        if (key.rfind("equation.", 0) == 0 || key.rfind("operation.", 0) == 0) {
+            oneValue(path, line);
+            const auto split = key.rfind('.');
+            const auto scope = key.substr(0, split);
+            const auto option = key.substr(split + 1);
+            const auto first = scope.find('.');
+            const auto rest = scope.substr(first + 1);
+            const auto term = rest.find(".term.");
+            const bool valid = !rest.empty() &&
+                (rest.find('.') == std::string::npos ||
+                 (scope.rfind("equation.", 0) == 0 && term != std::string::npos &&
+                  term > 0 && term + 6 < rest.size() &&
+                  rest.substr(0, term).find('.') == std::string::npos &&
+                  rest.substr(term + 6).find('.') == std::string::npos));
+            if (!valid || split == first) invalid(path, line, "invalid numerical selector " + key);
+            auto& entry = result.named[scope];
+            entry.source = path.string() + ":" + std::to_string(line.number);
+            auto set = [&](auto& target, auto value) {
+                if (target) invalid(path, line, "duplicate numerical option " + key);
+                target = value;
+            };
+            const auto& value = line.tokens[1];
+            if (option == "interpolation") set(entry.options.interpolation, interpolation(path,line,value));
+            else if (option == "gradient") set(entry.options.gradient, gradient(path,line,value));
+            else if (option == "convection") set(entry.options.convection, convection(path,line,value));
+            else if (option == "diffusion") set(entry.options.diffusion, diffusion(path,line,value));
+            else if (option == "coefficientInterpolation") set(entry.options.coefficientInterpolation, interpolation(path,line,value));
+            else if (option == "coefficientGradient") set(entry.options.coefficientGradient, gradient(path,line,value));
+            else invalid(path, line, "unknown spatial numerical option " + option);
+            continue;
         }
-        const bool override = line.tokens.size() == 3;
-        const std::string& value = line.tokens[override ? 2 : 1];
-        if (key == "interpolation") {
-            const InterpolationMethod method = interpolation(path, line, value);
-            if (override) addOverride(path, line, result.interpolation_overrides, method);
-            else if (!has_interpolation) { result.interpolation = method; has_interpolation = true; }
-            else invalid(path, line, "duplicate interpolation method");
-        } else if (key == "gradient") {
-            const GradientMethod method = gradient(path, line, value);
-            if (override) addOverride(path, line, result.gradient_overrides, method);
-            else if (!has_gradient) { result.gradient = method; has_gradient = true; }
-            else invalid(path, line, "duplicate gradient method");
-        } else if (key == "convection") {
-            const ConvectionMethod method = convection(path, line, value);
-            if (override) addOverride(path, line, result.convection_overrides, method);
-            else if (!has_convection) { result.convection = method; has_convection = true; }
-            else invalid(path, line, "duplicate convection method");
-        } else if (key == "diffusion") {
-            const DiffusionMethod method = diffusion(path, line, value);
-            if (override) addOverride(path, line, result.diffusion_overrides, method);
-            else if (!has_diffusion) { result.diffusion = method; has_diffusion = true; }
-            else invalid(path, line, "duplicate diffusion method");
-        } else {
-            invalid(path, line, "unknown numerical method " + key);
-        }
+        invalid(path, line, "only time, equation.* and operation.* are valid methods entries");
     }
-    if (!has_interpolation || !has_gradient || !has_convection || !has_diffusion || !has_time) {
-        throw std::runtime_error("methods dictionary is incomplete");
-    }
+    if (!has_time) throw std::runtime_error("methods dictionary is incomplete: missing time");
     return result;
 }
 
@@ -186,58 +156,6 @@ TimeControl readTimeControlFile(const std::filesystem::path& path) {
     if (!start || !end || !delta) throw std::runtime_error("control dictionary is incomplete");
     result.validate();
     return result;
-}
-
-void readLinearSolverLine(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    LinearSolverConfig& result)
-{
-    if (line.tokens.size() < 6) {
-        invalid(path, line, "linear solver needs method, preconditioner, tolerances, and iterations");
-    }
-    if (line.tokens[1] == "cg") result.solver = LinearSolverType::ConjugateGradient;
-    else if (line.tokens[1] == "bicgstab") result.solver = LinearSolverType::BiCGSTAB;
-    else invalid(path, line, "unknown linear solver " + line.tokens[1]);
-    if (line.tokens[2] == "none" || line.tokens[2] == "off") {
-        result.preconditioner = PreconditionerType::None;
-    } else if (line.tokens[2] == "incompleteCholesky" || line.tokens[2] == "incomplete_cholesky") {
-        result.preconditioner = PreconditionerType::IncompleteCholesky;
-    } else if (line.tokens[2] == "ilut") {
-        result.preconditioner = PreconditionerType::ILUT;
-    } else if (line.tokens[2] == "amg") {
-        result.preconditioner = PreconditionerType::AlgebraicMultigrid;
-    } else {
-        invalid(path, line, "unknown preconditioner " + line.tokens[2]);
-    }
-    result.absolute_tolerance = number(path, line, 3);
-    result.relative_tolerance = number(path, line, 4);
-    result.max_iterations = integer(path, line, 5);
-    for (std::size_t index = 6; index < line.tokens.size(); ++index) {
-        const std::string& option = line.tokens[index];
-        const std::size_t separator = option.find('=');
-        if (separator == std::string::npos || separator == 0 ||
-            separator + 1 == option.size()) {
-            invalid(path, line, "linear solver option must use name=value");
-        }
-        ConfigLine value_line = line;
-        value_line.tokens = {option.substr(0, separator), option.substr(separator + 1)};
-        if (value_line.tokens[0] == "amgMaxLevels") {
-            result.amg_max_levels = integer(path, value_line, 1);
-        } else if (value_line.tokens[0] == "amgCoarseSize") {
-            result.amg_coarse_size = integer(path, value_line, 1);
-        } else if (value_line.tokens[0] == "amgSmoothingSteps") {
-            result.amg_smoothing_steps = integer(path, value_line, 1);
-        } else if (value_line.tokens[0] == "amgRefreshInterval") {
-            result.amg_refresh_interval = integer(path, value_line, 1);
-        } else if (value_line.tokens[0] == "ilutDropTolerance") {
-            result.ilut_drop_tolerance = number(path, value_line, 1);
-        } else if (value_line.tokens[0] == "ilutFillFactor") {
-            result.ilut_fill_factor = integer(path, value_line, 1);
-        } else {
-            invalid(path, line, "unknown linear solver option " + value_line.tokens[0]);
-        }
-    }
 }
 
 }  // babelsim 命名空间

@@ -42,4 +42,4 @@ python3 cases/cavity/validation/validate_cavity.py \
 
 ## Re=10000 准稳态快照
 
-高 Re 方腔使用 `256²`、`cluster=2.0` 的壁面加密网格和 `linearUpwind` 对流格式。为避免压力线性子迭代在拉伸网格上因过严的相对残差反复重启，运行案例的 `scalarSolver` 相对阈值为 `1e-5`，SIMPLE 外迭代速度变化阈值为 `1e-3`；这应标记为准稳态快照，不作为严格 Ghia 精度验收。完整设置、日志和图像见 [`docs/reports/cavity-re10000.md`](../../../docs/reports/cavity-re10000.md)。
+高 Re 方腔使用 `256²`、`cluster=2.0` 的壁面加密网格和 `linearUpwind` 对流格式。为避免压力线性子迭代在拉伸网格上因过严的相对残差反复重启，运行案例的 `equation.pressureCorrection.relativeTolerance` 为 `1e-5`，SIMPLE 外迭代速度变化阈值为 `1e-3`；这应标记为准稳态快照，不作为严格 Ghia 精度验收。完整设置、日志和图像见 [`docs/reports/cavity-re10000.md`](../../../docs/reports/cavity-re10000.md)。

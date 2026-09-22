@@ -9,5 +9,27 @@ momentumTolerance 1.0e-2
 # omega field otherwise dominates the first transient SIMPLE sweeps.
 turbulenceRelaxation 0.01
 turbulenceTolerance 1.0e-2
-scalarSolver bicgstab ilut 1.0e-12 1.0e-8 800
-vectorSolver bicgstab ilut 1.0e-12 1.0e-8 800
+# pressureCorrection
+equation.pressureCorrection.solver bicgstab
+equation.pressureCorrection.preconditioner ilut
+equation.pressureCorrection.absoluteTolerance 1.0e-12
+equation.pressureCorrection.relativeTolerance 1.0e-8
+equation.pressureCorrection.maxIterations 800
+# kTransport
+equation.kTransport.solver bicgstab
+equation.kTransport.preconditioner ilut
+equation.kTransport.absoluteTolerance 1.0e-12
+equation.kTransport.relativeTolerance 1.0e-8
+equation.kTransport.maxIterations 800
+# omegaTransport
+equation.omegaTransport.solver bicgstab
+equation.omegaTransport.preconditioner ilut
+equation.omegaTransport.absoluteTolerance 1.0e-12
+equation.omegaTransport.relativeTolerance 1.0e-8
+equation.omegaTransport.maxIterations 800
+# momentum
+equation.momentum.solver bicgstab
+equation.momentum.preconditioner ilut
+equation.momentum.absoluteTolerance 1.0e-12
+equation.momentum.relativeTolerance 1.0e-8
+equation.momentum.maxIterations 800

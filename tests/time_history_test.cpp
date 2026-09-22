@@ -24,11 +24,11 @@ void checkHistory(TimeMethod method) {
         vector_history.save(U, time.deltaT());
         // 内迭代不是时间推进：重复求解同一方程，结果仍在同一个物理时间层。
         for (int correction = 0; correction < 3; ++correction) {
-            equ::Equation<double> scalar = equ::createEquation(T);
+            auto scalar = testEquation(T);
             equ::ddt(scalar, 1.0, scalar_history);
             equ::source(scalar, 2.0);
             require(equ::solve(scalar).converged(), "scalar solve failed");
-            equ::Equation<Vec3> vector = equ::createEquation(U);
+            auto vector = testEquation(U);
             equ::ddt(vector, 1.0, vector_history);
             equ::source(vector, Vec3{1, 2, 3});
             require(equ::solve(vector).converged(), "vector solve failed");
@@ -53,7 +53,7 @@ int main() {
         time::History<double> history = time::history(T);
         while (time.loop()) {
             history.save(T, time.deltaT());
-            equ::Equation<double> equation = equ::createEquation(T);
+            auto equation = testEquation(T);
             equ::ddt(equation, 1.0, history);
             equ::source(equation, 1.0);
             require(equ::solve(equation).converged(), "short-step solve failed");
@@ -81,11 +81,12 @@ int main() {
         for (Index patch = 0; patch < static_cast<Index>(detail::meshData(mesh).patches.size()); ++patch)
             U.boundary(patch) = fixedValue(Vec3{});
         RuntimeControl control;
-        control.vector_solver.max_iterations = 1;
-        control.vector_solver.absolute_tolerance = 1e-30;
-        control.vector_solver.relative_tolerance = 1e-25;
         RunTime time = RunTime::forMesh(mesh, control);
-        equ::Equation<Vec3> equation = equ::createEquation(U);
+        auto equationControl = testEquationControl("velocity");
+        equationControl.linear.max_iterations = 1;
+        equationControl.linear.absolute_tolerance = 1e-30;
+        equationControl.linear.relative_tolerance = 1e-25;
+        auto equation = equ::createEquation(U, equationControl);
         equ::laplacian(equation, 0.7, -1.0);  // 左端 -div(0.7 grad U)
         equ::source(equation, Vec3{0, 1, 0});
         const SolveResult result = equ::solve(equation);

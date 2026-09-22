@@ -18,10 +18,8 @@ thread_local RunTime* active_run_time = nullptr;
 struct RunTime::Implementation {
     Implementation(const Mesh& mesh_value, RuntimeControl settings, ParallelContext parallel_value)
         : mesh(&mesh_value), control(std::move(settings)), primary_rank(parallel_value.rank == 0),
-          fvm(mesh_value, control.methods,
-              detail::makeComputeBackend(
-                  mesh_value, control.scalar_solver, control.vector_solver,
-              std::move(parallel_value))),
+          fvm(mesh_value,
+              detail::makeComputeBackend(mesh_value, std::move(parallel_value))),
           started(std::chrono::steady_clock::now()) {}
     const Mesh* mesh;
     RuntimeControl control;
@@ -39,8 +37,6 @@ void RuntimeControl::validate() const {
     const double steps = (time.end_time - time.start_time) / time.delta_t;
     if (!std::isfinite(steps) || steps > std::numeric_limits<int>::max())
         throw std::invalid_argument("time interval contains too many steps");
-    scalar_solver.validate();
-    vector_solver.validate();
 }
 
 RunTime::RunTime(const Mesh& mesh, RuntimeControl control)
@@ -89,9 +85,6 @@ int RunTime::step() const { return m_implementation->current_step; }
 bool RunTime::primary() const { return m_implementation->primary_rank; }
 
 const TimeControl& RunTime::timeControl() const { return m_implementation->control.time; }
-const LinearSolverConfig& RunTime::linearControl(bool vector) const {
-    return vector ? m_implementation->control.vector_solver : m_implementation->control.scalar_solver;
-}
 void RunTime::setTime(double value, int step_value, double dt) {
     if (!std::isfinite(value) || step_value < 0 || !(dt > 0) || !std::isfinite(dt))
         throw std::invalid_argument("invalid explicit time metadata");

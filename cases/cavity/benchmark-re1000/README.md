@@ -10,12 +10,34 @@
 
 ```text
 # 方案 A：ILUT 基线
-vectorSolver bicgstab ilut 1e-12 1e-7 1000
-scalarSolver bicgstab ilut 1e-12 1e-7 1000
+equation.momentum.solver bicgstab
+equation.momentum.preconditioner ilut
+equation.momentum.absoluteTolerance 1e-12
+equation.momentum.relativeTolerance 1e-7
+equation.momentum.maxIterations 1000
+equation.pressureCorrection.solver bicgstab
+equation.pressureCorrection.preconditioner ilut
+equation.pressureCorrection.absoluteTolerance 1e-12
+equation.pressureCorrection.relativeTolerance 1e-7
+equation.pressureCorrection.maxIterations 1000
 
 # 方案 B：Krylov + AMG 预条件器
-vectorSolver bicgstab amg 1e-12 1e-7 1000 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2
-scalarSolver cg amg 1e-12 1e-7 1000 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=2
+equation.momentum.solver bicgstab
+equation.momentum.preconditioner amg
+equation.momentum.absoluteTolerance 1e-12
+equation.momentum.relativeTolerance 1e-7
+equation.momentum.maxIterations 1000
+equation.momentum.amgMaxLevels 12
+equation.momentum.amgCoarseSize 48
+equation.momentum.amgSmoothingSteps 2
+equation.pressureCorrection.solver cg
+equation.pressureCorrection.preconditioner amg
+equation.pressureCorrection.absoluteTolerance 1e-12
+equation.pressureCorrection.relativeTolerance 1e-7
+equation.pressureCorrection.maxIterations 1000
+equation.pressureCorrection.amgMaxLevels 12
+equation.pressureCorrection.amgCoarseSize 48
+equation.pressureCorrection.amgSmoothingSteps 2
 ```
 
 运行示例：

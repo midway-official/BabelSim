@@ -41,10 +41,8 @@ void requireDistinct(const void* input, const void* result) {
 }  // 匿名命名空间
 
 struct FvmExecution::Implementation {
-    Implementation(const Mesh& mesh_value, const Methods& methods_value,
-                   std::unique_ptr<ComputeBackend> backend_value)
+    Implementation(const Mesh& mesh_value, std::unique_ptr<ComputeBackend> backend_value)
         : mesh(&mesh_value),
-          methods(methods_value),
           backend(std::move(backend_value)),
           gradient_workspace(mesh_value, FieldLocation::Cell, "grad"),
           face_coefficient_workspace(mesh_value, FieldLocation::Face, "faceCoefficient"),
@@ -75,7 +73,6 @@ struct FvmExecution::Implementation {
     }
 
     const Mesh* mesh;
-    Methods methods;
     std::unique_ptr<ComputeBackend> backend;
     VectorField gradient_workspace;
     ScalarField face_coefficient_workspace;
@@ -83,10 +80,10 @@ struct FvmExecution::Implementation {
 };
 
 
-FvmExecution::FvmExecution(const Mesh& mesh, const Methods& methods,
+FvmExecution::FvmExecution(const Mesh& mesh,
                            std::unique_ptr<ComputeBackend> backend)
     : m_implementation(std::make_unique<Implementation>(
-          mesh, methods, std::move(backend))) {}
+          mesh, std::move(backend))) {}
 FvmExecution::~FvmExecution() = default;
 ComputeBackend& FvmExecution::backend() { return *m_implementation->backend; }
 const Mesh& FvmExecution::mesh() const { return *m_implementation->mesh; }
@@ -189,10 +186,11 @@ PerformanceCounters FvmExecution::performance() const {
 
 void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("scalar gradient");
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    gradient(operation.field, result, state.methods.gradientFor(operation.field.name()));
+    gradient(operation.field, result, operation.options.gradient.value());
     state.synchronize(result);
     if (result.calculatedBoundary()) {
         for (Index face = 0; face < state.mesh->faceCount(); ++face) {
@@ -214,10 +212,11 @@ void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result)
 
 void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("vector gradient");
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
     state.synchronize(const_cast<VectorField&>(operation.field));
-    gradient(operation.field, result, state.methods.gradientFor(operation.field.name()));
+    gradient(operation.field, result, operation.options.gradient.value());
     state.synchronize(result);
     if (result.calculatedBoundary()) {
         for (Index face = 0; face < state.mesh->faceCount(); ++face) {
@@ -243,11 +242,12 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
 
 void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("face flux");
     requireFaceField(result, *state.mesh, "flux result");
     state.synchronize(const_cast<VectorField&>(operation.velocity));
     flux(operation.velocity, result,
-         state.methods.interpolationFor(operation.velocity.name()),
-         state.methods.gradientFor(operation.velocity.name()));
+         operation.options.interpolation.value(),
+         operation.options.gradient.value());
     state.synchronize(result);
     if (operation.velocity.location() == FieldLocation::Cell)
         const_cast<VectorField&>(operation.velocity).setBoundaryFlux(result);
@@ -265,23 +265,25 @@ void FvmExecution::evaluate(math::FaceDivergence operation, ScalarField& result)
 
 void FvmExecution::evaluate(math::VectorDivergence operation, ScalarField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("vector divergence");
     requireCellField(operation.field, *state.mesh, "divergence input");
     requireCellField(result, *state.mesh, "divergence result");
     state.synchronize(const_cast<VectorField&>(operation.field));
     divergence(
-        operation.field, result, state.methods.interpolationFor(operation.field.name()),
-        state.methods.gradientFor(operation.field.name()));
+        operation.field, result, operation.options.interpolation.value(),
+        operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::evaluate(math::TensorDivergence operation, VectorField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("tensor divergence");
     requireCellField(operation.field, *state.mesh, "tensor divergence input");
     requireCellField(result, *state.mesh, "tensor divergence result");
     state.synchronize(const_cast<TensorField&>(operation.field));
-    divergence(operation.field, result, state.methods.interpolationFor(operation.field.name()),
-               state.methods.gradientFor(operation.field.name()));
+    divergence(operation.field, result, operation.options.interpolation.value(),
+               operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
@@ -289,6 +291,7 @@ void FvmExecution::evaluate(math::TensorDivergence operation, VectorField& resul
 void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& result) {
     requireDistinct(&operation.field, &result);
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("scalar convection");
     requireFaceField(operation.flux, *state.mesh, "convection flux");
     requireCellField(operation.field, *state.mesh, "convection field");
     requireCellField(result, *state.mesh, "convection result");
@@ -297,9 +300,9 @@ void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& resul
     state.synchronize(const_cast<ScalarField&>(operation.field));
     convection(
         operation.flux, operation.field, result,
-        state.methods.convectionFor(operation.field.name()),
-        state.methods.interpolationFor(operation.field.name()),
-        state.methods.gradientFor(operation.field.name()));
+        operation.options.convection.value(),
+        operation.options.interpolation.value(),
+        operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
@@ -307,6 +310,7 @@ void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& resul
 void FvmExecution::evaluate(math::VectorConvection operation, VectorField& result) {
     requireDistinct(&operation.field, &result);
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("vector convection");
     requireFaceField(operation.flux, *state.mesh, "convection flux");
     requireCellField(operation.field, *state.mesh, "convection field");
     requireCellField(result, *state.mesh, "convection result");
@@ -315,34 +319,36 @@ void FvmExecution::evaluate(math::VectorConvection operation, VectorField& resul
     state.synchronize(const_cast<VectorField&>(operation.field));
     convection(
         operation.flux, operation.field, result,
-        state.methods.convectionFor(operation.field.name()),
-        state.methods.interpolationFor(operation.field.name()),
-        state.methods.gradientFor(operation.field.name()));
+        operation.options.convection.value(),
+        operation.options.interpolation.value(),
+        operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
 
 void FvmExecution::evaluate(math::ScalarInterpolation operation, ScalarField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("scalar interpolation");
     requireCellField(operation.field, *state.mesh, "interpolation input");
     requireFaceField(result, *state.mesh, "interpolation result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
     interpolate(
-        operation.field, result, state.methods.interpolationFor(operation.field.name()),
-        state.methods.gradientFor(operation.field.name()));
+        operation.field, result, operation.options.interpolation.value(),
+        operation.options.gradient.value());
     state.synchronize(result);
 }
 
 void FvmExecution::evaluate(math::VectorInterpolation operation, VectorField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("vector interpolation");
     requireCellField(operation.field, *state.mesh, "interpolation input");
     if (&result.mesh() != state.mesh || result.location() != FieldLocation::Face) {
         throw std::invalid_argument("vector interpolation result must be a face field");
     }
     state.synchronize(const_cast<VectorField&>(operation.field));
     interpolate(
-        operation.field, result, state.methods.interpolationFor(operation.field.name()),
-        state.methods.gradientFor(operation.field.name()));
+        operation.field, result, operation.options.interpolation.value(),
+        operation.options.gradient.value());
     state.synchronize(result);
 }
 
@@ -374,14 +380,15 @@ void FvmExecution::evaluate(math::ScalarLaplacian operation, ScalarField& result
     requireDistinct(&operation.field, &result);
     requireDistinct(operation.coefficient_field, &result);
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("scalar laplacian");
     requireCellField(operation.field, *state.mesh, "laplacian input");
     requireCellField(result, *state.mesh, "laplacian result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
     if (operation.coefficient_field == nullptr) {
         laplacian(
             operation.coefficient, operation.field, result,
-            state.methods.gradientFor(operation.field.name()),
-            state.methods.diffusionFor(operation.field.name()));
+            operation.options.gradient.value(),
+            operation.options.diffusion.value());
     } else {
         const ScalarField& coefficient = *operation.coefficient_field;
         if (&coefficient.mesh() != state.mesh ||
@@ -393,18 +400,18 @@ void FvmExecution::evaluate(math::ScalarLaplacian operation, ScalarField& result
         if (coefficient.location() == FieldLocation::Cell) {
             interpolate(
                 coefficient, state.face_coefficient_workspace,
-                state.methods.interpolationFor(operation.field.name()),
-                state.methods.gradientFor(operation.field.name()));
+                operation.options.coefficientInterpolation.value_or(operation.options.interpolation.value()),
+                operation.options.coefficientGradient.value_or(operation.options.gradient.value()));
             state.synchronize(state.face_coefficient_workspace);
             laplacian(
                 state.face_coefficient_workspace, operation.field, result,
-                state.methods.gradientFor(operation.field.name()),
-                state.methods.diffusionFor(operation.field.name()));
+            operation.options.gradient.value(),
+            operation.options.diffusion.value());
         } else {
             laplacian(
                 coefficient, operation.field, result,
-                state.methods.gradientFor(operation.field.name()),
-                state.methods.diffusionFor(operation.field.name()));
+            operation.options.gradient.value(),
+            operation.options.diffusion.value());
         }
     }
     state.synchronize(result);
@@ -431,6 +438,7 @@ void FvmExecution::subtract(
 void FvmExecution::evaluate(math::ScalarDiffusionFlux operation, ScalarField& target) {
     requireDistinct(&operation.coefficient, &target);
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("scalar diffusion flux");
     requireCellField(operation.field, *state.mesh, "diffusion-flux field");
     requireFaceField(target, *state.mesh, "diffusion-flux target");
     if (&operation.coefficient.mesh() != state.mesh ||
@@ -446,7 +454,7 @@ void FvmExecution::evaluate(math::ScalarDiffusionFlux operation, ScalarField& ta
     const VectorField* reconstructed_gradient = operation.gradient;
     if (reconstructed_gradient == nullptr) {
         gradient(operation.field, state.gradient_workspace,
-                 state.methods.gradientFor(operation.field.name()));
+                 operation.options.gradient.value());
         reconstructed_gradient = &state.gradient_workspace;
     }
     state.synchronize(const_cast<VectorField&>(*reconstructed_gradient));
@@ -455,14 +463,14 @@ void FvmExecution::evaluate(math::ScalarDiffusionFlux operation, ScalarField& ta
     if (operation.coefficient.location() == FieldLocation::Cell) {
         interpolate(
             operation.coefficient, state.face_coefficient_workspace,
-            state.methods.interpolationFor(operation.field.name()),
-            state.methods.gradientFor(operation.field.name()));
+            operation.options.coefficientInterpolation.value_or(operation.options.interpolation.value()),
+            operation.options.coefficientGradient.value_or(operation.options.gradient.value()));
         state.synchronize(state.face_coefficient_workspace);
         face_coefficient = &state.face_coefficient_workspace;
     }
     diffusionFlux(
         *face_coefficient, operation.field, *reconstructed_gradient,
-        target, state.methods.diffusionFor(operation.field.name()));
+        target, operation.options.diffusion.value());
     state.synchronize(target);
 }
 
@@ -487,6 +495,7 @@ void FvmExecution::subtract(math::ScalarDiffusionFlux operation, ScalarField& ta
 
 void FvmExecution::evaluate(math::NormalGradient operation, ScalarField& result) {
     Implementation& state = *m_implementation;
+    operation.options.requireComplete("normal gradient");
     requireCellField(operation.field, *state.mesh, "normal-gradient input");
     requireFaceField(result, *state.mesh, "normal-gradient result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
@@ -496,13 +505,13 @@ void FvmExecution::evaluate(math::NormalGradient operation, ScalarField& result)
         state.synchronize(const_cast<VectorField&>(*scalar_gradient));
     } else {
         gradient(operation.field, state.gradient_workspace,
-                 state.methods.gradientFor(operation.field.name()));
+                 operation.options.gradient.value());
         state.synchronize(state.gradient_workspace);
         scalar_gradient = &state.gradient_workspace;
     }
     for (Index face : detail::meshData(*state.mesh).owned_faces) {
         detail::fieldData(result)[face] = integratedNormalGradient(operation.field, *scalar_gradient, face,
-            state.methods.diffusionFor(operation.field.name())) / state.mesh->faceArea(face);
+            operation.options.diffusion.value()) / state.mesh->faceArea(face);
     }
     state.synchronize(result);
 }

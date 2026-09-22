@@ -66,8 +66,8 @@ git diff --check
 ~~~
 
 门禁应拒绝 Physics 对 src/internal、runtime、MPI、Eigen、CSR、原始 Field 存储和其它
-Solver 私有头的依赖。它还检查公共头可独立包含，以及已经移除的临时装配/求解包装、Case
-兼容别名和隐藏 `Case::loop()` 没有重新出现。
+Solver 私有头的依赖。它还检查公共头可独立包含，以及已经移除的临时装配/求解包装、旧
+配置别名和隐藏 `Case::loop()` 没有重新出现。
 
 ## 5. 新 Solver 的验证最低线
 

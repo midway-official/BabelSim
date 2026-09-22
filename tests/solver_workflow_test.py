@@ -75,17 +75,17 @@ def check_pvd(case, name, expected):
 
 with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
     base = Path(temporary)
-    # 两类线性配置均为必填；即使 Heat 只求标量，也不能遗漏矢量配置或静默回退。
+    # A scalar-only case uses a complete named profile with no vector default.
     required = clone_case(base, "required-solvers", "heat")
     path = required / "numerics/solution.bs"
     settings = path.read_text().splitlines()
-    for missing in (("scalarSolver",), ("vectorSolver",), ("scalarSolver", "vectorSolver")):
-        path.write_text("\n".join(line for line in settings
-                                  if not line.startswith(missing)) + "\n")
+    for missing in ("solver", "preconditioner", "absoluteTolerance", "relativeTolerance", "maxIterations"):
+        key = "equation.temperature." + missing
+        path.write_text("\n".join(line for line in settings if not line.startswith(key + " ")) + "\n")
         for count in (1, 2):
             error = run("mpirun", "-np", count, ROOT / "build/babelsim-solve",
                         "-case", required, success=False)
-            assert f"{path}: missing entry {missing[0]}" in error.stderr
+            assert f"{path}: missing entry {key}" in error.stderr
             assert not (required / "results").exists()
 
     heat = clone_case(base, "heat", "heat")
@@ -141,9 +141,27 @@ with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
     coupled = clone_case(base, "coupled", "heat")
     (coupled / "control.bs").write_text("startTime 0\nendTime 0.25\ndeltaT 0.1\n")
     (coupled / "physics/thermal.bs").write_text("diffusivity 0.1\ncoupling 1\n")
+    (coupled / "numerics/methods.bs").write_text(
+        "time euler\n"
+        "equation.temperature.interpolation corrected\n"
+        "equation.temperature.gradient leastSquares\n"
+        "equation.temperature.convection upwind\n"
+        "equation.temperature.diffusion orthogonal\n"
+        "equation.concentration.interpolation corrected\n"
+        "equation.concentration.gradient leastSquares\n"
+        "equation.concentration.convection upwind\n"
+        "equation.concentration.diffusion orthogonal\n")
     (coupled / "numerics/solution.bs").write_text(
-        "scalarSolver bicgstab ilut 1e-14 1e-12 1000\n"
-        "vectorSolver bicgstab ilut 1e-12 1e-8 1000\n"
+        "equation.temperature.solver bicgstab\n"
+        "equation.temperature.preconditioner ilut\n"
+        "equation.temperature.absoluteTolerance 1e-14\n"
+        "equation.temperature.relativeTolerance 1e-12\n"
+        "equation.temperature.maxIterations 1000\n"
+        "equation.concentration.solver bicgstab\n"
+        "equation.concentration.preconditioner ilut\n"
+        "equation.concentration.absoluteTolerance 1e-14\n"
+        "equation.concentration.relativeTolerance 1e-12\n"
+        "equation.concentration.maxIterations 1000\n"
         "couplingIterations 100\ncouplingTolerance 1e-12\n")
     field = (coupled / "fields/initial/T.field").read_text()
     field = field.replace("type fixedValue value (1)", "type zeroGradient")
@@ -212,17 +230,17 @@ with tempfile.TemporaryDirectory(prefix="babelsim-workflow-") as temporary:
     error = run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", heat, success=False)
     assert "unused or unknown entry" in error.stderr
 
-    # 合并方法覆盖的解析实现后，四种 enum 仍须正确分派并拒绝重复 Field 键。
+    # 具名方法的四种 enum 仍须正确分派并拒绝重复数值键。
     schemes = clone_case(base, "schemes", "heat")
     path = schemes / "numerics/methods.bs"
-    defaults = path.read_text()
-    overrides = ("interpolation T corrected\n", "gradient T leastSquares\n",
-                 "convection T central\n", "diffusion T corrected\n")
+    defaults = "time euler\n"
+    overrides = ("equation.temperature.interpolation corrected\n", "equation.temperature.gradient leastSquares\n",
+                 "equation.temperature.convection central\n", "equation.temperature.diffusion corrected\n")
     path.write_text(defaults + "".join(overrides))
     run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", schemes)
     for override in overrides:
         path.write_text(defaults + override + override)
         error = run("mpirun", "-np", 2, ROOT / "build/babelsim-solve", "-case", schemes, success=False)
-        assert "duplicate or empty Field method override" in error.stderr
+        assert "duplicate numerical option" in error.stderr
 
 print("solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed")

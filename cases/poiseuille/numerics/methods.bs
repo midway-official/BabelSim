@@ -1,5 +1,9 @@
-interpolation linear
-gradient greenGauss
-convection upwind
-diffusion orthogonal
 time steady
+equation.momentum.interpolation linear
+equation.momentum.gradient greenGauss
+equation.momentum.convection upwind
+equation.momentum.diffusion orthogonal
+equation.pressureCorrection.interpolation linear
+equation.pressureCorrection.gradient greenGauss
+equation.pressureCorrection.convection upwind
+equation.pressureCorrection.diffusion orthogonal

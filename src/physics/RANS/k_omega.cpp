@@ -38,8 +38,10 @@ public:
           gamma(problem.physics().positive("kOmegaGamma", 5.0 / 9.0)),
           sigmaK(problem.physics().positive("kOmegaSigmaK", 0.5)),
           sigmaOmega(problem.physics().positive("kOmegaSigmaOmega", 0.5)),
-          kSolver(readLinearControl(problem, k)),
-          omegaSolver(readLinearControl(problem, omega)),
+          momentumOptions(readEquationControl(problem, "momentum", velocity,
+              {"convection", "diffusion"}).spatial),
+          kControl(readEquationControl(problem, "kTransport", k, {"convection", "diffusion"})),
+          omegaControl(readEquationControl(problem, "omegaTransport", omega, {"convection", "diffusion"})),
           kHistory(time::history(k)), omegaHistory(time::history(omega))
     {
         mut.useCalculatedBoundary();
@@ -64,7 +66,7 @@ public:
 
         // Freeze closure coefficients at the current nonlinear iterate.
         updateViscosity();
-        const auto production = mut * math::map(math::grad(U), strainSquared);
+        const auto production = mut * math::map(math::grad(U, momentumOptions), strainSquared);
         const auto kDiffusivity = mu + sigmaK * mut;
         const auto omegaDiffusivity = mu + sigmaOmega * mut;
         const auto kDestructionRate = betaStar * rho * omega;
@@ -72,28 +74,28 @@ public:
         const auto omegaProduction = gamma * production * omega / math::max(k, kMin);
 
         // k: production on RHS; destruction linearized as rate * k on LHS.
-        auto kEquation = equ::createEquation(k);
+        auto kEquation = equ::createEquation(k, kControl);
         equ::ddt(kEquation, rho, kHistory);
-        equ::div(kEquation, phi, rho);
-        equ::laplacian(kEquation, kDiffusivity, -1);
+        equ::div(kEquation, phi, rho, "convection");
+        equ::laplacian(kEquation, kDiffusivity, -1, "diffusion");
         equ::reaction(kEquation, kDestructionRate);
         equ::source(kEquation, production);
         const double kResidual = diagnostics::relativeResidual(kEquation, k);
         equ::relax(kEquation, previousK, relaxation);
-        const auto kSolve = equ::solve(kEquation, kSolver);
+        const auto kSolve = equ::solve(kEquation);
         if (!diagnostics::all(kSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}}};
 
         // omega: use the same frozen closure state as the k equation.
-        auto omegaEquation = equ::createEquation(omega);
+        auto omegaEquation = equ::createEquation(omega, omegaControl);
         equ::ddt(omegaEquation, rho, omegaHistory);
-        equ::div(omegaEquation, phi, rho);
-        equ::laplacian(omegaEquation, omegaDiffusivity, -1);
+        equ::div(omegaEquation, phi, rho, "convection");
+        equ::laplacian(omegaEquation, omegaDiffusivity, -1, "diffusion");
         equ::reaction(omegaEquation, omegaDestructionRate);
         equ::source(omegaEquation, omegaProduction);
         const double omegaResidual = diagnostics::relativeResidual(omegaEquation, omega);
         equ::relax(omegaEquation, previousOmega, relaxation);
-        const auto omegaSolve = equ::solve(omegaEquation, omegaSolver);
+        const auto omegaSolve = equ::solve(omegaEquation);
         if (!diagnostics::all(omegaSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}, {"omega", omegaSolve, omegaResidual, 0.0}}};
 
@@ -129,7 +131,8 @@ private:
     ScalarField& mut;
     const double relaxation, residualTolerance, kMin, omegaMin;
     const double betaStar, beta, gamma, sigmaK, sigmaOmega;
-    const LinearSolverConfig kSolver, omegaSolver;
+    const OperatorOptions momentumOptions;
+    const EquationControl kControl, omegaControl;
     time::History<double> kHistory, omegaHistory;
 };
 

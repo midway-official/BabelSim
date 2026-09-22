@@ -50,6 +50,11 @@ void prepare(
 
 class EigenMpiBackend final : public ComputeBackend {
 public:
+    EigenMpiBackend(const Mesh& mesh, ParallelContext parallel)
+        : EigenMpiBackend(
+              mesh, LinearSolverConfig{}, LinearSolverConfig{}, std::move(parallel))
+    {}
+
     EigenMpiBackend(
         const Mesh& mesh,
         const LinearSolverConfig& scalar_config,
@@ -60,8 +65,8 @@ public:
           m_scalar_config(scalar_config), m_vector_config(vector_config),
           m_scalar_assembly(mesh),
           m_vector_assembly(mesh),
-          m_scalar_solver(scalar_config),
-          m_vector_solver(vector_config),
+          m_scalar_solver(m_scalar_config),
+          m_vector_solver(m_vector_config),
           m_scalar_has_preconditioner(hasPreconditioner(scalar_config)),
           m_vector_has_preconditioner(hasPreconditioner(vector_config)),
           m_scalar_source(Eigen::VectorXd::Zero(ownedCellCount(mesh))),
@@ -75,9 +80,9 @@ public:
         if (m_parallel.distributed()) {
             m_halo = std::make_unique<HaloExchange>(mesh, m_parallel);
             m_scalar_distributed = std::make_unique<DistributedLinearSolver>(
-                mesh, m_parallel, scalar_config);
+                mesh, m_parallel, m_scalar_config);
             m_vector_distributed = std::make_unique<DistributedLinearSolver>(
-                mesh, m_parallel, vector_config);
+                mesh, m_parallel, m_vector_config);
         }
         for (std::size_t component = 0; component < 3; ++component) {
             m_vector_source[component].resize(ownedCellCount(mesh));
@@ -128,8 +133,12 @@ public:
     }
 
     SolveResult solve(
-        const ScalarDiscreteEquation& equation, ScalarField& unknown) override
+        const ScalarDiscreteEquation& equation, ScalarField& unknown)
     {
+        const auto identity = equation.numerical_identity.empty() ? unknown.name() : equation.numerical_identity;
+        if (identity != m_scalar_identity && m_scalar_config.preconditioner == PreconditionerType::AlgebraicMultigrid)
+            m_scalar_pattern_ready = false;
+        m_scalar_identity = identity;
         Clock::time_point start = Clock::now();
         m_scalar_assembly.update(equation);
         assembleSource(equation, m_scalar_source);
@@ -163,8 +172,12 @@ public:
     }
 
     std::array<SolveResult, 3> solve(
-        const VectorDiscreteEquation& equation, VectorField& unknown) override
+        const VectorDiscreteEquation& equation, VectorField& unknown)
     {
+        const auto identity = equation.numerical_identity.empty() ? unknown.name() : equation.numerical_identity;
+        if (identity != m_vector_identity && m_vector_config.preconditioner == PreconditionerType::AlgebraicMultigrid)
+            m_vector_pattern_ready = false;
+        m_vector_identity = identity;
         Clock::time_point start = Clock::now();
         m_vector_assembly.update(equation);
         assembleSource(equation, m_vector_source);
@@ -236,6 +249,7 @@ private:
     const Mesh* m_mesh;
     ParallelContext m_parallel;
     LinearSolverConfig m_scalar_config, m_vector_config;
+    std::string m_scalar_identity, m_vector_identity;
     std::vector<std::unique_ptr<EigenMpiBackend>> m_variants;
     EigenMpiBackend& variant(const LinearSolverConfig& config) {
         for(auto& value:m_variants) if(value->m_scalar_config==config) return *value;
@@ -265,12 +279,10 @@ private:
 
 std::unique_ptr<ComputeBackend> makeComputeBackend(
     const Mesh& mesh,
-    const LinearSolverConfig& scalar_solver,
-    const LinearSolverConfig& vector_solver,
     ParallelContext parallel)
 {
     return std::make_unique<EigenMpiBackend>(
-        mesh, scalar_solver, vector_solver, std::move(parallel));
+        mesh, std::move(parallel));
 }
 
 }  // babelsim::detail 命名空间

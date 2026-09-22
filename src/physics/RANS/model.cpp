@@ -51,7 +51,10 @@ Model* create(
 }
 
 Turbulence::Turbulence(Case& problem, VectorField& velocity, const ScalarField& phi)
-    : viscosity_(nullptr), model_(nullptr, destroy)
+    : viscosity_(nullptr),
+      momentumOptions_(readEquationControl(problem, "momentum", velocity,
+          {"convection", "diffusion"}).spatial),
+      model_(nullptr, destroy)
 {
     const double rho = problem.physics().positive("density");
     const double mu = problem.physics().positive("dynamicViscosity");
@@ -62,7 +65,7 @@ Turbulence::Turbulence(Case& problem, VectorField& velocity, const ScalarField& 
 void destroy(Model* model) noexcept { delete model; }
 
 TensorField Turbulence::deviatoricStressRemainder(const VectorField& velocity) const {
-    const auto gradU = math::grad(velocity);
+    const auto gradU = math::grad(velocity, momentumOptions_);
     return effectiveViscosity() * (math::transpose(gradU)
         - (2.0 / 3.0) * math::isotropic(math::trace(gradU)));
 }

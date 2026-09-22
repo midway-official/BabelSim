@@ -38,8 +38,10 @@ public:
           C2(problem.physics().positive("kEpsilonC2", 1.92)),
           sigmaK(problem.physics().positive("kEpsilonSigmaK", 1.0)),
           sigmaEpsilon(problem.physics().positive("kEpsilonSigmaEpsilon", 1.3)),
-          kSolver(readLinearControl(problem, k)),
-          epsilonSolver(readLinearControl(problem, epsilon)),
+          momentumOptions(readEquationControl(problem, "momentum", velocity,
+              {"convection", "diffusion"}).spatial),
+          kControl(readEquationControl(problem, "kTransport", k, {"convection", "diffusion"})),
+          epsilonControl(readEquationControl(problem, "epsilonTransport", epsilon, {"convection", "diffusion"})),
           kHistory(time::history(k)), epsilonHistory(time::history(epsilon))
     {
         mut.useCalculatedBoundary();
@@ -64,7 +66,7 @@ public:
 
         // Freeze closure coefficients at the current nonlinear iterate.
         updateViscosity();
-        const auto production = mut * math::map(math::grad(U), strainSquared);
+        const auto production = mut * math::map(math::grad(U, momentumOptions), strainSquared);
         const auto kDiffusivity = mu + mut / sigmaK;
         const auto epsilonDiffusivity = mu + mut / sigmaEpsilon;
         const auto epsilonOverK = epsilon / math::max(k, kMin);
@@ -73,28 +75,28 @@ public:
         const auto epsilonProduction = C1 * production * epsilonOverK;
 
         // k: production on RHS; destruction linearized as rate * k on LHS.
-        auto kEquation = equ::createEquation(k);
+        auto kEquation = equ::createEquation(k, kControl);
         equ::ddt(kEquation, rho, kHistory);
-        equ::div(kEquation, phi, rho);
-        equ::laplacian(kEquation, kDiffusivity, -1);
+        equ::div(kEquation, phi, rho, "convection");
+        equ::laplacian(kEquation, kDiffusivity, -1, "diffusion");
         equ::reaction(kEquation, kDestructionRate);
         equ::source(kEquation, production);
         const double kResidual = diagnostics::relativeResidual(kEquation, k);
         equ::relax(kEquation, previousK, relaxation);
-        const auto kSolve = equ::solve(kEquation, kSolver);
+        const auto kSolve = equ::solve(kEquation);
         if (!diagnostics::all(kSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}}};
 
         // epsilon: use the same frozen closure state as the k equation.
-        auto epsilonEquation = equ::createEquation(epsilon);
+        auto epsilonEquation = equ::createEquation(epsilon, epsilonControl);
         equ::ddt(epsilonEquation, rho, epsilonHistory);
-        equ::div(epsilonEquation, phi, rho);
-        equ::laplacian(epsilonEquation, epsilonDiffusivity, -1);
+        equ::div(epsilonEquation, phi, rho, "convection");
+        equ::laplacian(epsilonEquation, epsilonDiffusivity, -1, "diffusion");
         equ::reaction(epsilonEquation, epsilonDestructionRate);
         equ::source(epsilonEquation, epsilonProduction);
         const double epsilonResidual = diagnostics::relativeResidual(epsilonEquation, epsilon);
         equ::relax(epsilonEquation, previousEpsilon, relaxation);
-        const auto epsilonSolve = equ::solve(epsilonEquation, epsilonSolver);
+        const auto epsilonSolve = equ::solve(epsilonEquation);
         if (!diagnostics::all(epsilonSolve.healthy()))
             return {{{"k", kSolve, kResidual, 0.0}, {"epsilon", epsilonSolve, epsilonResidual, 0.0}}};
 
@@ -130,7 +132,8 @@ private:
     ScalarField& mut;
     const double relaxation, residualTolerance, kMin, epsilonMin;
     const double Cmu, C1, C2, sigmaK, sigmaEpsilon;
-    const LinearSolverConfig kSolver, epsilonSolver;
+    const OperatorOptions momentumOptions;
+    const EquationControl kControl, epsilonControl;
     time::History<double> kHistory, epsilonHistory;
 };
 

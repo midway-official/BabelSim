@@ -38,12 +38,20 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     # 两个新头文件分别可用；math 单独求值不需要包含方程 API。
     (work / "math_api.cpp").write_text(
         '#include "babelsim/math.h"\nusing namespace babelsim;\n'
-        'void gradient(const ScalarField& p, VectorField& result){ math::evaluate(math::grad(p),result); }\n')
+        'void gradient(const ScalarField& p, VectorField& result){ OperatorOptions o; '
+        'o.interpolation=InterpolationMethod::Corrected; o.gradient=GradientMethod::LeastSquares; '
+        'o.convection=ConvectionMethod::Upwind; o.diffusion=DiffusionMethod::Corrected; '
+        'math::evaluate(math::grad(p,o),result); }\n')
     (work / "equ_api.cpp").write_text(
         '#include "babelsim/equ.h"\n#include "babelsim/math.h"\nusing namespace babelsim;\n'
-        'auto heat(ScalarField& T){ auto A=equ::createEquation(T); equ::laplacian(A,1.0, -1); equ::source(A,2.0); return A; }\n'
+        'EquationControl profile(const char* name){ EquationControl c; c.name=name; '
+        'c.spatial.interpolation=InterpolationMethod::Corrected; c.spatial.gradient=GradientMethod::LeastSquares; '
+        'c.spatial.convection=ConvectionMethod::Upwind; c.spatial.diffusion=DiffusionMethod::Corrected; return c; }\n'
+        'auto heat(ScalarField& T){ auto A=equ::createEquation(T,profile("temperature")); '
+        'equ::laplacian(A,1.0, -1); equ::source(A,2.0); return A; }\n'
         'auto momentum(ScalarField& phi,VectorField& U,ScalarField& p){\n'
-        ' auto A=equ::createEquation(U); equ::div(A,phi); equ::source(A,-math::grad(p)); equ::laplacian(A,0.1, -1); return A; }\n')
+        ' auto A=equ::createEquation(U,profile("momentum")); auto P=profile("pressureCorrection"); '
+        ' equ::div(A,phi); equ::source(A,-math::grad(p,P.spatial)); equ::laplacian(A,0.1, -1); return A; }\n')
     for name in ("math_api.cpp", "equ_api.cpp"):
         run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
             "-fsyntax-only", name, cwd=work)
@@ -156,6 +164,30 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         path = case / "case.bs"
         path.write_text(path.read_text().replace("solver heat", f"solver {solver}"))
         (case / "physics/thermal.bs").write_text(physics)
+        method_profiles = {
+            "transport_extension": ["transport"],
+            "coupled_extension": ["temperature", "concentration"],
+            "vector_extension": ["momentum", "pressureCorrection"],
+        }
+        methods = ["time euler"]
+        for name in method_profiles[solver]:
+            methods.extend([
+                f"equation.{name}.interpolation corrected",
+                f"equation.{name}.gradient leastSquares",
+                f"equation.{name}.convection upwind",
+                f"equation.{name}.diffusion corrected",
+            ])
+        (case / "numerics/methods.bs").write_text("\n".join(methods) + "\n")
+        solutions = []
+        for name in method_profiles[solver]:
+            solutions.extend([
+                f"equation.{name}.solver bicgstab",
+                f"equation.{name}.preconditioner ilut",
+                f"equation.{name}.absoluteTolerance 1e-14",
+                f"equation.{name}.relativeTolerance 1e-10",
+                f"equation.{name}.maxIterations 1000",
+            ])
+        (case / "numerics/solution.bs").write_text("\n".join(solutions) + "\n")
         field = (case / "fields/initial/T.field").read_text().replace("field T", "field C")
         field = field.replace("type fixedValue value (1)", "type zeroGradient")
         field = field.replace("type fixedValue value (0)", "type zeroGradient")

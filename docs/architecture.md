@@ -25,7 +25,7 @@ SolverResult 映射为命令行退出码。
 | 参数 | include/babelsim/config.h、src/io/config.cpp | typed getter、默认值校验、消费跟踪 |
 | 场 | include/babelsim/field.h | scalar/vector/tensor、cell/face、边界和值运算 |
 | 几何 | include/babelsim/geometry.h、src/geometry | 将 Mesh 的体积、面积、中心和法向表示为普通 Field |
-| 方法 | include/babelsim/methods.h、src/io/numerics_reader.cpp | 一次性读取空间/时间离散及按场覆盖 |
+| 方法 | include/babelsim/methods.h、src/io/numerics_reader.cpp | 一次性读取时间和具名方程/项/算子离散配置 |
 | math | include/babelsim/math.h、src/discretization/operators.cpp | grad/div/flux/interpolate 等显式场运算 |
 | equ | include/babelsim/equ.h、src/discretization/procedural_equation.cpp | Equation 生命周期、逐项装配、面通量和求解；唯一的方程入口 |
 | 时间 | include/babelsim/time.h、history.h | TimeStepper、History；不存储算法状态 |
@@ -93,8 +93,8 @@ Solver 计算。运行时无打印逻辑。Case::output 或 output.bs 选择字�
 
 ### 改动 DSL
 
-先更新公共头和实现，再同步所有四个 Physics Solver、外部示例和测试。保持旧接口迁移表
-与当前实现一致；不要为了表面去重复引入 Manager、Provider、Registry 或深层继承。
+先更新公共头和实现，再同步所有四个 Physics Solver、外部示例和测试。保持当前配置规范
+与实现一致；不要为了表面去重复引入 Manager、Provider、Registry 或深层继承。
 
 ### 改动离散或后端
 

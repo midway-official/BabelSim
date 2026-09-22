@@ -1,6 +1,7 @@
 #pragma once
 
 #include "babelsim/field.h"
+#include "babelsim/equation_control.h"
 #include "babelsim/history.h"
 #include "babelsim/methods.h"
 #include "babelsim/solver_control.h"
@@ -14,7 +15,9 @@ namespace detail { struct EquationAccess; }
 // for deferred corrections. reset() retains allocation and removes contributions.
 template<class T> class Equation {
 public:
-    explicit Equation(Field<T>& unknown);
+    Equation(Field<T>& unknown, const EquationControl& control);
+    OperatorOptions options(const std::string& term = {}) const;
+    const std::string& name() const;
     ~Equation();
     Equation(Equation&&) noexcept;
     Equation& operator=(Equation&&) noexcept;
@@ -31,18 +34,25 @@ private:
     std::unique_ptr<Storage> storage_;
     friend struct detail::EquationAccess;
 };
-// Create an empty discrete equation for this unknown. No PDE terms are inferred
-// from the field: subsequent assembly calls define the equation explicitly.
-template<class T> Equation<T> createEquation(Field<T>& unknown) { return Equation<T>(unknown); }
+template<class T> Equation<T> createEquation(Field<T>& unknown, const EquationControl& control) {
+    return Equation<T>(unknown, control);
+}
+template<class T> Equation<T> createEquation(const Case& problem, const std::string& name,
+    Field<T>& unknown, std::initializer_list<std::string> terms = {}) {
+    return Equation<T>(unknown, readEquationControl(problem, name, unknown, terms));
+}
 
 // Operators add to the LHS, source adds to the RHS. For bound unknown x:
 // div(eq, phi, c) adds c*div(phi*x); phi is an oriented, integrated face flux and
 // becomes the boundary-flux context of the equation: a second, different phi is
 // rejected instead of silently overwriting the unknown's boundary traces.
 // laplacian adds multiplier*div(coefficient*grad(x)); -1 is usual LHS diffusion.
-template<class T> void div(Equation<T>&, const ScalarField& flux, double scale = 1.0);
-template<class T> void laplacian(Equation<T>&, double coefficient, double multiplier);
-template<class T> void laplacian(Equation<T>&, const ScalarField& coefficient, double multiplier);
+template<class T> void div(Equation<T>&, const ScalarField& flux, double scale = 1.0,
+    const std::string& term = {}, const OperatorOptions& options = {});
+template<class T> void laplacian(Equation<T>&, double coefficient, double multiplier,
+    const std::string& term = {}, const OperatorOptions& options = {});
+template<class T> void laplacian(Equation<T>&, const ScalarField& coefficient, double multiplier,
+    const std::string& term = {}, const OperatorOptions& options = {});
 template<class T> void reaction(Equation<T>&, double coefficient);
 template<class T> void reaction(Equation<T>&, const ScalarField& coefficient, double scale = 1.0);
 template<class T> void source(Equation<T>&, T value);

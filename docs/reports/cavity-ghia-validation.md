@@ -97,17 +97,22 @@ y 方向相同。它保持正交性，只改变单元宽度；因此扩散仍使
 最终设置为：
 
 ```text
-interpolation linear
-gradient greenGauss
-convection linearUpwind
-diffusion orthogonal
 time steady
+equation.momentum.interpolation linear
+equation.momentum.gradient greenGauss
+equation.momentum.convection linearUpwind
+equation.momentum.diffusion orthogonal
+equation.pressureCorrection.interpolation linear
+equation.pressureCorrection.gradient greenGauss
+equation.pressureCorrection.convection linearUpwind
+equation.pressureCorrection.diffusion orthogonal
 ```
 
 除对流项外均使用中心型形式。这里的 `interpolation linear` 是通用的 owner/neighbour
 距离加权面插值，用于 U、rAU、梯度等普通单元场；它不代替压力—速度耦合。SIMPLE 内部仍按：
 
-1. 组装并求解 `eqn::div(rho,phi,U) == -math::grad(p) + eqn::laplacian(mu,U)`；
+1. 组装并求解动量方程 `equ::div(momentum,phi,rho,"convection")`、
+   `equ::laplacian(momentum,mu,-1,"diffusion")` 和显式压力梯度；
 2. 从动量响应得到 `rAU=V/aP`；
 3. 通过 Rhie–Chow 型动量插值构造 `phiHbyA`；
 4. 求解压力修正方程 `-laplacian(rAU,p') == -div(phiHbyA)`；

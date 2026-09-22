@@ -71,7 +71,8 @@ SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
 HEADERS := $(wildcard include/babelsim/*.h)
 TEST_SUPPORT_HEADERS := $(wildcard tests/support/*.h)
 
-TEST_SOURCES := tests/procedural_equation_test.cpp \
+TEST_SOURCES := tests/numerical_configuration_test.cpp \
+                tests/procedural_equation_test.cpp \
                 tests/monitor_test.cpp \
                 tests/numerical_contract_test.cpp \
                 tests/unstructured_mesh_test.cpp \

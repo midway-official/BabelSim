@@ -173,7 +173,7 @@ for module in ("simple", "transient_simple", "piso"):
     text = texts[ROOT / "src/physics" / module / "main.cpp"]
     assert "equ::solve" in text and "for (int iter" in text
     assert "solveIncompressible" not in text
-    assert "math::interpolate(rAU * gradP)" in text  # Rhie-Chow is local to each solver.
+    assert re.search(r"math::interpolate\(rAU \* gradP(?:, pressureOptions)?\)", text)  # Rhie-Chow is local to each solver.
     assert "coupling::" not in text
 assert "while (time.value() < time.end())" in texts[ROOT / "src/physics/transient_simple/main.cpp"]
 # The model contract has no data or transport implementation.

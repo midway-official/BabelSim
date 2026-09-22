@@ -17,12 +17,14 @@ int main(int argc, char** argv) {
         Case problem(argv[1]);
         auto& U = problem.vectorField("U");
         auto& phi = problem.createFaceScalarField("phi");
-        phi = math::flux(U);
+        const auto momentumControl = readEquationControl(problem, "momentum", U,
+            {"convection", "diffusion"});
+        phi = math::flux(U, momentumControl.spatial);
         const auto& mesh = problem.mesh();
         U.evaluate([](Vec3 x) { return Vec3{2*x.y,0,0}; });
         for (Index p = 0; p < mesh.patchCount(); ++p) U.setBoundary(p, BoundaryCondition<Vec3>::zeroGradient());
         U.setBoundary(2, fixedValue(Vec3{})); U.setBoundary(3, fixedValue(Vec3{2,0,0}));
-        math::evaluate(math::flux(U), phi);
+        math::evaluate(math::flux(U, momentumControl.spatial), phi);
         auto& effective = problem.createScalarField("effective", 0.0);
         const double rho = problem.physics().positive("density");
         const double mu = problem.physics().positive("dynamicViscosity");
@@ -48,6 +50,13 @@ int main(int argc, char** argv) {
             ? std::vector<std::string>{"nuTilda"}
             : std::vector<std::string>{"k", model_name == "kOmega" ? "omega" : "epsilon"};
         for (const auto& name : names) {
+            const std::string equationName =
+                model_name == "SA" ? "nuTildaTransport" :
+                name == "k" ? "kTransport" :
+                model_name == "kOmega" ? "omegaTransport" : "epsilonTransport";
+            auto& configured = problem.scalarField(name);
+            const auto equationControl = readEquationControl(problem, equationName, configured,
+                {"convection", "diffusion"});
             expected.push_back(problem.scalarField(name));
             auto& value = expected.back();
             const auto old = value;
@@ -91,13 +100,13 @@ int main(int argc, char** argv) {
                 diffusion.evaluate(old, [&](double nu) { return (mu+rho*nu)/(2.0/3.0); });
                 sink.evaluate(reaction, [&](double rate) { return rho*std::max(-rate,0.0); });
                 source.evaluate(reaction, old, [&](double rate, double nu) { return rho*std::max(rate,0.0)*nu; });
-                auto gradient = math::grad(old);
+                auto gradient = math::grad(old, equationControl.spatial);
                 ScalarField gradientSource(mesh, FieldLocation::Cell);
                 gradientSource.useCalculatedBoundary();
                 gradientSource.evaluate(gradient, [&](Vec3 g) { return rho*0.622/(2.0/3.0)*squaredNorm(g); });
                 source.addScaled(1.0, gradientSource);
             }
-            auto equation = equ::createEquation(value);
+            auto equation = equ::createEquation(value, equationControl);
             equ::ddt(equation, rho, old, time.dt());
             equ::div(equation, phi, rho);
             equ::laplacian(equation, diffusion, -1);
@@ -105,7 +114,7 @@ int main(int argc, char** argv) {
             equ::source(equation, source);
             initialResiduals.push_back(diagnostics::relativeResidual(equation, value));
             equ::relax(equation, old, relaxation);
-            require(equ::solve(equation, value, readLinearControl(problem,value)).healthy(),
+            require(equ::solve(equation, value, equationControl.linear).healthy(),
                     "reference transport solve failed");
         }
         const auto report = model->solveTransport();
@@ -135,7 +144,7 @@ int main(int argc, char** argv) {
             require(near(detail::fieldData(effective)[i],mu+eddy,1e-10), "effective viscosity was not updated");
         }
         if (model_name == "SA") {
-            const auto face = math::interpolate(effective);
+            const auto face = math::interpolate(effective, momentumControl.spatial);
             for (Index f : detail::meshData(mesh).owned_faces)
                 if (mesh.boundaryFace(f) && mesh.boundaryPatch(f) == 0)
                     require(std::abs(detail::fieldData(face)[f] - mu) < 1e-13,
@@ -149,9 +158,9 @@ int main(int argc, char** argv) {
         VectorField correction(mesh, FieldLocation::Cell);
         U.setBoundaryFlux(phi);
         gradient.useCalculatedBoundary(); stress.useCalculatedBoundary();
-        gradient=math::grad(U);
+        gradient=math::grad(U, momentumControl.spatial);
         stress=coefficient*(math::transpose(gradient)-(2.0/3.0)*math::isotropic(math::trace(gradient)));
-        correction=math::div(stress);
+        correction=math::div(stress, momentumControl.spatial);
         for (Index i : detail::meshData(mesh).owned_cells)
             require(norm(detail::fieldData(correction)[i]-Vec3{0,2,0}) < 1e-10,
                     "RANS transposed stress term is missing or incorrectly indexed");

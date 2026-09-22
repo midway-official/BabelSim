@@ -65,8 +65,21 @@ def prepare(base, name, mode, ghost=3):
             s=p.read_text().replace('front { type symmetry }','front { type '+('fixedValue value (0 0 0)' if field=='U' else 'zeroGradient')+' }')
             s=s.replace('back { type symmetry }','back { type '+('fixedValue value (0 0 0)' if field=='U' else 'zeroGradient')+' }')
             p.write_text(s)
-        (target/'numerics/methods.bs').write_text('interpolation '+('corrected' if warp else 'linear')+'\ngradient '+('greenGauss' if warp else 'leastSquares')+'\nconvection '+('linearUpwind' if warp else 'upwind')+'\ndiffusion '+('corrected' if warp else 'orthogonal')+'\ntime steady\n')
-        (target/'numerics/solution.bs').write_text('maxIterations 8000\nnonOrthogonalCorrections 2\nvelocityRelaxation 0.5\npressureRelaxation 0.3\ncontinuityTolerance 1e-9\nvelocityTolerance 1e-8\npressureCorrectionTolerance 1e-8\nmomentumTolerance 1e-8\nvectorSolver bicgstab ilut 1e-15 1e-11 2000\nscalarSolver cg incompleteCholesky 1e-15 1e-11 2000\n')
+        interpolation = 'corrected' if warp else 'linear'
+        gradient = 'greenGauss' if warp else 'leastSquares'
+        convection = 'linearUpwind' if warp else 'upwind'
+        diffusion = 'corrected' if warp else 'orthogonal'
+        (target/'numerics/methods.bs').write_text(
+            'time steady\n'
+            f'equation.momentum.interpolation {interpolation}\n'
+            f'equation.momentum.gradient {gradient}\n'
+            f'equation.momentum.convection {convection}\n'
+            f'equation.momentum.diffusion {diffusion}\n'
+            f'equation.pressureCorrection.interpolation {interpolation}\n'
+            f'equation.pressureCorrection.gradient {gradient}\n'
+            f'equation.pressureCorrection.convection {convection}\n'
+            f'equation.pressureCorrection.diffusion {diffusion}\n')
+        (target/'numerics/solution.bs').write_text('maxIterations 8000\nnonOrthogonalCorrections 2\nvelocityRelaxation 0.5\npressureRelaxation 0.3\ncontinuityTolerance 1e-9\nvelocityTolerance 1e-8\npressureCorrectionTolerance 1e-8\nmomentumTolerance 1e-8\nequation.momentum.solver bicgstab\nequation.momentum.preconditioner ilut\nequation.momentum.absoluteTolerance 1e-15\nequation.momentum.relativeTolerance 1e-11\nequation.momentum.maxIterations 2000\nequation.pressureCorrection.solver cg\nequation.pressureCorrection.preconditioner incompleteCholesky\nequation.pressureCorrection.absoluteTolerance 1e-15\nequation.pressureCorrection.relativeTolerance 1e-11\nequation.pressureCorrection.maxIterations 2000\n')
     if mode!='steady':
         methods=target/'numerics/methods.bs'
         methods.write_text(methods.read_text().replace('time steady','time '+mode))
@@ -76,8 +89,9 @@ def prepare(base, name, mode, ghost=3):
         s=solution.read_text()
         for key,value in [('maxIterations','8000'),('velocityTolerance','1e-8'),('pressureCorrectionTolerance','1e-8'),('momentumTolerance','1e-8')]:
             s=re.sub(r'^'+key+r' .+$',key+' '+value,s,flags=re.M) if re.search(r'^'+key+r' ',s,re.M) else s+'\n'+key+' '+value+'\n'
-        s=re.sub(r'^vectorSolver .+$','vectorSolver bicgstab ilut 1e-15 1e-11 2000',s,flags=re.M)
-        s=re.sub(r'^scalarSolver .+$','scalarSolver cg incompleteCholesky 1e-15 1e-11 2000',s,flags=re.M)
+        for equation, solver, preconditioner in [('momentum','bicgstab','ilut'), ('pressureCorrection','cg','incompleteCholesky')]:
+            for key, value in [('solver',solver),('preconditioner',preconditioner),('absoluteTolerance','1e-15'),('relativeTolerance','1e-11'),('maxIterations','2000')]:
+                s=re.sub(r'^equation\.'+equation+r'\.'+key+r' .+$', 'equation.'+equation+'.'+key+' '+value, s, flags=re.M)
         solution.write_text(s)
     (target/'output.bs').write_text('directory results\ntimeName final\nwriteInterval 1\n')
     mesh=next((target/'mesh').glob('*.mesh'))

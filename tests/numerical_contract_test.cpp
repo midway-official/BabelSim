@@ -12,9 +12,7 @@ using namespace babelsim;
 
 void mixedBoundary() {
     const Mesh mesh = makeHexBox({1,1,1},{0,0,0},{1,1,1});
-    RuntimeControl control;
-    control.methods.diffusion = DiffusionMethod::Orthogonal;
-    RunTime time = RunTime::forMesh(mesh, control);
+    RunTime time = RunTime::forMesh(mesh);
     ScalarField c(mesh, FieldLocation::Cell, "c"), phi(mesh, FieldLocation::Face, "phi");
     c.setBoundary(0, BoundaryCondition<double>::inletOutlet(1.0));
     c.setBoundary(1, fixedValue(0.0));
@@ -25,14 +23,14 @@ void mixedBoundary() {
     u.setBoundary(1,fixedValue(Vec3{}));
     {
         // div(phi,c) == laplacian(1.0,c)；通量先绑定，扩散面处理据此判断入流/出流。
-        equ::Equation<double> equation = equ::createEquation(c);
+        auto equation = testEquation(c);
         equ::div(equation, phi);
         equ::laplacian(equation, 1.0, -1.0);
         require(equ::solve(equation).converged(), "mixed scalar solve failed");
     }
     require(std::abs(detail::fieldData(c)[0]-0.6)<1e-12,"inflow diffusion contribution missing");
     {
-        equ::Equation<Vec3> equation = equ::createEquation(u);
+        auto equation = testEquation(u);
         equ::div(equation, phi);
         equ::laplacian(equation, 1.0, -1.0);
         require(equ::solve(equation).converged(), "mixed vector solve failed");
@@ -40,7 +38,7 @@ void mixedBoundary() {
     require(norm(detail::fieldData(u)[0]-Vec3{0.6,1.2,1.8})<1e-12,"vector mixed boundary mismatch");
     phi.assignScaled(-1,phi);
     {
-        equ::Equation<double> equation = equ::createEquation(c);
+        auto equation = testEquation(c);
         equ::div(equation, phi);
         equ::laplacian(equation, 1.0, -1.0);
         require(equ::solve(equation).converged(), "reversed flow solve failed");
@@ -50,6 +48,7 @@ void mixedBoundary() {
 
 void boundaryAndAlgebra(const Mesh& mesh) {
     RunTime time = RunTime::forMesh(mesh);
+    const auto options = testEquationControl("boundary").spatial;
     require(!std::isfinite(EquationResidual{1.0, std::numeric_limits<double>::infinity()}.relative()),
             "nonfinite equation scale was reported as zero relative residual");
     ScalarField x(mesh, FieldLocation::Cell, "x", 2.0);
@@ -60,7 +59,7 @@ void boundaryAndAlgebra(const Mesh& mesh) {
     derived.evaluate(x, [](double value) { return value * value; });
     derived.assignScaled(3.0, derived);
     derived.addScaled(2.0, x);
-    math::evaluate(math::interpolate(derived), face);
+    math::evaluate(math::interpolate(derived, options), face);
     for (Index f : detail::meshData(mesh).owned_faces) {
         if (!mesh.boundaryFace(f) || mesh.boundaryPatch(f) != 0) continue;
         require(detail::fieldData(face)[f] == 0.0, "nonlinear field algebra lost the boundary trace");
@@ -70,7 +69,7 @@ void boundaryAndAlgebra(const Mesh& mesh) {
 
     ScalarField a(mesh, FieldLocation::Cell, "a", 4.0), u(mesh, FieldLocation::Cell, "u", 0.0);
     // a(x)*u == 12：显式体源与局部隐式线性项。
-    equ::Equation<double> equation = equ::createEquation(u);
+    auto equation = testEquation(u);
     equ::reaction(equation, a, 1.0);
     equ::source(equation, 12.0);
     // 欠松弛只写进副本；原方程保持未松弛，才能用它判断真实残差。
@@ -89,13 +88,13 @@ void boundaryAndAlgebra(const Mesh& mesh) {
     require(diagnostics::relativeResidual(equation, u) > 1e-10,
             "post-update residual failed to detect a changed solution");
     u.fill(0.0);
-    equ::Equation<double> overflow = equ::createEquation(u);
+    auto overflow = testEquation(u);
     equ::reaction(overflow, 1.0);
     equ::source(overflow, 1e200);
     require(!equ::solve(overflow).converged(),
             "overflowed residual norm was reported as linear convergence");
     VectorField vector_unknown(mesh, FieldLocation::Cell, "vectorSp");
-    equ::Equation<Vec3> vector_equation = equ::createEquation(vector_unknown);
+    auto vector_equation = testEquation(vector_unknown);
     equ::reaction(vector_equation, a, 1.0);
     equ::source(vector_equation, Vec3{12,-8,20});
     require(equ::solve(vector_equation).converged() &&
@@ -116,12 +115,12 @@ void boundaryAndAlgebra(const Mesh& mesh) {
     });
     VectorField div(mesh, FieldLocation::Cell, "divTensor");
     div.useCalculatedBoundary();
-    math::evaluate(math::div(tensor), div);
+    math::evaluate(math::div(tensor, options), div);
     for (Index cell : detail::meshData(mesh).owned_cells)
         require(norm(detail::fieldData(div)[cell] - Vec3{6,2,2}) < 1e-11,
                 "tensor divergence component convention or face trace is wrong");
     VectorField face_div(mesh, FieldLocation::Face, "faceDivTensor");
-    math::evaluate(math::interpolate(div), face_div);
+    math::evaluate(math::interpolate(div, options), face_div);
     for (Index f : detail::meshData(mesh).owned_faces)
         require(norm(detail::fieldData(face_div)[f] - Vec3{6,2,2}) < 1e-11,
                 "differential result retained a stale calculated boundary trace");
@@ -133,23 +132,22 @@ void preconditioners(const Mesh& mesh) {
             ? PreconditionerType::IncompleteCholesky : PreconditionerType::ILUT;
         for (auto pc : {PreconditionerType::None, factor, PreconditionerType::AlgebraicMultigrid}) {
             for (double scale : {1e-40, 1e-20, 1.0, 1e20, 1e40}) {
-                RuntimeControl control;
-                control.methods.diffusion = DiffusionMethod::Orthogonal;
-                control.methods.interpolation = InterpolationMethod::Linear;
-                control.methods.convection = ConvectionMethod::Central;
-                auto& cfg = control.scalar_solver;
+                RunTime time = RunTime::forMesh(mesh);
+                ScalarField u(mesh, FieldLocation::Cell, "u", 0.0);
+                u.setBoundary(0, fixedValue(0.0)); u.setBoundary(1, fixedValue(1.0));
+                VectorField velocity(mesh, FieldLocation::Face, "velocity", {1,0,0});
+                ScalarField phi(mesh, FieldLocation::Face, "phi");
+                auto assembledControl = testEquationControl(
+                    "manufactured", InterpolationMethod::Linear, GradientMethod::LeastSquares,
+                    ConvectionMethod::Central, DiffusionMethod::Orthogonal);
+                math::evaluate(math::flux(velocity, assembledControl.spatial), phi);
+                auto& cfg = assembledControl.linear;
                 cfg.solver = solver; cfg.preconditioner = pc;
                 cfg.absolute_tolerance = scale * 1e-13;
                 cfg.relative_tolerance = 1e-10;
                 cfg.max_iterations = 2000;
                 cfg.amg_coarse_size = 4;
-                RunTime time = RunTime::forMesh(mesh, control);
-                ScalarField u(mesh, FieldLocation::Cell, "u", 0.0);
-                u.setBoundary(0, fixedValue(0.0)); u.setBoundary(1, fixedValue(1.0));
-                VectorField velocity(mesh, FieldLocation::Face, "velocity", {1,0,0});
-                ScalarField phi(mesh, FieldLocation::Face, "phi");
-                math::evaluate(math::flux(velocity), phi);
-                equ::Equation<double> assembled = equ::createEquation(u);
+                auto assembled = equ::createEquation(u, assembledControl);
                 // 通量上下文先于扩散装配绑定：-div(scale grad u) [+ scale div(phi u)] == source。
                 if (solver == LinearSolverType::BiCGSTAB) equ::div(assembled, phi, scale);
                 equ::laplacian(assembled, scale, -1.0);

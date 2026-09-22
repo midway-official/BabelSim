@@ -43,7 +43,9 @@ public:
           ct4(problem.physics().positive("saCt4", 0.5)),
           cw1(problem.physics().positive("saCw1",
               cb1 / (kappa * kappa) + (1.0 + cb2) / sigma)),
-          nuTildaSolver(readLinearControl(problem, nuTilda)),
+          momentumOptions(readEquationControl(problem, "momentum", velocity,
+              {"convection", "diffusion"}).spatial),
+          nuTildaControl(readEquationControl(problem, "nuTildaTransport", nuTilda, {"convection", "diffusion"})),
           nuTildaHistory(time::history(nuTilda))
     {
         mut.useCalculatedBoundary();
@@ -74,7 +76,7 @@ public:
         });
         const auto distance = math::max(wallDistance, wallDistanceMin);
         const auto inverseDistanceSquared = 1.0 / (distance * distance);
-        const auto rotation = math::map(math::grad(U), vorticityMagnitude);
+        const auto rotation = math::map(math::grad(U, momentumOptions), vorticityMagnitude);
         // Existing positive S-tilde regularization; this is not SA-neg.
         const auto modifiedRotation = math::max(
             rotation + nuTilda * fv2 * inverseDistanceSquared / (kappa * kappa), 1e-30);
@@ -94,22 +96,22 @@ public:
             * nuTilda * inverseDistanceSquared;
         const auto netReactionRate = productionRate - destructionRate;
         const auto implicitDestruction = rho * math::max(-netReactionRate, 0.0);
-        const auto gradNuTilda = math::grad(nuTilda);
+        const auto gradNuTilda = math::grad(nuTilda, nuTildaControl.spatial);
         const auto gradientSource = (rho * cb2 / sigma) * math::dot(gradNuTilda, gradNuTilda);
         const auto explicitSource = rho * math::max(netReactionRate, 0.0) * nuTilda
             + gradientSource;
         const auto diffusivity = (mu + rho * nuTilda) / sigma;
 
         // rho D(nuTilda)/Dt - div(diffusivity grad(nuTilda)) + sink = source.
-        auto nuTildaEquation = equ::createEquation(nuTilda);
+        auto nuTildaEquation = equ::createEquation(nuTilda, nuTildaControl);
         equ::ddt(nuTildaEquation, rho, nuTildaHistory);
-        equ::div(nuTildaEquation, phi, rho);
-        equ::laplacian(nuTildaEquation, diffusivity, -1);
+        equ::div(nuTildaEquation, phi, rho, "convection");
+        equ::laplacian(nuTildaEquation, diffusivity, -1, "diffusion");
         equ::reaction(nuTildaEquation, implicitDestruction);
         equ::source(nuTildaEquation, explicitSource);
         const double transportResidual = diagnostics::relativeResidual(nuTildaEquation, nuTilda);
         equ::relax(nuTildaEquation, previousNuTilda, relaxation);
-        const auto nuTildaSolve = equ::solve(nuTildaEquation, nuTildaSolver);
+        const auto nuTildaSolve = equ::solve(nuTildaEquation);
         if (!diagnostics::all(nuTildaSolve.healthy()))
             return {{{"nuTilda", nuTildaSolve, transportResidual, 0.0}}};
 
@@ -146,7 +148,8 @@ private:
     ScalarField& mut;
     const double relaxation, residualTolerance, nuTildaMin, wallDistanceMin;
     const double cb1, cb2, sigma, kappa, cw2, cw3, cv1, ct3, ct4, cw1;
-    const LinearSolverConfig nuTildaSolver;
+    const OperatorOptions momentumOptions;
+    const EquationControl nuTildaControl;
     time::History<double> nuTildaHistory;
 };
 

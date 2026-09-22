@@ -14,11 +14,10 @@ SolverResult runHeat(Case& problem) {
     const double k = physical.nonnegative("conductivity");
     const double Q = physical.number("source");
 
-    const auto linearOptions = readLinearControl(problem, T);
     const int writeInterval = readWriteInterval(problem);
     auto time = time::start(problem);
     auto T_old = time::history(T);
-    auto temperatureEquation = equ::createEquation(T);
+    auto temperatureEquation = equ::createEquation(problem, "temperature", T, {"diffusion"});
     problem.validate();
 
     while (time.value() < time.end()) {
@@ -26,9 +25,9 @@ SolverResult runHeat(Case& problem) {
         T_old.save(T, time.dt());
         temperatureEquation.reset();
         equ::ddt(temperatureEquation, rho * cp, T_old);
-        equ::laplacian(temperatureEquation, k, -1);
+        equ::laplacian(temperatureEquation, k, -1, "diffusion");
         equ::source(temperatureEquation, Q);
-        const auto result = equ::solve(temperatureEquation, linearOptions);
+        const auto result = equ::solve(temperatureEquation);
 
         reporter.record({{"time", time.value()}, {"residual", result.relative_residual}});
         if (!result.converged()) return SolverResult{result.status};

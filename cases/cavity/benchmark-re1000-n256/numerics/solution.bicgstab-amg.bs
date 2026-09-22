@@ -3,5 +3,23 @@ velocityRelaxation 0.3
 pressureRelaxation 0.25
 continuityTolerance 1e-8
 velocityTolerance 3e-3
-vectorSolver bicgstab amg 1e-10 3e-3 1000 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8
-scalarSolver bicgstab amg 1e-10 3e-3 1000 amgMaxLevels=12 amgCoarseSize=48 amgSmoothingSteps=1 amgRefreshInterval=8
+# momentum
+equation.momentum.solver bicgstab
+equation.momentum.preconditioner amg
+equation.momentum.absoluteTolerance 1e-10
+equation.momentum.relativeTolerance 3e-3
+equation.momentum.maxIterations 1000
+equation.momentum.amgMaxLevels 12
+equation.momentum.amgCoarseSize 48
+equation.momentum.amgSmoothingSteps 1
+equation.momentum.amgRefreshInterval 8
+# pressureCorrection
+equation.pressureCorrection.solver bicgstab
+equation.pressureCorrection.preconditioner amg
+equation.pressureCorrection.absoluteTolerance 1e-10
+equation.pressureCorrection.relativeTolerance 3e-3
+equation.pressureCorrection.maxIterations 1000
+equation.pressureCorrection.amgMaxLevels 12
+equation.pressureCorrection.amgCoarseSize 48
+equation.pressureCorrection.amgSmoothingSteps 1
+equation.pressureCorrection.amgRefreshInterval 8

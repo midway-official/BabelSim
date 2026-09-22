@@ -11,7 +11,7 @@ int main() {
     auto runtime=RunTime::forMesh(mesh);
     ScalarField x(mesh,FieldLocation::Cell,"x",1.0);
     ScalarField old(x), capacity(mesh,FieldLocation::Cell,"capacity",3.0);
-    auto a=equ::createEquation(x);
+    auto a=testEquation(x);
     equ::ddt(a,capacity,old,0.5);
     equ::source(a,6.0);
     capacity.fill(99); old.fill(99); // Assembled coefficients must be frozen.
@@ -64,7 +64,7 @@ int main() {
     // pressure matrix must not acquire an additional interior reference.
     auto correction = field::homogeneousLike(x, "pPrime");
     require(correction.name() == "pPrime", "homogeneous field name is explicit");
-    auto pressure = equ::createEquation(correction);
+    auto pressure = testEquation(correction);
     equ::laplacian(pressure, 1.0, -1);
     const auto anchored = pressure.diagonal();
     pressure.referenceIfUnanchored(7.0);
@@ -76,7 +76,7 @@ int main() {
     require(near(math::normL2(correction), 0.0), "correction boundary is not homogeneous");
 
     ScalarField freePressure(mesh, FieldLocation::Cell, "freePressure");
-    auto freeSystem = equ::createEquation(freePressure);
+    auto freeSystem = testEquation(freePressure);
     equ::laplacian(freeSystem, 1.0, -1);
     freeSystem.referenceIfUnanchored(3.0);
     require(equ::solve(freeSystem, freePressure).converged(), "unanchored pressure solve");
@@ -84,7 +84,7 @@ int main() {
             near(detail::fieldData(freePressure)[1], 3.0), "pressure reference value");
 
     VectorField u(mesh,FieldLocation::Cell,"U");
-    auto v=equ::createEquation(u); equ::reaction(v,2.0); equ::source(v,Vec3{2,4,6});
+    auto v=testEquation(u); equ::reaction(v,2.0); equ::source(v,Vec3{2,4,6});
     require(equ::solve(v).converged(),"bound vector solve");
     require(near(detail::fieldData(u)[0],Vec3{1,2,3}),"vector source/diagonal");
     std::cout << "procedural_equation_test: assembly, frozen inputs, algebra, BDF2, diffusion and vector solve passed\n";

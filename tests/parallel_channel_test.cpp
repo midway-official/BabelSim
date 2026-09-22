@@ -79,25 +79,25 @@ int main(int argc, char* argv[]) {
         configureChannelBoundaries(fields);
 
         RuntimeControl run_control;
-        run_control.scalar_solver.solver = LinearSolverType::ConjugateGradient;
-        run_control.scalar_solver.preconditioner = PreconditionerType::IncompleteCholesky;
-        Methods& methods = run_control.methods;
-        methods.gradient = GradientMethod::GreenGauss;
-        methods.convection = ConvectionMethod::Upwind;
-        methods.diffusion = DiffusionMethod::Orthogonal;
         SimpleControl control;
         control.max_iterations = 1200;
         control.velocity_relaxation = 0.5;
         control.pressure_relaxation = 0.3;
         control.continuity_tolerance = 1e-7;
         control.velocity_tolerance = 1e-6;
-        run_control.vector_solver.absolute_tolerance = 1e-14;
+        control.momentum_equation.spatial.gradient = GradientMethod::GreenGauss;
+        control.momentum_equation.spatial.convection = ConvectionMethod::Upwind;
+        control.momentum_equation.spatial.diffusion = DiffusionMethod::Orthogonal;
+        control.pressure_equation.spatial = control.momentum_equation.spatial;
+        control.momentum_equation.linear.absolute_tolerance = 1e-14;
         // Inner momentum accuracy must resolve the original-equation stopping target.
-        run_control.vector_solver.relative_tolerance = 1e-9;
-        run_control.vector_solver.max_iterations = 300;
-        run_control.scalar_solver.absolute_tolerance = 1e-14;
-        run_control.scalar_solver.relative_tolerance = 1e-7;
-        run_control.scalar_solver.max_iterations = 1200;
+        control.momentum_equation.linear.relative_tolerance = 1e-9;
+        control.momentum_equation.linear.max_iterations = 300;
+        control.pressure_equation.linear.solver = LinearSolverType::ConjugateGradient;
+        control.pressure_equation.linear.preconditioner = PreconditionerType::IncompleteCholesky;
+        control.pressure_equation.linear.absolute_tolerance = 1e-14;
+        control.pressure_equation.linear.relative_tolerance = 1e-7;
+        control.pressure_equation.linear.max_iterations = 1200;
 
         RunTime run_time = RunTime::forMesh(mesh, run_control);
         int iterations = 0;

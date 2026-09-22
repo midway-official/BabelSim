@@ -1,6 +1,7 @@
 #pragma once
 
 #include "babelsim/mesh.h"
+#include "babelsim/equ.h"
 #include "babelsim/vector.h"
 
 #include <algorithm>
@@ -10,6 +11,32 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+inline babelsim::EquationControl testEquationControl(
+    const std::string& name,
+    babelsim::InterpolationMethod interpolation = babelsim::InterpolationMethod::Corrected,
+    babelsim::GradientMethod gradient = babelsim::GradientMethod::LeastSquares,
+    babelsim::ConvectionMethod convection = babelsim::ConvectionMethod::Upwind,
+    babelsim::DiffusionMethod diffusion = babelsim::DiffusionMethod::Corrected)
+{
+    babelsim::EquationControl control;
+    control.name = name;
+    control.spatial.interpolation = interpolation;
+    control.spatial.gradient = gradient;
+    control.spatial.convection = convection;
+    control.spatial.diffusion = diffusion;
+    control.linear.validate();
+    return control;
+}
+
+template <typename T>
+babelsim::equ::Equation<T> testEquation(
+    babelsim::Field<T>& field,
+    const std::string& name = {})
+{
+    const auto identity = name.empty() ? field.name() : name;
+    return babelsim::equ::createEquation(field, testEquationControl(identity));
+}
 
 inline void require(bool condition, const std::string& message) {
     if (!condition) {

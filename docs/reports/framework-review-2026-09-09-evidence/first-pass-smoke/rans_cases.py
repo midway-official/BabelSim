@@ -8,9 +8,39 @@ def field(name,kind,value,bc='zeroGradient'):
 def case(label,model,time,clip=False):
  d=base/label;shutil.copytree(root/'cases/heat',d,ignore=shutil.ignore_patterns('results','post'),dirs_exist_ok=True)
  (d/'case.bs').write_text((d/'case.bs').read_text().replace('solver heat','solver '+('simple' if time=='steady' else 'transientSimple')))
- (d/'numerics/methods.bs').write_text(f'interpolation linear\ngradient leastSquares\nconvection upwind\ndiffusion orthogonal\ntime {time}\n')
+ methods = [
+  f'time {time}',
+  'equation.momentum.interpolation linear',
+  'equation.momentum.gradient leastSquares',
+  'equation.momentum.convection upwind',
+  'equation.momentum.diffusion orthogonal',
+  'equation.pressureCorrection.interpolation linear',
+  'equation.pressureCorrection.gradient leastSquares',
+  'equation.pressureCorrection.convection upwind',
+  'equation.pressureCorrection.diffusion orthogonal',
+ ]
+ equation_names = {'SA': ['nuTildaTransport'], 'kOmega': ['kTransport', 'omegaTransport'],
+                   'kEpsilon': ['kTransport', 'epsilonTransport']}.get(model, [])
+ for name in equation_names:
+  methods.extend([
+   f'equation.{name}.interpolation linear', f'equation.{name}.gradient leastSquares',
+   f'equation.{name}.convection upwind', f'equation.{name}.diffusion orthogonal',
+  ])
+ (d/'numerics/methods.bs').write_text('\n'.join(methods) + '\n')
  (d/'control.bs').write_text('startTime 0\nendTime '+('1' if clip else '0.001')+'\ndeltaT '+('1' if clip else '0.001')+'\n')
- (d/'numerics/solution.bs').write_text('scalarSolver bicgstab ilut 1e-14 1e-10 1000\nvectorSolver bicgstab ilut 1e-14 1e-10 1000\nmaxIterations 2000\nvelocityTolerance 1e-8\ncontinuityTolerance 1e-8\npressureCorrectionTolerance 1e-6\n')
+ linear = [
+  'maxIterations 2000', 'velocityTolerance 1e-8',
+  'continuityTolerance 1e-8', 'pressureCorrectionTolerance 1e-6',
+ ]
+ for name, solver, preconditioner in [
+   ('momentum', 'bicgstab', 'ilut'), ('pressureCorrection', 'cg', 'incompleteCholesky'),
+ ] + [(name, 'bicgstab', 'ilut') for name in equation_names]:
+  linear.extend([
+   f'equation.{name}.solver {solver}', f'equation.{name}.preconditioner {preconditioner}',
+   f'equation.{name}.absoluteTolerance 1e-14', f'equation.{name}.relativeTolerance 1e-10',
+   f'equation.{name}.maxIterations 1000',
+  ])
+ (d/'numerics/solution.bs').write_text('\n'.join(linear) + '\n')
  phy='density 1\ndynamicViscosity 0.01\nturbulenceModel '+model+'\n'
  if model!='none':phy+='turbulenceRelaxation 0.5\nturbulenceTolerance 1e-8\n'
  if clip:phy+='kMin 1\nepsilonMin 1\n'

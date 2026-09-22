@@ -13,9 +13,5 @@ namespace babelsim {
 // Case reader 只解析本领域的物性和算法控制。
 Methods readMethodsFile(const std::filesystem::path& path);
 TimeControl readTimeControlFile(const std::filesystem::path& path);
-void readLinearSolverLine(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    LinearSolverConfig& result);
 
 }  // babelsim 命名空间

@@ -15,6 +15,7 @@ template<class T> struct Equation<T>::Storage {
     explicit Storage(Field<T>& x) : unknown(&x), coefficients(x.mesh()) {}
     Field<T>* unknown;
     DiscreteEquation<T> coefficients;
+    EquationControl control;
     // 本方程已绑定的唯一面通量上下文。不同通量会给出不同的边界迹，
     // 一个方程只能用一个；记录首个指针以便不一致时立即报错。
     const ScalarField* boundary_flux = nullptr;
@@ -72,10 +73,22 @@ template<class T> Field<T> resultField(const Equation<T>& a, const char* name) {
     return Field<T>(state(a).unknown->mesh(), FieldLocation::Cell, name);
 }
 }
-template<class T> Equation<T>::Equation(Field<T>& x) : storage_(std::make_unique<Storage>(x)) {
+template<class T> Equation<T>::Equation(Field<T>& x, const EquationControl& control)
+    : storage_(std::make_unique<Storage>(x)) {
     cell(x, impl::execution().mesh());
     if (x.calculatedBoundary()) throw std::invalid_argument("equ unknown requires physical boundaries");
+    control.linear.validate();
+    control.requireSpatial(control.name);
+    storage_->control = control;
+    for (auto& entry : storage_->control.terms) {
+        entry.second.requireComplete(control.name + ".term." + entry.first);
+    }
+    storage_->coefficients.numerical_identity = control.name;
 }
+template<class T> OperatorOptions Equation<T>::options(const std::string& term) const {
+    return storage_->control.options(term);
+}
+template<class T> const std::string& Equation<T>::name() const { return storage_->control.name; }
 template<class T> Equation<T>::~Equation() = default;
 template<class T> Equation<T>::Equation(Equation&&) noexcept = default;
 template<class T> Equation<T>& Equation<T>::operator=(Equation&&) noexcept = default;
@@ -83,10 +96,11 @@ template<class T> void clear(Equation<T>& a) {
     state(a).coefficients.reset(); state(a).diffusion.clear(); state(a).boundary_flux = nullptr;
 }
 template<class T> Equation<T> copy(const Equation<T>& a) {
-    Equation<T> b(*state(a).unknown); state(b).coefficients = state(a).coefficients;
+    Equation<T> b(*state(a).unknown, state(a).control); state(b).coefficients = state(a).coefficients;
+    state(b).control=state(a).control;
     state(b).diffusion=state(a).diffusion; state(b).boundary_flux=state(a).boundary_flux; return b;
 }
-template<class T> void div(Equation<T>& a, const ScalarField& phi, double factor) {
+template<class T> void div(Equation<T>& a, const ScalarField& phi, double factor, const std::string& term, const OperatorOptions& overrides) {
     finite(factor);
     auto& s = state(a); auto& x = *s.unknown;
     if (&phi.mesh()!=&x.mesh() || phi.location()!=FieldLocation::Face)
@@ -96,44 +110,45 @@ template<class T> void div(Equation<T>& a, const ScalarField& phi, double factor
     s.boundary_flux = &phi;
     backend().synchronize(const_cast<ScalarField&>(phi));
     x.setBoundaryFlux(phi); finish(x);
-    const auto& m = numericalMethods();
-    addConvection(s.coefficients, phi, x, m.convectionFor(x.name()),
-        m.interpolationFor(x.name()), m.gradientFor(x.name()), factor);
+    auto m = a.options(term); m.overlay(overrides);
+    addConvection(s.coefficients, phi, x, *m.convection,
+        *m.interpolation, *m.gradient, factor);
 }
-template<class T> void laplacian(Equation<T>& a, double k, double factor) {
+template<class T> void laplacian(Equation<T>& a, double k, double factor, const std::string& term, const OperatorOptions& overrides) {
     finite(k); finite(factor);
     auto& s = state(a); auto& x = *s.unknown; finish(x);
-    DiscreteEquation<T> contribution(x.mesh()); const auto& m = numericalMethods();
-    addDiffusion(contribution, k, x, m.gradientFor(x.name()), m.diffusionFor(x.name()));
+    DiscreteEquation<T> contribution(x.mesh()); auto m = a.options(term); m.overlay(overrides);
+    addDiffusion(contribution, k, x, *m.gradient, *m.diffusion);
     accumulate(s.coefficients, contribution, -factor);
     if constexpr(std::is_same_v<T,double>) {
         ScalarField kf(x.mesh(),FieldLocation::Face,"equ.frozenDiffusivity",k);
         VectorField g(x.mesh(),FieldLocation::Cell,"equ.frozenGradient");
-        gradient(x,g,m.gradientFor(x.name())); finish(g);
+        gradient(x,g,*m.gradient); finish(g);
         using Snapshot=typename std::remove_reference_t<decltype(s)>::DiffusionSnapshot;
-        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{std::move(kf),x,std::move(g)}),factor,m.diffusionFor(x.name())});
+        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{std::move(kf),x,std::move(g)}),factor,*m.diffusion});
     }
 
 }
-template<class T> void laplacian(Equation<T>& a, const ScalarField& k, double factor) {
+template<class T> void laplacian(Equation<T>& a, const ScalarField& k, double factor, const std::string& term, const OperatorOptions& overrides) {
     finite(factor); auto& s = state(a); auto& x = *s.unknown;
     if (&k.mesh()!=&x.mesh() || (k.location()!=FieldLocation::Cell && k.location()!=FieldLocation::Face))
         throw std::invalid_argument("equ diffusivity must be a compatible cell or face field");
     backend().synchronize(const_cast<ScalarField&>(k)); finish(x);
     ScalarField kf(x.mesh(), FieldLocation::Face, "equ.diffusivity");
-    const auto& m = numericalMethods(); const ScalarField* face = &k;
+    auto m = a.options(term); m.overlay(overrides); const ScalarField* face = &k;
     if (k.location()==FieldLocation::Cell) {
-        interpolate(k, kf, m.interpolationFor(x.name()), m.gradientFor(x.name()));
+        interpolate(k, kf, m.coefficientInterpolation.value_or(*m.interpolation),
+            m.coefficientGradient.value_or(*m.gradient));
         finish(kf); face=&kf;
     }
     DiscreteEquation<T> contribution(x.mesh());
-    addDiffusion(contribution, *face, x, m.gradientFor(x.name()), m.diffusionFor(x.name()));
+    addDiffusion(contribution, *face, x, *m.gradient, *m.diffusion);
     accumulate(s.coefficients, contribution, -factor);
     if constexpr(std::is_same_v<T,double>) {
         VectorField g(x.mesh(),FieldLocation::Cell,"equ.frozenGradient");
-        gradient(x,g,m.gradientFor(x.name())); finish(g);
+        gradient(x,g,*m.gradient); finish(g);
         using Snapshot=typename std::remove_reference_t<decltype(s)>::DiffusionSnapshot;
-        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{*face,x,std::move(g)}),factor,m.diffusionFor(x.name())});
+        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{*face,x,std::move(g)}),factor,*m.diffusion});
     }
 
 }
@@ -313,9 +328,9 @@ ScalarField faceFlux(const Equation<double>& a,const ScalarField& solution) {
 template<class T> SolveResult solveConfigured(const Equation<T>& a,Field<T>& x,const LinearSolverConfig* config) {
     const auto& s=state(a);
     if(s.unknown!=&x) throw std::invalid_argument("solve target differs from matrix unknown");
-    if constexpr(std::is_same_v<T,double>) return config ? backend().solve(s.coefficients,x,*config) : backend().solve(s.coefficients,x);
+    if constexpr(std::is_same_v<T,double>) return backend().solve(s.coefficients,x,config ? *config : s.control.linear);
     else {
-        const auto components=config ? backend().solve(s.coefficients,x,*config) : backend().solve(s.coefficients,x);
+        const auto components=backend().solve(s.coefficients,x,config ? *config : s.control.linear);
         SolveResult result; result.status=SolveStatus::Converged;
         for(const auto& c:components) {
             if(!c.healthy()) result.status=SolveStatus::NumericalFailure;
@@ -356,9 +371,9 @@ template<class T> void Equation<T>::referenceIfUnanchored(double value) {
  template class Equation<T>; \
  template void clear(Equation<T>&); \
  template Equation<T> copy(const Equation<T>&); \
- template void div(Equation<T>&,const ScalarField&,double); \
- template void laplacian(Equation<T>&,double,double); \
- template void laplacian(Equation<T>&,const ScalarField&,double); \
+ template void div(Equation<T>&,const ScalarField&,double,const std::string&,const OperatorOptions&); \
+ template void laplacian(Equation<T>&,double,double,const std::string&,const OperatorOptions&); \
+ template void laplacian(Equation<T>&,const ScalarField&,double,const std::string&,const OperatorOptions&); \
  template void reaction(Equation<T>&,double); \
  template void reaction(Equation<T>&,const ScalarField&,double); \
  template void source(Equation<T>&,T); \

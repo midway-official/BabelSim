@@ -1,6 +1,7 @@
 #pragma once
 
 #include "babelsim/field.h"
+#include "babelsim/methods.h"
 
 namespace babelsim::math {
 
@@ -9,6 +10,7 @@ namespace babelsim::math {
 // expressions. Whole-field operations synchronize their inputs and outputs.
 struct ScalarGradient {
     const ScalarField& field;
+    OperatorOptions options{};
 };
 
 // 每个面的外法向梯度；执行时自动重构单元梯度、同步输入并修正非正交性。
@@ -18,15 +20,18 @@ struct NormalGradient {
     // compositions such as Rhie--Chow explicit without changing the
     // mathematical definition of the face-normal derivative.
     const VectorField* gradient = nullptr;
+    OperatorOptions options{};
 };
 
 struct VectorGradient {
     const VectorField& field;
+    OperatorOptions options{};
 };
 
 struct FaceFlux {
     // cell 输入先插值；face 输入直接计算 Sf·value，不重复插值。
     const VectorField& velocity;
+    OperatorOptions options{};
 };
 
 // 几何选择，不是 MPI 分区选择。Interior 包含跨分区的内部面，但保持物理边界值。
@@ -38,6 +43,7 @@ struct ScalarDiffusionFlux {
     const ScalarField& coefficient;
     const ScalarField& field;
     const VectorField* gradient = nullptr;
+    OperatorOptions options{};
 };
 
 struct FaceDivergence {
@@ -46,27 +52,35 @@ struct FaceDivergence {
 
 struct VectorDivergence {
     const VectorField& field;
+    OperatorOptions options{};
 };
 
 // 张量按 rows[i][j] 存储；返回 (div T)_i = d T_ij / dx_j。
-struct TensorDivergence { const TensorField& field; };
+struct TensorDivergence {
+    const TensorField& field;
+    OperatorOptions options{};
+};
 
 struct ScalarConvection {
     const ScalarField& flux;
     const ScalarField& field;
+    OperatorOptions options{};
 };
 
 struct VectorConvection {
     const ScalarField& flux;
     const VectorField& field;
+    OperatorOptions options{};
 };
 
 struct ScalarInterpolation {
     const ScalarField& field;
+    OperatorOptions options{};
 };
 
 struct VectorInterpolation {
     const VectorField& field;
+    OperatorOptions options{};
 };
 
 struct ScalarReconstruction {
@@ -83,6 +97,7 @@ struct ScalarLaplacian {
     const ScalarField& field;
     double coefficient = 1.0;
     const ScalarField* coefficient_field = nullptr;
+    OperatorOptions options{};
 };
 
 void evaluate(ScalarGradient operation, VectorField& result);
@@ -118,43 +133,43 @@ Field<R> computed(const Mesh& mesh, FieldLocation location, const char* name, Op
     return result;
 }
 template<class T> void evaluate(const Field<T>& value, Field<T>& output) { output=value; }
-inline VectorField grad(const ScalarField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"grad",ScalarGradient{f}); }
-inline TensorField grad(const VectorField& f) { return computed<Tensor3>(f.mesh(),FieldLocation::Cell,"grad",VectorGradient{f}); }
-inline ScalarField normalGradient(const ScalarField& f) {
-    return computed<double>(f.mesh(),FieldLocation::Face,"normalGradient",NormalGradient{f});
+inline VectorField grad(const ScalarField& f, const OperatorOptions& options = {}) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"grad",ScalarGradient{f,options}); }
+inline TensorField grad(const VectorField& f, const OperatorOptions& options = {}) { return computed<Tensor3>(f.mesh(),FieldLocation::Cell,"grad",VectorGradient{f,options}); }
+inline ScalarField normalGradient(const ScalarField& f, const OperatorOptions& options = {}) {
+    return computed<double>(f.mesh(),FieldLocation::Face,"normalGradient",NormalGradient{f,nullptr,options});
 }
 // The second overload reuses a caller-owned cell gradient.  It still evaluates
 // the same face-normal derivative, including the configured non-orthogonal
 // correction and boundary treatment.
-inline ScalarField normalGradient(const ScalarField& f, const VectorField& gradient) {
+inline ScalarField normalGradient(const ScalarField& f, const VectorField& gradient, const OperatorOptions& options = {}) {
     return computed<double>(
-        f.mesh(), FieldLocation::Face, "normalGradient", NormalGradient{f, &gradient});
+        f.mesh(), FieldLocation::Face, "normalGradient", NormalGradient{f, &gradient,options});
 }
 // Oriented, area-integrated face flux: vector value dot Sf. A cell vector is
 // interpolated first; an already face-centred vector is used directly.
-inline ScalarField flux(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"flux",FaceFlux{f}); }
+inline ScalarField flux(const VectorField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Face,"flux",FaceFlux{f,options}); }
 // Positive mathematical diffusive flux k*grad(f).Sf, NOT -k*grad(f).Sf.
 // k may be cell- or face-centred. f must be cell-centred. The optional cell
 // gradient supplies the deferred nonorthogonal correction; no Rhie-Chow here.
-inline ScalarField flux(const ScalarField& k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f}); }
-inline ScalarField flux(const ScalarField& k,const ScalarField& f,const VectorField& gradient) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f,&gradient}); }
+inline ScalarField flux(const ScalarField& k,const ScalarField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f,nullptr,options}); }
+inline ScalarField flux(const ScalarField& k,const ScalarField& f,const VectorField& gradient, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Face,"diffusionFlux",ScalarDiffusionFlux{k,f,&gradient,options}); }
 // Scalar input is an oriented integrated FACE flux: sum(outward flux)/cell V.
 // A scalar cell field is rejected; it is not silently interpreted as a flux.
 inline ScalarField div(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",FaceDivergence{f}); }
-inline ScalarField div(const VectorField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",VectorDivergence{f}); }
-inline VectorField div(const TensorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",TensorDivergence{f}); }
+inline ScalarField div(const VectorField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",VectorDivergence{f,options}); }
+inline VectorField div(const TensorField& f, const OperatorOptions& options = {}) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",TensorDivergence{f,options}); }
 // Explicit div(phi*f): phi is face flux, f is known cell data. Unlike equ::div,
 // these overloads evaluate a field and do not bind or solve for an unknown.
-inline ScalarField div(const ScalarField& phi,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",ScalarConvection{phi,f}); }
-inline VectorField div(const ScalarField& phi,const VectorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",VectorConvection{phi,f}); }
+inline ScalarField div(const ScalarField& phi,const ScalarField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Cell,"div",ScalarConvection{phi,f,options}); }
+inline VectorField div(const ScalarField& phi,const VectorField& f, const OperatorOptions& options = {}) { return computed<Vec3>(f.mesh(),FieldLocation::Cell,"div",VectorConvection{phi,f,options}); }
 // Cell-to-face interpolation using the configured interpolation scheme only.
-inline ScalarField interpolate(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Face,"interpolate",ScalarInterpolation{f}); }
-inline VectorField interpolate(const VectorField& f) { return computed<Vec3>(f.mesh(),FieldLocation::Face,"interpolate",VectorInterpolation{f}); }
+inline ScalarField interpolate(const ScalarField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Face,"interpolate",ScalarInterpolation{f,options}); }
+inline VectorField interpolate(const VectorField& f, const OperatorOptions& options = {}) { return computed<Vec3>(f.mesh(),FieldLocation::Face,"interpolate",VectorInterpolation{f,options}); }
 inline ScalarField reconstruct(const ScalarField& f,const VectorField& g) { return computed<double>(f.mesh(),FieldLocation::Face,"reconstruct",ScalarReconstruction{f,g}); }
 inline VectorField reconstruct(const VectorField& f,const TensorField& g) { return computed<Vec3>(f.mesh(),FieldLocation::Face,"reconstruct",VectorReconstruction{f,g}); }
-inline ScalarField laplacian(const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f}); }
-inline ScalarField laplacian(double k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,k}); }
-inline ScalarField laplacian(const ScalarField& k,const ScalarField& f) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,1.0,&k}); }
+inline ScalarField laplacian(const ScalarField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,1.0,nullptr,options}); }
+inline ScalarField laplacian(double k,const ScalarField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,k,nullptr,options}); }
+inline ScalarField laplacian(const ScalarField& k,const ScalarField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Cell,"laplacian",ScalarLaplacian{f,1.0,&k,options}); }
 void add(const ScalarField& increment,ScalarField& target,FaceRegion region=FaceRegion::All);
 void subtract(const ScalarField& increment,ScalarField& target,FaceRegion region=FaceRegion::All);
 void subtract(const ScalarField& coefficient,const VectorField& gradient,VectorField& target);

@@ -30,14 +30,10 @@ bool listed(const std::vector<std::string>& names, const std::string& value) {
     return std::find(names.begin(), names.end(), value) != names.end();
 }
 
-RuntimeControl runtimeControl(const CaseDefinition& definition, const Parameters& solution,
-                              const Methods& methods) {
+RuntimeControl runtimeControl(const CaseDefinition& definition, const Methods& methods) {
     RuntimeControl result;
     result.methods = methods;
     result.time = readTimeControlFile(definition.control_file);
-    // Case 必须显式选择两类线性求解器；缺项由 Parameters 给出文件路径和键名。
-    readLinearSolverLine(definition.solution_file, solution.entry("scalarSolver"), result.scalar_solver);
-    readLinearSolverLine(definition.solution_file, solution.entry("vectorSolver"), result.vector_solver);
     result.validate();
     return result;
 }
@@ -124,13 +120,14 @@ PerformanceCounters maximumPerformance(
 }  // 匿名命名空间
 
 struct Case::Implementation {
+    mutable std::map<std::string, std::pair<const void*, bool>> equation_bindings;
     Implementation(const std::filesystem::path& directory, const std::string& run_name)
         : definition(readCase(directory)), output(readOutputControl(definition)),
           physics(definition.physics_file), solution(definition.solution_file),
           parallel(activeParallel()), mesh(readDistributedMesh(
               definition.mesh_file, parallel, definition.ghost_layers)),
           run_time(RunTime::forMesh(mesh, runtimeControl(
-              definition, solution, readMethodsFile(definition.methods_file))))
+              definition, readMethodsFile(definition.methods_file))))
     {
         requireRelativePath(output.directory);
         requireRunName(output.time_name);
@@ -354,6 +351,7 @@ void Case::selectOutput(const std::string& name, const void* field, bool enabled
 void Case::validate() const {
     physics().requireAllUsed();
     solution().requireAllUsed();
+    methods().requireAllUsed();
 }
 
 void Case::start() {
@@ -384,33 +382,74 @@ void write(Case& problem,const TimeStepper& time) {
     problem.write();
 }
 
-LinearSolverConfig Case::linearControl(bool vector) const { return m_implementation->run_time.linearControl(vector); }
-
-LinearSolverConfig fieldLinearControl(const Case& problem, const std::string& fieldName, bool vector) {
-    const auto& settings = problem.solution();
-    const std::string prefix = vector ? "vectorSolver." : "scalarSolver.";
-    const std::string key = prefix + fieldName;
-    if (!settings.contains(key)) return problem.linearControl(vector);
-    ConfigLine line = settings.entry(key);
-    // `scalarSolver.p bicgstab ...` is normalized to the existing parser shape.
-    // The field selector stays in the dictionary key, so it is consumed exactly once.
-    line.tokens.erase(line.tokens.begin());
-    line.tokens.insert(line.tokens.begin(), vector ? "vectorSolver" : "scalarSolver");
-    LinearSolverConfig result;
-    readLinearSolverLine(settings.sourcePath(), line, result);
-    result.validate();
-    return result;
-}
 TimeOptions readTimeControl(const Case& problem) {
     const auto& c=problem.timeControl(); return {c.start_time,c.end_time,c.delta_t};
 }
-LinearSolverConfig readLinearControl(const Case& problem,const ScalarField& field) {
-    if(&field.mesh()!=&problem.mesh()) throw std::invalid_argument("linear control field belongs to a different case");
-    return fieldLinearControl(problem, field.name(), false);
+namespace {
+void numericalName(const std::string& name) {
+    if (name.empty() || name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != std::string::npos)
+        throw std::invalid_argument("invalid numerical configuration name: " + name);
 }
-LinearSolverConfig readLinearControl(const Case& problem,const VectorField& field) {
-    if(&field.mesh()!=&problem.mesh()) throw std::invalid_argument("linear control field belongs to a different case");
-    return fieldLinearControl(problem, field.name(), true);
+EquationControl equationControl(const Case& problem, const std::string& name,
+    std::initializer_list<std::string> terms) {
+    numericalName(name);
+    EquationControl result;
+    result.name = name;
+    result.spatial = problem.methods().equationOptions(name);
+    result.spatial.requireComplete(name);
+    for (const auto& term : terms) {
+        numericalName(term);
+        auto options = result.spatial;
+        options.overlay(problem.methods().equationTermOptions(name, term));
+        options.requireComplete(name + ".term." + term);
+        if (!result.terms.emplace(term, options).second)
+            throw std::invalid_argument("duplicate equation term " + name + "." + term);
+    }
+    const auto& p = problem.solution();
+    auto& c = result.linear;
+    const auto prefix = "equation." + name + ".";
+    const auto solver = p.word(prefix + "solver");
+    if (solver == "cg") c.solver = LinearSolverType::ConjugateGradient;
+    else if (solver == "bicgstab") c.solver = LinearSolverType::BiCGSTAB;
+    else throw std::invalid_argument(p.sourcePath().string() + ": unknown solver for " + name + ": " + solver);
+    const auto preconditioner = p.word(prefix + "preconditioner");
+    if (preconditioner == "none") c.preconditioner = PreconditionerType::None;
+    else if (preconditioner == "incompleteCholesky") c.preconditioner = PreconditionerType::IncompleteCholesky;
+    else if (preconditioner == "ilut") c.preconditioner = PreconditionerType::ILUT;
+    else if (preconditioner == "amg") c.preconditioner = PreconditionerType::AlgebraicMultigrid;
+    else throw std::invalid_argument(p.sourcePath().string() + ": unknown preconditioner for " + name + ": " + preconditioner);
+    c.absolute_tolerance = p.number(prefix + "absoluteTolerance");
+    c.relative_tolerance = p.number(prefix + "relativeTolerance");
+    c.max_iterations = p.integer(prefix + "maxIterations");
+    c.warm_start = p.boolean(prefix + "warmStart", c.warm_start);
+    c.ilut_drop_tolerance = p.number(prefix + "ilutDropTolerance", c.ilut_drop_tolerance);
+    c.ilut_fill_factor = p.integer(prefix + "ilutFillFactor", c.ilut_fill_factor);
+    c.amg_max_levels = p.integer(prefix + "amgMaxLevels", c.amg_max_levels);
+    c.amg_coarse_size = p.integer(prefix + "amgCoarseSize", c.amg_coarse_size);
+    c.amg_smoothing_steps = p.integer(prefix + "amgSmoothingSteps", c.amg_smoothing_steps);
+    c.amg_refresh_interval = p.integer(prefix + "amgRefreshInterval", c.amg_refresh_interval);
+    c.validate();
+    return result;
+}
+}
+void Case::bindEquationIdentity(const std::string& name, const void* field, bool vector) const {
+    auto& bindings = m_implementation->equation_bindings;
+    const auto found = bindings.find(name);
+    if (found != bindings.end() && found->second != std::make_pair(field, vector))
+        throw std::invalid_argument("equation name bound to a different unknown: " + name);
+    bindings.emplace(name, std::make_pair(field, vector));
+}
+EquationControl readEquationControl(const Case& problem, const std::string& name,
+    const ScalarField& field, std::initializer_list<std::string> terms) {
+    if (&field.mesh() != &problem.mesh()) throw std::invalid_argument("equation field belongs to a different case");
+    problem.bindEquationIdentity(name, &field, false);
+    return equationControl(problem,name,terms);
+}
+EquationControl readEquationControl(const Case& problem, const std::string& name,
+    const VectorField& field, std::initializer_list<std::string> terms) {
+    if (&field.mesh() != &problem.mesh()) throw std::invalid_argument("equation field belongs to a different case");
+    problem.bindEquationIdentity(name, &field, true);
+    return equationControl(problem,name,terms);
 }
 int readWriteInterval(const Case& problem) { return problem.outputControl().write_interval; }
 void write(Case& problem,double value,int step) {

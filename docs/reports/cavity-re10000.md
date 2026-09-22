@@ -16,7 +16,11 @@
 为避免从零初值在高 Re 下因扩散启动过慢，先将已验证的 Re=1000 场插值到本网格作为初值；随后仍使用原有 `SimpleSolver` 完成 Re=10000 计算。为避免压力线性系统在强网格拉伸下因过严的线性残差阈值反复重启，临时算例采用：
 
 ```text
-scalarSolver bicgstab ilut 1e-12 1e-5 3000
+equation.momentum.solver bicgstab
+equation.momentum.preconditioner ilut
+equation.momentum.absoluteTolerance 1e-12
+equation.momentum.relativeTolerance 1e-5
+equation.momentum.maxIterations 3000
 velocityRelaxation 0.05
 pressureRelaxation 0.1
 continuityTolerance 1e-8

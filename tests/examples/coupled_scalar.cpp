@@ -19,7 +19,10 @@ SolverResult runCoupledScalar(Case& problem) {
 
     auto time=time::start(problem);
     auto oldT=time::history(T), oldC=time::history(C);
-    auto A=equ::createEquation(T), B=equ::createEquation(C);
+    auto A=equ::createEquation(
+        problem, "temperature", T, {"diffusion"});
+    auto B=equ::createEquation(
+        problem, "concentration", C, {"diffusion"});
     while(time.value()<time.end()) {
         time.advance();
         oldT.save(T, time.dt());

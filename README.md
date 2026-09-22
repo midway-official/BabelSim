@@ -135,7 +135,7 @@ cases/poiseuille/
 ├── fields/initial/U.field     # 初值与 U 的边界条件
 ├── fields/initial/p.field     # 初值与 p 的边界条件
 ├── physics/simple.bs          # 密度、黏度等物性
-├── numerics/methods.bs        # 算子默认格式及可选的 Field 覆盖
+├── numerics/methods.bs        # 时间、方程/项/算子的具名离散格式
 ├── numerics/solution.bs       # SIMPLE/线性求解控制
 ├── control.bs                 # 时间区间与步长
 ├── output.bs                  # 结果目录、时刻名与可选字段筛选
@@ -189,16 +189,16 @@ Case 的 validate 只校验，`time::start` / `start` / `setTime` 才关闭声�
 默认瞬态结果按 `output.bs` 中 `writeInterval` 保存（省略时每步写出），最终时刻总会保存。
 `-time mpi4/all` 后处理命名运行的完整序列；ParaView 打开对应的 `post/mpi4/series.pvd`。
 内置求解器注册名为 `heat / transport / simple / transientSimple / piso`（RANS 由动量方程
-求解器按 `physics` 字典的 `turbulenceModel` 启用）；线性配置统一为
-`scalarSolver/vectorSolver`，所有 Case 的 `solution.bs` 必须同时填写这两项，缺项报错，
-不使用隐式默认选择。
+求解器按 `physics` 字典的 `turbulenceModel` 启用）。内置方程通过稳定名称绑定
+`equation.<name>.*` 离散与线性配置；每个实际使用的方程都必须写出完整线性配置。
+详见 [按方程与算子配置](docs/numerical-configuration.md)。
 
 文档入口见 [docs/README.md](docs/README.md)：
 
 - [DSL 与运行时用户手册](docs/dsl-runtime-manual.md)：写求解器的唯一手册。最小可运行示例、
   Case 与全部配置键、场/网格文件格式、Field/geometry/math/equ 全部算子、时间与历史、
   线性求解契约、诊断与监视、结果与后处理、并行边界、内置求解器与 RANS、开发检查清单、
-  旧接口迁移表。
+  当前格式迁移规则。
 - [内置求解器手册](docs/solvers.md)：每个内置求解器与 RANS 模块的方程、配置键、运行方式、
   验证证据与验证边界。
 - [架构与维护边界](docs/architecture.md)：分层、依赖禁令、所有权、维护流程与验收命令。

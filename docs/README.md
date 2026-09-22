@@ -73,7 +73,8 @@ build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每�
 每个求解器的控制方程、全部配置键（含默认值）、场与边界要求、收敛与失败语义，以及验证到
 什么程度、证据在哪，见 [内置求解器手册](solvers.md)。RANS 不做成独立求解器：由动量方程
 求解器读取 `physics` 字典里的 `turbulenceModel` 启用，线性配置统一为 `solution.bs` 中的
-`scalarSolver` / `vectorSolver`。
+`equation.<name>.*`，每个实际使用的方程都必须提供完整的线性参数。
+配置层级与迁移示例见 [按方程与算子配置](numerical-configuration.md)。
 
 ## 文档地图
 
@@ -89,7 +90,7 @@ build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每�
 - **[dsl-runtime-manual.md](dsl-runtime-manual.md)** — 唯一的使用者手册。含最小可运行 Solver、
   Case 与全部配置键（`case.bs`、`physics`/`methods`/`solution`/`control`/`output`）、场文件与
   网格文件格式、Field/geometry/math/equ 全部算子与语义、时间与历史、线性求解契约、诊断与监视、
-  结果与后处理、并行边界、内置求解器与 RANS、开发检查清单、旧接口迁移表。
+  结果与后处理、并行边界、内置求解器与 RANS、开发检查清单和当前格式迁移规则。
 - **[solvers.md](solvers.md)** — 内置求解器手册：`heat`/`transport`/`simple`/`transientSimple`/
   `piso` 与 RANS 模块的方程、算法、配置键、场与边界、从构建到看图（`babelsim-post`）的完整
   运行流程、验证证据与验证边界。
@@ -99,8 +100,6 @@ build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每�
   Solver 验证、MPI 一致性、架构门禁、新 Solver 的验证最低线。
 - **[performance/README.md](performance/README.md)** — `-performance` 输出、构建开关
   （`ASYNC_HALO`、`CSR_SPMV` 等）、benchmark 驱动与 JSON 字段。
-- **[performance/backend-audit-2026-09.md](performance/backend-audit-2026-09.md)** — 计算后端
-  审计记录（历史，含 A/B 数据）。
 
 历史证据存放在 `reports/`：案例验证（Ghia 方腔、Poiseuille）、框架审查（F1–F7）与实现映射、
 RANS 方程核对、MPI 一致性、后端性能优化，以及已移除的 GMRES 后端基准。它们保留原始数字与
@@ -155,8 +154,8 @@ using namespace babelsim;
 
 SolverResult solveMyCase(Case& problem) {
     ScalarField& U = problem.scalarField("U");
-    auto equation = equ::createEquation(U);
-    equ::laplacian(equation, 1.0, -1.0);                  // 左端 -div(grad U)
+    auto equation = equ::createEquation(problem, "momentum", U, {"diffusion"});
+    equ::laplacian(equation, 1.0, -1.0, "diffusion");     // 左端 -div(grad U)
     equ::source(equation, 1.0);                           // 右端体源
     if (!equ::solve(equation).converged()) return SolverResult::notConverged();
     problem.output(U);

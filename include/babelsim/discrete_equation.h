@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace babelsim {
@@ -39,6 +40,8 @@ struct DiscreteEquation {
         std::fill(source.begin(), source.end(), T{});
     }
 
+    // Stable numerical identity; assembly and algebra do not interpret its name.
+    std::string numerical_identity;
     const Mesh* mesh;
     std::vector<double> diagonal;
     std::vector<double> upper;

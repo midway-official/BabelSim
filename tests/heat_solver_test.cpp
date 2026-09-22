@@ -19,18 +19,14 @@ int main() {
 
     RuntimeControl control;
     control.methods.time = TimeMethod::Euler;
-    control.methods.gradient = GradientMethod::GreenGauss;
-    control.methods.diffusion = DiffusionMethod::Orthogonal;
     control.time = {0.0, 0.1, 0.1};
-    control.scalar_solver.absolute_tolerance = 1e-14;
-    control.scalar_solver.relative_tolerance = 1e-12;
     RunTime run_time = RunTime::forMesh(mesh, control);
 
     require(run_time.loop(), "heat run did not start its time step");
     // 时间层由求解器唯一显式推进：每物理步恰好 save 一次。
     time::History<double> history = time::history(temperature);
     history.save(temperature, run_time.deltaT());
-    equ::Equation<double> equation = equ::createEquation(temperature);
+    auto equation = testEquation(temperature);
     equ::ddt(equation, 1.0, history);
     equ::laplacian(equation, 1.0, -1.0);
     const SolveResult result = equ::solve(equation);
@@ -51,7 +47,7 @@ int main() {
     }
     time::History<double> variable_history = time::history(variable_temperature);
     variable_history.save(variable_temperature, run_time.deltaT());
-    equ::Equation<double> variable_equation = equ::createEquation(variable_temperature);
+    auto variable_equation = testEquation(variable_temperature);
     equ::ddt(variable_equation, heat_capacity, variable_history);
     equ::laplacian(variable_equation, conductivity, -1.0);
     const SolveResult variable_result = equ::solve(variable_equation);
@@ -69,7 +65,7 @@ int main() {
     }
     time::History<double> field_history = time::history(field_temperature);
     field_history.save(field_temperature, run_time.deltaT());
-    equ::Equation<double> field_equation = equ::createEquation(field_temperature);
+    auto field_equation = testEquation(field_temperature);
     equ::ddt(field_equation, heat_capacity, field_history);
     equ::laplacian(field_equation, conductivity, -1.0);
     equ::source(field_equation, field_source);

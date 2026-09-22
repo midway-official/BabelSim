@@ -47,20 +47,24 @@ int main() {
     const Methods methods = readMethodsFile(transport.methods_file);
     require(transport.solver == "transport", "transport solver selection is incorrect");
     require(near(transport_physics.number("diffusivity"), 0.01), "transport diffusivity is incorrect");
-    require(methods.convectionFor("C") == ConvectionMethod::Upwind,
-            "Field-specific convection method was not read");
+    const auto transport_options = methods.equationOptions("transport");
+    require(transport_options.convection == ConvectionMethod::Upwind,
+            "transport equation convection method was not read");
     const Methods overrides = readMethodsFile("tests/data/methods.bs");
-    require(overrides.interpolationFor("T") == InterpolationMethod::Corrected &&
-            overrides.gradientFor("T") == GradientMethod::LeastSquares &&
-            overrides.convectionFor("T") == ConvectionMethod::LinearUpwind &&
-            overrides.diffusionFor("T") == DiffusionMethod::LimitedCorrected,
-            "method overrides were mixed between operator types");
-    require(overrides.interpolationFor("C") == InterpolationMethod::Linear &&
-            overrides.gradientFor("C") == GradientMethod::GreenGauss &&
-            overrides.convectionFor("C") == ConvectionMethod::Upwind &&
-            overrides.diffusionFor("C") == DiffusionMethod::Orthogonal &&
+    const auto temperature_options = overrides.equationOptions("temperature");
+    const auto concentration_options = overrides.equationOptions("concentration");
+    require(temperature_options.interpolation == InterpolationMethod::Corrected &&
+            temperature_options.gradient == GradientMethod::LeastSquares &&
+            temperature_options.convection == ConvectionMethod::LinearUpwind &&
+            temperature_options.diffusion == DiffusionMethod::LimitedCorrected,
+            "equation numerical methods were mixed between operator types");
+    require(concentration_options.interpolation == InterpolationMethod::Linear &&
+            concentration_options.gradient == GradientMethod::GreenGauss &&
+            concentration_options.convection == ConvectionMethod::Upwind &&
+            concentration_options.diffusion == DiffusionMethod::Orthogonal &&
             overrides.time == TimeMethod::Euler,
-        "method overrides changed the default or time method");
+        "equation methods changed the configured or time method");
+    overrides.requireAllUsed();
 
     // Typed dictionary access keeps Physics code away from raw tokens and
     // exposes whether a value came from the file without consuming it.
@@ -105,26 +109,29 @@ int main() {
             "output field selection was not parsed");
     std::filesystem::remove(output_path);
 
-    // A field-specific linear entry is selected by the field overload, while
-    // the base scalarSolver entry remains the runtime default.
+    // A named equation owns its complete linear configuration.
     const auto override_case = std::filesystem::temp_directory_path() /
         "babelsim_linear_override_case";
     std::filesystem::remove_all(override_case);
     std::filesystem::copy("cases/heat", override_case,
                           std::filesystem::copy_options::recursive);
     {
-        std::ofstream file(override_case / "numerics/solution.bs", std::ios::app);
-        file << "scalarSolver.T cg incompleteCholesky 1e-13 2e-9 321\n";
+        std::ofstream file(override_case / "numerics/solution.bs");
+        file << "equation.temperature.solver cg\n"
+             << "equation.temperature.preconditioner incompleteCholesky\n"
+             << "equation.temperature.absoluteTolerance 1e-13\n"
+             << "equation.temperature.relativeTolerance 2e-9\n"
+             << "equation.temperature.maxIterations 321\n";
     }
     {
         Case custom(override_case);
         const auto& temperature = custom.scalarField("T");
-        const auto selected = readLinearControl(custom, temperature);
-        require(selected.solver == LinearSolverType::ConjugateGradient &&
-                selected.preconditioner == PreconditionerType::IncompleteCholesky &&
-                near(selected.absolute_tolerance, 1e-13) &&
-                near(selected.relative_tolerance, 2e-9) && selected.max_iterations == 321,
-                "field-specific linear control was not applied");
+        const auto selected = readEquationControl(custom, "temperature", temperature);
+        require(selected.linear.solver == LinearSolverType::ConjugateGradient &&
+                selected.linear.preconditioner == PreconditionerType::IncompleteCholesky &&
+                near(selected.linear.absolute_tolerance, 1e-13) &&
+                near(selected.linear.relative_tolerance, 2e-9) && selected.linear.max_iterations == 321,
+                "named equation linear control was not applied");
     }
     std::filesystem::remove_all(override_case);
 
@@ -144,7 +151,7 @@ int main() {
         custom.physics().positive("heatCapacity");
         custom.physics().nonnegative("conductivity");
         custom.physics().number("source");
-        custom.scalarField("T");
+        readEquationControl(custom, "temperature", custom.scalarField("T"));
         custom.createScalarField("derived", 2.0);
         custom.write();
         const auto result_directory = output_case / "results/0/rank-0000";
@@ -155,48 +162,16 @@ int main() {
     }
     std::filesystem::remove_all(output_case);
 
-    ConfigLine amg_line;
-    amg_line.number = 1;
-    amg_line.tokens = {
-        "scalarSolver", "bicgstab", "amg", "1e-14", "1e-9", "400",
-        "amgMaxLevels=9", "amgCoarseSize=24",
-        "amgSmoothingSteps=3", "amgRefreshInterval=5"};
-    LinearSolverConfig amg_config;
-    readLinearSolverLine("tests/data/solution.bs", amg_line, amg_config);
-    amg_config.validate();
-    require(
-        amg_config.solver == LinearSolverType::BiCGSTAB &&
-            amg_config.preconditioner == PreconditionerType::AlgebraicMultigrid &&
-            amg_config.amg_max_levels == 9 && amg_config.amg_coarse_size == 24 &&
-            amg_config.amg_smoothing_steps == 3 &&
-            amg_config.amg_refresh_interval == 5,
-        "BiCGSTAB/AMG configuration was not read");
-
-    bool rejected_gmres = false;
-    ConfigLine retired_line{2, {"scalarSolver", "gmres", "ilut", "1e-14", "1e-9", "400"}};
-    try {
-        readLinearSolverLine("tests/data/solution.bs", retired_line, amg_config);
-    } catch (const std::exception&) {
-        rejected_gmres = true;
+    const auto old_methods = std::filesystem::temp_directory_path() /
+        "babelsim_old_methods_syntax.bs";
+    {
+        std::ofstream file(old_methods);
+        file << "interpolation linear\ngradient leastSquares\ntime euler\n";
     }
-    require(rejected_gmres, "retired GMRES configuration was accepted");
-
-    ConfigLine no_preconditioner_line{
-        3, {"scalarSolver", "cg", "none", "1e-14", "1e-9", "400"}};
-    LinearSolverConfig no_preconditioner_config;
-    readLinearSolverLine("tests/data/solution.bs", no_preconditioner_line,
-                         no_preconditioner_config);
-    no_preconditioner_config.validate();
-    require(no_preconditioner_config.preconditioner == PreconditionerType::None,
-            "unpreconditioned solver configuration was not read");
-
-    bool rejected_standalone_amg = false;
-    retired_line.tokens = {"scalarSolver", "amg", "none", "1e-14", "1e-9", "400"};
-    try {
-        readLinearSolverLine("tests/data/solution.bs", retired_line, amg_config);
-    } catch (const std::exception&) {
-        rejected_standalone_amg = true;
-    }
-    require(rejected_standalone_amg, "standalone AMG configuration was accepted");
+    bool rejected_old_methods = false;
+    try { (void)readMethodsFile(old_methods); }
+    catch (const std::exception&) { rejected_old_methods = true; }
+    require(rejected_old_methods, "legacy global methods syntax was accepted");
+    std::filesystem::remove(old_methods);
     std::cout << "case_io_test: SIMPLE, heat-compatible and transport dictionaries passed\n";
 }

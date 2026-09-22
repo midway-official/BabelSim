@@ -17,8 +17,9 @@ int main() {
                 near(physics.nonnegative("conductivity"), 0.1) &&
                 near(physics.number("source"), 0.0),
                 "Case physics values do not match the selected dictionary");
-        problem.validate();
         ScalarField& first = problem.scalarField("T");
+        readEquationControl(problem, "temperature", first);
+        problem.validate();
         for (int i = 0; i < 64; ++i)
             problem.createVectorField("scratch" + std::to_string(i), Vec3{});
         require(&first == &problem.scalarField("T"), "Case invalidated a Field reference");
@@ -60,6 +61,8 @@ int main() {
         problem.physics().positive("density");
         problem.physics().positive("dynamicViscosity");
         readSimpleControl(problem.solution());
+        readEquationControl(problem, "momentum", problem.vectorField("U"));
+        readEquationControl(problem, "pressureCorrection", problem.scalarField("p"));
         problem.createScalarField("couplingState", 0.0);
         problem.validate();
         problem.createScalarField("afterValidation", 0.0);

@@ -26,13 +26,12 @@ int main(int argc, char* argv[]) {
         RuntimeControl control;
         control.methods.time = TimeMethod::Euler;
         control.time = {0.0, 0.1, 0.1};
-        control.scalar_solver.absolute_tolerance = 1e-14;
         RunTime run_time = RunTime::forMesh(mesh, control);
         require(run_time.loop(), "parallel transport did not start its time step");
         time::History<double> history = time::history(concentration);
         history.save(concentration, run_time.deltaT());
         // ddt(2, C) + div(phi, C) == laplacian(0, C) + source(6)
-        equ::Equation<double> equation = equ::createEquation(concentration);
+        auto equation = testEquation(concentration);
         equ::ddt(equation, 2.0, history);
         equ::div(equation, flux);
         equ::laplacian(equation, 0.0, -1.0);

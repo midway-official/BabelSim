@@ -6,6 +6,7 @@
 #include "babelsim/solver.h"
 #include "babelsim/geometry.h"
 #include "physics/RANS/api.h"
+#include "../test_util.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -38,6 +39,10 @@ struct SimpleControl {
     // p' 是本轮用于更新 p 的未松弛压力修正。仅检查速度变化会让不同
     // 分区在压力仍变化时过早停止，因此它必须有独立的外迭代门槛。
     double pressure_correction_tolerance = 1e-6;
+    // Every SIMPLE sub-equation carries its own resolved numerical contract.
+    // Tests may tune these explicitly without going through RuntimeControl.
+    EquationControl momentum_equation = ::testEquationControl("momentum");
+    EquationControl pressure_equation = ::testEquationControl("pressureCorrection");
 
     void validate() const {
         if (max_iterations <= 0 || non_orthogonal_corrections < 0 ||
@@ -102,12 +107,13 @@ struct SimpleIterationResult {
 // 仅由启用涡黏性闭合的动量路径调用；层流保留原 NS 动量离散。
 inline void evaluateStressCorrection(
     VectorField& velocity, const ScalarField& phi, const ScalarField& viscosity,
-    TensorField& gradient, TensorField& stress, VectorField& divergence)
+    TensorField& gradient, TensorField& stress, VectorField& divergence,
+    const OperatorOptions& options)
 {
     velocity.setBoundaryFlux(phi);
     gradient.useCalculatedBoundary();
     stress.useCalculatedBoundary();
-    gradient = math::grad(velocity);
+    gradient = math::grad(velocity, options);
     stress.evaluate(gradient, [](const Tensor3& g) {
         Tensor3 value = transpose(g);
         const double isotropic = (2.0 / 3.0) * trace(g);
@@ -115,7 +121,7 @@ inline void evaluateStressCorrection(
         return value;
     });
     stress.assignProduct(viscosity, stress);
-    divergence = math::div(stress);
+    divergence = math::div(stress, options);
 }
 
 }  // babelsim 命名空间
@@ -142,7 +148,7 @@ namespace babelsim {
 SimpleIterationResult solveIncompressible(IncompressibleFields& fields, FluidProperties fluid,
     const SimpleControl& control, int* iterations) {
     ScalarField viscosity(fields.velocity.mesh(),FieldLocation::Cell,"muEffective",fluid.dynamic_viscosity);
-    fields.face_flux = math::flux(fields.velocity);
+    fields.face_flux = math::flux(fields.velocity, control.momentum_equation.spatial);
     return solveIncompressible(fields.velocity,fields.pressure,fields.face_flux,
         fluid.density,fluid.dynamic_viscosity,control,viscosity,nullptr,nullptr,nullptr,
         0,0,TimeMethod::Steady,false,iterations);
@@ -151,6 +157,7 @@ namespace {
 void assembleMomentum(equ::Equation<Vec3>& A, VectorField& U,
     const ScalarField& p, const ScalarField& phi, double density, double viscosity,
     const ScalarField& effectiveViscosity, bool turbulent,
+    const OperatorOptions& options, const OperatorOptions& pressureOptions,
     const VectorField* previous, const VectorField* older,
     double dt, double previousDt, TimeMethod timeMethod)
 {
@@ -165,11 +172,11 @@ void assembleMomentum(equ::Equation<Vec3>& A, VectorField& U,
         TensorField gradient(U.mesh(), FieldLocation::Cell, "stressGradU");
         TensorField stress(U.mesh(), FieldLocation::Cell, "stressCorrection");
         VectorField divergence(U.mesh(), FieldLocation::Cell, "stressDivergence");
-        evaluateStressCorrection(U, phi, effectiveViscosity, gradient, stress, divergence);
+        evaluateStressCorrection(U, phi, effectiveViscosity, gradient, stress, divergence, options);
         equ::source(A, divergence);
     } else equ::laplacian(A, viscosity, -1);
     VectorField gradP(U.mesh(), FieldLocation::Cell, "gradP");
-    gradP = math::grad(p);
+    gradP = math::grad(p, pressureOptions);
     equ::source(A, gradP, -1.0);
 }
 }
@@ -198,16 +205,20 @@ SimpleIterationResult solveIncompressible(
     ScalarField rAUf(mesh,FieldLocation::Face,"rAUFace");
     const auto V = geometry::cellVolumes(mesh);
     const bool fixedPressure=setHomogeneousCorrectionBoundaries(pPrime,p);
-    auto A=equ::createEquation(U);
-    auto P=equ::createEquation(pPrime);
-    const auto& methods=numericalMethods();
-    const int corrections=methods.diffusionFor(pPrime.name())==DiffusionMethod::Orthogonal
+    auto momentumControl = control.momentum_equation;
+    auto pressureControl = control.pressure_equation;
+    momentumControl.name = "momentum";
+    pressureControl.name = "pressureCorrection";
+    auto A=equ::createEquation(U, momentumControl);
+    auto P=equ::createEquation(pPrime, pressureControl);
+    const int corrections=pressureControl.spatial.diffusion==DiffusionMethod::Orthogonal
         ? 1 : control.non_orthogonal_corrections+1;
     SimpleIterationResult result;
     result.turbulence_active=turbulence!=nullptr;
     for(int iter=0; iter<control.max_iterations; ++iter) {
         previousIteration=U;
         assembleMomentum(A,U,p,phi,density,viscosity,effectiveViscosity,turbulence,
+            momentumControl.spatial, pressureControl.spatial,
             previous,older,dt,previousDt,timeMethod);
         equ::relax(A,previousIteration,control.velocity_relaxation);
         // Preserve the existing SIMPLE row normalization explicitly. This scales
@@ -218,13 +229,13 @@ SimpleIterationResult solveIncompressible(
         if (!diagnostics::all(result.velocity.healthy())) { result.healthy=false; result.converged=false; return result; }
 
         // Rhie-Chow momentum interpolation, preserving physical boundary fluxes.
-        gradP = math::grad(p);
-        phiHbyA = math::flux(U);
+        gradP = math::grad(p, pressureControl.spatial);
+        phiHbyA = math::flux(U, momentumControl.spatial);
         rAUgradP=rAU*gradP;
-        rAUgradPf = math::interpolate(rAUgradP);
-        rAUf = math::interpolate(rAU);
-        math::add(math::flux(rAUgradPf),phiHbyA,math::FaceRegion::Interior);
-        math::subtract(math::flux(rAUf, p, gradP),phiHbyA,math::FaceRegion::Interior);
+        rAUgradPf = math::interpolate(rAUgradP, pressureControl.spatial);
+        rAUf = math::interpolate(rAU, pressureControl.spatial.coefficientOptions());
+        math::add(math::flux(rAUgradPf, pressureControl.spatial),phiHbyA,math::FaceRegion::Interior);
+        math::subtract(math::flux(rAUf, p, gradP, pressureControl.spatial),phiHbyA,math::FaceRegion::Interior);
         divPhi = math::div(phiHbyA);
         pPrime.fill(0);
         bool pressureHealthy=true, pressureConverged=true;
@@ -245,7 +256,7 @@ SimpleIterationResult solveIncompressible(
             pPrime*=control.pressure_relaxation;
             pressureFlux*=control.pressure_relaxation;
         }
-        math::subtract(rAU,math::grad(pPrime),U);
+        math::subtract(rAU,math::grad(pPrime, pressureControl.spatial),U);
         phi=phiHbyA+pressureFlux;
 
         if(turbulence) {
@@ -259,6 +270,7 @@ SimpleIterationResult solveIncompressible(
         // Nonlinear residual uses freshly assembled physical coefficients,
         // separate from the relaxed linear system solved above.
         assembleMomentum(A,U,p,phi,density,viscosity,effectiveViscosity,turbulence,
+            momentumControl.spatial, pressureControl.spatial,
             previous,older,dt,previousDt,timeMethod);
         result.relative_momentum_residual=diagnostics::relativeResidual(A,U);
         const bool turbulenceHealthy=!turbulence || (result.turbulence.healthy() &&

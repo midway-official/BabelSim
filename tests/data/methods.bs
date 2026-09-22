@@ -1,10 +1,9 @@
-# 通用默认值与同一个 Field 的四种独立格式覆盖。
-interpolation linear
-gradient greenGauss
-convection upwind
-diffusion orthogonal
 time euler
-interpolation T corrected
-gradient T leastSquares
-convection T linearUpwind
-diffusion T limitedCorrected
+equation.temperature.interpolation corrected
+equation.temperature.gradient leastSquares
+equation.temperature.convection linearUpwind
+equation.temperature.diffusion limitedCorrected
+equation.concentration.interpolation linear
+equation.concentration.gradient greenGauss
+equation.concentration.convection upwind
+equation.concentration.diffusion orthogonal

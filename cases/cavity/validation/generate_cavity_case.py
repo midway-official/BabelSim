@@ -54,18 +54,31 @@ def main() -> int:
         f"density 1.0\ndynamicViscosity {1.0 / args.re:.17g}\n",
         encoding="utf-8")
     (args.output / "numerics/methods.bs").write_text(
-        "interpolation linear\n"
-        f"gradient {args.gradient}\n"
-        f"convection {args.convection}\n"
-        "diffusion orthogonal\ntime steady\n",
+        "time steady\n"
+        "equation.momentum.interpolation linear\n"
+        f"equation.momentum.gradient {args.gradient}\n"
+        f"equation.momentum.convection {args.convection}\n"
+        "equation.momentum.diffusion orthogonal\n"
+        "equation.pressureCorrection.interpolation linear\n"
+        f"equation.pressureCorrection.gradient {args.gradient}\n"
+        f"equation.pressureCorrection.convection {args.convection}\n"
+        "equation.pressureCorrection.diffusion orthogonal\n",
         encoding="utf-8")
     (args.output / "numerics/solution.bs").write_text(
         f"maxIterations {args.max_iterations}\n"
         f"velocityRelaxation {args.velocity_relaxation:.17g}\n"
         f"pressureRelaxation {args.pressure_relaxation:.17g}\n"
         "continuityTolerance 1e-10\nvelocityTolerance 2e-7\n"
-        "vectorSolver bicgstab ilut 1e-13 1e-9 2000\n"
-        "scalarSolver cg incompleteCholesky 1e-13 1e-9 2000\n",
+        "equation.momentum.solver bicgstab\n"
+        "equation.momentum.preconditioner ilut\n"
+        "equation.momentum.absoluteTolerance 1e-13\n"
+        "equation.momentum.relativeTolerance 1e-9\n"
+        "equation.momentum.maxIterations 2000\n"
+        "equation.pressureCorrection.solver cg\n"
+        "equation.pressureCorrection.preconditioner incompleteCholesky\n"
+        "equation.pressureCorrection.absoluteTolerance 1e-13\n"
+        "equation.pressureCorrection.relativeTolerance 1e-9\n"
+        "equation.pressureCorrection.maxIterations 2000\n",
         encoding="utf-8")
 
     xy = coordinates(args.cells, args.cluster)

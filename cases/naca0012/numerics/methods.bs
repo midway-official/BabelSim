@@ -1,7 +1,22 @@
-interpolation linear
-gradient leastSquares
-convection linearUpwind
 # Limit the non-orthogonal correction to retain diagonal dominance on the
 # C-grid while keeping the requested linearUpwind convection scheme.
-diffusion limitedCorrected
 time bdf2
+
+equation.momentum.interpolation linear
+equation.momentum.gradient leastSquares
+equation.momentum.convection linearUpwind
+equation.momentum.diffusion limitedCorrected
+equation.momentum.term.diffusion.diffusion limitedCorrected
+equation.pressureCorrection.interpolation linear
+equation.pressureCorrection.gradient leastSquares
+equation.pressureCorrection.convection linearUpwind
+equation.pressureCorrection.diffusion limitedCorrected
+equation.pressureCorrection.term.diffusion.diffusion limitedCorrected
+equation.kTransport.interpolation linear
+equation.kTransport.gradient leastSquares
+equation.kTransport.convection linearUpwind
+equation.kTransport.diffusion limitedCorrected
+equation.omegaTransport.interpolation linear
+equation.omegaTransport.gradient leastSquares
+equation.omegaTransport.convection linearUpwind
+equation.omegaTransport.diffusion limitedCorrected

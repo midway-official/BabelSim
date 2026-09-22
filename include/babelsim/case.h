@@ -1,6 +1,7 @@
 #pragma once
 
 #include "babelsim/config.h"
+#include "babelsim/equation_control.h"
 #include "babelsim/field.h"
 #include "babelsim/time.h"
 #include "babelsim/methods.h"
@@ -88,7 +89,6 @@ public:
     // Numerical methods are parsed once while the Case/runtime is constructed.
     // This accessor is a read-only view; it never reloads the methods file.
     const Methods& methods() const;
-    LinearSolverConfig linearControl(bool vector) const;
     const OutputControl& outputControl() const;
     // Procedural lifecycle: these calls never advance field histories.
     void setTime(double value, int step, double dt);
@@ -106,6 +106,11 @@ public:
     PerformanceCounters localPerformance() const;
 
 private:
+    void bindEquationIdentity(const std::string&, const void*, bool) const;
+    friend EquationControl readEquationControl(const Case&, const std::string&, const ScalarField&,
+        std::initializer_list<std::string>);
+    friend EquationControl readEquationControl(const Case&, const std::string&, const VectorField&,
+        std::initializer_list<std::string>);
     void selectOutput(const std::string& name, const void* field, bool enabled);
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;
@@ -114,8 +119,6 @@ private:
 // Read-only configuration values and explicit I/O; no algorithm lifecycle.
 struct TimeOptions { double start, end, dt; };
 TimeOptions readTimeControl(const Case&);
-LinearSolverConfig readLinearControl(const Case&, const ScalarField&);
-LinearSolverConfig readLinearControl(const Case&, const VectorField&);
 int readWriteInterval(const Case&);
 void write(Case&, double time, int step);
 void write(Case&, const TimeStepper&);

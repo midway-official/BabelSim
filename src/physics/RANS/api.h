@@ -86,6 +86,7 @@ public:
 
 private:
     ScalarField* viscosity_;
+    OperatorOptions momentumOptions_;
     Handle model_;
 };
 

@@ -37,19 +37,44 @@ def field(name, kind, value, boundary="zeroGradient"):
             f"boundary\n{{\n{entries}\n}}\n}}\n")
 
 
-def case(label, model, method="euler", dt=0.01, end=0.1, fixed=False, clipping=False):
+def case(label, model, method="euler", dt=0.01, end=0.1, fixed=False, clipping=False,
+         include_pressure=True):
     target = BASE / label
     shutil.copytree(ROOT / "cases/heat", target, ignore=shutil.ignore_patterns("results", "post"))
     path = target / "case.bs"
     path.write_text(path.read_text().replace("solver heat", "solver " +
         ("simple" if method == "steady" else "transientSimple")) + "\nghostLayers 3\n")
-    (target / "numerics/methods.bs").write_text(
-        f"interpolation linear\ngradient leastSquares\nconvection upwind\ndiffusion orthogonal\ntime {method}\n")
+    equation_names = ["momentum"]
+    if include_pressure:
+        equation_names.append("pressureCorrection")
+    if model == "SA":
+        equation_names.append("nuTildaTransport")
+    elif model == "kOmega":
+        equation_names.extend(["kTransport", "omegaTransport"])
+    elif model == "kEpsilon":
+        equation_names.extend(["kTransport", "epsilonTransport"])
+    methods = [f"time {method}"]
+    for name in equation_names:
+        methods.extend([
+            f"equation.{name}.interpolation linear",
+            f"equation.{name}.gradient leastSquares",
+            f"equation.{name}.convection upwind",
+            f"equation.{name}.diffusion orthogonal",
+        ])
+    (target / "numerics/methods.bs").write_text("\n".join(methods) + "\n")
     (target / "control.bs").write_text(f"startTime 0\nendTime {end}\ndeltaT {dt}\n")
     (target / "output.bs").write_text("directory results\ntimeName final\nwriteInterval 100000\n")
+    solution_lines = []
+    for name in equation_names:
+        solution_lines.extend([
+            f"equation.{name}.solver bicgstab",
+            f"equation.{name}.preconditioner ilut",
+            f"equation.{name}.absoluteTolerance 1e-14",
+            f"equation.{name}.relativeTolerance 1e-12",
+            f"equation.{name}.maxIterations 2000",
+        ])
     solution = (
-        "scalarSolver bicgstab ilut 1e-14 1e-12 2000\n"
-        "vectorSolver bicgstab ilut 1e-14 1e-12 2000\n"
+        "\n".join(solution_lines) + "\n"
         f"maxIterations {40 if clipping else 3000}\n"
         "velocityTolerance 1e-9\ncontinuityTolerance 1e-9\n"
         "pressureCorrectionTolerance 1e-9\nmomentumTolerance 1e-9\n")
@@ -108,7 +133,8 @@ def exact(model, end):
 summary = {"evidence": str(BASE), "decay": [], "steady": []}
 print("RANS evidence:", BASE, flush=True)
 for model in ("SA", "kOmega", "kEpsilon"):
-    fixture = case("coefficients-" + model, model, dt=0.001, end=0.001)
+    fixture = case("coefficients-" + model, model, dt=0.001, end=0.001,
+                   include_pressure=False)
     for ranks in (1,2,4):
         run(fixture, ranks, f"coefficients-{model}-{ranks}", executable="rans_equations_test")
     reference = exact(model, 0.1)

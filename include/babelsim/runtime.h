@@ -10,8 +10,6 @@ namespace babelsim {
 struct RuntimeControl {
     Methods methods;
     TimeControl time;
-    LinearSolverConfig scalar_solver{};
-    LinearSolverConfig vector_solver{};
 
     void validate() const;
 };
@@ -37,7 +35,6 @@ public:
     const Methods& methods() const;
     bool loop();
     const TimeControl& timeControl() const;
-    const LinearSolverConfig& linearControl(bool vector) const;
     // Set evaluation metadata only: no history advancement or output.
     void setTime(double value, int step, double dt);
     double time() const;
