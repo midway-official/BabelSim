@@ -621,6 +621,46 @@ HaloExchange::HaloExchange(const Mesh& mesh, ParallelContext parallel)
     build(m_cells, false, false);
     build(m_first_layer_cells, false, true);
     build(m_faces, true, false);
+    buildNeighbourCommunicator(m_cells);
+    buildNeighbourCommunicator(m_first_layer_cells);
+    buildNeighbourCommunicator(m_faces);
+}
+
+void HaloExchange::buildNeighbourCommunicator(ExchangePlan& plan) {
+    if (!m_parallel.distributed()) return;
+    plan.outgoing_peers.clear();
+    plan.incoming_peers.clear();
+    for (int peer = 0; peer < m_parallel.size; ++peer) {
+        const std::size_t p = static_cast<std::size_t>(peer);
+        // send_counts describe requests received from a peer, therefore the
+        // values flow out to that peer; receive_counts are the IDs this rank
+        // requested and form the incoming-neighbour list.
+        if (plan.send_counts[p] > 0) plan.outgoing_peers.push_back(peer);
+        if (plan.receive_counts[p] > 0) plan.incoming_peers.push_back(peer);
+    }
+    detail::checkMpi(MPI_Dist_graph_create_adjacent(
+        m_parallel.communicator,
+        static_cast<int>(plan.incoming_peers.size()),
+        plan.incoming_peers.empty() ? nullptr : plan.incoming_peers.data(), MPI_UNWEIGHTED,
+        static_cast<int>(plan.outgoing_peers.size()),
+        plan.outgoing_peers.empty() ? nullptr : plan.outgoing_peers.data(), MPI_UNWEIGHTED,
+        MPI_INFO_NULL, 0, &plan.graph_communicator),
+        "MPI_Dist_graph_create_adjacent(halo)");
+}
+
+HaloExchange::~HaloExchange() {
+    int initialized = 0;
+    MPI_Initialized(&initialized);
+    if (!initialized) return;
+    int finalized = 0;
+    MPI_Finalized(&finalized);
+    if (finalized) return;
+    if (m_cells.graph_communicator != MPI_COMM_NULL)
+        MPI_Comm_free(&m_cells.graph_communicator);
+    if (m_first_layer_cells.graph_communicator != MPI_COMM_NULL)
+        MPI_Comm_free(&m_first_layer_cells.graph_communicator);
+    if (m_faces.graph_communicator != MPI_COMM_NULL)
+        MPI_Comm_free(&m_faces.graph_communicator);
 }
 
 HaloExchange::ExchangePlan::ValueLayout& HaloExchange::valueLayout(
@@ -651,6 +691,20 @@ HaloExchange::ExchangePlan::ValueLayout& HaloExchange::valueLayout(
                 static_cast<std::size_t>(plan.receive_offsets[p]) * components,
                 "halo receive offset");
         }
+        layout.neighbour_send_counts.clear();
+        layout.neighbour_send_offsets.clear();
+        layout.neighbour_receive_counts.clear();
+        layout.neighbour_receive_offsets.clear();
+        for (const int peer : plan.outgoing_peers) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            layout.neighbour_send_counts.push_back(layout.send_counts[p]);
+            layout.neighbour_send_offsets.push_back(layout.send_offsets[p]);
+        }
+        for (const int peer : plan.incoming_peers) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            layout.neighbour_receive_counts.push_back(layout.receive_counts[p]);
+            layout.neighbour_receive_offsets.push_back(layout.receive_offsets[p]);
+        }
         return layout;
     }
     throw std::invalid_argument("halo exchange supports at most three component layouts");
@@ -663,18 +717,32 @@ void HaloExchange::begin(double* values, std::size_t components, ExchangePlan& p
     }
     if (plan.active) throw std::logic_error("halo exchange is already active");
     auto& layout = valueLayout(plan, components);
-    plan.send_buffer.resize(plan.send_indices.size() * components);
-    plan.receive_buffer.resize(plan.receive_indices.size() * components);
+    const std::size_t send_size = plan.send_indices.size() * components;
+    const std::size_t receive_size = plan.receive_indices.size() * components;
+    if (plan.send_buffer.capacity() < send_size) plan.send_buffer.reserve(send_size);
+    if (plan.receive_buffer.capacity() < receive_size) plan.receive_buffer.reserve(receive_size);
+    plan.send_buffer.resize(send_size);
+    plan.receive_buffer.resize(receive_size);
     for (std::size_t index = 0; index < plan.send_indices.size(); ++index) {
         const auto source = values + static_cast<std::size_t>(plan.send_indices[index]) * components;
         std::copy_n(source, components, plan.send_buffer.data() + index * components);
     }
-    detail::checkMpi(MPI_Ialltoallv(
-        plan.send_buffer.empty() ? &plan.dummy : plan.send_buffer.data(),
-        layout.send_counts.data(), layout.send_offsets.data(), MPI_DOUBLE,
-        plan.receive_buffer.empty() ? &plan.dummy : plan.receive_buffer.data(),
-        layout.receive_counts.data(), layout.receive_offsets.data(), MPI_DOUBLE,
-        m_parallel.communicator, &plan.request), "MPI_Ialltoallv(halo values)");
+    if (plan.graph_communicator != MPI_COMM_NULL) {
+        detail::checkMpi(MPI_Ineighbor_alltoallv(
+            plan.send_buffer.empty() ? &plan.dummy : plan.send_buffer.data(),
+            layout.neighbour_send_counts.data(), layout.neighbour_send_offsets.data(), MPI_DOUBLE,
+            plan.receive_buffer.empty() ? &plan.dummy : plan.receive_buffer.data(),
+            layout.neighbour_receive_counts.data(), layout.neighbour_receive_offsets.data(), MPI_DOUBLE,
+            plan.graph_communicator, &plan.request),
+            "MPI_Ineighbor_alltoallv(halo values)");
+    } else {
+        detail::checkMpi(MPI_Ialltoallv(
+            plan.send_buffer.empty() ? &plan.dummy : plan.send_buffer.data(),
+            layout.send_counts.data(), layout.send_offsets.data(), MPI_DOUBLE,
+            plan.receive_buffer.empty() ? &plan.dummy : plan.receive_buffer.data(),
+            layout.receive_counts.data(), layout.receive_offsets.data(), MPI_DOUBLE,
+            m_parallel.communicator, &plan.request), "MPI_Ialltoallv(halo values)");
+    }
     plan.active = true;
     plan.active_components = components;
     plan.active_values = values;

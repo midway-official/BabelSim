@@ -10,7 +10,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
+#include <map>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -214,6 +217,191 @@ private:
     bool m_active = false;
 };
 
+// A coarse vector is distributed by aggregate owner.  Unlike the old AMG
+// implementation, a rank stores only the coarse rows it owns and exchanges
+// the off-rank columns requested by those rows.  The request graph is built
+// once for a fixed matrix pattern; values use the same packed layout on every
+// coarse Jacobi sweep.
+class DistributedCoarseHalo {
+public:
+    DistributedCoarseHalo() = default;
+
+    DistributedCoarseHalo(ParallelContext parallel, std::vector<int> owners)
+        : m_parallel(parallel), m_owners(std::move(owners)) {}
+
+    void reset(ParallelContext parallel, std::vector<int> owners) {
+        m_parallel = parallel;
+        m_owners = std::move(owners);
+        m_local_index.assign(m_owners.size(), -1);
+        m_remote_slot.assign(m_owners.size(), -1);
+        m_local_global_ids.clear();
+        m_requested_global_ids.clear();
+        m_send_indices.clear();
+        m_send_buffer.clear();
+        m_receive_buffer.clear();
+        m_active = false;
+    }
+
+    void setLocalIds(const std::vector<int>& ids) {
+        m_local_global_ids = ids;
+        m_local_index.assign(m_owners.size(), -1);
+        for (std::size_t i = 0; i < ids.size(); ++i) {
+            if (ids[i] < 0 || static_cast<std::size_t>(ids[i]) >= m_local_index.size()) {
+                throw std::invalid_argument("AMG local coarse id is invalid");
+            }
+            m_local_index[static_cast<std::size_t>(ids[i])] = static_cast<int>(i);
+        }
+    }
+
+    void build(const std::vector<std::vector<int>>& columns) {
+        m_remote_slot.assign(m_owners.size(), -1);
+        std::vector<std::vector<int>> requested(static_cast<std::size_t>(m_parallel.size));
+        for (const auto& row : columns) {
+            for (const int column : row) {
+                if (column < 0 || static_cast<std::size_t>(column) >= m_owners.size()) {
+                    throw std::invalid_argument("AMG coarse column id is invalid");
+                }
+                if (m_owners[static_cast<std::size_t>(column)] == m_parallel.rank) continue;
+                requested[static_cast<std::size_t>(m_owners[static_cast<std::size_t>(column)])].push_back(column);
+            }
+        }
+        for (auto& ids : requested) {
+            std::sort(ids.begin(), ids.end());
+            ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+        }
+        m_receive_counts.assign(static_cast<std::size_t>(m_parallel.size), 0);
+        m_receive_offsets.assign(static_cast<std::size_t>(m_parallel.size), 0);
+        std::vector<int> outgoing_ids;
+        for (int peer = 0; peer < m_parallel.size; ++peer) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            m_receive_offsets[p] = detail::mpiCount(outgoing_ids.size(), "coarse halo request offset");
+            m_receive_counts[p] = detail::mpiCount(requested[p].size(), "coarse halo request count");
+            outgoing_ids.insert(outgoing_ids.end(), requested[p].begin(), requested[p].end());
+        }
+        m_send_counts.assign(static_cast<std::size_t>(m_parallel.size), 0);
+        detail::checkMpi(MPI_Alltoall(
+            m_receive_counts.data(), 1, MPI_INT, m_send_counts.data(), 1, MPI_INT,
+            m_parallel.communicator), "MPI_Alltoall(AMG coarse halo counts)");
+        m_send_offsets.assign(static_cast<std::size_t>(m_parallel.size), 0);
+        std::size_t incoming_size = 0;
+        for (int peer = 0; peer < m_parallel.size; ++peer) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            m_send_offsets[p] = detail::mpiCount(incoming_size, "coarse halo send offset");
+            incoming_size += static_cast<std::size_t>(m_send_counts[p]);
+        }
+        std::vector<int> incoming_ids(incoming_size);
+        int dummy = 0;
+        detail::checkMpi(MPI_Alltoallv(
+            outgoing_ids.empty() ? &dummy : outgoing_ids.data(), m_receive_counts.data(),
+            m_receive_offsets.data(), MPI_INT,
+            incoming_ids.empty() ? &dummy : incoming_ids.data(), m_send_counts.data(),
+            m_send_offsets.data(), MPI_INT, m_parallel.communicator),
+            "MPI_Alltoallv(AMG coarse halo requests)");
+        m_send_indices.resize(incoming_ids.size());
+        for (std::size_t i = 0; i < incoming_ids.size(); ++i) {
+            const int id = incoming_ids[i];
+            if (id < 0 || static_cast<std::size_t>(id) >= m_local_index.size() ||
+                m_local_index[static_cast<std::size_t>(id)] < 0) {
+                throw std::runtime_error("AMG coarse halo request is not locally owned");
+            }
+            m_send_indices[i] = m_local_index[static_cast<std::size_t>(id)];
+        }
+        m_requested_global_ids = std::move(outgoing_ids);
+        for (std::size_t i = 0; i < m_requested_global_ids.size(); ++i) {
+            const int id = m_requested_global_ids[i];
+            if (id >= 0 && static_cast<std::size_t>(id) < m_remote_slot.size()) {
+                m_remote_slot[static_cast<std::size_t>(id)] = static_cast<int>(i);
+            }
+        }
+        m_send_buffer.resize(m_send_indices.size());
+        m_receive_buffer.resize(m_requested_global_ids.size());
+    }
+
+    void begin(const Eigen::VectorXd& local_values) {
+        if (m_parallel.size == 1) return;
+        if (m_active || local_values.size() != static_cast<Eigen::Index>(m_local_global_ids.size())) {
+            throw std::logic_error("AMG coarse halo begin is invalid");
+        }
+        for (std::size_t i = 0; i < m_send_indices.size(); ++i) {
+            m_send_buffer[i] = local_values[m_send_indices[i]];
+        }
+        detail::checkMpi(MPI_Ialltoallv(
+            m_send_buffer.empty() ? &m_dummy : m_send_buffer.data(),
+            sendCountsValues().data(), sendOffsetsValues().data(), MPI_DOUBLE,
+            m_receive_buffer.empty() ? &m_dummy : m_receive_buffer.data(),
+            receiveCountsValues().data(), receiveOffsetsValues().data(), MPI_DOUBLE,
+            m_parallel.communicator, &m_request), "MPI_Ialltoallv(AMG coarse values)");
+        m_active = true;
+    }
+
+    void finish() {
+        if (m_parallel.size == 1) return;
+        if (!m_active) throw std::logic_error("AMG coarse halo finish without begin");
+        detail::checkMpi(MPI_Wait(&m_request, MPI_STATUS_IGNORE), "MPI_Wait(AMG coarse values)");
+        m_active = false;
+    }
+
+    int localSlot(int global_id) const {
+        if (global_id < 0 || static_cast<std::size_t>(global_id) >= m_local_index.size()) return -1;
+        return m_local_index[static_cast<std::size_t>(global_id)];
+    }
+
+    int remoteSlot(int global_id) const {
+        if (global_id < 0 || static_cast<std::size_t>(global_id) >= m_remote_slot.size()) return -1;
+        return m_remote_slot[static_cast<std::size_t>(global_id)];
+    }
+
+    double remoteValue(int slot) const { return m_receive_buffer.at(static_cast<std::size_t>(slot)); }
+    const std::vector<int>& localGlobalIds() const { return m_local_global_ids; }
+
+private:
+    const std::vector<int>& sendCountsValues() const {
+        return m_send_counts;
+    }
+    const std::vector<int>& sendOffsetsValues() const {
+        return m_send_offsets;
+    }
+    const std::vector<int>& receiveCountsValues() const {
+        return m_receive_counts;
+    }
+    const std::vector<int>& receiveOffsetsValues() const {
+        return m_receive_offsets;
+    }
+
+    ParallelContext m_parallel;
+    std::vector<int> m_owners;
+    std::vector<int> m_local_global_ids;
+    std::vector<int> m_local_index;
+    std::vector<int> m_remote_slot;
+    std::vector<int> m_requested_global_ids;
+    std::vector<int> m_send_indices;
+    std::vector<int> m_send_counts;
+    std::vector<int> m_send_offsets;
+    std::vector<int> m_receive_counts;
+    std::vector<int> m_receive_offsets;
+    std::vector<double> m_send_buffer;
+    std::vector<double> m_receive_buffer;
+    MPI_Request m_request = MPI_REQUEST_NULL;
+    double m_dummy = 0.0;
+    bool m_active = false;
+};
+
+struct CoarseContribution {
+    int row = 0;
+    int column = 0;
+    double value = 0.0;
+};
+
+struct CoarseRowEntry {
+    int column = 0;
+    double value = 0.0;
+    int local_column = -1;
+    int remote_slot = -1;
+};
+
+static_assert(std::is_trivially_copyable<CoarseContribution>::value,
+              "AMG contribution must be MPI-byte-copyable");
+
 bool invalid(double value) {
     return !std::isfinite(value);
 }
@@ -260,6 +448,18 @@ struct DistributedLinearSolver::Implementation {
                 remote.push_back({detail::ownedIndex(mesh, neighbour), owner, face, false});
             }
         }
+        std::sort(remote.begin(), remote.end(), [](const RemoteCoupling& left,
+                                                   const RemoteCoupling& right) {
+            if (left.row != right.row) return left.row < right.row;
+            return left.ghost_cell < right.ghost_cell;
+        });
+        remote_rows.reserve(remote.size());
+        remote_ghost_cells.reserve(remote.size());
+        remote_coefficients.assign(remote.size(), 0.0);
+        for (const RemoteCoupling& coupling : remote) {
+            remote_rows.push_back(static_cast<int>(coupling.row));
+            remote_ghost_cells.push_back(coupling.ghost_cell);
+        }
         const Eigen::Index rows = detail::ownedCellCount(mesh);
         residual.resize(rows);
         matrix_product.resize(rows);
@@ -292,6 +492,9 @@ struct DistributedLinearSolver::Implementation {
             const std::size_t f = static_cast<std::size_t>(coupling.face);
             coupling.coefficient = coupling.upper
                 ? equation_upper[f] : equation_lower[f];
+        }
+        for (std::size_t index = 0; index < remote.size(); ++index) {
+            remote_coefficients[index] = remote[index].coefficient;
         }
         equation_ready = true;
     }
@@ -541,29 +744,98 @@ struct DistributedLinearSolver::Implementation {
             ++levels;
         }
         const std::int64_t coarse_count = groups;
-        // 当前全局粗矩阵在每个 rank 复制，以避免 root 串行通信。限制实际行数，
-        // 防止错误配置把 coarse_count² 的准备缓冲膨胀为不可控内存。
-        constexpr std::int64_t maximum_replicated_coarse_rows = 2048;
-        if (coarse_count <= 0 || coarse_count > maximum_replicated_coarse_rows) {
+        // 只复制 aggregate 的 owner 元数据；粗矩阵和粗向量随后按 owner 分布。
+        // 这个上限保护的是全局映射本身，而不是 coarse_count² 的密集矩阵。
+        constexpr std::int64_t maximum_coarse_metadata = 10'000'000;
+        if (coarse_count <= 0 || coarse_count > maximum_coarse_metadata) {
             throw std::runtime_error("distributed AMG coarse space is invalid");
         }
+        // Only a genuinely tiny coarsest problem uses the existing local
+        // ILUT fallback.  Normal cases (including the configured coarse size
+        // 48) stay on the owner-distributed coarse operator below.
+        amg_tiny_local_fallback = coarse_count <= 64 && matrix.rows() <= 64;
         amg_aggregate.resize(static_cast<std::size_t>(matrix.rows()));
         const auto& owned = detail::meshData(mesh).owned_cells;
         for (std::size_t row = 0; row < owned.size(); ++row) {
             amg_aggregate[row] = coarseIndex(detail::globalCellId(mesh, owned[row]));
         }
-        amg_coarse_rhs.resize(coarse_count);
-        amg_global_rhs.resize(coarse_count);
-        amg_coarse_correction.resize(coarse_count);
-        amg_local_coarse.assign(
-            static_cast<std::size_t>(coarse_count * coarse_count), 0.0);
-        amg_global_coarse.resize(amg_local_coarse.size());
+        amg_coarse_owner.assign(static_cast<std::size_t>(coarse_count), parallel.size);
+        for (const int aggregate : amg_aggregate) {
+            amg_coarse_owner[static_cast<std::size_t>(aggregate)] =
+                std::min(amg_coarse_owner[static_cast<std::size_t>(aggregate)], parallel.rank);
+        }
+        const Clock::time_point owner_start = Clock::now();
+        detail::checkMpi(MPI_Allreduce(
+            MPI_IN_PLACE, amg_coarse_owner.data(), static_cast<int>(coarse_count), MPI_INT,
+            MPI_MIN, parallel.communicator), "MPI_Allreduce(AMG aggregate owners)");
+        ++pending_performance.global_reductions;
+        pending_performance.global_reduction_seconds += secondsSince(owner_start);
+        amg_coarse_local_ids.clear();
+        for (int aggregate = 0; aggregate < static_cast<int>(coarse_count); ++aggregate) {
+            if (amg_coarse_owner[static_cast<std::size_t>(aggregate)] == parallel.rank) {
+                amg_coarse_local_ids.push_back(aggregate);
+            }
+        }
+        amg_coarse_local_index.assign(static_cast<std::size_t>(coarse_count), -1);
+        for (std::size_t local = 0; local < amg_coarse_local_ids.size(); ++local) {
+            amg_coarse_local_index[static_cast<std::size_t>(amg_coarse_local_ids[local])] =
+                static_cast<int>(local);
+        }
+        amg_coarse_halo.reset(parallel, amg_coarse_owner);
+        amg_coarse_halo.setLocalIds(amg_coarse_local_ids);
+        amg_coarse_rhs.resize(static_cast<Eigen::Index>(amg_coarse_local_ids.size()));
+        amg_coarse_correction.resize(static_cast<Eigen::Index>(amg_coarse_local_ids.size()));
+        amg_coarse_product.resize(static_cast<Eigen::Index>(amg_coarse_local_ids.size()));
+    }
+
+    std::vector<CoarseContribution> exchangeCoarseContributions(
+        const std::vector<std::vector<CoarseContribution>>& outgoing) const
+    {
+        if (outgoing.size() != static_cast<std::size_t>(parallel.size)) {
+            throw std::invalid_argument("AMG contribution peer count is invalid");
+        }
+        std::vector<int> send_counts(static_cast<std::size_t>(parallel.size), 0);
+        std::vector<int> send_offsets(static_cast<std::size_t>(parallel.size), 0);
+        std::vector<CoarseContribution> packed;
+        for (int peer = 0; peer < parallel.size; ++peer) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            send_offsets[p] = detail::mpiCount(
+                packed.size() * sizeof(CoarseContribution), "AMG contribution send offset");
+            send_counts[p] = detail::mpiCount(
+                outgoing[p].size() * sizeof(CoarseContribution), "AMG contribution send count");
+            packed.insert(packed.end(), outgoing[p].begin(), outgoing[p].end());
+        }
+        std::vector<int> receive_counts(static_cast<std::size_t>(parallel.size), 0);
+        detail::checkMpi(MPI_Alltoall(
+            send_counts.data(), 1, MPI_INT, receive_counts.data(), 1, MPI_INT,
+            parallel.communicator), "MPI_Alltoall(AMG contribution counts)");
+        std::vector<int> receive_offsets(static_cast<std::size_t>(parallel.size), 0);
+        std::size_t receive_bytes = 0;
+        for (int peer = 0; peer < parallel.size; ++peer) {
+            const std::size_t p = static_cast<std::size_t>(peer);
+            receive_offsets[p] = detail::mpiCount(receive_bytes, "AMG contribution receive offset");
+            receive_bytes += static_cast<std::size_t>(receive_counts[p]);
+        }
+        if (receive_bytes % sizeof(CoarseContribution) != 0) {
+            throw std::runtime_error("AMG contribution byte count is not aligned");
+        }
+        std::vector<CoarseContribution> received(receive_bytes / sizeof(CoarseContribution));
+        CoarseContribution dummy{};
+        detail::checkMpi(MPI_Alltoallv(
+            packed.empty() ? &dummy : packed.data(), send_counts.data(), send_offsets.data(), MPI_BYTE,
+            received.empty() ? &dummy : received.data(), receive_counts.data(), receive_offsets.data(),
+            MPI_BYTE, parallel.communicator), "MPI_Alltoallv(AMG contributions)");
+        return received;
     }
 
     bool updateDistributedAmg(bool rebuild_pattern) {
         if (rebuild_pattern) buildCoarseMapping();
         amg_inverse_diagonal.resize(matrix.rows());
         bool diagonal_ok = true;
+        amg_diagonal_only = true;
+        for (const RemoteCoupling& coupling : remote) {
+            if (coupling.coefficient != 0.0) amg_diagonal_only = false;
+        }
         for (Eigen::Index row = 0; row < matrix.rows(); ++row) {
             const double diagonal = matrix.coeff(row, row);
             if (!std::isfinite(diagonal) || std::abs(diagonal) <= breakdown_tolerance) {
@@ -573,9 +845,16 @@ struct DistributedLinearSolver::Implementation {
                 amg_inverse_diagonal[row] = 1.0 / diagonal;
             }
         }
+        for (Eigen::Index column = 0; column < matrix.outerSize(); ++column) {
+            for (Eigen::SparseMatrix<double>::InnerIterator entry(matrix, column);
+                 entry; ++entry) {
+                if (entry.row() != entry.col() && entry.value() != 0.0) {
+                    amg_diagonal_only = false;
+                }
+            }
+        }
         const Clock::time_point diagonal_reduction_start = Clock::now();
-        const bool global_diagonal_ok =
-            parallel.maximum(diagonal_ok ? 0 : 1) == 0;
+        const bool global_diagonal_ok = parallel.maximum(diagonal_ok ? 0 : 1) == 0;
         ++pending_performance.global_reductions;
         pending_performance.global_reduction_seconds +=
             secondsSince(diagonal_reduction_start);
@@ -583,11 +862,13 @@ struct DistributedLinearSolver::Implementation {
             amg_ready = false;
             return false;
         }
-        std::fill(amg_local_coarse.begin(), amg_local_coarse.end(), 0.0);
-        const std::size_t coarse_count = static_cast<std::size_t>(amg_coarse_rhs.size());
+
+        std::vector<std::vector<CoarseContribution>> outgoing(
+            static_cast<std::size_t>(parallel.size));
         const auto add = [&](int row, int column, double value) {
-            amg_local_coarse[static_cast<std::size_t>(row) * coarse_count +
-                             static_cast<std::size_t>(column)] += value;
+            if (!std::isfinite(value)) return;
+            const int owner = amg_coarse_owner.at(static_cast<std::size_t>(row));
+            outgoing[static_cast<std::size_t>(owner)].push_back({row, column, value});
         };
         for (Eigen::Index column = 0; column < matrix.outerSize(); ++column) {
             for (Eigen::SparseMatrix<double>::InnerIterator entry(matrix, column);
@@ -601,54 +882,121 @@ struct DistributedLinearSolver::Implementation {
                 coarseIndex(detail::globalCellId(mesh, coupling.ghost_cell)),
                 coupling.coefficient);
         }
-        const Clock::time_point reduction_start = Clock::now();
-        parallel.sum(amg_local_coarse.data(), amg_global_coarse.data(),
-                     detail::mpiCount(amg_local_coarse.size(), "AMG coarse matrix"));
-        ++pending_performance.global_reductions;
-        pending_performance.global_reduction_seconds += secondsSince(reduction_start);
-
+        const std::vector<CoarseContribution> received =
+            exchangeCoarseContributions(outgoing);
+        std::vector<std::map<int, double>> rows(amg_coarse_local_ids.size());
+        for (const CoarseContribution& contribution : received) {
+            if (contribution.row < 0 ||
+                static_cast<std::size_t>(contribution.row) >= amg_coarse_owner.size() ||
+                amg_coarse_owner[static_cast<std::size_t>(contribution.row)] != parallel.rank) {
+                throw std::runtime_error("AMG contribution arrived at the wrong owner");
+            }
+            const int local_row = amg_coarse_local_index.at(
+                static_cast<std::size_t>(contribution.row));
+            rows[static_cast<std::size_t>(local_row)][contribution.column] += contribution.value;
+        }
         if (rebuild_pattern) {
-            // The replicated coarse matrix is deliberately dense at this
-            // scale.  Build its compressed row/column index once; refreshes
-            // only replace values below and do not allocate Triplets or
-            // rebuild Eigen's sparse graph.
-            std::vector<Eigen::Triplet<double>> entries;
-            entries.reserve(coarse_count * coarse_count);
-            for (std::size_t row = 0; row < coarse_count; ++row) {
-                for (std::size_t column = 0; column < coarse_count; ++column) {
-                    entries.emplace_back(
-                        row, column, amg_global_coarse[row * coarse_count + column]);
+            amg_coarse_rows.resize(rows.size());
+            std::vector<std::vector<int>> columns(rows.size());
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                auto& target = amg_coarse_rows[row];
+                target.clear();
+                target.reserve(rows[row].size());
+                columns[row].reserve(rows[row].size());
+                for (const auto& entry : rows[row]) {
+                    target.push_back({entry.first, entry.second, -1, -1});
+                    columns[row].push_back(entry.first);
                 }
             }
-            amg_coarse_matrix.resize(coarse_count, coarse_count);
-            amg_coarse_matrix.setFromTriplets(entries.begin(), entries.end());
-            amg_coarse_matrix.makeCompressed();
-        } else {
-            if (amg_coarse_matrix.rows() != static_cast<Eigen::Index>(coarse_count) ||
-                amg_coarse_matrix.cols() != static_cast<Eigen::Index>(coarse_count) ||
-                !amg_coarse_matrix.isCompressed()) {
-                throw std::logic_error("distributed AMG coarse pattern is not prepared");
+            amg_coarse_halo.build(columns);
+            amg_coarse_prolongation_halo.reset(parallel, amg_coarse_owner);
+            amg_coarse_prolongation_halo.setLocalIds(amg_coarse_local_ids);
+            std::vector<std::vector<int>> prolongation_requests(1);
+            prolongation_requests.front().reserve(amg_aggregate.size());
+            for (const int aggregate : amg_aggregate) {
+                prolongation_requests.front().push_back(aggregate);
             }
-            // Eigen stores a compressed matrix by column.  Walking the
-            // existing index arrays preserves the original factorization
-            // order while replacing only coefficient values.
-            double* values = amg_coarse_matrix.valuePtr();
-            const SparseMatrix::StorageIndex* outer = amg_coarse_matrix.outerIndexPtr();
-            const SparseMatrix::StorageIndex* inner = amg_coarse_matrix.innerIndexPtr();
-            for (Eigen::Index column = 0; column < amg_coarse_matrix.outerSize(); ++column) {
-                for (Eigen::Index position = outer[column]; position < outer[column + 1]; ++position) {
-                    const std::size_t row = static_cast<std::size_t>(inner[position]);
-                    values[position] = amg_global_coarse[row * coarse_count +
-                        static_cast<std::size_t>(column)];
+            amg_coarse_prolongation_halo.build(prolongation_requests);
+            for (auto& target : amg_coarse_rows) {
+                for (auto& entry : target) {
+                    entry.local_column = amg_coarse_halo.localSlot(entry.column);
+                    entry.remote_slot = amg_coarse_halo.remoteSlot(entry.column);
+                    if (entry.local_column < 0 && entry.remote_slot < 0) {
+                        throw std::runtime_error("AMG coarse matrix column has no owner");
+                    }
+                }
+            }
+        } else {
+            if (rows.size() != amg_coarse_rows.size()) {
+                throw std::logic_error("distributed AMG coarse row pattern changed");
+            }
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                if (rows[row].size() != amg_coarse_rows[row].size()) {
+                    throw std::logic_error("distributed AMG coarse column pattern changed");
+                }
+                for (auto& entry : amg_coarse_rows[row]) {
+                    const auto value = rows[row].find(entry.column);
+                    if (value == rows[row].end()) {
+                        throw std::logic_error("distributed AMG coarse column pattern changed");
+                    }
+                    entry.value = value->second;
                 }
             }
         }
-        if (rebuild_pattern) amg_coarse_solver.analyzePattern(amg_coarse_matrix);
-        amg_coarse_solver.factorize(amg_coarse_matrix);
+        amg_coarse_inverse_diagonal.assign(amg_coarse_rows.size(), 0.0);
+        bool coarse_diagonal_ok = true;
+        for (std::size_t row = 0; row < amg_coarse_rows.size(); ++row) {
+            const int global_row = amg_coarse_local_ids[row];
+            for (const CoarseRowEntry& entry : amg_coarse_rows[row]) {
+                if (entry.column == global_row) {
+                    if (!std::isfinite(entry.value) ||
+                        std::abs(entry.value) <= breakdown_tolerance) {
+                        coarse_diagonal_ok = false;
+                    } else {
+                        amg_coarse_inverse_diagonal[row] = 1.0 / entry.value;
+                    }
+                    break;
+                }
+            }
+            if (amg_coarse_inverse_diagonal[row] == 0.0) coarse_diagonal_ok = false;
+        }
+        if (amg_tiny_local_fallback) {
+            amg_tiny_ilut.setDroptol(config.ilut_drop_tolerance);
+            amg_tiny_ilut.setFillfactor(config.ilut_fill_factor);
+            if (rebuild_pattern) amg_tiny_ilut.compute(matrix);
+            else amg_tiny_ilut.factorize(matrix);
+        }
         amg_residual.resize(matrix.rows());
         amg_product.resize(matrix.rows());
-        amg_ready = amg_coarse_solver.info() == Eigen::Success;
+        amg_ready = coarse_diagonal_ok &&
+            (!amg_tiny_local_fallback || amg_tiny_ilut.info() == Eigen::Success);
         return amg_ready;
+    }
+
+    void multiplyCoarse(
+        const Eigen::VectorXd& input,
+        Eigen::VectorXd& output,
+        DistributedCoarseHalo& halo) {
+        halo.begin(input);
+        output.setZero();
+        // Rows with only local aggregate columns can be evaluated while the
+        // remote column values are in flight.
+        for (std::size_t row = 0; row < amg_coarse_rows.size(); ++row) {
+            double sum = 0.0;
+            for (const CoarseRowEntry& entry : amg_coarse_rows[row]) {
+                if (entry.local_column >= 0) sum += entry.value * input[entry.local_column];
+            }
+            output[static_cast<Eigen::Index>(row)] = sum;
+        }
+        halo.finish();
+        for (std::size_t row = 0; row < amg_coarse_rows.size(); ++row) {
+            for (const CoarseRowEntry& entry : amg_coarse_rows[row]) {
+                if (entry.remote_slot >= 0) {
+                    output[static_cast<Eigen::Index>(row)] +=
+                        entry.value * halo.remoteValue(entry.remote_slot);
+                }
+            }
+        }
     }
 
     bool applyDistributedAmg(
@@ -656,6 +1004,18 @@ struct DistributedLinearSolver::Implementation {
         Eigen::VectorXd& output)
     {
         if (!amg_ready || &input == &output) return false;
+        if (amg_tiny_local_fallback) {
+#if BABELSIM_INPLACE_PRECONDITIONER
+            amg_tiny_ilut.solveInPlace(input, output);
+#else
+            output = amg_tiny_ilut.solve(input);
+#endif
+            return amg_tiny_ilut.info() == Eigen::Success && output.allFinite();
+        }
+        if (amg_diagonal_only) {
+            output.array() = amg_inverse_diagonal.array() * input.array();
+            return output.allFinite();
+        }
         constexpr double weight = 2.0 / 3.0;
         output.array() = weight * amg_inverse_diagonal.array() * input.array();
         for (int sweep = 1; sweep < config.amg_smoothing_steps; ++sweep) {
@@ -667,19 +1027,58 @@ struct DistributedLinearSolver::Implementation {
         apply(output, amg_product);
         amg_residual.noalias() = input;
         amg_residual.noalias() -= amg_product;
+
+        std::vector<std::vector<CoarseContribution>> outgoing(
+            static_cast<std::size_t>(parallel.size));
         amg_coarse_rhs.setZero();
         for (Eigen::Index row = 0; row < amg_residual.size(); ++row) {
-            amg_coarse_rhs[amg_aggregate[static_cast<std::size_t>(row)]] +=
-                amg_residual[row];
+            const int aggregate = amg_aggregate[static_cast<std::size_t>(row)];
+            const double value = amg_residual[row];
+            const int owner = amg_coarse_owner[static_cast<std::size_t>(aggregate)];
+            if (owner == parallel.rank) {
+                amg_coarse_rhs[amg_coarse_local_index[static_cast<std::size_t>(aggregate)]] += value;
+            } else {
+                outgoing[static_cast<std::size_t>(owner)].push_back({aggregate, 0, value});
+            }
         }
-        sumGlobal(amg_coarse_rhs.data(), amg_global_rhs.data(),
-                  static_cast<int>(amg_coarse_rhs.size()));
-        amg_coarse_correction = amg_coarse_solver.solve(amg_global_rhs);
-        if (amg_coarse_solver.info() != Eigen::Success ||
-            !amg_coarse_correction.allFinite()) return false;
+        const std::vector<CoarseContribution> received =
+            exchangeCoarseContributions(outgoing);
+        for (const CoarseContribution& contribution : received) {
+            if (contribution.row < 0 ||
+                static_cast<std::size_t>(contribution.row) >= amg_coarse_owner.size() ||
+                amg_coarse_owner[static_cast<std::size_t>(contribution.row)] != parallel.rank) {
+                throw std::runtime_error("AMG coarse rhs arrived at the wrong owner");
+            }
+            amg_coarse_rhs[amg_coarse_local_index[static_cast<std::size_t>(contribution.row)]] +=
+                contribution.value;
+        }
+
+        amg_coarse_correction.setZero();
+        amg_coarse_product.resize(amg_coarse_rhs.size());
+        // Fixed-point coarse iterations avoid a second global Krylov solve and
+        // never replicate the coarse matrix/vector.  The matrix is deliberately
+        // kept sparse and owner distributed; halo traffic is only for columns
+        // touched by the local coarse rows.
+        constexpr int coarse_iterations = 24;
+        constexpr double coarse_weight = 0.72;
+        for (int sweep = 0; sweep < coarse_iterations; ++sweep) {
+            multiplyCoarse(amg_coarse_correction, amg_coarse_product, amg_coarse_halo);
+            for (Eigen::Index row = 0; row < amg_coarse_rhs.size(); ++row) {
+                amg_coarse_correction[row] += coarse_weight *
+                    amg_coarse_inverse_diagonal[static_cast<std::size_t>(row)] *
+                    (amg_coarse_rhs[row] - amg_coarse_product[row]);
+            }
+        }
+        if (!amg_coarse_correction.allFinite()) return false;
+        amg_coarse_prolongation_halo.begin(amg_coarse_correction);
+        amg_coarse_prolongation_halo.finish();
         for (Eigen::Index row = 0; row < output.size(); ++row) {
-            output[row] += amg_coarse_correction[
-                amg_aggregate[static_cast<std::size_t>(row)]];
+            const int aggregate = amg_aggregate[static_cast<std::size_t>(row)];
+            const int local = amg_coarse_halo.localSlot(aggregate);
+            output[row] += local >= 0
+                ? amg_coarse_correction[local]
+                : amg_coarse_prolongation_halo.remoteValue(
+                    amg_coarse_prolongation_halo.remoteSlot(aggregate));
         }
         for (int sweep = 0; sweep < config.amg_smoothing_steps; ++sweep) {
             apply(output, amg_product);
@@ -723,21 +1122,25 @@ struct DistributedLinearSolver::Implementation {
     void productsGlobalWithStatus(
         double local_first,
         double local_second,
+        double local_third,
         bool local_success,
         double& global_first,
         double& global_second,
+        double& global_third,
         bool& global_success) const
     {
-        const double local[3] = {
+        const double local[4] = {
             local_success ? local_first : 0.0,
             local_success ? local_second : 0.0,
+            local_success ? local_third : 0.0,
             local_success ? 0.0 : 1.0,
         };
-        double global[3]{};
-        sumGlobal(local, global, 3);
+        double global[4]{};
+        sumGlobal(local, global, 4);
         global_first = global[0];
         global_second = global[1];
-        global_success = global[2] == 0.0;
+        global_third = global[2];
+        global_success = global[3] == 0.0;
     }
 
     void apply(const Eigen::VectorXd& input, Eigen::VectorXd& output) {
@@ -761,9 +1164,9 @@ struct DistributedLinearSolver::Implementation {
 #else
         output.noalias() += boundary_matrix * input;
 #endif
-        for (const RemoteCoupling& coupling : remote) {
-            output[coupling.row] += coupling.coefficient *
-                krylov_halo.value(coupling.ghost_cell);
+        for (std::size_t index = 0; index < remote_rows.size(); ++index) {
+            output[remote_rows[index]] += remote_coefficients[index] *
+                krylov_halo.value(remote_ghost_cells[index]);
         }
         current_performance.sparse_matvec_seconds += secondsSince(start);
     }
@@ -774,7 +1177,14 @@ struct DistributedLinearSolver::Implementation {
     {
         const Clock::time_point start = Clock::now();
         bool local_success = false;
-        if (!hasPreconditioner(config)) {
+        // A BiCGSTAB exact/near-exact first step can produce a zero s vector.
+        // Treat that zero input as an identity preconditioner so the fused
+        // products reduction can perform the exact early exit without asking
+        // ILUT/AMG to factor a zero RHS.
+        if (input.squaredNorm() == 0.0) {
+            output.setZero();
+            local_success = true;
+        } else if (!hasPreconditioner(config)) {
             output = input;
             local_success = true;
         } else if (usesAmg(config)) {
@@ -960,8 +1370,37 @@ struct DistributedLinearSolver::Implementation {
             }
             alpha = rho / shadow_product;
             intermediate.noalias() = residual - alpha * direction_product;
-            const double intermediate_norm = normGlobal(intermediate);
             iterations = iteration;
+            // The ||s|| check is carried into the products reduction below,
+            // together with t·s and t·t.  This keeps the exact early-exit
+            // criterion without adding a fourth global synchronization.
+            const bool local_intermediate_precondition_success =
+                precondition(intermediate, preconditioned_intermediate);
+            apply(preconditioned_intermediate, intermediate_product);
+            const double local_products[2] = {
+                intermediate_product.dot(intermediate),
+                intermediate_product.squaredNorm(),
+            };
+            const double local_intermediate_squared_norm = intermediate.squaredNorm();
+            double global_products[3]{};
+            bool global_intermediate_precondition_success = false;
+            productsGlobalWithStatus(
+                local_products[0], local_products[1],
+                local_intermediate_squared_norm,
+                local_intermediate_precondition_success,
+                global_products[0], global_products[1],
+                global_products[2],
+                global_intermediate_precondition_success);
+            if (!global_intermediate_precondition_success) {
+                status = SolveStatus::NumericalFailure;
+                break;
+            }
+            if (invalid(global_products[0]) || invalid(global_products[1])) {
+                status = SolveStatus::NumericalFailure;
+                break;
+            }
+            const double intermediate_norm =
+                std::sqrt(std::max(global_products[2], 0.0));
             if (invalid(intermediate_norm)) {
                 status = SolveStatus::NumericalFailure;
                 break;
@@ -970,28 +1409,6 @@ struct DistributedLinearSolver::Implementation {
                 x.noalias() += alpha * preconditioned_direction;
                 residual = intermediate;
                 status = SolveStatus::Converged;
-                break;
-            }
-            const bool local_intermediate_precondition_success =
-                precondition(intermediate, preconditioned_intermediate);
-            apply(preconditioned_intermediate, intermediate_product);
-            const double local_products[2] = {
-                intermediate_product.dot(intermediate),
-                intermediate_product.squaredNorm(),
-            };
-            double global_products[2]{};
-            bool global_intermediate_precondition_success = false;
-            productsGlobalWithStatus(
-                local_products[0], local_products[1],
-                local_intermediate_precondition_success,
-                global_products[0], global_products[1],
-                global_intermediate_precondition_success);
-            if (!global_intermediate_precondition_success) {
-                status = SolveStatus::NumericalFailure;
-                break;
-            }
-            if (invalid(global_products[0]) || invalid(global_products[1])) {
-                status = SolveStatus::NumericalFailure;
                 break;
             }
             if (global_products[1] <= breakdown_tolerance) {
@@ -1046,25 +1463,33 @@ struct DistributedLinearSolver::Implementation {
 #endif
     std::vector<char> boundary_rows;
     std::vector<RemoteCoupling> remote;
+    std::vector<int> remote_rows;
+    std::vector<Index> remote_ghost_cells;
+    std::vector<double> remote_coefficients;
 #if BABELSIM_INPLACE_PRECONDITIONER
     detail::InPlaceIncompleteCholesky incomplete_cholesky;
     detail::InPlaceIncompleteLut ilut;
+    detail::InPlaceIncompleteLut amg_tiny_ilut;
 #else
     Eigen::IncompleteCholesky<double> incomplete_cholesky;
     Eigen::IncompleteLUT<double> ilut;
+    Eigen::IncompleteLUT<double> amg_tiny_ilut;
 #endif
     std::vector<int> amg_cell_to_coarse;
     std::vector<int> amg_aggregate;
-    std::vector<double> amg_local_coarse;
-    std::vector<double> amg_global_coarse;
-    Eigen::SparseMatrix<double> amg_coarse_matrix;
-    Eigen::SparseLU<Eigen::SparseMatrix<double>> amg_coarse_solver;
+    std::vector<int> amg_coarse_owner;
+    std::vector<int> amg_coarse_local_ids;
+    std::vector<int> amg_coarse_local_index;
+    std::vector<std::vector<CoarseRowEntry>> amg_coarse_rows;
+    std::vector<double> amg_coarse_inverse_diagonal;
+    DistributedCoarseHalo amg_coarse_halo;
+    DistributedCoarseHalo amg_coarse_prolongation_halo;
     Eigen::VectorXd amg_inverse_diagonal;
     Eigen::VectorXd amg_residual;
     Eigen::VectorXd amg_product;
     Eigen::VectorXd amg_coarse_rhs;
-    Eigen::VectorXd amg_global_rhs;
     Eigen::VectorXd amg_coarse_correction;
+    Eigen::VectorXd amg_coarse_product;
     Eigen::VectorXd residual;
     Eigen::VectorXd matrix_product;
     Eigen::VectorXd shadow;
@@ -1080,6 +1505,8 @@ struct DistributedLinearSolver::Implementation {
     bool spmv_pattern_ready = false;
     int amg_updates_since_factorization = 0;
     bool amg_ready = false;
+    bool amg_diagonal_only = false;
+    bool amg_tiny_local_fallback = false;
     PerformanceCounters pending_performance;
     mutable PerformanceCounters current_performance;
 };

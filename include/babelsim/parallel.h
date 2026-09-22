@@ -61,6 +61,9 @@ void copyBoundaryConditions(const Field<T>& global, Field<T>& local) {
 class HaloExchange {
 public:
     HaloExchange(const Mesh& mesh, ParallelContext parallel);
+    ~HaloExchange();
+    HaloExchange(const HaloExchange&) = delete;
+    HaloExchange& operator=(const HaloExchange&) = delete;
 
     void exchange(std::vector<double>& values);
     // 分布式稀疏矩阵乘只访问接口两侧第一层 ghost；该入口避免传输非正交
@@ -87,6 +90,10 @@ private:
             std::vector<int> send_offsets;
             std::vector<int> receive_counts;
             std::vector<int> receive_offsets;
+            std::vector<int> neighbour_send_counts;
+            std::vector<int> neighbour_send_offsets;
+            std::vector<int> neighbour_receive_counts;
+            std::vector<int> neighbour_receive_offsets;
         };
 
         std::vector<int> send_counts;
@@ -103,6 +110,9 @@ private:
         double* active_values = nullptr;
         double dummy = 0.0;
         bool active = false;
+        MPI_Comm graph_communicator = MPI_COMM_NULL;
+        std::vector<int> outgoing_peers;
+        std::vector<int> incoming_peers;
     };
 
     void exchange(double* values, std::size_t components);
@@ -110,6 +120,7 @@ private:
     void begin(double* values, std::size_t components, ExchangePlan& plan);
     void finish(double* values, std::size_t components, ExchangePlan& plan);
     ExchangePlan::ValueLayout& valueLayout(ExchangePlan& plan, std::size_t components);
+    void buildNeighbourCommunicator(ExchangePlan& plan);
     void exchangeFaces(double* values, std::size_t components);
 
     const Mesh* m_mesh;
