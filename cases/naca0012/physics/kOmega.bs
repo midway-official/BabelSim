@@ -1,8 +1,6 @@
 density 1.0
-dynamicViscosity 1.0e-5
+dynamicViscosity 1.0e-6
 turbulenceModel kOmega
-# Closure constants belong to the physics dictionary. Numerical relaxation
-# and stopping criteria are in numerics/solution.bs.
 kOmegaBetaStar 0.09
 kOmegaBeta 0.075
 kOmegaGamma 0.5555555555555556

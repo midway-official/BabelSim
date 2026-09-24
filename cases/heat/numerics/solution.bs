@@ -1,6 +1,6 @@
 # temperature
-equation.temperature.solver bicgstab
-equation.temperature.preconditioner ilut
+equation.temperature.kspType bcgs
+equation.temperature.pcType hypre
 equation.temperature.absoluteTolerance 1e-14
 equation.temperature.relativeTolerance 1e-10
 equation.temperature.maxIterations 1000

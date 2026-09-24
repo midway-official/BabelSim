@@ -58,24 +58,26 @@ pressureRelaxation 0.3
 continuityTolerance 1e-7
 velocityTolerance 1e-6
 
-equation.momentum.solver bicgstab
-equation.momentum.preconditioner ilut
+equation.momentum.kspType bcgs
+equation.momentum.pcType bjacobi
 equation.momentum.absoluteTolerance 1e-12
 equation.momentum.relativeTolerance 1e-8
 equation.momentum.maxIterations 800
 
-equation.pressureCorrection.solver cg
-equation.pressureCorrection.preconditioner incompleteCholesky
+equation.pressureCorrection.kspType cg
+equation.pressureCorrection.pcType hypre
 equation.pressureCorrection.absoluteTolerance 1e-12
 equation.pressureCorrection.relativeTolerance 1e-8
 equation.pressureCorrection.maxIterations 800
 ```
 
-`solver` 支持 `cg`、`bicgstab`；`preconditioner` 支持 `none`、`incompleteCholesky`、
-`ilut`、`amg`。`warmStart`、`ilutDropTolerance`、`ilutFillFactor`、`amgMaxLevels`、
-`amgCoarseSize`、`amgSmoothingSteps` 和 `amgRefreshInterval` 是可选的方程级参数。每个实际
-创建的方程都必须有五个核心线性参数，缺少任意一个都会报错。算法控制键和方程线性键必须使用
-各自的完整名字；框架不再提供标量/矢量类型默认值或按场覆盖。
+`kspType` 支持 `cg`、`bcgs`、`gmres`、`fgmres`；`pcType` 支持 `none`、`icc`、`hypre`、
+`gamg`、`bjacobi`、`asm`、`jacobi`。`icc` 是串行预条件器；MPI 算例应选用 `bjacobi`、
+`hypre` 或 `gamg`。`warmStart` 和 `amgMaxLevels`、`amgCoarseSize`、`amgSmoothingSteps`
+（仅用于 `gamg`）是可选的方程级参数。原 Eigen ILUT 的 drop tolerance/fill factor 在 PETSc
+中没有等价配置；`bjacobi` 使用每个 rank 的本地子问题预条件器，数值效果不等同于 ILUT。
+每个实际创建的方程都必须有五个核心线性参数，缺少任意一个都会报错。算法控制键和方程线性键
+必须使用各自的完整名字；框架不再提供标量/矢量类型默认值或按场覆盖。
 
 ## C++ 使用方式
 
@@ -133,8 +135,8 @@ auto faceK = math::interpolate(conductivity, options.coefficientOptions());
 
 1. 把 `methods.bs` 中的全局或按场离散行改成 `equation.<name>.<option>`；按项差异改成
    `equation.<name>.term.<term>.<option>`。
-2. 把 `solution.bs` 中的线性求解行改成完整的 `equation.<name>.solver`、
-   `preconditioner`、`absoluteTolerance`、`relativeTolerance` 和 `maxIterations`。
+2. 把 `solution.bs` 中的线性求解行改成完整的 `equation.<name>.kspType`、
+   `pcType`、`absoluteTolerance`、`relativeTolerance` 和 `maxIterations`。
 3. 用 `equ::createEquation(problem, name, field, terms)` 或
    `readEquationControl(problem, name, field, terms)` 创建方程；不能从字段类型推断配置。
 4. 独立 `math` 调用保存并传递对应的 `OperatorOptions`，不要读取隐含的最近方程或全局默认。

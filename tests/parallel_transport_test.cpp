@@ -1,4 +1,5 @@
 #include "internal/mesh_access.h"
+#include "internal/petsc_session.h"
 #include "internal/field_access.h"
 #include "babelsim/equ.h"
 #include "babelsim/parallel.h"
@@ -55,5 +56,6 @@ int main(int argc, char* argv[]) {
         MPI_Abort(MPI_COMM_WORLD, 1);
         return 1;
     }
+    detail::finalizePetscSession();
     MPI_Finalize();
 }

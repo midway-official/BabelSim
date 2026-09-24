@@ -1,0 +1,12 @@
+{
+  "ranks": 4,
+  "steps": 5,
+  "dt": 0.005,
+  "nCorrectors": 2,
+  "nonOrthogonalCorrections": 1,
+  "returncode": 2,
+  "wall_seconds": 14.334060548993875,
+  "case": "/tmp/naca0012-performance-profile/case-r4-piso2-nonorth1",
+  "performance_directory": "/tmp/naca0012-performance-profile/perf-r4-piso2-nonorth1",
+  "log": "/tmp/naca0012-performance-profile/run-r4-piso2-nonorth1.log"
+}

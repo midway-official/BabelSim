@@ -1,5 +1,6 @@
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
+#include "internal/petsc_session.h"
 #include "babelsim/parallel.h"
 
 #include "test_util.h"
@@ -74,5 +75,6 @@ int main(int argc, char* argv[]) {
         std::cerr << "parallel_unstructured_test: " << error.what() << '\n';
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
+    detail::finalizePetscSession();
     MPI_Finalize();
 }

@@ -5,6 +5,7 @@
 #include "physics/RANS/api.h"
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
+#include "internal/petsc_session.h"
 #include "test_util.h"
 #include <iostream>
 
@@ -168,5 +169,6 @@ int main(int argc, char** argv) {
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n'; MPI_Abort(MPI_COMM_WORLD, 1);
     }
+    detail::finalizePetscSession();
     MPI_Finalize();
 }

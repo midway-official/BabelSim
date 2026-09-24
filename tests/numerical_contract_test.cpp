@@ -1,10 +1,10 @@
 #include "babelsim/runtime.h"
 #include "babelsim/parallel.h"
 #include "babelsim/mpi_support.h"
-#include "babelsim/linear_solver.h"
 #include "babelsim/equ.h"
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
+#include "internal/petsc_session.h"
 #include "test_util.h"
 #include <iostream>
 
@@ -127,10 +127,13 @@ void boundaryAndAlgebra(const Mesh& mesh) {
 }
 
 void preconditioners(const Mesh& mesh) {
+    const bool distributed = ParallelContext::world().size > 1;
     for (auto solver : {LinearSolverType::ConjugateGradient, LinearSolverType::BiCGSTAB}) {
-        const auto factor = solver == LinearSolverType::ConjugateGradient
-            ? PreconditionerType::IncompleteCholesky : PreconditionerType::ILUT;
-        for (auto pc : {PreconditionerType::None, factor, PreconditionerType::AlgebraicMultigrid}) {
+        const auto factor = solver == LinearSolverType::ConjugateGradient && !distributed
+            ? PreconditionerType::IncompleteCholesky
+            : solver == LinearSolverType::ConjugateGradient
+                ? PreconditionerType::BlockJacobi : PreconditionerType::Jacobi;
+        for (auto pc : {PreconditionerType::None, factor, PreconditionerType::Hypre}) {
             for (double scale : {1e-40, 1e-20, 1.0, 1e20, 1e40}) {
                 RunTime time = RunTime::forMesh(mesh);
                 ScalarField u(mesh, FieldLocation::Cell, "u", 0.0);
@@ -154,7 +157,11 @@ void preconditioners(const Mesh& mesh) {
                 equ::source(assembled, solver == LinearSolverType::BiCGSTAB ? scale : 0.0);
                 const auto result = equ::solve(assembled);
                 if (!result.converged()) std::cerr << "solver=" << int(solver) << " pc=" << int(pc)
-                    << " scale=" << scale << " residual=" << result.relative_residual << '\n';
+                    << " scale=" << scale << " status=" << int(result.status)
+                    << " iterations=" << result.iterations
+                    << " initial=" << result.initial_residual
+                    << " final=" << result.final_residual
+                    << " relative=" << result.relative_residual << '\n';
                 require(result.converged(), "scale/preconditioner convergence contract failed");
                 require(result.final_residual <= std::max(cfg.absolute_tolerance,
                     cfg.relative_tolerance * result.initial_residual), "false linear convergence");
@@ -185,5 +192,6 @@ int main(int argc, char** argv) {
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n'; MPI_Abort(MPI_COMM_WORLD, 1);
     }
+    detail::finalizePetscSession();
     MPI_Finalize();
 }

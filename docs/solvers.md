@@ -32,16 +32,17 @@ RANS 是模块而不是注册名：由 `simple` / `transientSimple` / `piso` 按
 ### 2.1 构建
 
 ```bash
-make -j4          # 产出 build/babelsim-solve 与 build/babelsim-post
+make -j4          # 产出 build-petsc/babelsim-solve 与 build-petsc/babelsim-post
 ```
 
-依赖 C++17 编译器、Eigen 3、MPI-3 实现和 GNU Make。默认优化含 `-march=native`，
+依赖 C++17 编译器、PETSc MPI 构建、Eigen 3、MPI-3 实现和 GNU Make。Eigen 用于局部最小二乘梯度，
+PETSc 用于稀疏线性系统。默认优化含 `-march=native`，
 换机器（尤其异构集群）需按 [根 README](../README.md#构建与运行) 重新编译。
 
 ### 2.2 命令行
 
 ```text
-build/babelsim-solve -case <算例目录> [-time <运行名>] [-performance <目录>]
+build-petsc/babelsim-solve -case <算例目录> [-time <运行名>] [-performance <目录>]
 ```
 
 | 参数 | 必填 | 含义 |
@@ -50,15 +51,15 @@ build/babelsim-solve -case <算例目录> [-time <运行名>] [-performance <目
 | `-time <运行名>` | 否 | 给本次运行命名，决定结果写到哪个子目录（见 2.4）。名字是任意字符串（`run1`、`mpi4`），与物理时间、进程数无关 |
 | `-performance <目录>` | 否 | 每个 rank 一份 `rank-XXXX.json`：阶段耗时、Krylov 迭代数、halo 字节数、分区信息（字段含义见 [performance/README.md](performance/README.md)） |
 
-**`-time` 不是 MPI 必需的**：`mpirun -np 4 build/babelsim-solve -case cases/heat` 也能跑。
+**`-time` 不是 MPI 必需的**：`mpirun -np 4 build-petsc/babelsim-solve -case cases/heat` 也能跑。
 它解决的是“两次运行的结果不要混在一起”：不加 `-time` 时所有运行都往
 `results/<物理时间>/` 写，不同进程数的 rank 文件落在同一目录，后处理会以
 `rank directory count does not match metadata` 之类的一致性问题拒绝读取，也分不清
 哪份结果来自哪次运行。串并行对比就靠它：
 
 ```bash
-build/babelsim-solve -case cases/poiseuille -time serial
-mpirun -np 4 build/babelsim-solve -case cases/poiseuille -time mpi4
+build-petsc/babelsim-solve -case cases/poiseuille -time serial
+mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille -time mpi4
 python3 tools/compare_parallel_results.py \
   cases/poiseuille/results/serial cases/poiseuille/results/mpi4 \
   --atol 5e-6 --rtol 5e-6
@@ -86,7 +87,7 @@ cases/<名字>/
 ```bash
 cp -r cases/heat /tmp/my-heat
 # 编辑 /tmp/my-heat 下的 case.bs、control.bs、physics/*.bs …
-build/babelsim-solve -case /tmp/my-heat
+build-petsc/babelsim-solve -case /tmp/my-heat
 ```
 
 三条硬约束（启动时校验，违反直接报错，不静默回退）：
@@ -106,8 +107,8 @@ build/babelsim-solve -case /tmp/my-heat
 
 | 命令 | 时间序列 | 最终结果 |
 |---|---|---|
-| `build/babelsim-solve -case cases/heat` | `cases/heat/results/0.01/`、`0.02/` … | `cases/heat/results/final/` |
-| `build/babelsim-solve -case cases/heat -time mpi4` | `cases/heat/results/mpi4/0.01/` … | `cases/heat/results/mpi4/` |
+| `build-petsc/babelsim-solve -case cases/heat` | `cases/heat/results/0.01/`、`0.02/` … | `cases/heat/results/final/` |
+| `build-petsc/babelsim-solve -case cases/heat -time mpi4` | `cases/heat/results/mpi4/0.01/` … | `cases/heat/results/mpi4/` |
 
 每个时刻目录内按 rank 分目录，每个 rank 只写自己拥有的单元：
 
@@ -130,7 +131,7 @@ rank 数与全局单元数，是后处理的一致性依据。写出规则：
 ### 2.5 看图：babelsim-post
 
 ```text
-build/babelsim-post -case <算例目录> [-time <选择>] -format <vtk|tecplot> [...]
+build-petsc/babelsim-post -case <算例目录> [-time <选择>] -format <vtk|tecplot> [...]
 ```
 
 `-time` 选择要处理的结果：省略时取 `output.bs` 的 `timeName`（未命名运行的最终结果）；
@@ -139,8 +140,8 @@ build/babelsim-post -case <算例目录> [-time <选择>] -format <vtk|tecplot> 
 未命名运行用 `latest` / `all`。产物写在 `<case>/post/`：
 
 ```bash
-build/babelsim-post -case cases/poiseuille -format vtk tecplot     # post/final.vtu、post/final.dat
-build/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*.vtu + post/mpi4/series.pvd
+build-petsc/babelsim-post -case cases/poiseuille -format vtk tecplot     # post/final.vtu、post/final.dat
+build-petsc/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*.vtu + post/mpi4/series.pvd
 ```
 
 `.vtu` 用 ParaView 打开；`.dat` 是八顶点六面体兼容的 Tecplot FEBRICK。任意面数的 polyhedral 网格使用 VTK
@@ -185,16 +186,16 @@ build/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*
 
 ```bash
 make -j4                                               # 首次运行前先构建
-build/babelsim-solve -case cases/heat                  # 串行
-mpirun -np 2 build/babelsim-solve -case cases/heat -time mpi2
-mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
+build-petsc/babelsim-solve -case cases/heat                  # 串行
+mpirun -np 2 build-petsc/babelsim-solve -case cases/heat -time mpi2
+mpirun -np 4 build-petsc/babelsim-solve -case cases/heat -time mpi4
 ```
 
 控制台每个时间步一行 `heat time=<t> residual=<r>`，本算例残差在 `1e-16` 量级，
 退出码 0 表示 5 步全部收敛：
 
 ```text
-$ build/babelsim-solve -case cases/heat -time demo
+$ build-petsc/babelsim-solve -case cases/heat -time demo
 heat time=0.01 residual=6.26041e-17
 heat time=0.02 residual=1.96501e-17
 …
@@ -205,7 +206,7 @@ heat time=0.05 residual=6.1994e-17
 `cases/heat/results/mpi4/`（见 2.4），两种进程数的结果互不干扰。看图：
 
 ```bash
-build/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/series.pvd 等
+build-petsc/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/series.pvd 等
 ```
 
 改这个算例：`control.bs` 的 `endTime`/`deltaT` 管时长与步长；`physics/thermal.bs` 的
@@ -250,15 +251,15 @@ build/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/s
 `control.bs` 给出 0→0.05、dt=0.01，共 5 步。
 
 ```bash
-build/babelsim-solve -case cases/transport                 # 串行
-mpirun -np 4 build/babelsim-solve -case cases/transport -time mpi4
+build-petsc/babelsim-solve -case cases/transport                 # 串行
+mpirun -np 4 build-petsc/babelsim-solve -case cases/transport -time mpi4
 ```
 
 每个时间步一行 `transport time=<t> residual=<r>`（与 `heat` 同格式，本算例残差在
 `1e-17` 量级）。结果目录结构同 2.4；看图：
 
 ```bash
-build/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
+build-petsc/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
 ```
 
 改这个算例：`physics/transport.bs` 的 `storage`/`diffusivity`/`source` 是物性；
@@ -330,15 +331,15 @@ build/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
 `endTime` 不参与推进（`cases/cavity` 用 `endTime 0`），`methods.time` 必须是 `steady`。
 
 ```bash
-build/babelsim-solve -case cases/cavity                        # 64² Re=100 方腔，串行
-mpirun -np 4 build/babelsim-solve -case cases/poiseuille        # 通道流，4 rank
-mpirun -np 4 build/babelsim-solve -case cases/cavity -time mpi4 # 已有串行结果时用 -time 分开存
+build-petsc/babelsim-solve -case cases/cavity                        # 64² Re=100 方腔，串行
+mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille        # 通道流，4 rank
+mpirun -np 4 build-petsc/babelsim-solve -case cases/cavity -time mpi4 # 已有串行结果时用 -time 分开存
 ```
 
 控制台在首迭代、之后每 100 次、以及收敛时各报一行迭代指标：
 
 ```text
-$ build/babelsim-solve -case cases/cavity
+$ build-petsc/babelsim-solve -case cases/cavity
 SIMPLE 1 mass=1.34188e-09 dU=1 rU=1 dP=3.33333 linP=9.9512e-09 … converged=false
 SIMPLE 100 mass=1.3434e-13 dU=0.00332187 rU=0.00586256 dP=0.00877011 … converged=false
 …
@@ -349,7 +350,7 @@ SIMPLE 2908 mass=1.28267e-14 dU=3.1504e-07 rU=7.39902e-07 dP=9.97043e-07 … con
 `-time mpi4` 时是 `results/mpi4/`），退出码 0；迭代耗尽未收敛则退出码 2、不写结果。看图：
 
 ```bash
-build/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu、post/final.dat
+build-petsc/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu、post/final.dat
 ```
 
 改这个算例：Re 由 `physics/simple.bs` 的 `density`/`dynamicViscosity` 决定（腔体边长 1、
@@ -398,7 +399,7 @@ build/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu�
 ```bash
 cp -r cases/naca0012 /tmp/naca-short
 # 编辑 /tmp/naca-short/control.bs：endTime 8.0 → 0.01（先跑 10 步看流程）
-mpirun -np 4 build/babelsim-solve -case /tmp/naca-short -time smoke
+mpirun -np 4 build-petsc/babelsim-solve -case /tmp/naca-short -time smoke
 ```
 
 `piso` **没有内置算例**；最轻量的做法是把 `cases/cavity`（64² 层流）复制成瞬态版本，
@@ -411,8 +412,8 @@ cp -r cases/cavity /tmp/piso-cavity && rm -rf /tmp/piso-cavity/results
 #   numerics/methods.bs  time steady → time euler
 #   numerics/solution.bs 删掉 pressureRelaxation；可选 maxIterations 改成 1（标准 PISO 单遍）
 #   control.bs           改成 startTime 0 / endTime 0.005 / deltaT 0.001
-build/babelsim-solve -case /tmp/piso-cavity
-mpirun -np 4 build/babelsim-solve -case /tmp/piso-cavity -time mpi4
+build-petsc/babelsim-solve -case /tmp/piso-cavity
+mpirun -np 4 build-petsc/babelsim-solve -case /tmp/piso-cavity -time mpi4
 ```
 
 同样改法对 `transientSimple` 也适用（它保留 `solution.bs` 的 `pressureRelaxation`）。
@@ -420,7 +421,7 @@ mpirun -np 4 build/babelsim-solve -case /tmp/piso-cavity -time mpi4
 `Transient SIMPLE <iter> mass=… dU=… rU=… dP=… linear=ok converged=true`；`piso` 每步报
 `PISO <遍数> mass=… dU=… rU=… dP=… linU=… linP=… converged=…`，`maxIterations 1` 时
 时间步的接受判据只有守恒量 `mass`，其余指标只报告（第 6 节开头）。两者都按 `writeInterval`
-写时间序列（见 2.4），看图用 `build/babelsim-post -case <算例> -time mpi4/all -format vtk`。
+写时间序列（见 2.4），看图用 `build-petsc/babelsim-post -case <算例> -time mpi4/all -format vtk`。
 
 **复制算例改 `solver` 时的坑**：`numerics/solution.bs` 与 `physics/*.bs` 里属于原求解器的键
 必须删干净（例如 `pressureRelaxation` 之于 `piso`），否则启动即报 `unused or unknown entry`；

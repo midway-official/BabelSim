@@ -1,0 +1,3 @@
+numpy>=1.24,<3
+triangle==20250106
+matplotlib>=3.7

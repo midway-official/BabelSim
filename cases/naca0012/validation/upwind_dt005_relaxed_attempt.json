@@ -1,0 +1,81 @@
+{
+  "solver": "PISO",
+  "model": "Wilcox1988m kOmega",
+  "k_omega_convection": "upwind",
+  "deltaT": 0.005,
+  "startTime": 0.0,
+  "endTime_requested": 0.5,
+  "planned_steps": 100,
+  "completed_steps": 43,
+  "last_completed_time": 0.215,
+  "last_saved_time": 0.2,
+  "output_interval": 10,
+  "ranks": 4,
+  "velocityRelaxation": 0.7,
+  "turbulenceRelaxation": 0.3,
+  "status": "stopped_due_to_growing_velocity_at_leading_edge",
+  "exit_code": 143,
+  "termination": "Stopped after t=0.20 fields showed rapid leading-edge velocity growth; latest PISO log line was captured after the saved t=0.20 checkpoint.",
+  "run_directory": "cases/naca0012/results/failed_relax_u07_t03",
+  "log": "cases/naca0012/validation/upwind_dt005_100steps_relaxed.log",
+  "mesh_sha256": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+  "last_piso_record": "PISO 1 mass=5.80516e-14 dU=0.18365 rU=0.00131783 dP=1.5965e-10 linU=1 linP=0.000171256 dTurb=0.242005 rTurb=0.500803 linear=ok converged=true",
+  "t_0_20_fields": {
+    "U": {
+      "min": 0.0015564981180260927,
+      "max": 23.29721419525618,
+      "finite": true,
+      "max_at": [
+        729.0,
+        0.23571993090016066,
+        -0.07349859075741867,
+        0.01
+      ]
+    },
+    "p": {
+      "min": -439.66993865658714,
+      "max": 2.2021872353040277,
+      "finite": true,
+      "max_at": [
+        16351.0,
+        0.2358959712404873,
+        -0.0766898419316008,
+        0.010000000000000002
+      ]
+    },
+    "k": {
+      "min": 1.4882045724900296e-06,
+      "max": 0.4103224021693096,
+      "finite": true,
+      "max_at": [
+        729.0,
+        0.23571993090016066,
+        -0.07349859075741867,
+        0.01
+      ]
+    },
+    "omega": {
+      "min": 1.4901630917642439,
+      "max": 1404107.2012241776,
+      "finite": true,
+      "max_at": [
+        729.0,
+        0.23571993090016066,
+        -0.07349859075741867,
+        0.01
+      ]
+    },
+    "mut": {
+      "min": 3.377079726988198e-10,
+      "max": 0.00010232315763854432,
+      "finite": true,
+      "max_at": [
+        14119.0,
+        0.23540056914603405,
+        -0.07602974432035327,
+        0.01
+      ]
+    }
+  },
+  "interpretation": "Not a completed or physically valid 100-step run. Mass conservation remained good while momentum/turbulence iterates and leading-edge values grew."
+}

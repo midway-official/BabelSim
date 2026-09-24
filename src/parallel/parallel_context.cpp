@@ -231,6 +231,11 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
                     owners[static_cast<std::size_t>(neighbour)] = part;
                     ++filled[static_cast<std::size_t>(part)];
                     --remaining;
+                    // The round-robin quota assigns one neighbour at a time.
+                    // Keep this parent at the head until all its unassigned
+                    // neighbours have been visited; otherwise growth discards
+                    // branches and degenerates into thin paths and reseeding.
+                    frontier.push_front(cell);
                     frontier.push_back(neighbour);
                     assigned = true;
                     grew = true;

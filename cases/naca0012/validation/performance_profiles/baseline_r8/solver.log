@@ -1,0 +1,5 @@
+PISO 1 mass=4.42079e-11 dU=0.197869 rU=7.15125e-05 dP=9.60486e-08 linU=1 linP=1.65346e-07 dTurb=0.999983 rTurb=0.930526 linear=ok converged=true
+PISO 1 mass=1.6711e-11 dU=0.0211331 rU=0.00470285 dP=1.01468e-07 linU=1 linP=8.98811e-08 dTurb=0.0996674 rTurb=0.154749 linear=inexact converged=true
+PISO 1 mass=1.63338e-11 dU=0.012945 rU=0.00313232 dP=7.88919e-08 linU=1 linP=6.12598e-07 dTurb=0.120708 rTurb=0.246985 linear=inexact converged=true
+PISO 1 mass=9.38219e-12 dU=0.00986331 rU=0.00208361 dP=7.98255e-08 linU=1 linP=8.0897e-07 dTurb=0.143578 rTurb=0.309581 linear=ok converged=true
+PISO 1 mass=8.17356e-12 dU=0.00785578 rU=0.00138713 dP=1.00699e-07 linU=1 linP=1.0672e-06 dTurb=0.159271 rTurb=0.355433 linear=ok converged=true

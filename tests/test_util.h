@@ -187,7 +187,7 @@ inline babelsim::Mesh makeHexBox(
 
 // A two-cell polyhedral fixture whose planar interface is split into two
 // triangular subfaces.  Both subfaces connect the same owner/neighbour pair;
-// this exercises the repeated-coupling path in SparseAssembly without adding
+// this exercises the repeated-coupling path in PETSc COO assembly without adding
 // any special case to the production topology.
 inline babelsim::Mesh makeSplitInterfaceMesh() {
     using namespace babelsim;

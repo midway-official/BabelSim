@@ -1,46 +1,166 @@
 {
-  "cell_count": 112000,
-  "vertex_count": 226080,
-  "wall_surface_points": 401,
-  "spanwise_cells": 1,
-  "positive_volume_cells": 112000,
-  "negative_or_zero_volume_cells": 0,
-  "cell_volume_min": 4.038774343372779e-06,
-  "cell_volume_max": 0.20120104344572265,
-  "edge_length_min": 0.0005159999999999563,
-  "edge_length_max": 0.6965345120720148,
-  "edge_length_3d_min": 0.0005159999999999563,
-  "edge_length_3d_max": 1.0,
-  "planar_aspect_ratio_max": 143.96913335791885,
-  "planar_aspect_ratio_p95": 65.22050854593834,
-  "nonorthogonality_deg_max": 82.64276217102287,
-  "nonorthogonality_deg_p95": 45.75556379565497,
-  "face_skewness_max": 0.5726203695194327,
-  "face_skewness_p95": 0.014781820937853298,
-  "first_layer_spacing_min": 0.006157973649821483,
-  "first_layer_spacing_max": 0.6964943386804937,
-  "outer_x_range": [
-    -5.0,
-    30.0
-  ],
-  "outer_y_range": [
-    -12.0,
-    12.0
-  ],
-  "extrusion_thickness": 1.0,
-  "angle_of_attack_deg": 15.0,
-  "rotation_pivot_x": 0.25,
-  "farfield_box": {
-    "x_min": -5.0,
-    "x_max": 30.0,
-    "y_min": -12.0,
-    "y_max": 12.0
+  "region_cell_ranges": {
+    "wall_boundary_layer": [
+      0,
+      35712
+    ],
+    "unstructured_transition": [
+      35712,
+      45093
+    ],
+    "cartesian_background": [
+      45093,
+      127013
+    ]
   },
-  "farfield_geometry": "exact_rectangle_c_grid",
-  "block_counts": {
-    "left": 140,
-    "wall_normal": 80,
-    "wake": 320,
-    "wake_normal": 20
+  "wall_surface_faces": 744,
+  "layers": 48,
+  "first_layer_height": 3e-05,
+  "growth": 1.12,
+  "boundary_layer_thickness": 0.05734769408282854,
+  "domain": [
+    -8.0,
+    4.0,
+    -5.0,
+    5.0
+  ],
+  "angle_of_attack_deg": 15,
+  "freestream_velocity": [
+    -1,
+    0,
+    0
+  ],
+  "reynolds_number": 1000000.0,
+  "geometry_note": "NACA0012 with smooth trailing cap over last 0.0015 chord; chord=1",
+  "first_cell_y_plus_flat_plate_estimate": 0.6375166131985447,
+  "cell_count": 127013,
+  "vertex_count": 250612,
+  "face_count": 506345,
+  "cell_type": "extruded quadrilateral hexahedra and triangular prisms",
+  "non_hexahedral_cells": 5446,
+  "extrusion_thickness": 0.02,
+  "positive_volume_cells": 127013,
+  "negative_or_zero_volume_cells": 0,
+  "cell_volume_min": 1.060912976913464e-10,
+  "cell_volume_max": 0.0008731361265385118,
+  "planar_edge_length_min": 3.0000000014425626e-05,
+  "planar_edge_length_max": 0.23628566203085555,
+  "planar_aspect_ratio_max": 142.14307337396772,
+  "planar_aspect_ratio_p95": 32.94205123174352,
+  "minimum_cell_corner_angle_deg": 24.834936958821622,
+  "cells_with_minimum_corner_angle_below_5_deg": 0,
+  "cells_with_minimum_corner_angle_below_10_deg": 0,
+  "concave_cells": 0,
+  "cell_quality_by_region": {
+    "wall_boundary_layer": {
+      "cells": 35712,
+      "min_volume": 1.060912976913464e-10,
+      "max_volume": 1.0943403282759335e-06,
+      "planar_aspect_ratio_max": 142.14307337396772,
+      "planar_aspect_ratio_p95": 80.61631046491138,
+      "minimum_corner_angle_deg": 85.31821956429553,
+      "cells_with_concave_corners": 0
+    },
+    "unstructured_transition": {
+      "cells": 9381,
+      "min_volume": 1.9432189080070826e-09,
+      "max_volume": 2.386325736362868e-05,
+      "planar_aspect_ratio_max": 2.339819826214196,
+      "planar_aspect_ratio_p95": 1.9696410355934932,
+      "minimum_corner_angle_deg": 24.834936958821622,
+      "cells_with_concave_corners": 0
+    },
+    "cartesian_background": {
+      "cells": 81920,
+      "min_volume": 4.999999999970584e-06,
+      "max_volume": 0.0008731361265385118,
+      "planar_aspect_ratio_max": 18.476282458994614,
+      "planar_aspect_ratio_p95": 10.11987322428948,
+      "minimum_corner_angle_deg": 90.0,
+      "cells_with_concave_corners": 0
+    }
+  },
+  "face_count_by_patch": {
+    "airfoil": 744,
+    "inlet": 280,
+    "outlet": 280,
+    "farfield": 728,
+    "front": 127013,
+    "back": 127013
+  },
+  "internal_face_count": 250287,
+  "internal_nonorthogonality_deg_max": 38.07874987195022,
+  "internal_nonorthogonality_deg_p95": 3.368342885225386,
+  "internal_faces_nonorthogonality_over_20_deg": 1732,
+  "internal_faces_nonorthogonality_over_45_deg": 0,
+  "internal_faces_nonorthogonality_over_70_deg": 0,
+  "internal_face_skewness_max": 0.48762346474660134,
+  "internal_face_skewness_p95": 0.03396386604203576,
+  "internal_faces_skewness_over_0_5": 0,
+  "internal_face_quality_by_region_pair": {
+    "wall_boundary_layer <-> wall_boundary_layer": {
+      "faces": 70680,
+      "nonorthogonality_deg_max": 2.3665699116175003,
+      "nonorthogonality_deg_p95": 0.016266454688905,
+      "nonorthogonality_over_20_deg": 0,
+      "nonorthogonality_over_45_deg": 0,
+      "nonorthogonality_over_70_deg": 0,
+      "skewness_max": 0.040559306468569645,
+      "skewness_p95": 0.004091780163821484,
+      "skewness_over_0_5": 0
+    },
+    "unstructured_transition <-> wall_boundary_layer": {
+      "faces": 744,
+      "nonorthogonality_deg_max": 18.341187318724323,
+      "nonorthogonality_deg_p95": 16.340521369399166,
+      "nonorthogonality_over_20_deg": 0,
+      "nonorthogonality_over_45_deg": 0,
+      "nonorthogonality_over_70_deg": 0,
+      "skewness_max": 0.1987154326632882,
+      "skewness_p95": 0.18588998053688896,
+      "skewness_over_0_5": 0
+    },
+    "unstructured_transition <-> unstructured_transition": {
+      "faces": 15367,
+      "nonorthogonality_deg_max": 38.07874987195022,
+      "nonorthogonality_deg_p95": 24.246379791022854,
+      "nonorthogonality_over_20_deg": 1732,
+      "nonorthogonality_over_45_deg": 0,
+      "nonorthogonality_over_70_deg": 0,
+      "skewness_max": 0.48762346474660134,
+      "skewness_p95": 0.28474005165031485,
+      "skewness_over_0_5": 0
+    },
+    "cartesian_background <-> unstructured_transition": {
+      "faces": 600,
+      "nonorthogonality_deg_max": 17.39222757087792,
+      "nonorthogonality_deg_p95": 11.535999102186064,
+      "nonorthogonality_over_20_deg": 0,
+      "nonorthogonality_over_45_deg": 0,
+      "nonorthogonality_over_70_deg": 0,
+      "skewness_max": 0.20561806699133045,
+      "skewness_p95": 0.15306745553527662,
+      "skewness_over_0_5": 0
+    },
+    "cartesian_background <-> cartesian_background": {
+      "faces": 162896,
+      "nonorthogonality_deg_max": 0.0,
+      "nonorthogonality_deg_p95": 0.0,
+      "nonorthogonality_over_20_deg": 0,
+      "nonorthogonality_over_45_deg": 0,
+      "nonorthogonality_over_70_deg": 0,
+      "skewness_max": 6.003197939370976e-10,
+      "skewness_p95": 6.954437026254059e-11,
+      "skewness_over_0_5": 0
+    }
+  },
+  "hexahedral_cells": 121567,
+  "hexahedral_fraction": 0.9571224992717281,
+  "quality_gate": {
+    "cell_count_100k_200k": true,
+    "positive_volumes": true,
+    "convex_cells": true,
+    "max_nonorthogonality_below_70": true,
+    "min_corner_above_15": true
   }
 }

@@ -1,0 +1,20 @@
+PISO 1 mass=6.35699e-11 dU=0.311749 rU=9.82088e-05 dP=1.01628e-07 linU=1 linP=2.03058e-07 dTurb=1 rTurb=0.982483 linear=ok converged=true
+PISO 1 mass=2.38918e-10 dU=0.633053 rU=0.00470644 dP=3.62169e-07 linU=1 linP=5.61285e-08 dTurb=44.9493 rTurb=0.979317 linear=ok converged=true
+PISO 1 mass=3.05562e-10 dU=0.98624 rU=0.00327938 dP=9.24182e-08 linU=1 linP=8.59902e-08 dTurb=0.999671 rTurb=0.99831 linear=ok converged=true
+PISO 1 mass=3.44152e-10 dU=1.06442 rU=0.0256321 dP=1.11218e-08 linU=1 linP=6.94294e-08 dTurb=5.72008 rTurb=0.941599 linear=ok converged=true
+PISO 1 mass=5.47389e-09 dU=0.99815 rU=0.490865 dP=2.02031e-07 linU=1 linP=8.47146e-08 dTurb=0.999943 rTurb=0.994892 linear=ok converged=true
+PISO 1 mass=1.0797e-09 dU=1.1372 rU=0.707684 dP=3.33785e-08 linU=0.022775 linP=8.53823e-08 dTurb=1.22802 rTurb=0.999538 linear=ok converged=true
+PISO 1 mass=9.00262e-10 dU=0.987248 rU=0.676298 dP=1.89339e-07 linU=0.00673236 linP=9.44001e-08 dTurb=1.03469 rTurb=0.939241 linear=ok converged=true
+PISO 1 mass=1.91056e-09 dU=1.02969 rU=0.647474 dP=1.39076e-07 linU=8.69874e-05 linP=8.72686e-08 dTurb=0.99979 rTurb=0.862231 linear=ok converged=true
+PISO 1 mass=5.53769e-10 dU=1.03884 rU=0.00272417 dP=1.08661e-06 linU=1.66149e-07 linP=9.23024e-08 dTurb=1.34657 rTurb=0.99746 linear=ok converged=true
+PISO 1 mass=1.17487e-09 dU=1.02517 rU=0.732353 dP=4.65971e-07 linU=9.21894e-09 linP=9.99776e-08 dTurb=0.999993 rTurb=0.976115 linear=ok converged=true
+PISO 1 mass=1.98959e-10 dU=1.00297 rU=0.770833 dP=1.47917e-07 linU=9.96845e-09 linP=8.51263e-08 dTurb=2.3122 rTurb=0.996519 linear=ok converged=true
+PISO 1 mass=1.23852e-09 dU=1.00079 rU=0.75168 dP=8.87263e-08 linU=9.78199e-09 linP=6.91912e-08 dTurb=0.999998 rTurb=0.998425 linear=ok converged=true
+PISO 1 mass=8.9417e-10 dU=1.03613 rU=0.000462792 dP=3.26695e-09 linU=9.82712e-09 linP=7.33672e-08 dTurb=239.472 rTurb=1 linear=ok converged=true
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node midway exited on signal 15 (Terminated).
+--------------------------------------------------------------------------

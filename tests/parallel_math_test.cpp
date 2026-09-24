@@ -5,6 +5,7 @@
 #include "internal/field_access.h"
 #include "internal/fvm_execution.h"
 #include "internal/mesh_access.h"
+#include "internal/petsc_session.h"
 #include "test_util.h"
 
 #include <iostream>
@@ -170,6 +171,11 @@ int main(int argc, char* argv[]) {
             }
     const Mesh global = makeHexFromVertices({16, 4, 3}, std::move(points));
     Answers answers;
+    {
+    // Keep one serial Runtime alive for the entire oracle pass. PETSc may
+    // initialize MPI on first use; creating another Runtime on the replicated
+    // full mesh afterward would then mistake it for a distributed partition.
+    RunTime serial_time = RunTime::forMesh(global);
     for (GradientMethod gradient : {GradientMethod::LeastSquares, GradientMethod::GreenGauss})
     for (DiffusionMethod method : {DiffusionMethod::Orthogonal, DiffusionMethod::Corrected,
                                    DiffusionMethod::LimitedCorrected}) {
@@ -178,11 +184,13 @@ int main(int argc, char* argv[]) {
         options.gradient = gradient;
         options.convection = ConvectionMethod::Upwind;
         options.diffusion = method;
-        RunTime time = RunTime::forMesh(global);
         Fields serial(global);
         exercise(serial, answers, true, options);
     }
-    detail::checkMpi(MPI_Init(&argc, &argv), "MPI_Init");
+    }
+    int initialized = 0;
+    detail::checkMpi(MPI_Initialized(&initialized), "MPI_Initialized");
+    if (!initialized) detail::checkMpi(MPI_Init(&argc, &argv), "MPI_Init");
     try {
         const ParallelContext parallel = ParallelContext::world();
         const Mesh local = decompose(global, parallel, argc > 1 ? std::stoi(argv[1]) : 3);
@@ -218,5 +226,8 @@ int main(int argc, char* argv[]) {
         std::cerr << error.what() << '\n';
         detail::checkMpi(MPI_Abort(MPI_COMM_WORLD, 1), "MPI_Abort");
     }
-    detail::checkMpi(MPI_Finalize(), "MPI_Finalize");
+    detail::finalizePetscSession();
+    int finalized = 0;
+    detail::checkMpi(MPI_Finalized(&finalized), "MPI_Finalized");
+    if (!finalized) detail::checkMpi(MPI_Finalize(), "MPI_Finalize");
 }

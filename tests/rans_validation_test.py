@@ -5,6 +5,7 @@ of the C++ discretization. These are equation verification tests, not a claim of
 general wall-flow validation for high-Re models without a wall-function workflow.
 """
 import csv
+import argparse
 import json
 import math
 import os
@@ -17,15 +18,22 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 BASE = Path(tempfile.mkdtemp(prefix="babelsim-rans-validation-"))
 ENV = dict(os.environ, TMPDIR="/tmp")
+parser = argparse.ArgumentParser()
+parser.add_argument("--solver", type=Path, required=True)
+parser.add_argument("--equations", type=Path, required=True)
+args = parser.parse_args()
+SOLVER = args.solver.resolve()
+EQUATIONS = args.equations.resolve()
 
 
 def run(case, ranks, label, expected=0, executable="babelsim-solve"):
-    args = ["mpirun", "-np", str(ranks), str(ROOT / "build" / executable)]
-    args += [str(case)] if executable == "rans_equations_test" else ["-case", str(case), "-time", label]
-    result = subprocess.run(args, cwd=ROOT, env=ENV, text=True,
+    binary = EQUATIONS if executable == "rans_equations_test" else SOLVER
+    command = ["mpirun", "-np", str(ranks), str(binary)]
+    command += [str(case)] if executable == "rans_equations_test" else ["-case", str(case), "-time", label]
+    result = subprocess.run(command, cwd=ROOT, env=ENV, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=240)
     (BASE / (case.name + "-" + label + ".log")).write_text(result.stdout)
-    assert result.returncode == expected, (args, result.returncode, result.stdout[-4000:])
+    assert result.returncode == expected, (command, result.returncode, result.stdout[-4000:])
     return result.stdout
 
 
@@ -67,8 +75,8 @@ def case(label, model, method="euler", dt=0.01, end=0.1, fixed=False, clipping=F
     solution_lines = []
     for name in equation_names:
         solution_lines.extend([
-            f"equation.{name}.solver bicgstab",
-            f"equation.{name}.preconditioner ilut",
+            f"equation.{name}.kspType bcgs",
+            f"equation.{name}.pcType bjacobi",
             f"equation.{name}.absoluteTolerance 1e-14",
             f"equation.{name}.relativeTolerance 1e-12",
             f"equation.{name}.maxIterations 2000",

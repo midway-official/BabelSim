@@ -1,14 +1,26 @@
 """真正仓库外构建：只用公开头和预编译库，同时验收禁止访问的实现边界。"""
+import argparse
 import csv
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, TMPDIR="/tmp", OMPI_ALLOW_RUN_AS_ROOT="1",
            OMPI_ALLOW_RUN_AS_ROOT_CONFIRM="1")
+parser = argparse.ArgumentParser()
+parser.add_argument("--library", type=Path, required=True)
+parser.add_argument("--petsc-dir", type=Path, required=True)
+args = parser.parse_args()
+LIBRARY = args.library.resolve()
+PETSC_DIR = args.petsc_dir.resolve()
+PETSC_ENV = dict(ENV, PKG_CONFIG_PATH=str(PETSC_DIR / "lib/pkgconfig"))
+PETSC_LINK = shlex.split(subprocess.check_output(
+    ["pkg-config", "--libs", "PETSc"], cwd=ROOT, env=PETSC_ENV, text=True))
+PETSC_LINK.append(f"-Wl,-rpath,{PETSC_DIR / 'lib'}")
 
 
 def run(*args, cwd, success=True):
@@ -34,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     work = Path(temporary)
     # staged SDK 不含 src/、Eigen 或 MPI 头；Solver 编译阶段只需标准 C++ 编译器。
     shutil.copytree(ROOT / "include", work / "include")
-    shutil.copy(ROOT / "build/libbabelsim.a", work / "libbabelsim.a")
+    shutil.copy(LIBRARY, work / "libbabelsim.a")
     # 两个新头文件分别可用；math 单独求值不需要包含方程 API。
     (work / "math_api.cpp").write_text(
         '#include "babelsim/math.h"\nusing namespace babelsim;\n'
@@ -76,7 +88,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     shutil.copy(ROOT / "tests/external/solver.cpp", work / "solver.cpp")
     run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
         "-c", "solver.cpp", "-o", "solver.o", cwd=work)
-    run("mpic++", "solver.o", "libbabelsim.a", "-o", "external-solver", cwd=work)
+    run("mpic++", "solver.o", "libbabelsim.a", *PETSC_LINK,
+        "-o", "external-solver", cwd=work)
 
     # 把整个私有 SIMPLE 模块作为维护对象在仓库外重建。
     # 不提供框架 internal/、MPI/Eigen 头；算法自己的私有头可正常使用。
@@ -93,7 +106,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         '#include "babelsim/application.h"\n'
         'int main(int argc,char** argv){ return babelsim::runApplication(argc,argv); }\n')
     run("g++", "-std=c++17", "-Iinclude", "-c", "simple_entry.cpp", "-o", "simple_entry.o", cwd=work)
-    run("mpic++", "simple_entry.o", *simple_objects, "libbabelsim.a", "-o", "external-simple", cwd=work)
+    run("mpic++", "simple_entry.o", *simple_objects, "libbabelsim.a", *PETSC_LINK,
+        "-o", "external-simple", cwd=work)
     simple_case = work / "simple_case"
     shutil.copytree(ROOT / "cases/poiseuille", simple_case, ignore=shutil.ignore_patterns("results", "post"))
     for count in (1, 2, 4):
@@ -182,9 +196,11 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
         (case / "numerics/methods.bs").write_text("\n".join(methods) + "\n")
         solutions = []
         for name in method_profiles[solver]:
+            ksp = "cg" if name == "pressureCorrection" else "bcgs"
+            pc = "hypre" if name == "pressureCorrection" else "bjacobi"
             solutions.extend([
-                f"equation.{name}.solver bicgstab",
-                f"equation.{name}.preconditioner ilut",
+                f"equation.{name}.kspType {ksp}",
+                f"equation.{name}.pcType {pc}",
                 f"equation.{name}.absoluteTolerance 1e-14",
                 f"equation.{name}.relativeTolerance 1e-10",
                 f"equation.{name}.maxIterations 1000",
@@ -258,7 +274,7 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
                                        ("unknown", "TEST_UNKNOWN", "unknown BabelSim solver")):
         run("g++", "-std=c++17", "-Iinclude", f"-D{definition}", "-c", "failure.cpp", "-o", "failure.o", cwd=work)
         objects = ["failure.o", "duplicate.o"] if name == "duplicate" else ["failure.o"]
-        run("mpic++", *objects, "libbabelsim.a", "-o", name, cwd=work)
+        run("mpic++", *objects, "libbabelsim.a", *PETSC_LINK, "-o", name, cwd=work)
         failure = run("mpirun", "-np", 2, work / name, "-case", case, "-time", name, cwd=work, success=False)
         if expected:
             assert expected in failure.stderr

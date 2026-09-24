@@ -117,8 +117,8 @@ int main() {
                           std::filesystem::copy_options::recursive);
     {
         std::ofstream file(override_case / "numerics/solution.bs");
-        file << "equation.temperature.solver cg\n"
-             << "equation.temperature.preconditioner incompleteCholesky\n"
+        file << "equation.temperature.kspType cg\n"
+             << "equation.temperature.pcType icc\n"
              << "equation.temperature.absoluteTolerance 1e-13\n"
              << "equation.temperature.relativeTolerance 2e-9\n"
              << "equation.temperature.maxIterations 321\n";

@@ -118,17 +118,18 @@ pressureRelaxation 0.3
 continuityTolerance 1e-8
 velocityTolerance 1e-6
 
-equation.momentum.solver bicgstab
-equation.momentum.preconditioner ilut
+equation.momentum.kspType bcgs
+equation.momentum.pcType bjacobi
 equation.momentum.absoluteTolerance 1e-12
 equation.momentum.relativeTolerance 1e-8
 equation.momentum.maxIterations 1000
 ```
 
-`cg`、`bicgstab` 是线性方法；`none`、`incompleteCholesky`、`ilut`、`amg` 是预条件器。
-每个实际使用的方程必须提供 `solver`、`preconditioner`、`absoluteTolerance`、
-`relativeTolerance`、`maxIterations` 五个核心键。可选的 AMG、ILUT 和 warm-start 键也
-使用相同的 `equation.<name>.*` 前缀。
+`cg`、`bcgs`、`gmres`、`fgmres` 是 PETSc KSP 方法；`none`、`icc`、`hypre`、`gamg`、
+`bjacobi`、`asm`、`jacobi` 是 PETSc PC 类型。每个实际使用的方程必须提供 `kspType`、
+`pcType`、`absoluteTolerance`、`relativeTolerance`、`maxIterations` 五个核心键。`icc` 只用于
+串行求解；MPI 可选择 `hypre`、`gamg` 或 `bjacobi`。GAMG 层级选项和 warm-start 键也使用
+相同的 `equation.<name>.*` 前缀。
 
 完整的配置示例、内置方程名称和迁移规则见
 [方程、项与算子的数值配置](numerical-configuration.md)。

@@ -1,6 +1,7 @@
 #include "babelsim/case.h"
 #include "babelsim/parallel.h"
 #include "babelsim/application.h"
+#include "internal/petsc_session.h"
 
 #include <mpi.h>
 
@@ -119,11 +120,19 @@ void writePerformance(
            << ",\n  \"haloBytes\": " << counters.halo_bytes
            << ",\n  \"globalReductions\": " << counters.global_reductions
            << ",\n  \"equationAssemblies\": " << counters.equation_assemblies
+           << ",\n  \"matrixPatternBuilds\": " << counters.matrix_pattern_builds
+           << ",\n  \"matrixValueUpdates\": " << counters.matrix_value_updates
+           << ",\n  \"rhsOnlySolves\": " << counters.rhs_only_solves
+           << ",\n  \"trueResidualChecks\": " << counters.true_residual_checks
            << ",\n  \"preconditionerSetups\": " << counters.preconditioner_setups
            << ",\n  \"preconditionerApplications\": " << counters.preconditioner_applications
            << ",\n  \"outputWrites\": " << counters.output_writes
            << ",\n  \"elapsedSeconds\": " << counters.elapsed_seconds
            << ",\n  \"assemblySeconds\": " << counters.assembly_seconds
+           << ",\n  \"patternBuildSeconds\": " << counters.pattern_build_seconds
+           << ",\n  \"matrixUpdateSeconds\": " << counters.matrix_update_seconds
+           << ",\n  \"rhsSeconds\": " << counters.rhs_seconds
+           << ",\n  \"residualCheckSeconds\": " << counters.residual_check_seconds
            << ",\n  \"preconditionerSeconds\": " << counters.preconditioner_seconds
            << ",\n  \"preconditionerApplySeconds\": " << counters.preconditioner_apply_seconds
            << ",\n  \"linearSolveSeconds\": " << counters.linear_solve_seconds
@@ -139,11 +148,19 @@ void writePerformance(
            << ",\n    \"haloBytes\": " << local.halo_bytes
            << ",\n    \"globalReductions\": " << local.global_reductions
            << ",\n    \"equationAssemblies\": " << local.equation_assemblies
+           << ",\n    \"matrixPatternBuilds\": " << local.matrix_pattern_builds
+           << ",\n    \"matrixValueUpdates\": " << local.matrix_value_updates
+           << ",\n    \"rhsOnlySolves\": " << local.rhs_only_solves
+           << ",\n    \"trueResidualChecks\": " << local.true_residual_checks
            << ",\n    \"preconditionerSetups\": " << local.preconditioner_setups
            << ",\n    \"preconditionerApplications\": " << local.preconditioner_applications
            << ",\n    \"outputWrites\": " << local.output_writes
            << ",\n    \"elapsedSeconds\": " << local.elapsed_seconds
            << ",\n    \"assemblySeconds\": " << local.assembly_seconds
+           << ",\n    \"patternBuildSeconds\": " << local.pattern_build_seconds
+           << ",\n    \"matrixUpdateSeconds\": " << local.matrix_update_seconds
+           << ",\n    \"rhsSeconds\": " << local.rhs_seconds
+           << ",\n    \"residualCheckSeconds\": " << local.residual_check_seconds
            << ",\n    \"preconditionerSeconds\": " << local.preconditioner_seconds
            << ",\n    \"preconditionerApplySeconds\": " << local.preconditioner_apply_seconds
            << ",\n    \"linearSolveSeconds\": " << local.linear_solve_seconds
@@ -151,8 +168,32 @@ void writePerformance(
            << ",\n    \"haloSeconds\": " << local.halo_seconds
            << ",\n    \"globalReductionSeconds\": " << local.global_reduction_seconds
            << ",\n    \"outputSeconds\": " << local.output_seconds
-           << "\n  }"
-           << "\n}\n";
+           << ",\n    \"equationSystems\": [";
+    for (std::size_t index = 0; index < local.equation_systems.size(); ++index) {
+        const auto& equation = local.equation_systems[index];
+        if (index != 0) output << ',';
+        output << "\n      {\"identity\": \"" << equation.identity
+               << "\", \"kspType\": \"" << equation.ksp_type
+               << "\", \"pcType\": \"" << equation.pc_type
+               << "\", \"lastStatus\": \"" << equation.last_status
+               << "\", \"matrixPatternBuilds\": " << equation.matrix_pattern_builds
+               << ", \"matrixValueUpdates\": " << equation.matrix_value_updates
+               << ", \"rhsOnlySolves\": " << equation.rhs_only_solves
+               << ", \"linearSolves\": " << equation.linear_solves
+               << ", \"krylovIterations\": " << equation.krylov_iterations
+               << ", \"preconditionerSetups\": " << equation.preconditioner_setups
+               << ", \"trueResidualChecks\": " << equation.true_residual_checks
+               << ", \"lastInitialResidual\": " << equation.last_initial_residual
+               << ", \"lastFinalResidual\": " << equation.last_final_residual
+               << ", \"lastRelativeResidual\": " << equation.last_relative_residual
+               << ", \"patternBuildSeconds\": " << equation.pattern_build_seconds
+               << ", \"matrixUpdateSeconds\": " << equation.matrix_update_seconds
+               << ", \"preconditionerSeconds\": " << equation.preconditioner_seconds
+               << ", \"rhsSeconds\": " << equation.rhs_seconds
+               << ", \"solveSeconds\": " << equation.solve_seconds
+               << ", \"residualCheckSeconds\": " << equation.residual_check_seconds << '}';
+    }
+    output << "\n    ]\n  }\n}\n";
     if (!output) throw std::runtime_error("cannot finish performance report");
 }
 
@@ -224,6 +265,14 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
     }
     // Finalize 不再放在可能抛异常的 try 块内；避免 finalize 失败后异常路径
     // 再次调用 MPI_Comm_rank/MPI_Abort，违反 MPI 生命周期。
+    int petsc_finalize_status = 0;
+    try {
+        detail::finalizePetscSession();
+    } catch (const std::exception& error) {
+        petsc_finalize_status = 1;
+        if (onError) onError(error.what());
+    }
+    if (petsc_finalize_status != 0) return 1;
     const int finalize_status = owns_mpi ? MPI_Finalize() : MPI_SUCCESS;
     if (finalize_status != MPI_SUCCESS) {
         if (onError) onError("MPI_Finalize failed");

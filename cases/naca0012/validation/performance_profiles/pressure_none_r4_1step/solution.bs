@@ -1,0 +1,35 @@
+# Standard PISO: one momentum predictor and four pressure correctors.
+maxIterations 1
+nCorrectors 4
+nonOrthogonalCorrections 3
+velocityRelaxation 0.3
+continuityTolerance 1.0e-8
+velocityTolerance 1.0e-6
+momentumTolerance 1.0e-5
+pressureCorrectionTolerance 1.0e-6
+turbulenceRelaxation 0.3
+turbulenceTolerance 1.0e-5
+
+equation.momentum.kspType bcgs
+equation.momentum.pcType bjacobi
+equation.momentum.absoluteTolerance 1.0e-12
+equation.momentum.relativeTolerance 1.0e-8
+equation.momentum.maxIterations 1000
+
+equation.pressureCorrection.kspType bcgs
+equation.pressureCorrection.pcType none
+equation.pressureCorrection.absoluteTolerance 1.0e-14
+equation.pressureCorrection.relativeTolerance 1.0e-7
+equation.pressureCorrection.maxIterations 2400
+
+equation.kTransport.kspType bcgs
+equation.kTransport.pcType bjacobi
+equation.kTransport.absoluteTolerance 1.0e-18
+equation.kTransport.relativeTolerance 1.0e-8
+equation.kTransport.maxIterations 1000
+
+equation.omegaTransport.kspType bcgs
+equation.omegaTransport.pcType bjacobi
+equation.omegaTransport.absoluteTolerance 1.0e-18
+equation.omegaTransport.relativeTolerance 1.0e-8
+equation.omegaTransport.maxIterations 1000

@@ -1,0 +1,50 @@
+PISO 1 mass=4.51687e-11 dU=0.218703 rU=9.82088e-05 dP=9.36973e-08 linU=1 linP=1.01536e-07 dTurb=0.999993 rTurb=0.954362 linear=inexact converged=true
+PISO 1 mass=1.11584e-10 dU=0.114762 rU=0.00471145 dP=1.55094e-06 linU=1 linP=6.62814e-08 dTurb=0.234751 rTurb=0.442899 linear=ok converged=true
+PISO 1 mass=1.45297e-11 dU=0.0517822 rU=0.000514888 dP=4.88192e-07 linU=1 linP=7.59752e-07 dTurb=0.253441 rTurb=0.559343 linear=ok converged=true
+PISO 1 mass=4.33873e-12 dU=0.0408947 rU=0.000149178 dP=3.53626e-07 linU=1 linP=1.50649e-06 dTurb=0.265896 rTurb=0.621996 linear=ok converged=true
+PISO 1 mass=6.3895e-13 dU=0.0365099 rU=9.17929e-05 dP=4.76602e-08 linU=1 linP=2.01483e-05 dTurb=0.257656 rTurb=0.64696 linear=ok converged=true
+PISO 1 mass=4.11767e-13 dU=0.0323101 rU=7.98777e-05 dP=3.71172e-08 linU=1 linP=1.42348e-05 dTurb=0.254241 rTurb=0.659274 linear=ok converged=true
+PISO 1 mass=1.33873e-13 dU=0.0297084 rU=7.12179e-05 dP=1.43327e-08 linU=1 linP=7.46333e-05 dTurb=0.238795 rTurb=0.647972 linear=ok converged=true
+PISO 1 mass=9.7852e-14 dU=0.0288395 rU=6.71427e-05 dP=2.42124e-08 linU=1 linP=2.47237e-05 dTurb=0.229501 rTurb=0.626027 linear=ok converged=true
+PISO 1 mass=1.68612e-13 dU=0.0254417 rU=6.4168e-05 dP=1.25901e-08 linU=1 linP=4.61822e-05 dTurb=0.209286 rTurb=0.582227 linear=ok converged=true
+PISO 1 mass=7.38736e-14 dU=0.0267849 rU=6.22132e-05 dP=6.89747e-09 linU=1 linP=0.000125651 dTurb=0.194862 rTurb=0.530012 linear=ok converged=true
+PISO 1 mass=5.23513e-14 dU=0.0255201 rU=6.2208e-05 dP=1.00875e-08 linU=1 linP=8.39823e-05 dTurb=0.173337 rTurb=0.464367 linear=ok converged=true
+PISO 1 mass=7.38007e-14 dU=0.0242213 rU=6.20271e-05 dP=7.11825e-08 linU=1 linP=1.8618e-05 dTurb=0.160519 rTurb=0.398045 linear=ok converged=true
+PISO 1 mass=2.38869e-14 dU=0.0269932 rU=6.38997e-05 dP=1.16724e-09 linU=1 linP=0.000543149 dTurb=0.13666 rTurb=0.331138 linear=ok converged=true
+PISO 1 mass=5.72994e-14 dU=0.0258166 rU=6.53555e-05 dP=6.35272e-09 linU=1 linP=8.36838e-05 dTurb=0.140273 rTurb=0.273981 linear=ok converged=true
+PISO 1 mass=2.84104e-14 dU=0.0265414 rU=6.8495e-05 dP=3.1897e-09 linU=1 linP=0.000178478 dTurb=0.114904 rTurb=0.224057 linear=ok converged=true
+PISO 1 mass=2.4169e-14 dU=0.0273454 rU=7.15155e-05 dP=2.18908e-09 linU=1 linP=0.000530975 dTurb=0.128929 rTurb=0.190043 linear=ok converged=true
+PISO 1 mass=1.75416e-14 dU=0.032695 rU=7.62944e-05 dP=7.77507e-10 linU=1 linP=0.000803564 dTurb=0.107523 rTurb=0.165314 linear=ok converged=true
+PISO 1 mass=2.50775e-14 dU=0.0341604 rU=8.05958e-05 dP=7.97574e-10 linU=1 linP=0.000519955 dTurb=0.127015 rTurb=0.156232 linear=ok converged=true
+PISO 1 mass=2.7923e-14 dU=0.0402233 rU=8.7495e-05 dP=1.93563e-09 linU=1 linP=0.000321737 dTurb=0.104562 rTurb=0.153563 linear=ok converged=true
+PISO 1 mass=2.96425e-14 dU=0.0393447 rU=9.16345e-05 dP=1.41436e-09 linU=1 linP=0.000334765 dTurb=0.121805 rTurb=0.16139 linear=ok converged=true
+PISO 1 mass=2.46741e-14 dU=0.0468687 rU=0.00010095 dP=1.41653e-09 linU=1 linP=0.000223447 dTurb=0.103238 rTurb=0.163663 linear=ok converged=true
+PISO 1 mass=1.51023e-14 dU=0.0443797 rU=0.000105031 dP=3.91677e-10 linU=1 linP=0.00104043 dTurb=0.117272 rTurb=0.184685 linear=ok converged=true
+PISO 1 mass=3.02938e-14 dU=0.0505584 rU=0.000117138 dP=1.33697e-09 linU=1 linP=0.000259953 dTurb=0.104958 rTurb=0.190217 linear=ok converged=true
+PISO 1 mass=2.91661e-14 dU=0.0496341 rU=0.000124125 dP=1.1993e-09 linU=1 linP=0.000258092 dTurb=0.114294 rTurb=0.228533 linear=ok converged=true
+PISO 1 mass=2.08288e-14 dU=0.054736 rU=0.000138351 dP=5.59917e-10 linU=1 linP=0.000452881 dTurb=0.127815 rTurb=0.263142 linear=ok converged=true
+PISO 1 mass=2.40996e-14 dU=0.0522002 rU=0.000147232 dP=7.6881e-10 linU=1 linP=0.000315639 dTurb=0.109382 rTurb=0.255408 linear=ok converged=true
+PISO 1 mass=2.59572e-14 dU=0.0560542 rU=0.000165926 dP=6.10464e-10 linU=1 linP=0.000453182 dTurb=0.10838 rTurb=0.269465 linear=ok converged=true
+PISO 1 mass=3.32392e-14 dU=0.0587997 rU=0.000181809 dP=9.2175e-10 linU=1 linP=0.000299086 dTurb=0.106882 rTurb=0.288998 linear=ok converged=true
+PISO 1 mass=1.53655e-14 dU=0.0642022 rU=0.000205278 dP=2.42755e-10 linU=1 linP=0.00092945 dTurb=0.107505 rTurb=0.36403 linear=ok converged=true
+PISO 1 mass=3.86908e-14 dU=0.0639753 rU=0.000222596 dP=9.90674e-10 linU=1 linP=0.000277422 dTurb=0.116912 rTurb=0.430066 linear=ok converged=true
+PISO 1 mass=1.98291e-14 dU=0.0748323 rU=0.000257142 dP=5.91499e-10 linU=1 linP=0.000240307 dTurb=0.133879 rTurb=0.397876 linear=ok converged=true
+PISO 1 mass=3.07097e-14 dU=0.0728663 rU=0.000277891 dP=4.78201e-10 linU=1 linP=0.000454022 dTurb=0.138926 rTurb=0.508157 linear=ok converged=true
+PISO 1 mass=3.79986e-14 dU=0.079051 rU=0.000317768 dP=4.37821e-10 linU=1 linP=0.000374301 dTurb=0.125232 rTurb=0.457535 linear=ok converged=true
+PISO 1 mass=3.32742e-14 dU=0.0854723 rU=0.000358878 dP=2.42995e-10 linU=1 linP=0.000316251 dTurb=0.165598 rTurb=0.557299 linear=ok converged=true
+PISO 1 mass=3.326e-14 dU=0.0861498 rU=0.000414071 dP=1.60864e-10 linU=1 linP=0.000540436 dTurb=0.234261 rTurb=0.554587 linear=ok converged=true
+PISO 1 mass=3.27944e-14 dU=0.105868 rU=0.000462398 dP=2.70879e-10 linU=1 linP=0.000210551 dTurb=0.252487 rTurb=0.649647 linear=ok converged=true
+PISO 1 mass=3.93873e-14 dU=0.122705 rU=0.00054555 dP=2.91002e-10 linU=1 linP=0.000274702 dTurb=0.151849 rTurb=0.538382 linear=ok converged=true
+PISO 1 mass=4.58051e-14 dU=0.119436 rU=0.000625607 dP=4.78576e-10 linU=1 linP=0.000210133 dTurb=0.264043 rTurb=0.660665 linear=ok converged=true
+PISO 1 mass=5.38346e-14 dU=0.133806 rU=0.000727173 dP=3.69415e-10 linU=1 linP=0.000160986 dTurb=0.252917 rTurb=0.64161 linear=ok converged=true
+PISO 1 mass=4.73789e-14 dU=0.160194 rU=0.000837853 dP=4.47029e-10 linU=1 linP=0.000140348 dTurb=0.369771 rTurb=0.695291 linear=ok converged=true
+PISO 1 mass=3.59751e-14 dU=0.154093 rU=0.000968402 dP=1.89933e-10 linU=1 linP=0.000199972 dTurb=0.175328 rTurb=0.457915 linear=ok converged=true
+PISO 1 mass=6.06204e-14 dU=0.168149 rU=0.00111529 dP=3.05308e-10 linU=1 linP=0.000107412 dTurb=0.488462 rTurb=0.729751 linear=ok converged=true
+PISO 1 mass=5.80516e-14 dU=0.18365 rU=0.00131783 dP=1.5965e-10 linU=1 linP=0.000171256 dTurb=0.242005 rTurb=0.500803 linear=ok converged=true
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node midway exited on signal 15 (Terminated).
+--------------------------------------------------------------------------

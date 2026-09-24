@@ -2,13 +2,14 @@ field omega
 {
     type scalar
     location cell
-    internal uniform (10)
+    internal uniform (1.5)
     boundary
     {
-        airfoil { type fixedValue value (1.0e4) }
-        inlet { type fixedValue value (10) }
+        # Wilcox smooth-wall asymptotic evaluated at first-cell centre: 6 nu / (beta * d1^2).
+        airfoil { type fixedValue value (3.555555555555556e5) }
+        inlet { type fixedValue value (1.5) }
         outlet { type zeroGradient }
-        farfield { type fixedValue value (10) }
+        farfield { type fixedValue value (1.5) }
         front { type symmetry }
         back { type symmetry }
     }

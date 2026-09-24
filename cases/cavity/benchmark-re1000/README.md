@@ -5,33 +5,33 @@
 扩散，流体参数为 `rho=1`、`mu=0.001`，因此以顶盖速度和腔体长度归一化的 Reynolds
 数为 1000。线性方案使用相同的 SIMPLE 松弛、物理外迭代上限和收敛判据。
 
-当前 `numerics/solution.bs` 使用 BiCGSTAB+AMG。若需比较 ILUT，只替换该文件最后两行，
-然后为每个进程数使用不同的 `-time` 标签：
+当前 `numerics/solution.bs` 使用 PETSc BiCGSTAB+GAMG。若比较块 Jacobi 和 GAMG，替换
+对应的 `pcType` 行，并为每个进程数使用不同的 `-time` 标签：
 
 ```text
-# 方案 A：ILUT 基线
-equation.momentum.solver bicgstab
-equation.momentum.preconditioner ilut
+# 方案 A：块 Jacobi
+equation.momentum.kspType bcgs
+equation.momentum.pcType bjacobi
 equation.momentum.absoluteTolerance 1e-12
 equation.momentum.relativeTolerance 1e-7
 equation.momentum.maxIterations 1000
-equation.pressureCorrection.solver bicgstab
-equation.pressureCorrection.preconditioner ilut
+equation.pressureCorrection.kspType bcgs
+equation.pressureCorrection.pcType bjacobi
 equation.pressureCorrection.absoluteTolerance 1e-12
 equation.pressureCorrection.relativeTolerance 1e-7
 equation.pressureCorrection.maxIterations 1000
 
-# 方案 B：Krylov + AMG 预条件器
-equation.momentum.solver bicgstab
-equation.momentum.preconditioner amg
+# 方案 B：Krylov + PETSc GAMG 预条件器
+equation.momentum.kspType bcgs
+equation.momentum.pcType gamg
 equation.momentum.absoluteTolerance 1e-12
 equation.momentum.relativeTolerance 1e-7
 equation.momentum.maxIterations 1000
 equation.momentum.amgMaxLevels 12
 equation.momentum.amgCoarseSize 48
 equation.momentum.amgSmoothingSteps 2
-equation.pressureCorrection.solver cg
-equation.pressureCorrection.preconditioner amg
+equation.pressureCorrection.kspType cg
+equation.pressureCorrection.pcType gamg
 equation.pressureCorrection.absoluteTolerance 1e-12
 equation.pressureCorrection.relativeTolerance 1e-7
 equation.pressureCorrection.maxIterations 1000

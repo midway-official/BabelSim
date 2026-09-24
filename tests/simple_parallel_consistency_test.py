@@ -73,7 +73,7 @@ def prepare(base, name, mode, ghost=3):
             f'equation.pressureCorrection.gradient {gradient}\n'
             f'equation.pressureCorrection.convection {convection}\n'
             f'equation.pressureCorrection.diffusion {diffusion}\n')
-        (target/'numerics/solution.bs').write_text('maxIterations 8000\nnonOrthogonalCorrections 2\nvelocityRelaxation 0.5\npressureRelaxation 0.3\ncontinuityTolerance 1e-9\nvelocityTolerance 1e-8\npressureCorrectionTolerance 1e-8\nmomentumTolerance 1e-8\nequation.momentum.solver bicgstab\nequation.momentum.preconditioner ilut\nequation.momentum.absoluteTolerance 1e-15\nequation.momentum.relativeTolerance 1e-11\nequation.momentum.maxIterations 2000\nequation.pressureCorrection.solver cg\nequation.pressureCorrection.preconditioner incompleteCholesky\nequation.pressureCorrection.absoluteTolerance 1e-15\nequation.pressureCorrection.relativeTolerance 1e-11\nequation.pressureCorrection.maxIterations 2000\n')
+        (target/'numerics/solution.bs').write_text('maxIterations 8000\nnonOrthogonalCorrections 2\nvelocityRelaxation 0.5\npressureRelaxation 0.3\ncontinuityTolerance 1e-9\nvelocityTolerance 1e-8\npressureCorrectionTolerance 1e-8\nmomentumTolerance 1e-8\nequation.momentum.kspType bcgs\nequation.momentum.pcType bjacobi\nequation.momentum.absoluteTolerance 1e-15\nequation.momentum.relativeTolerance 1e-10\nequation.momentum.maxIterations 2000\nequation.pressureCorrection.kspType cg\nequation.pressureCorrection.pcType hypre\nequation.pressureCorrection.absoluteTolerance 1e-15\nequation.pressureCorrection.relativeTolerance 1e-10\nequation.pressureCorrection.maxIterations 2000\n')
     if mode!='steady':
         methods=target/'numerics/methods.bs'
         methods.write_text(methods.read_text().replace('time steady','time '+mode))
@@ -83,8 +83,8 @@ def prepare(base, name, mode, ghost=3):
         s=solution.read_text()
         for key,value in [('maxIterations','8000'),('velocityTolerance','1e-8'),('pressureCorrectionTolerance','1e-8'),('momentumTolerance','1e-8')]:
             s=re.sub(r'^'+key+r' .+$',key+' '+value,s,flags=re.M) if re.search(r'^'+key+r' ',s,re.M) else s+'\n'+key+' '+value+'\n'
-        for equation, solver, preconditioner in [('momentum','bicgstab','ilut'), ('pressureCorrection','cg','incompleteCholesky')]:
-            for key, value in [('solver',solver),('preconditioner',preconditioner),('absoluteTolerance','1e-15'),('relativeTolerance','1e-11'),('maxIterations','2000')]:
+        for equation, ksp_type, pc_type in [('momentum','bcgs','bjacobi'), ('pressureCorrection','cg','hypre')]:
+            for key, value in [('kspType',ksp_type),('pcType',pc_type),('absoluteTolerance','1e-15'),('relativeTolerance','1e-10'),('maxIterations','2000')]:
                 s=re.sub(r'^equation\.'+equation+r'\.'+key+r' .+$', 'equation.'+equation+'.'+key+' '+value, s, flags=re.M)
         solution.write_text(s)
     (target/'output.bs').write_text('directory results\ntimeName final\nwriteInterval 1\n')
@@ -150,13 +150,17 @@ def compare(reference,candidate,atol,rtol):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path)
+    parser.add_argument('--solver',type=Path,default=Path('build-petsc/babelsim-solve'))
     parser.add_argument('--cases',nargs='+',default=['cavity','channel','cube','warped','warped4'])
     parser.add_argument('--modes',nargs='+',default=['steady','euler','bdf2'])
     args=parser.parse_args()
+    solver=args.solver if args.solver.is_absolute() else ROOT/args.solver
+    solver=solver.resolve()
+    if not solver.is_file(): raise FileNotFoundError(f'BabelSim solver not found: {solver}')
     base=args.output or Path(tempfile.mkdtemp(prefix='babelsim-simple-mpi-'))
     base.mkdir(parents=True,exist_ok=True)
     summary={'directory':str(base),'baseline':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
-             'binary_sha256':hashlib.sha256((ROOT/'build/babelsim-solve').read_bytes()).hexdigest(),
+             'binary_sha256':hashlib.sha256(solver.read_bytes()).hexdigest(),
              'atol':5e-6,'rtol':5e-6,'runs':[],'comparisons':[],'passed':False}
     print('Evidence:',base,flush=True)
     for name in args.cases:
@@ -165,7 +169,7 @@ def main():
             reference={}
             for ranks in (1,2,4):
                 label=f'np{ranks}'
-                command=['mpirun','-np',str(ranks),str(ROOT/'build/babelsim-solve'),'-case',str(case),'-time',label]
+                command=['mpirun','-np',str(ranks),str(solver),'-case',str(case),'-time',label]
                 begin=time.monotonic()
                 result=subprocess.run(command,cwd=ROOT,env=dict(os.environ,TMPDIR='/tmp'),text=True,
                                       stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=600)

@@ -1,0 +1,11 @@
+{
+  "ranks": 4,
+  "steps_completed": 1,
+  "steps_requested": 5,
+  "dt": 0.005,
+  "returncode": 2,
+  "wall_seconds": 27.69,
+  "case": "/tmp/naca0012-performance-profile/case-r4-no-preconditioner",
+  "performance_directory": "/tmp/naca0012-performance-profile/perf-r4-no-preconditioner",
+  "log": "/tmp/naca0012-performance-profile/run-r4-no-preconditioner.log"
+}
