@@ -1,0 +1,19 @@
+{
+  "animation": "validation/planar_jet_vorticity.gif",
+  "frames": 60,
+  "fps": 6,
+  "duration_seconds": 10.0,
+  "time_range_D_over_Uj": [
+    1.0,
+    60.0
+  ],
+  "fixed_symmetric_vorticity_range_D_over_Uj": [
+    -3.165661334991455,
+    3.165661334991455
+  ],
+  "dimensions_pixels": [
+    1200,
+    580
+  ],
+  "file_size_bytes": 8405929
+}

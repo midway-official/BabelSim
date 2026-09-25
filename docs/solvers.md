@@ -16,7 +16,7 @@
 | `transport`          | 标量对流-扩散（速度给定） | 回归通过 + 短跑稳定      | 单胞解析值、1/2/4 rank 逐时刻一致              | `make test-workflow`、`make test-mpi`              |
 | `simple`             | 稳态不可压层流       | 物理验证（基准数据 + 解析解） | Ghia Re=100/400/1000、Poiseuille 抛物线 | `make validate-cavity`、`make validate-poiseuille` |
 | `transientSimple`    | 瞬态不可压（含 RANS） | 短跑稳定             | 1/2/4 rank 的 Euler/BDF2 逐步一致        | `make test-simple-parallel`、`make test-mpi`       |
-| `piso`               | 瞬态不可压（算子分裂）   | 源码存在 + 结构门禁      | 仓库内**没有**定量验证用例                     | `make test-architecture`、第 6 节最小算例             |
+| `piso`               | 瞬态不可压（算子分裂）   | 短跑稳定（单算例 6000 步） | Re=1000 层流平面射流，100,000 正交六面体；质量误差 ≤ `1.48e-14` | [`cases/planar_jet`](../cases/planar_jet/README.md)、`make test-architecture` |
 | RANS（k-ω / k-ε / SA） | 湍流黏性输运        | 回归通过（方程核对 + 收敛阶） | TMR/OpenFOAM 逐项核对、Euler≈2/BDF2≈4    | `make test-rans`                                  |
 
 RANS 是模块而不是注册名：由 `simple` / `transientSimple` / `piso` 按 `physics` 字典里的
@@ -89,6 +89,14 @@ cp -r cases/heat /tmp/my-heat
 # 编辑 /tmp/my-heat 下的 case.bs、control.bs、physics/*.bs …
 build-petsc/babelsim-solve -case /tmp/my-heat
 ```
+
+初始内部场默认可写 `internal uniform (...)`。也可用 `internal file <路径>` 读取按全局单元编号排列的场值：普通文本每行是 `globalCellId` 后接该单元的标量、三个速度分量或九个张量分量。还可直接给求解器的结果 CSV 文件，或给某个结果时间目录（自动合并其中的 `rank-*/<场名>.csv` 分片）：
+
+```text
+internal file ../../results/run/5.0
+```
+
+路径相对当前 `.field` 文件；文件中每个全局单元必须恰好出现一次，因此同一网格可从不同 MPI rank 数的结果场重启。将 `control.bs` 的 `startTime` 设为该快照时间，并给 `output.bs` 设一个新的 `timeName`，避免与先前结果混写。该功能恢复场值，不保存时间离散历史；BDF2 重启后的第一步自动用 Euler 启动，下一步起恢复 BDF2。
 
 三条硬约束（启动时校验，违反直接报错，不静默回退）：
 
@@ -402,19 +410,25 @@ cp -r cases/naca0012 /tmp/naca-short
 mpirun -np 4 build-petsc/babelsim-solve -case /tmp/naca-short -time smoke
 ```
 
-`piso` **没有内置算例**；最轻量的做法是把 `cases/cavity`（64² 层流）复制成瞬态版本，
-改四处（本手册在仓库当前源码上按此跑通，串行与 4 rank 都通过）：
+PISO 的层流示例是 [`cases/planar_jet`](../cases/planar_jet/README.md)：二维平面射流，展向只有一层六面体，
+前后面使用对称边界；没有启用 RANS/LES 湍流模型。喷口宽度 `D=1`、出口方向域长 `20D`，
+网格为 `500×200×1=100000` 个正交六面体，`Re_D=1000`。算例采用 `deltaT=0.01 D/Uj`、
+`endTime=60 D/Uj`、BDF2（首步由求解器以 Euler 启动）、动量对流 `linearUpwind`、每步三次压力修正，
+并每 100 步保存一次 `U` 与 `p`。在仓库根目录运行：
 
 ```bash
-cp -r cases/cavity /tmp/piso-cavity && rm -rf /tmp/piso-cavity/results
-# 编辑 /tmp/piso-cavity：
-#   case.bs              solver simple → solver piso
-#   numerics/methods.bs  time steady → time euler
-#   numerics/solution.bs 删掉 pressureRelaxation；可选 maxIterations 改成 1（标准 PISO 单遍）
-#   control.bs           改成 startTime 0 / endTime 0.005 / deltaT 0.001
-build-petsc/babelsim-solve -case /tmp/piso-cavity
-mpirun -np 4 build-petsc/babelsim-solve -case /tmp/piso-cavity -time mpi4
+python3 cases/planar_jet/generate_mesh.py
+mpirun -np 2 build-petsc/babelsim-solve -case cases/planar_jet
+python3 cases/planar_jet/plot_flow.py
+python3 cases/planar_jet/make_vorticity_gif.py
 ```
+
+生成器会重建网格、几何质量报告和初始速度场；网格与算例参数、运行记录、后处理脚本及图像均保存在该目录。
+已记录的运行从 `t=0` 到 `t=60` 共 6000 步，2 个 MPI rank 正常退出；6000 条 PISO 记录均为 `linear=ok`
+且求解器报告 `converged=true`，最大相对质量误差为 `1.47991e-14`（容差 `1e-8`），写出了 60 个时刻的结果。
+`converged=true` 对 `maxIterations=1` 的 PISO 时间步主要表示守恒判据通过，不是物理精度判据。可查看
+[运行摘要](../cases/planar_jet/validation/run_summary.json)、[网格报告](../cases/planar_jet/mesh/mesh_quality.json)
+和[涡量 GIF](../cases/planar_jet/validation/planar_jet_vorticity.gif)。
 
 同样改法对 `transientSimple` 也适用（它保留 `solution.bs` 的 `pressureRelaxation`）。
 `transientSimple` 在步内迭代收敛时报
@@ -435,11 +449,13 @@ mpirun -np 4 build-petsc/babelsim-solve -case /tmp/piso-cavity -time mpi4
   （阈值 `5e-6 + 5e-6·max|·|`），并复核每个时间步都收敛；`make test-mpi` 与
   `make test-simple-parallel` 可在当前源码上复跑。`cases/naca0012` 是可运行示例，
   **没有**对应的定量验证报告。
-- `piso`：**只有结构门禁**。`make test-architecture` 保证它是一个自包含模块
-  （`equ::solve` + 显式循环，不含 `coupling::`/`solveIncompressible` 之类共享封装），
-  但仓库内没有 PISO 的回归用例或基准对比。要用它出结论，请按
-  [validation.md](validation.md) 第 5 节为新算例补验证：守恒判据、解析解或基准数据、
-  串并行一致性和失败路径。
+- `piso`：**单算例长时程数值运行完成；按本手册五级词汇最高仍记为“短跑稳定”**。
+  [`cases/planar_jet`](../cases/planar_jet/README.md) 的 100,000 单元算例完成 6000 步，质量判据通过，
+  但尚无针对射流基准的定量比较、网格/时间步收敛研究或专门的 PISO 回归用例。探针后处理显示波动在
+  本次运行后段减小；每 1 个 `D/Uj` 保存一次不足以确认持续周期性涡脱落。因此这组结果说明该配置完成了
+  数值推进，不构成物理验证，也不能据此断言存在稳定涡街。结构独立性仍由 `make test-architecture`
+  覆盖；若要形成物理结论，还需按 [validation.md](validation.md) 第 5 节补充基准比较、网格与时间步研究、
+  更密的探针采样和失败路径验证。
 
 ## 7. RANS 湍流模块
 

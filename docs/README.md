@@ -70,7 +70,7 @@ build-petsc/babelsim-post -case cases/heat -time all -format vtk   # 后处理�
 | `transport` | Equation-driven | 标量对流-扩散 |
 | `simple` | Algorithm-driven | 稳态不可压 SIMPLE（`cases/cavity`、`cases/poiseuille`） |
 | `transientSimple` | Algorithm-driven | 瞬态 SIMPLE（`cases/naca0012`，配合 k-ω RANS） |
-| `piso` | Algorithm-driven | 瞬态 PISO |
+| `piso` | Algorithm-driven | 瞬态 PISO（层流二维平面射流：[`cases/planar_jet`](../cases/planar_jet/README.md)） |
 
 每个求解器的控制方程、全部配置键（含默认值）、场与边界要求、收敛与失败语义，以及验证到
 什么程度、证据在哪，见 [内置求解器手册](solvers.md)。RANS 不做成独立求解器：由动量方程

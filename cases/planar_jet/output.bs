@@ -1,0 +1,4 @@
+directory results
+timeName piso_bdf2_laminar_re1000
+writeInterval 100
+writeFields U p

@@ -1,12 +1,16 @@
 #include "internal/mesh_access.h"
+#include "internal/field_access.h"
 #include "babelsim/field_io.h"
 
 #include "babelsim/config.h"
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace babelsim {
@@ -108,6 +112,142 @@ Tensor3 readValue<Tensor3>(Reader& input) {
 }
 
 template <typename T>
+bool readDataValue(std::istringstream& row, T& value);
+
+template <>
+bool readDataValue<double>(std::istringstream& row, double& value) {
+    return static_cast<bool>(row >> value);
+}
+
+template <>
+bool readDataValue<Vec3>(std::istringstream& row, Vec3& value) {
+    return static_cast<bool>(row >> value.x >> value.y >> value.z);
+}
+
+template <>
+bool readDataValue<Tensor3>(std::istringstream& row, Tensor3& value) {
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            if (!(row >> value[i][j])) return false;
+    return true;
+}
+
+template <typename T>
+constexpr int componentCount() {
+    if constexpr (std::is_same_v<T, Vec3>) return 3;
+    if constexpr (std::is_same_v<T, Tensor3>) return 9;
+    return 1;
+}
+
+template <typename T>
+void readNonuniformCellValues(const std::filesystem::path& data_path, Field<T>& field) {
+    const Index global_cells = field.mesh().globalCellCount();
+    if (global_cells <= 0) {
+        throw std::runtime_error("nonuniform field requires a partitioned mesh with global cell IDs");
+    }
+    if (!std::filesystem::exists(data_path))
+        throw std::runtime_error("cannot open nonuniform field data: " + data_path.string());
+    std::vector<T> values(static_cast<std::size_t>(global_cells));
+    std::vector<bool> seen(static_cast<std::size_t>(global_cells), false);
+    const auto store = [&](Index global_id, const T& value,
+                           const std::filesystem::path& source, std::size_t line_number) {
+        if (global_id < 0 || global_id >= global_cells) {
+            throw std::runtime_error("invalid global cell ID in " + source.string() + ":" +
+                                     std::to_string(line_number));
+        }
+        const std::size_t index = static_cast<std::size_t>(global_id);
+        if (seen[index]) {
+            throw std::runtime_error("duplicate global cell ID in " + source.string() + ":" +
+                                     std::to_string(line_number));
+        }
+        values[index] = value;
+        seen[index] = true;
+    };
+    const auto read_csv = [&](const std::filesystem::path& csv_path) {
+        std::ifstream csv(csv_path);
+        if (!csv) throw std::runtime_error("cannot open restart field CSV: " + csv_path.string());
+        std::string line;
+        if (!std::getline(csv, line))
+            throw std::runtime_error("restart field CSV is empty: " + csv_path.string());
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::ostringstream expected_header;
+        expected_header << "global_id,x,y,z";
+        for (int component = 0; component < componentCount<T>(); ++component)
+            expected_header << ",value" << component;
+        if (line != expected_header.str())
+            throw std::runtime_error("unexpected restart field CSV header in " + csv_path.string());
+        std::size_t line_number = 1;
+        while (std::getline(csv, line)) {
+            ++line_number;
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            std::replace(line.begin(), line.end(), ',', ' ');
+            std::istringstream row(line);
+            Index global_id = invalid_index;
+            double x = 0.0, y = 0.0, z = 0.0;
+            T value{};
+            if (!(row >> global_id >> x >> y >> z) || !readDataValue(row, value))
+                throw std::runtime_error("invalid restart field row in " + csv_path.string() + ":" +
+                                         std::to_string(line_number));
+            std::string trailing;
+            if (row >> trailing)
+                throw std::runtime_error("unexpected data after restart field value in " + csv_path.string() + ":" +
+                                         std::to_string(line_number));
+            store(global_id, value, csv_path, line_number);
+        }
+    };
+
+    if (std::filesystem::is_directory(data_path)) {
+        std::vector<std::filesystem::path> rank_files;
+        const std::string filename = field.name() + ".csv";
+        for (const auto& entry : std::filesystem::directory_iterator(data_path)) {
+            if (!entry.is_directory() || entry.path().filename().string().rfind("rank-", 0) != 0) continue;
+            const auto candidate = entry.path() / filename;
+            if (std::filesystem::is_regular_file(candidate)) rank_files.push_back(candidate);
+        }
+        std::sort(rank_files.begin(), rank_files.end());
+        if (rank_files.empty())
+            throw std::runtime_error("no rank-sharded restart CSVs for field " + field.name() +
+                                     " under " + data_path.string());
+        for (const auto& csv_path : rank_files) read_csv(csv_path);
+    } else if (data_path.extension() == ".csv") {
+        read_csv(data_path);
+    } else {
+        std::ifstream data(data_path);
+        if (!data) throw std::runtime_error("cannot open nonuniform field data: " + data_path.string());
+        std::string text;
+        std::size_t line_number = 0;
+        while (std::getline(data, text)) {
+            ++line_number;
+            const std::size_t comment = text.find('#');
+            if (comment != std::string::npos) text.resize(comment);
+            std::istringstream row(text);
+            Index global_id = invalid_index;
+            if (!(row >> global_id)) continue;
+            T value{};
+            if (!readDataValue(row, value)) {
+                throw std::runtime_error("invalid field value in " + data_path.string() + ":" +
+                                         std::to_string(line_number));
+            }
+            std::string trailing;
+            if (row >> trailing) {
+                throw std::runtime_error("unexpected data after field value in " + data_path.string() + ":" +
+                                         std::to_string(line_number));
+            }
+            store(global_id, value, data_path, line_number);
+        }
+    }
+    if (std::find(seen.begin(), seen.end(), false) != seen.end()) {
+        throw std::runtime_error("nonuniform field data is missing global cells: " + data_path.string());
+    }
+    auto* local = detail::fieldData(field);
+    for (Index cell = 0; cell < field.mesh().cellCount(); ++cell) {
+        const Index global_id = detail::globalCellId(field.mesh(), cell);
+        local[static_cast<std::size_t>(cell)] = values[static_cast<std::size_t>(global_id)];
+    }
+}
+
+template <typename T>
 void read(const std::filesystem::path& path, Field<T>& field, const char* type_name) {
     if (field.location() != FieldLocation::Cell) {
         throw std::invalid_argument("field files currently initialize cell fields only");
@@ -129,10 +269,16 @@ void read(const std::filesystem::path& path, Field<T>& field, const char* type_n
             if (location || input.take().text != "cell") input.fail(entry, "field location must be cell");
             location = true;
         } else if (entry.text == "internal") {
-            if (internal || input.take().text != "uniform") {
-                input.fail(entry, "internal value must be uniform");
+            if (internal) input.fail(entry, "internal value may only be configured once");
+            const ConfigToken& mode = input.take();
+            if (mode.text == "uniform") {
+                field.fill(readValue<T>(input));
+            } else if (mode.text == "file") {
+                const ConfigToken& file = input.take();
+                readNonuniformCellValues(path.parent_path() / file.text, field);
+            } else {
+                input.fail(mode, "internal value must be uniform or file-backed");
             }
-            field.fill(readValue<T>(input));
             internal = true;
         } else if (entry.text == "boundary") {
             input.take("{");

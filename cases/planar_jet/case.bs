@@ -1,0 +1,9 @@
+solver piso
+mesh mesh/planar_jet.mesh
+fields fields/initial
+physics physics/laminar.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
+output output.bs
+ghostLayers 3
