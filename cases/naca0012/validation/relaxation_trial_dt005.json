@@ -1,0 +1,347 @@
+{
+  "case": "NACA0012 transient PISO Wilcox1988m kOmega",
+  "purpose": "isolated 10-step stability trial before requested 100-step run",
+  "deltaT": 0.005,
+  "steps": 10,
+  "ranks": 4,
+  "k_omega_convection": "upwind",
+  "velocityRelaxation": 0.7,
+  "turbulenceRelaxation": 0.3,
+  "isolated_case": "/tmp/naca0012-relax-u07-t03",
+  "exit_code": 0,
+  "snapshots": {
+    "0.005": {
+      "U": {
+        "min": 0.022480401286291654,
+        "max": 4.2386016140775915,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -55.820573858590606,
+        "max": 65.81431821429808,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4997024158452336e-06,
+        "max": 0.41336602336903294,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.4997519857968014,
+        "max": 284160.5018298954,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 6.921437503622292e-09,
+        "max": 1.7787990278546151e-06,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.01": {
+      "U": {
+        "min": 0.023831315974822326,
+        "max": 2.2690448345195016,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -25.1304468522323,
+        "max": 16.929532905641302,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4994049762474234e-06,
+        "max": 0.32733984797715876,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.49950408388054,
+        "max": 217395.7516503447,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 7.943250212746746e-09,
+        "max": 3.016523504366793e-06,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.015": {
+      "U": {
+        "min": 0.0241890618514799,
+        "max": 1.883315383965355,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -16.721633618033767,
+        "max": 19.367897303830134,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4991077000387909e-06,
+        "max": 0.28371827901976343,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.499256309965364,
+        "max": 181634.90620096584,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 7.633803170259308e-09,
+        "max": 5.036467842840738e-06,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.02": {
+      "U": {
+        "min": 0.004794996235663934,
+        "max": 2.0344853637548517,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -17.427967995602135,
+        "max": 13.733941424474706,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.498810605795877e-06,
+        "max": 0.2331762389991571,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.4990086795451791,
+        "max": 156158.57428264205,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 8.305410682047614e-09,
+        "max": 7.777471949656408e-06,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.025": {
+      "U": {
+        "min": 0.00809543864479418,
+        "max": 1.9294987045522694,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -12.784932799952575,
+        "max": 13.303161596454176,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4985137117303571e-06,
+        "max": 0.19158118604101643,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.498761207822067,
+        "max": 137515.8292997624,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 7.713548364386465e-09,
+        "max": 9.115089745979938e-06,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.03": {
+      "U": {
+        "min": 0.03028640484373635,
+        "max": 2.4332105844711296,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -13.505937877413324,
+        "max": 11.610046582020894,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.498217035742299e-06,
+        "max": 0.15333497449965508,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.4985139097304145,
+        "max": 127586.71294114352,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 7.097182827794608e-09,
+        "max": 1.0810969420030771e-05,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.035": {
+      "U": {
+        "min": 0.00872213545231186,
+        "max": 1.9334961283713576,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -11.593786833465877,
+        "max": 11.582562793052519,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4979205954127765e-06,
+        "max": 0.12446537696424739,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.498266799938779,
+        "max": 126640.1594347223,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 7.886281372538503e-09,
+        "max": 1.1345169911392175e-05,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.04": {
+      "U": {
+        "min": 0.010675048465376154,
+        "max": 1.8843514540519646,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -12.981042971997095,
+        "max": 9.898854190136017,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4976244080083146e-06,
+        "max": 0.1131212784584168,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.498019892858453,
+        "max": 125299.49589178739,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 8.546695088288025e-09,
+        "max": 1.27008217045294e-05,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.045": {
+      "U": {
+        "min": 0.0030152090615486065,
+        "max": 1.901430352423065,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -9.910252853910853,
+        "max": 13.132628310074821,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4973283077681857e-06,
+        "max": 0.10439030696386084,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.4977730496746942,
+        "max": 122959.27716811669,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 9.000911261556482e-09,
+        "max": 1.4853400072968862e-05,
+        "finite": true,
+        "cells": 127013
+      }
+    },
+    "0.05": {
+      "U": {
+        "min": 0.008962417184542305,
+        "max": 2.519506442550416,
+        "finite": true,
+        "cells": 127013
+      },
+      "p": {
+        "min": -15.628520475682938,
+        "max": 8.193410049605795,
+        "finite": true,
+        "cells": 127013
+      },
+      "k": {
+        "min": 1.4970320040484213e-06,
+        "max": 0.09559998820704729,
+        "finite": true,
+        "cells": 127013
+      },
+      "omega": {
+        "min": 1.4975260292941464,
+        "max": 127446.29787422132,
+        "finite": true,
+        "cells": 127013
+      },
+      "mut": {
+        "min": 9.710803321364722e-09,
+        "max": 1.5382193178760172e-05,
+        "finite": true,
+        "cells": 127013
+      }
+    }
+  },
+  "log_records": [
+    "PISO 1 mass=4.51687e-11 dU=0.218703 rU=9.82088e-05 dP=9.36973e-08 linU=1 linP=1.01536e-07 dTurb=0.999993 rTurb=0.954362 linear=inexact converged=true",
+    "PISO 1 mass=1.11584e-10 dU=0.114762 rU=0.00471145 dP=1.55094e-06 linU=1 linP=6.62814e-08 dTurb=0.234751 rTurb=0.442899 linear=ok converged=true",
+    "PISO 1 mass=1.45297e-11 dU=0.0517822 rU=0.000514888 dP=4.88192e-07 linU=1 linP=7.59752e-07 dTurb=0.253441 rTurb=0.559343 linear=ok converged=true",
+    "PISO 1 mass=4.33873e-12 dU=0.0408947 rU=0.000149178 dP=3.53626e-07 linU=1 linP=1.50649e-06 dTurb=0.265896 rTurb=0.621996 linear=ok converged=true",
+    "PISO 1 mass=6.3895e-13 dU=0.0365099 rU=9.17929e-05 dP=4.76602e-08 linU=1 linP=2.01483e-05 dTurb=0.257656 rTurb=0.64696 linear=ok converged=true",
+    "PISO 1 mass=4.11767e-13 dU=0.0323101 rU=7.98777e-05 dP=3.71172e-08 linU=1 linP=1.42348e-05 dTurb=0.254241 rTurb=0.659274 linear=ok converged=true",
+    "PISO 1 mass=1.33873e-13 dU=0.0297084 rU=7.12179e-05 dP=1.43327e-08 linU=1 linP=7.46333e-05 dTurb=0.238795 rTurb=0.647972 linear=ok converged=true",
+    "PISO 1 mass=9.7852e-14 dU=0.0288395 rU=6.71427e-05 dP=2.42124e-08 linU=1 linP=2.47237e-05 dTurb=0.229501 rTurb=0.626027 linear=ok converged=true",
+    "PISO 1 mass=1.68612e-13 dU=0.0254417 rU=6.4168e-05 dP=1.25901e-08 linU=1 linP=4.61822e-05 dTurb=0.209286 rTurb=0.582227 linear=ok converged=true",
+    "PISO 1 mass=7.38736e-14 dU=0.0267849 rU=6.22132e-05 dP=6.89747e-09 linU=1 linP=0.000125651 dTurb=0.194862 rTurb=0.530012 linear=ok converged=true"
+  ],
+  "interpretation": "All 10 steps completed. Saved fields remained finite and bounded in this short startup test; this does not establish 100-step stability or physical validation."
+}

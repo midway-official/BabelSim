@@ -1,4 +1,4 @@
-solver transientSimple
+solver piso
 mesh mesh/naca0012.mesh
 fields fields/initial
 physics physics/kOmega.bs

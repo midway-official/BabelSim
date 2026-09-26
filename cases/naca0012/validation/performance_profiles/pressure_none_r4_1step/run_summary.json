@@ -1,0 +1,10 @@
+{
+  "ranks": 4,
+  "steps": 1,
+  "deltaT": 0.005,
+  "returncode": 2,
+  "wall_seconds": 27.796356958002434,
+  "case": "/tmp/naca0012-performance-profile/pressure_none_r4_1step",
+  "performance_directory": "/tmp/naca0012-performance-profile/perf-pressure_none_r4_1step",
+  "log": "/tmp/naca0012-performance-profile/pressure_none_r4_1step.log"
+}

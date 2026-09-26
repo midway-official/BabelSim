@@ -147,6 +147,8 @@ inline ScalarField normalGradient(const ScalarField& f, const VectorField& gradi
 }
 // Oriented, area-integrated face flux: vector value dot Sf. A cell vector is
 // interpolated first; an already face-centred vector is used directly.
+// inletOutlet uses the input's saved flux context (owner velocity on first use).
+// The resulting flux becomes the input's next boundary context.
 inline ScalarField flux(const VectorField& f, const OperatorOptions& options = {}) { return computed<double>(f.mesh(),FieldLocation::Face,"flux",FaceFlux{f,options}); }
 // Positive mathematical diffusive flux k*grad(f).Sf, NOT -k*grad(f).Sf.
 // k may be cell- or face-centred. f must be cell-centred. The optional cell

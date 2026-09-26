@@ -66,7 +66,7 @@ RecordingBackend* recording = nullptr;
 
 }  // 匿名命名空间
 
-// 计算后端只有一个替换点：实现 makeComputeBackend() 即可整体换掉默认的 Eigen/MPI
+// 计算后端只有一个替换点：实现 makeComputeBackend() 即可整体换掉默认的 PETSc
 // 装配与求解实现。本测试安装记录型后端，验证 equ:: 与 math:: 只通过 ComputeBackend
 // 契约访问后端，而不依赖任何具体矩阵或通信实现。
 namespace babelsim::detail {

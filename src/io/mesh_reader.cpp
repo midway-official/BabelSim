@@ -47,8 +47,8 @@ Mesh readMeshFile(const std::filesystem::path& path) {
 
     const std::string magic = read<std::string>(input, path, "file header");
     const int version = read<int>(input, path, "format version");
-    if (magic != "BABELSIM_MESH" || version != 2) {
-        invalidFile(path, "only BABELSIM_MESH version 2 is supported");
+    if (magic != "BABELSIM_MESH" || version != 3) {
+        invalidFile(path, "only BABELSIM_MESH version 3 is supported");
     }
     if (read<std::string>(input, path, "vertices keyword") != "vertices") {
         invalidFile(path, "expected vertices");
@@ -61,13 +61,26 @@ Mesh readMeshFile(const std::filesystem::path& path) {
         if (!isFinite(vertex)) invalidFile(path, "vertex must be finite");
     }
 
-    if (read<std::string>(input, path, "cells keyword") != "cells") {
-        invalidFile(path, "expected cells");
+    if (read<std::string>(input, path, "faces keyword") != "faces") {
+        invalidFile(path, "expected faces");
     }
-    const Index cell_count = count(input, path, "cell count");
-    std::vector<std::array<Index, 8>> cells(static_cast<std::size_t>(cell_count));
-    for (auto& cell : cells) {
-        for (Index& vertex : cell) vertex = read<Index>(input, path, "cell vertex index");
+    const Index face_count = count(input, path, "face count");
+    std::vector<PolyhedralFaceSpec> faces;
+    faces.reserve(static_cast<std::size_t>(face_count));
+    for (Index face = 0; face < face_count; ++face) {
+        if (read<std::string>(input, path, "face keyword") != "face") {
+            invalidFile(path, "expected face");
+        }
+        const Index vertex_count_face = count(input, path, "face vertex count");
+        PolyhedralFaceSpec specification;
+        specification.owner = read<Index>(input, path, "face owner");
+        specification.neighbour = read<Index>(input, path, "face neighbour");
+        specification.patch = read<Index>(input, path, "face patch");
+        specification.vertices.resize(static_cast<std::size_t>(vertex_count_face));
+        for (Index& vertex : specification.vertices) {
+            vertex = read<Index>(input, path, "face vertex index");
+        }
+        faces.push_back(std::move(specification));
     }
 
     if (read<std::string>(input, path, "patches keyword") != "patches") {
@@ -75,7 +88,6 @@ Mesh readMeshFile(const std::filesystem::path& path) {
     }
     const Index patch_count = count(input, path, "patch count");
     std::vector<PatchSpec> patches;
-    std::vector<BoundaryFaceSpec> boundary_faces;
     patches.reserve(static_cast<std::size_t>(patch_count));
     for (Index patch = 0; patch < patch_count; ++patch) {
         if (read<std::string>(input, path, "patch keyword") != "patch") {
@@ -83,17 +95,8 @@ Mesh readMeshFile(const std::filesystem::path& path) {
         }
         const std::string name = read<std::string>(input, path, "patch name");
         const PatchKind kind = patchKind(read<std::string>(input, path, "patch kind"), path);
-        const Index face_count = count(input, path, "patch face count");
         if (name.empty()) invalidFile(path, "patch name must not be empty");
         patches.push_back({name, kind});
-        for (Index face = 0; face < face_count; ++face) {
-            BoundaryFaceSpec boundary;
-            boundary.patch = patch;
-            for (Index& vertex : boundary.vertices) {
-                vertex = read<Index>(input, path, "boundary face vertex index");
-            }
-            boundary_faces.push_back(boundary);
-        }
     }
     const std::string end = read<std::string>(input, path, "end marker");
     if (end != "end") invalidFile(path, "expected end");
@@ -101,8 +104,7 @@ Mesh readMeshFile(const std::filesystem::path& path) {
     if (input >> trailing) invalidFile(path, "unexpected trailing token " + trailing);
 
     try {
-        return Mesh::unstructured(std::move(vertices), std::move(cells), std::move(patches),
-                                  std::move(boundary_faces));
+        return Mesh::polyhedral(std::move(vertices), std::move(faces), std::move(patches));
     } catch (const std::exception& error) {
         invalidFile(path, error.what());
     }

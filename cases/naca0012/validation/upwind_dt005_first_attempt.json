@@ -1,0 +1,79 @@
+{
+  "solver": "PISO",
+  "model": "Wilcox1988m kOmega",
+  "k_omega_convection": "upwind",
+  "deltaT": 0.005,
+  "startTime": 0.0,
+  "endTime_requested": 0.5,
+  "planned_steps": 100,
+  "output_interval": 10,
+  "ranks": 4,
+  "status": "stopped_due_to_divergence",
+  "completed_steps": 13,
+  "last_completed_time": 0.065,
+  "last_saved_time": 0.05,
+  "exit_code": 143,
+  "termination": "SIGTERM sent after saved fields showed unphysical blow-up",
+  "run_directory": "cases/naca0012/results",
+  "log": "cases/naca0012/validation/upwind_dt005_100steps.log",
+  "mesh_sha256": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+  "last_piso_record": "PISO 1 mass=8.9417e-10 dU=1.03613 rU=0.000462792 dP=3.26695e-09 linU=9.82712e-09 linP=7.33672e-08 dTurb=239.472 rTurb=1 linear=ok converged=true",
+  "saved_snapshot_fields": {
+    "U": {
+      "min": 190228.72352938203,
+      "max": 2334232107.354922,
+      "finite": true,
+      "max_at": [
+        125744.0,
+        -2.0375,
+        4.226843412738911,
+        0.010000000000000004
+      ]
+    },
+    "p": {
+      "min": -1.7055577849506963e+17,
+      "max": 3.171972956565902e+17,
+      "finite": true,
+      "max_at": [
+        397.0,
+        -0.715421960158683,
+        0.1889246178079754,
+        0.010000000000000002
+      ]
+    },
+    "k": {
+      "min": 32.68925786139166,
+      "max": 2502907369231.7715,
+      "finite": true,
+      "max_at": [
+        61608.0,
+        -4.0375000000000005,
+        -0.9249999999999998,
+        0.009999999999999998
+      ]
+    },
+    "omega": {
+      "min": 652705.8523007268,
+      "max": 3.4491513988756668e+16,
+      "finite": true,
+      "max_at": [
+        163.0,
+        -0.14458791177986502,
+        0.09821737527355925,
+        0.01
+      ]
+    },
+    "mut": {
+      "min": 1.327503453851526e-08,
+      "max": 10.032067259836444,
+      "finite": true,
+      "max_at": [
+        59394.0,
+        -4.0875,
+        -1.014640686721275,
+        0.01
+      ]
+    }
+  },
+  "interpretation": "Not a completed or physically valid 100-step calculation. PISO mass balance remained small, but field magnitudes diverged by the t=0.05 snapshot."
+}

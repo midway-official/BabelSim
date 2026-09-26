@@ -35,28 +35,25 @@ for retired in ("include/babelsim/fvm.h", "include/babelsim/fvc.h",
                 "src/discretization/equation_expression.cpp",
                 "src/internal/equation_control.h"):
     assert not (ROOT / retired).exists(), retired
-# Keep removed convenience wrappers from silently returning through a future
-# compatibility patch.  The backend contract is the reusable assembly/solve
-# objects below, and Case time/method access is explicit.
-assert not re.search(r'\b(?:LinearSystem|assembleMatrix|assemble\s*\()',
-                     texts[ROOT / "include/babelsim/assembly.h"])
-assert not re.search(r'\bsolve\s*\(\s*const\s+Eigen::SparseMatrix',
-                     texts[ROOT / "include/babelsim/linear_solver.h"])
+# The production algebra API is the backend-neutral equation/field API. The
+# retired Eigen matrix assembly and solver interfaces must not return.
+for retired in ("include/babelsim/assembly.h", "include/babelsim/linear_solver.h",
+                "include/babelsim/distributed_solver.h", "src/backend/eigen_mpi.cpp",
+                "src/backend/eigen_assembly.cpp", "src/backend/algebraic_multigrid.cpp",
+                "src/backend/algebraic_multigrid.h", "src/algebra/linear_solver.cpp",
+                "src/algebra/distributed_solver.cpp", "src/algebra/inplace_preconditioner.h"):
+    assert not (ROOT / retired).exists(), retired
 assert not re.search(r'\b(?:createFaceField|loadMethods|bool\s+loop\s*\()',
                      texts[ROOT / "include/babelsim/case.h"])
 for path, text in texts.items():
     assert not re.search(r'\b(?:fvm|fvc)\s*::|namespace\s+(?:fvm|fvc)\b|'
                          r'babelsim/(?:fvm|fvc)\.h|\b(?:FvmTermKind|ScalarFvmTerm|VectorFvmTerm)\b', text), path
-# 串行代数只认识 A/b/x 和求解配置；不能经装配头间接依赖 Mesh/Field/FVM。
-for path in closures[ROOT / "include/babelsim/linear_solver.h"]:
-    assert path.name in {"linear_solver.h", "solver_control.h"}, path
 for name in ("mesh.h", "field.h"):
     assert all(path.name in {"mesh.h", "field.h", "vector.h"}
                for path in closures[ROOT / "include/babelsim" / name]), name
 
 implementation_headers = {
-    "runtime.h", "parallel.h", "mpi_support.h", "linear_solver.h", "assembly.h",
-    "distributed_solver.h", "discrete_equation.h", "operators.h",
+    "runtime.h", "parallel.h", "mpi_support.h", "discrete_equation.h", "operators.h",
 }
 for name in ("case.h", "solver.h", "math.h", "equ.h", "application.h", "postprocess.h",
              "result_reader.h", "monitor.h", "geometry.h"):
@@ -92,27 +89,27 @@ assert "volumeScaledInverseDiagonal" not in texts[ROOT / "include/babelsim/equ.h
 assert all(path.name != "runtime.h" for path in
            closures[ROOT / "src/discretization/fvm_execution.cpp"])
 
-# FVM 前端只通过粗粒度 ComputeBackend 同步、归约和求解；具体 Eigen/MPI/装配
+# FVM 前端只通过粗粒度 ComputeBackend 同步、归约和求解；具体 PETSc/MPI/装配
 # 类型只能出现在后端实现中。这样更换后端不会修改数学表达或 FVM 离散源码。
 fvm_execution = ROOT / "src/discretization/fvm_execution.cpp"
 fvm_dependencies = closures[fvm_execution]
 assert ROOT / "src/internal/compute_backend.h" in fvm_dependencies
-for name in ("assembly.h", "distributed_solver.h",
-             "linear_solver.h", "parallel.h", "mpi_support.h"):
+for name in ("parallel.h", "mpi_support.h"):
     assert all(path.name != name for path in fvm_dependencies), name
 assert not any(re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path])
                for path in fvm_dependencies)
-backend = closures[ROOT / "src/backend/eigen_mpi.cpp"]
+backend = closures[ROOT / "src/backend/petsc_backend.cpp"]
 assert any(path.name == "compute_backend.h" for path in backend)
-assert any(path.name == "assembly.h" for path in backend)
+assert any(path.name == "petsc_linear_system.h" for path in backend)
 assert any(path.name == "parallel.h" for path in backend)
+assert "MatSetPreallocationCOO" in texts[ROOT / "src/backend/petsc_linear_system.cpp"]
+assert "KSPSolve" in texts[ROOT / "src/backend/petsc_linear_system.cpp"]
 compute_contract = closures[ROOT / "src/internal/compute_backend.h"]
-assert not any(path.name in {"assembly.h", "distributed_solver.h", "linear_solver.h"}
-               for path in compute_contract)
+assert not any(path.name.startswith("petsc_") for path in compute_contract)
 assert not any(re.search(r'#include\s*[<"](?:mpi|Eigen)', texts[path])
                for path in compute_contract)
 assert not (ROOT / "src/discretization/assembly.cpp").exists()
-assert (ROOT / "src/backend/eigen_assembly.cpp").exists()
+assert (ROOT / "src/backend/petsc_assembly_plan.cpp").exists()
 
 # 底层不能导入 Solver 或它的私有状态；不存在 SIMPLE 专用的跨层桥接。
 for path in files:

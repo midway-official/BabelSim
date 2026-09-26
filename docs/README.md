@@ -5,11 +5,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](../README.md#构建与运行)
 [![MPI](https://img.shields.io/badge/MPI-3.x-orange.svg)](../README.md#构建与运行)
-[![Eigen](https://img.shields.io/badge/Eigen-3.x-8a2be2.svg)](../README.md#构建与运行)
+[![PETSc](https://img.shields.io/badge/PETSc-3.x-1f6e8c.svg)](../README.md#构建与运行)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](../README.md#构建与运行)
 [![tests](https://img.shields.io/badge/tests-make%20test-brightgreen.svg)](validation.md)
 
-BabelSim 用显式连接的三维非结构六面体网格求解不可压流动、对流扩散与多物理场问题。框架把
+BabelSim 用显式 face-based 的三维非结构 polyhedral 网格求解不可压流动、对流扩散与多物理场问题。框架把
 网格、场、离散算子、方程、运行时和计算后端切成可独立替换的层：Physics 只用公开的
 Case / Field / `math` / `equ` 接口写方程和算法循环，不接触 MPI、halo、CSR/LDU、Eigen 或
 Field 底层存储；这一边界由 `make test-architecture` 与 `make test-external` 自动守门。
@@ -22,38 +22,40 @@ Field 底层存储；这一边界由 `make test-architecture` 与 `make test-ext
 
 ## 特性
 
-- **网格与几何**：三维非结构六面体网格、边界 patch 与 cell/face/vertex 拓扑；体积、逆体积、
-  中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量与插值权重在建网格时预计算。
+- **网格与几何**：通用三维 polyhedral 网格、边界 patch 与 cell/face/vertex 拓扑；face 顶点数和
+  cell 面数可变，体积、逆体积、中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量与
+  插值权重在建网格时预计算。
 - **场与边界**：连续存储的 scalar/vector/tensor Field（cell/face），通用边界条件
   （`fixedValue`、`fixedGradient`、`zeroGradient`、`inletOutlet`、`symmetry`、计算边界迹）。
 - **离散算子**：gradient、interpolation、flux、divergence、convection、diffusion、laplacian、
   time derivative；支持 Least-Squares 梯度、修正 Green–Gauss、修正面插值、非正交扩散与偏斜重构。
 - **方程层**：`equ::` 显式组装——离散项立即写入绑定未知量的方程，`equ::solve` 只求解已组装
   系统；时间历史由 `time::History` 显式推进，没有延迟表达式或第二套生命周期。
-- **线性代数**：LDU 稀疏装配，串行与分布式 CG / BiCGSTAB，IC / ILUT / AMG 预条件器；
-  MPI Krylov 按 global cell ID 做稀疏 halo matvec 与融合归约，AMG 粗层支持跨 rank 图聚合。
+- **线性代数**：PETSc Mat/Vec/KSP/PC 分布式稀疏求解；每个方程长期持有系统对象，矩阵模式、
+  矩阵更新、右端更新与重复求解分离。可配置 CG / BiCGSTAB / GMRES / FGMRES，以及
+  Block Jacobi、Hypre BoomerAMG 和 PETSc GAMG。
 - **并行**：`readDistributedMesh` 由 rank 0 解析原生 `.mesh`，并行层按单元邻接图构造每个 rank
   的 owned+ghost 局部网格与 processor patch；每个 rank 只写出 owned cell 的结果。
 - **求解器**：稳态/瞬态不可压 SIMPLE、瞬态 PISO，Rhie–Chow 与压力修正留在各自求解器内部；
   RANS 湍流（Wilcox 1988 k-ω、标准 k-ε、Spalart–Allmaras）经模型接口与动量方程耦合。
 - **输入输出**：原生 case / mesh / field 文件，通用并行结果写出，独立后处理生成
   ParaView VTK XML（含 `series.pvd` 时间序列）与 Tecplot FEBRICK。
-- **可替换后端**：整组替换 `makeComputeBackend()` 工厂即可换掉默认 Eigen/MPI 装配与求解实现，
+- **可替换后端**：整组替换 `makeComputeBackend()` 工厂即可换掉默认 PETSc 装配与求解实现，
   Physics 与离散源码不变；不承诺动态插件或稳定后端 ABI。
 
 ## 快速开始
 
-依赖：C++17 编译器、Eigen 3、MPI-3 实现与 GNU Make（默认面向 GCC 工具链：`mpic++` + `gcc-ar`）。
+依赖：C++17 编译器、PETSc MPI 构建、Eigen 3 与 GNU Make（默认面向 GCC 工具链：`mpic++` + `gcc-ar`）。
 
 ```bash
 git clone git@github.com:midway-official/BabelSim.git
 cd BabelSim
-make -j4                                   # 构建 build/libbabelsim.a、babelsim-solve、babelsim-post
+make -j4                                   # 构建 build-petsc/libbabelsim.a 与两个可执行程序
 
-build/babelsim-solve -case cases/cavity                      # 串行稳态方腔
-mpirun -np 4 build/babelsim-solve -case cases/poiseuille     # MPI 通道流
-mpirun -np 2 build/babelsim-solve -case cases/heat           # 瞬态热传导（同一份 Solver 源码）
-build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每个时刻的 VTK + series.pvd
+build-petsc/babelsim-solve -case cases/cavity                      # 串行稳态方腔
+mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille     # MPI 通道流
+mpirun -np 2 build-petsc/babelsim-solve -case cases/heat           # 瞬态热传导（同一份 Solver 源码）
+build-petsc/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每个时刻的 VTK + series.pvd
 ```
 
 默认 `make` 只构建、不跑测试；测试与验证必须显式调用 `make test*` / `make validate*`。
@@ -68,7 +70,7 @@ build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每�
 | `transport` | Equation-driven | 标量对流-扩散 |
 | `simple` | Algorithm-driven | 稳态不可压 SIMPLE（`cases/cavity`、`cases/poiseuille`） |
 | `transientSimple` | Algorithm-driven | 瞬态 SIMPLE（`cases/naca0012`，配合 k-ω RANS） |
-| `piso` | Algorithm-driven | 瞬态 PISO |
+| `piso` | Algorithm-driven | 瞬态 PISO（层流二维平面射流：[`cases/planar_jet`](../cases/planar_jet/README.md)） |
 
 每个求解器的控制方程、全部配置键（含默认值）、场与边界要求、收敛与失败语义，以及验证到
 什么程度、证据在哪，见 [内置求解器手册](solvers.md)。RANS 不做成独立求解器：由动量方程
@@ -98,8 +100,8 @@ build/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每�
   DSL 契约、Solver 独立性、配置/报告边界、维护流程与验收命令。
 - **[validation.md](validation.md)** — 验证入口与最低验收线：串行/并行测试目标、工作流与外部
   Solver 验证、MPI 一致性、架构门禁、新 Solver 的验证最低线。
-- **[performance/README.md](performance/README.md)** — `-performance` 输出、构建开关
-  （`ASYNC_HALO`、`CSR_SPMV` 等）、benchmark 驱动与 JSON 字段。
+- **[performance/README.md](performance/README.md)** — `-performance` 输出、PETSc 后端计数器、
+  NACA0012 AMG 短程计时与计数器适用范围。
 
 历史证据存放在 `reports/`：案例验证（Ghia 方腔、Poiseuille）、框架审查（F1–F7）与实现映射、
 RANS 方程核对、MPI 一致性、后端性能优化，以及已移除的 GMRES 后端基准。它们保留原始数字与
@@ -112,8 +114,7 @@ include/babelsim/   公开头：mesh / field / geometry / math / equ / case / ru
 src/core            Mesh 存储、拓扑与几何缓存
 src/io              case / mesh / field 读取，结果写出与后处理，监视器
 src/discretization  离散算子、FVM 执行层、显式组装方程、Field 数学
-src/backend         Eigen/MPI 后端、稀疏装配、AMG
-src/algebra         线性求解器与分布式 Krylov
+src/backend         PETSc 会话、索引映射、稀疏装配计划与长期线性系统
 src/parallel        MPI 上下文、halo 计划、并行结果写出
 src/runtime         RunTime、Solver API 桥接、Application 分派
 src/physics         内置求解器：heat / transport / simple / transient_simple / piso / RANS
@@ -143,8 +144,9 @@ make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 
 ## 参与贡献
 
-新增求解器不需要改框架：自己的一个 C++ 源文件、一行注册、通用 main 调用 `runApplication`，
-只链接公开头与预编译库。
+新增求解器不需要改框架：自己的一个 C++ 源文件、一行注册、通用 main 调用 `runApplication`。
+源码只需公开头；最终使用 MPI 编译器链接预编译库，并通过 PETSc `pkg-config --libs PETSc` 带上
+PETSc/MPI 链接依赖。
 
 ```cpp
 #include "babelsim/application.h"   // SolverRegistration / runApplication / SolverResult

@@ -120,6 +120,25 @@ std::string componentName(const ResultField& field, int component) {
         (field.components == 3 ? vector_suffix[component] : tensor_suffix[component]);
 }
 
+bool sameGeometry(const std::vector<Vec3>& saved, IndexRange expected, const Mesh& mesh) {
+    if (saved.size() != expected.size()) return false;
+    std::vector<bool> matched(expected.size(), false);
+    for (const Vec3& point : saved) {
+        bool found = false;
+        for (std::size_t index = 0; index < expected.size(); ++index) {
+            if (matched[index]) continue;
+            const Vec3& candidate = mesh.vertex(expected[index]);
+            if (point.x == candidate.x && point.y == candidate.y && point.z == candidate.z) {
+                matched[index] = true;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
 void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultData& data) {
     std::ofstream output(path);
     if (!output) throw std::runtime_error("cannot create VTU output: " + path.string());
@@ -132,14 +151,47 @@ void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultD
     for (const Vec3& point : detail::meshData(mesh).vertices) output << point.x << ' ' << point.y << ' ' << point.z << '\n';
     output << "</DataArray></Points>\n<Cells>\n"
               "<DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
+    std::vector<Index> connectivity;
+    std::vector<Index> offsets;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        for (Index vertex : mesh.cellVertices(cell)) output << vertex << ' ';
-        output << '\n';
+        std::vector<Index> vertices;
+        for (Index face : mesh.cellFaces(cell)) {
+            for (Index vertex : mesh.facePoints(face)) {
+                if (std::find(vertices.begin(), vertices.end(), vertex) == vertices.end()) {
+                    vertices.push_back(vertex);
+                }
+            }
+        }
+        connectivity.insert(connectivity.end(), vertices.begin(), vertices.end());
+        offsets.push_back(static_cast<Index>(connectivity.size()));
     }
+    for (Index vertex : connectivity) output << vertex << ' ';
+    output << '\n';
     output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << 8LL * (cell + 1) << '\n';
+    for (Index offset : offsets) output << offset << '\n';
+    output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"faces\" format=\"ascii\">\n";
+    std::vector<Index> face_offsets;
+    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+        // VTK_POLYHEDRON stores one leading entry with the number of faces,
+        // followed by (vertex-count, vertex-ids...) for every face.
+        const Index face_count = static_cast<Index>(mesh.cellFaces(cell).size());
+        Index count = 1;
+        for (Index face : mesh.cellFaces(cell)) {
+            ++count;
+            count += static_cast<Index>(mesh.facePoints(face).size());
+        }
+        output << face_count;
+        for (Index face : mesh.cellFaces(cell)) {
+            output << ' ' << mesh.facePoints(face).size();
+            for (Index vertex : mesh.facePoints(face)) output << ' ' << vertex;
+        }
+        output << '\n';
+        face_offsets.push_back(static_cast<Index>(face_offsets.empty() ? count : face_offsets.back() + count));
+    }
+    output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"faceoffsets\" format=\"ascii\">\n";
+    for (Index offset : face_offsets) output << offset << '\n';
     output << "</DataArray>\n<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n";
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << "12\n";
+    for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << "42\n";
     output << "</DataArray></Cells>\n<CellData>\n";
     for (const ResultField& field : data.fields) {
         output << "<DataArray type=\"Float64\" Name=\"" << xml(field.info.name)
@@ -203,16 +255,26 @@ int run(const Arguments& arguments) {
         const ResultData results = readParallelResults(directory, mesh.cellCount());
         if (results.global_cell_count != mesh.globalCellCount())
             throw std::runtime_error("result global cell count does not match the case mesh");
-        if (results.cell_vertices.empty())
-            throw std::runtime_error("legacy results lack mesh provenance; regenerate results before geometric export");
-        for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-            for (int vertex = 0; vertex < 8; ++vertex) {
-                const Vec3& expected_vertex = mesh.vertex(mesh.cellVertices(cell)[vertex]);
-                const Vec3& saved = results.cell_vertices[cell][vertex];
-                if (saved.x != expected_vertex.x || saved.y != expected_vertex.y ||
-                    saved.z != expected_vertex.z)
+        if (!results.cell_geometry.empty()) {
+            for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+                const auto saved = results.cell_geometry[static_cast<std::size_t>(cell)];
+                const auto expected = mesh.cellVertices(cell);
+                if (!sameGeometry(saved, expected, mesh))
                     throw std::runtime_error("result mesh provenance does not match the case mesh at cell " +
                                              std::to_string(cell));
+            }
+        }
+        // Version 2 provenance remains checked for old result directories.
+        if (!results.cell_vertices.empty()) {
+            for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+                for (int vertex = 0; vertex < 8; ++vertex) {
+                    const Vec3& expected_vertex = mesh.vertex(mesh.cellVertices(cell)[vertex]);
+                    const Vec3& saved = results.cell_vertices[cell][vertex];
+                    if (saved.x != expected_vertex.x || saved.y != expected_vertex.y ||
+                        saved.z != expected_vertex.z)
+                        throw std::runtime_error("result mesh provenance does not match the case mesh at cell " +
+                                                 std::to_string(cell));
+                }
             }
         }
         const std::string name = directory.filename().string();

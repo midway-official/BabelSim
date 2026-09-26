@@ -24,9 +24,10 @@ Backend   计算后端：整场同步、全局归约、稀疏装配和线性求�
 Physics   如何组合方程与算子解决具体物理问题
 ```
 
-`Equation` 的数学表达与内部离散 LDU 系统明确分离。Heat 与 SIMPLE 的 Physics 源码不接触
-MPI、halo、CSR/LDU、Eigen 或 Field 底层存储；FVM 只经粗粒度 ComputeBackend 接口调用
-这些能力，默认 Eigen/MPI 后端负责具体实现。
+`Equation` 的数学表达与内部离散系统明确分离。Heat 与 SIMPLE 的 Physics 源码不接触
+MPI、halo、CSR、PETSc 或 Field 底层存储；FVM 只经粗粒度 ComputeBackend 接口调用这些能力，
+默认后端通过 PETSc Mat/Vec/KSP/PC 完成分布式稀疏装配与求解。Eigen 仍用于局部最小二乘梯度，
+不再承载线性系统求解。
 
 Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poisson 和标量输运
 采用 **Equation-driven**，核心源码就是一个或少量 PDE；SIMPLE 和耦合算法采用
@@ -34,20 +35,22 @@ Solver Programming Model 正式分为两种组织方式：Heat、Diffusion、Poi
 Field、`equ/math`、离散、线性代数和 MPI Runtime，不建立两套 Framework。
 稳态与瞬态 SIMPLE 各自在独立 main.cpp 展开所有算法步骤和 Rhie–Chow，不共享 SIMPLE 实现。
 
-当前实现只使用显式连接的三维非结构六面体网格；薄域问题仍是六面体层，
-不会维护独立的二维算子或二维求解器。网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、
-正交系数、非正交修正向量、偏斜量和插值权重，以少量内存换取迭代热点中的计算速度。
+当前实现使用显式 face-based 的三维非结构 polyhedral 网格；每个 face 有一个 owner 和至多一个
+neighbour，face 顶点数与 cell 面数都可变。薄域问题仍是三维层，不会维护独立的二维算子或二维求解器。
+网格在构建时预计算体积、逆体积、中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量和
+插值权重，以少量内存换取迭代热点中的计算速度。旧 hex 算例通过一次性 v2→v3 工具迁移，运行时
+reader 只接受显式 face 的 v3 格式。
 
 已实现：
 
-- 三维非结构六面体网格、边界 patch、cell/face/vertex 拓扑；
+- 通用三维 polyhedral cell/face/vertex 拓扑、边界 patch、可变长度 CSR 连接和只读 range；
 - 连续存储的 scalar/vector/tensor Field 与通用边界条件；
 - Gradient、Interpolation、Flux、Divergence、Convection、Diffusion、Laplacian、
   TimeDerivative 等有限体积算子；
 - 三维非正交/偏斜修正：Least-Squares、修正 Green--Gauss、修正面插值、非正交
   扩散与压力法向梯度，以及面通量和中心对流的一致重构；
-- LDU 方程、稀疏装配、串行与分布式 CG/BiCGSTAB，以及只作为预条件器的 AMG；
-- MPI Krylov 使用按 global cell ID 的稀疏 halo matvec 和融合归约；MPI AMG 具有跨 rank 的图聚合粗网格；
+- PETSc 长生命周期稀疏矩阵、向量、KSP 与 PC；按方程复用矩阵模式，分离矩阵数值更新、RHS 更新和重复求解；
+- PETSc CG/BiCGSTAB/GMRES/FGMRES 与 Block Jacobi、Hypre BoomerAMG、PETSc GAMG 等预条件配置；
 - 框架级 MPI：局部 owned/ghost cell、halo exchange、分布式 matvec 与全局归约；
 - 分布式网格读取：rank 0 解析原生 `.mesh`，并由并行层按单元邻接图构造每个 rank
   的 owned+ghost 局部 Mesh；
@@ -70,10 +73,11 @@ SIMPLE 状态只归算法，线性控制只归运行配置。`make test-architec
 
 ## 构建与运行
 
-依赖：C++17 编译器、Eigen 3、MPI-3 实现和 GNU Make。默认配置面向 GCC 工具链：
+依赖：C++17 编译器、PETSc（启用 MPI）、Eigen 3 和 GNU Make。Eigen 用于局部最小二乘梯度；
+分布式稀疏线性系统由 PETSc 求解。默认配置面向 GCC 工具链：
 `mpic++` 调用 GCC，`gcc-ar` 归档 LTO 对象，正式程序与显式构建的测试使用相同 ABI。
 
-默认 `make` 只构建 `build/libbabelsim.a`、`build/babelsim-solve` 和 `build/babelsim-post`，
+默认 `make` 只构建 `build-petsc/libbabelsim.a`、`build-petsc/babelsim-solve` 和 `build-petsc/babelsim-post`，
 不编译或运行任何测试。测试与验证必须另行显式调用 `make test*` / `make validate*` 的具体目标。
 
 默认优化为 `-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects
@@ -89,36 +93,36 @@ fat LTO 让静态库保留普通机器码，外部程序可用 `-fno-lto` 禁用
 `make -j4 OPTFLAGS='-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects'`。
 修改命令行编译选项后应先清理；`make clean` 仅删除选定的 BUILD 目录，不删除 Case 结果。
 
-计算后端采用构建期替换，避免运行时注册和热循环虚分派。框架维护者可令
-`COMPUTE_BACKEND_SOURCES='src/backend/other.cpp ...'`；该源文件组实现内部
-`makeComputeBackend()` 工厂及所需代数能力即可，并会整体排除默认 Eigen 装配/求解源码。
+计算后端采用构建期替换，避免运行时注册和热循环虚分派。默认构建使用 PETSc 后端；框架维护者可令
+`COMPUTE_BACKEND_SOURCES='src/backend/other.cpp ...'`，由该源文件组实现内部
+`makeComputeBackend()` 工厂及所需代数能力。
 普通 Solver 作者不需要看到或选择这个接口，且替换后端不应修改 Physics、`equ/math` 或
 FVM 离散源码。当前没有承诺动态插件或稳定后端 ABI。
 
 ```bash
-make -j4  # 只构建，不测试；按可用内存调整并行编译数
+make -j4  # 只构建，不测试；默认输出到 build-petsc/，可用 BUILD=... 改变目录
 
 # 串行腔体
-build/babelsim-solve -case cases/cavity
+build-petsc/babelsim-solve -case cases/cavity
 
 # MPI 通道流
-mpirun -np 4 build/babelsim-solve -case cases/poiseuille
+mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille
 
 # 瞬态热传导：串行与 MPI 使用同一 Solver 源码
-mpirun -np 2 build/babelsim-solve -case cases/heat
+mpirun -np 2 build-petsc/babelsim-solve -case cases/heat
 
 # 独立读取网格和并行结果，输出 ParaView/Tecplot 文件
-build/babelsim-post -case cases/poiseuille -format vtk tecplot
+build-petsc/babelsim-post -case cases/poiseuille -format vtk tecplot
 
 # 自动扫描 results/<time>，生成每个时刻的 VTK 和 ParaView 时间序列 post/series.pvd
-build/babelsim-post -case cases/heat -time all -format vtk
+build-petsc/babelsim-post -case cases/heat -time all -format vtk
 ```
 
 `-time <名称>` 为独立运行命名：最终状态保留在该目录，瞬态序列位于其 `<物理时间>/` 子目录。例如：
 
 ```bash
-build/babelsim-solve -case cases/poiseuille -time serial
-mpirun -np 2 build/babelsim-solve -case cases/poiseuille -time mpi2
+build-petsc/babelsim-solve -case cases/poiseuille -time serial
+mpirun -np 2 build-petsc/babelsim-solve -case cases/poiseuille -time mpi2
 python3 tools/compare_parallel_results.py \
   cases/poiseuille/results/serial cases/poiseuille/results/mpi2 \
   --atol 5e-6 --rtol 5e-6
@@ -143,9 +147,10 @@ cases/poiseuille/
 ```
 
 每个 MPI rank 仅写出 owned cell 的 `U.csv`、`p.csv` 与 `metadata.bs`；ghost cell
-不会写出。`babelsim-post` 按 global ID 检查完整性并合并为原始六面体网格的 VTK
-XML `.vtu` 或 Tecplot `FEBRICK` 文件；`-time all -format vtk` 还会产生
-ParaView 可直接打开的 `post/series.pvd`。
+不会写出。`babelsim-post` 按 global ID 检查完整性并合并为真实 polyhedron 的 VTK
+XML `.vtu`；`-time all -format vtk` 还会产生 ParaView 可直接打开的
+`post/series.pvd`。Tecplot `FEBRICK` 输出保留给八顶点六面体兼容结果；任意面数的网格使用 VTK
+输出查看。
 
 库代码需要从已存在的全局网格分区时仍可使用 `decompose()`；启动器和文件型并行程序
 应使用 `readDistributedMesh(path, parallel)`。该接口在 rank 0 读取网格，Parallel 层
@@ -174,7 +179,8 @@ make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
 
 新增独立 Solver：自己的一个 C++ 源文件，用一行 `SolverRegistration` 注册名称/函数，
 通用 main 调用 `runApplication(argc, argv)`，再准备 Case。
-只链接公开头和预编译库，不修改 BabelSim 核心或内置启动器。若希望加入内置命令，
+源码只需公开头，不需要 PETSc 头或 BabelSim 内部头；链接预编译库时还要通过 MPI 编译器和
+PETSc `pkg-config --libs PETSc` 链接 MPI/PETSc 依赖。无需修改 BabelSim 核心或内置启动器。若希望加入内置命令，
 则新增 `src/physics/<name>/main.cpp`，在该文件注册自己，Makefile 自动收集，不再修改启动器名单。
 不需要专用 Case reader、RunTime、并行输出代码、注册宏或 Solver 基类。
 Heat、transport 的完整入口各自是一个短函数；SIMPLE 主循环明确列出五个算法步骤。

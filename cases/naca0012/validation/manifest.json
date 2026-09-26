@@ -1,0 +1,23 @@
+{
+  "git_head": "529daf898c868ebbac64fb4ec9daafb15dbaa094",
+  "mesh_dependencies": {
+    "numpy": "1.26.4",
+    "triangle": "20250106",
+    "matplotlib": "3.10.9"
+  },
+  "sha256": {
+    "mesh/naca0012.mesh": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+    "generate_mesh.py": "a8a3a0c60a724b5594f8e1388d02f3cd61d217df01bee139ab98a8d393d4203c",
+    "mesh_io.py": "73737d60f8794ae9446dc662e1a30fc597a7385b5378f4756a17819d3ac4cc9d",
+    "case.bs": "6c9ccaeef7f56dd91f126e15ba38cb961f02525eaacf5a3bea9342efd521aaaa",
+    "control.bs": "6790c0484555694e8b11459f88ad415068ae5130bcf23e21e3240fd4884e67dc",
+    "output.bs": "9d8256730ed598a2ce918c9b4c0d21afc2f96c5a674d33ad02c5550033c7c604",
+    "numerics/methods.bs": "005caa40bf6e124780294f598b14bda5e9349349136ea5e908cea58ef7dcc903",
+    "numerics/solution.bs": "ff2471b59ecaa58b7be9530290143533c0a4fe317b7e163402a2c2d6f937f192",
+    "physics/kOmega.bs": "be5ba31cc202e965a77c3841cc75734818435177af9f5133795155bc6906ffd6",
+    "fields/initial/U.field": "6cd5fc1b3dcaf6b9047297376516aadf9abe12db8c705e669305b913246406e9",
+    "fields/initial/p.field": "46418d76cd7db165fb5beca468f65d73514a8da99213753943157c1159f01261",
+    "fields/initial/k.field": "f14e96d5eca1a8b2e334884eebc1d7926e374fdf7b0100ca018fa81ddc4da0c3",
+    "fields/initial/omega.field": "b002b5fa0ceba994702892636bf2d89efecd8e448ceaa19ceee00de530b7d9fe"
+  }
+}

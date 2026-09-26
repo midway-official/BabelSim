@@ -2,15 +2,13 @@ field U
 {
     type vector
     location cell
-    # Horizontal left-to-right free stream; the 15 degree angle is carried by
-    # the rotated NACA0012 geometry in the generated mesh.
-    internal uniform (1 0 0)
+    internal uniform (-1 0 0)
     boundary
     {
         airfoil { type fixedValue value (0 0 0) }
-        inlet { type fixedValue value (1 0 0) }
+        inlet { type fixedValue value (-1 0 0) }
         outlet { type zeroGradient }
-        farfield { type fixedValue value (1 0 0) }
+        farfield { type fixedValue value (-1 0 0) }
         front { type symmetry }
         back { type symmetry }
     }

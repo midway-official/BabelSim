@@ -16,7 +16,7 @@
 | `transport`          | 标量对流-扩散（速度给定） | 回归通过 + 短跑稳定      | 单胞解析值、1/2/4 rank 逐时刻一致              | `make test-workflow`、`make test-mpi`              |
 | `simple`             | 稳态不可压层流       | 物理验证（基准数据 + 解析解） | Ghia Re=100/400/1000、Poiseuille 抛物线 | `make validate-cavity`、`make validate-poiseuille` |
 | `transientSimple`    | 瞬态不可压（含 RANS） | 短跑稳定             | 1/2/4 rank 的 Euler/BDF2 逐步一致        | `make test-simple-parallel`、`make test-mpi`       |
-| `piso`               | 瞬态不可压（算子分裂）   | 源码存在 + 结构门禁      | 仓库内**没有**定量验证用例                     | `make test-architecture`、第 6 节最小算例             |
+| `piso`               | 瞬态不可压（算子分裂）   | 短跑稳定（单算例 6000 步） | Re=1000 层流平面射流，100,000 正交六面体；质量误差 ≤ `1.48e-14` | [`cases/planar_jet`](../cases/planar_jet/README.md)、`make test-architecture` |
 | RANS（k-ω / k-ε / SA） | 湍流黏性输运        | 回归通过（方程核对 + 收敛阶） | TMR/OpenFOAM 逐项核对、Euler≈2/BDF2≈4    | `make test-rans`                                  |
 
 RANS 是模块而不是注册名：由 `simple` / `transientSimple` / `piso` 按 `physics` 字典里的
@@ -32,16 +32,17 @@ RANS 是模块而不是注册名：由 `simple` / `transientSimple` / `piso` 按
 ### 2.1 构建
 
 ```bash
-make -j4          # 产出 build/babelsim-solve 与 build/babelsim-post
+make -j4          # 产出 build-petsc/babelsim-solve 与 build-petsc/babelsim-post
 ```
 
-依赖 C++17 编译器、Eigen 3、MPI-3 实现和 GNU Make。默认优化含 `-march=native`，
+依赖 C++17 编译器、PETSc MPI 构建、Eigen 3、MPI-3 实现和 GNU Make。Eigen 用于局部最小二乘梯度，
+PETSc 用于稀疏线性系统。默认优化含 `-march=native`，
 换机器（尤其异构集群）需按 [根 README](../README.md#构建与运行) 重新编译。
 
 ### 2.2 命令行
 
 ```text
-build/babelsim-solve -case <算例目录> [-time <运行名>] [-performance <目录>]
+build-petsc/babelsim-solve -case <算例目录> [-time <运行名>] [-performance <目录>]
 ```
 
 | 参数 | 必填 | 含义 |
@@ -50,15 +51,15 @@ build/babelsim-solve -case <算例目录> [-time <运行名>] [-performance <目
 | `-time <运行名>` | 否 | 给本次运行命名，决定结果写到哪个子目录（见 2.4）。名字是任意字符串（`run1`、`mpi4`），与物理时间、进程数无关 |
 | `-performance <目录>` | 否 | 每个 rank 一份 `rank-XXXX.json`：阶段耗时、Krylov 迭代数、halo 字节数、分区信息（字段含义见 [performance/README.md](performance/README.md)） |
 
-**`-time` 不是 MPI 必需的**：`mpirun -np 4 build/babelsim-solve -case cases/heat` 也能跑。
+**`-time` 不是 MPI 必需的**：`mpirun -np 4 build-petsc/babelsim-solve -case cases/heat` 也能跑。
 它解决的是“两次运行的结果不要混在一起”：不加 `-time` 时所有运行都往
 `results/<物理时间>/` 写，不同进程数的 rank 文件落在同一目录，后处理会以
 `rank directory count does not match metadata` 之类的一致性问题拒绝读取，也分不清
 哪份结果来自哪次运行。串并行对比就靠它：
 
 ```bash
-build/babelsim-solve -case cases/poiseuille -time serial
-mpirun -np 4 build/babelsim-solve -case cases/poiseuille -time mpi4
+build-petsc/babelsim-solve -case cases/poiseuille -time serial
+mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille -time mpi4
 python3 tools/compare_parallel_results.py \
   cases/poiseuille/results/serial cases/poiseuille/results/mpi4 \
   --atol 5e-6 --rtol 5e-6
@@ -71,7 +72,7 @@ python3 tools/compare_parallel_results.py \
 ```text
 cases/<名字>/
 ├── case.bs                  # solver <注册名> 与其余文件的相对路径
-├── mesh/*.mesh              # 六面体网格，patch 带角色（wall/inlet/outlet/symmetry…）
+├── mesh/*.mesh              # BABELSIM_MESH 3 polyhedral 网格，patch 带角色（wall/inlet/outlet/symmetry…）
 ├── fields/initial/*.field   # 每个场的初值与边界条件
 ├── physics/*.bs             # 物性/模型常数（各求解器读哪些键见对应章节）
 ├── numerics/methods.bs      # 空间/时间离散格式
@@ -86,8 +87,16 @@ cases/<名字>/
 ```bash
 cp -r cases/heat /tmp/my-heat
 # 编辑 /tmp/my-heat 下的 case.bs、control.bs、physics/*.bs …
-build/babelsim-solve -case /tmp/my-heat
+build-petsc/babelsim-solve -case /tmp/my-heat
 ```
+
+初始内部场默认可写 `internal uniform (...)`。也可用 `internal file <路径>` 读取按全局单元编号排列的场值：普通文本每行是 `globalCellId` 后接该单元的标量、三个速度分量或九个张量分量。还可直接给求解器的结果 CSV 文件，或给某个结果时间目录（自动合并其中的 `rank-*/<场名>.csv` 分片）：
+
+```text
+internal file ../../results/run/5.0
+```
+
+路径相对当前 `.field` 文件；文件中每个全局单元必须恰好出现一次，因此同一网格可从不同 MPI rank 数的结果场重启。将 `control.bs` 的 `startTime` 设为该快照时间，并给 `output.bs` 设一个新的 `timeName`，避免与先前结果混写。该功能恢复场值，不保存时间离散历史；BDF2 重启后的第一步自动用 Euler 启动，下一步起恢复 BDF2。
 
 三条硬约束（启动时校验，违反直接报错，不静默回退）：
 
@@ -106,8 +115,8 @@ build/babelsim-solve -case /tmp/my-heat
 
 | 命令 | 时间序列 | 最终结果 |
 |---|---|---|
-| `build/babelsim-solve -case cases/heat` | `cases/heat/results/0.01/`、`0.02/` … | `cases/heat/results/final/` |
-| `build/babelsim-solve -case cases/heat -time mpi4` | `cases/heat/results/mpi4/0.01/` … | `cases/heat/results/mpi4/` |
+| `build-petsc/babelsim-solve -case cases/heat` | `cases/heat/results/0.01/`、`0.02/` … | `cases/heat/results/final/` |
+| `build-petsc/babelsim-solve -case cases/heat -time mpi4` | `cases/heat/results/mpi4/0.01/` … | `cases/heat/results/mpi4/` |
 
 每个时刻目录内按 rank 分目录，每个 rank 只写自己拥有的单元：
 
@@ -130,7 +139,7 @@ rank 数与全局单元数，是后处理的一致性依据。写出规则：
 ### 2.5 看图：babelsim-post
 
 ```text
-build/babelsim-post -case <算例目录> [-time <选择>] -format <vtk|tecplot> [...]
+build-petsc/babelsim-post -case <算例目录> [-time <选择>] -format <vtk|tecplot> [...]
 ```
 
 `-time` 选择要处理的结果：省略时取 `output.bs` 的 `timeName`（未命名运行的最终结果）；
@@ -139,11 +148,12 @@ build/babelsim-post -case <算例目录> [-time <选择>] -format <vtk|tecplot> 
 未命名运行用 `latest` / `all`。产物写在 `<case>/post/`：
 
 ```bash
-build/babelsim-post -case cases/poiseuille -format vtk tecplot     # post/final.vtu、post/final.dat
-build/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*.vtu + post/mpi4/series.pvd
+build-petsc/babelsim-post -case cases/poiseuille -format vtk tecplot     # post/final.vtu、post/final.dat
+build-petsc/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*.vtu + post/mpi4/series.pvd
 ```
 
-`.vtu` 用 ParaView 打开，`.dat` 是 Tecplot FEBRICK。后处理会核对每个 rank 的 metadata
+`.vtu` 用 ParaView 打开；`.dat` 是八顶点六面体兼容的 Tecplot FEBRICK。任意面数的 polyhedral 网格使用 VTK
+输出。后处理会核对每个 rank 的 metadata
 与全局单元完整性并检查结果与网格一致，缺 rank、混入别的运行或网格不匹配都会报错。
 
 ### 2.6 退出码与失败语义
@@ -184,16 +194,16 @@ build/babelsim-post -case cases/heat -time mpi4/all -format vtk    # post/mpi4/*
 
 ```bash
 make -j4                                               # 首次运行前先构建
-build/babelsim-solve -case cases/heat                  # 串行
-mpirun -np 2 build/babelsim-solve -case cases/heat -time mpi2
-mpirun -np 4 build/babelsim-solve -case cases/heat -time mpi4
+build-petsc/babelsim-solve -case cases/heat                  # 串行
+mpirun -np 2 build-petsc/babelsim-solve -case cases/heat -time mpi2
+mpirun -np 4 build-petsc/babelsim-solve -case cases/heat -time mpi4
 ```
 
 控制台每个时间步一行 `heat time=<t> residual=<r>`，本算例残差在 `1e-16` 量级，
 退出码 0 表示 5 步全部收敛：
 
 ```text
-$ build/babelsim-solve -case cases/heat -time demo
+$ build-petsc/babelsim-solve -case cases/heat -time demo
 heat time=0.01 residual=6.26041e-17
 heat time=0.02 residual=1.96501e-17
 …
@@ -204,7 +214,7 @@ heat time=0.05 residual=6.1994e-17
 `cases/heat/results/mpi4/`（见 2.4），两种进程数的结果互不干扰。看图：
 
 ```bash
-build/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/series.pvd 等
+build-petsc/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/series.pvd 等
 ```
 
 改这个算例：`control.bs` 的 `endTime`/`deltaT` 管时长与步长；`physics/thermal.bs` 的
@@ -249,15 +259,15 @@ build/babelsim-post -case cases/heat -time demo/all -format vtk    # post/demo/s
 `control.bs` 给出 0→0.05、dt=0.01，共 5 步。
 
 ```bash
-build/babelsim-solve -case cases/transport                 # 串行
-mpirun -np 4 build/babelsim-solve -case cases/transport -time mpi4
+build-petsc/babelsim-solve -case cases/transport                 # 串行
+mpirun -np 4 build-petsc/babelsim-solve -case cases/transport -time mpi4
 ```
 
 每个时间步一行 `transport time=<t> residual=<r>`（与 `heat` 同格式，本算例残差在
 `1e-17` 量级）。结果目录结构同 2.4；看图：
 
 ```bash
-build/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
+build-petsc/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
 ```
 
 改这个算例：`physics/transport.bs` 的 `storage`/`diffusivity`/`source` 是物性；
@@ -329,15 +339,15 @@ build/babelsim-post -case cases/transport -format vtk tecplot   # 最终结果
 `endTime` 不参与推进（`cases/cavity` 用 `endTime 0`），`methods.time` 必须是 `steady`。
 
 ```bash
-build/babelsim-solve -case cases/cavity                        # 64² Re=100 方腔，串行
-mpirun -np 4 build/babelsim-solve -case cases/poiseuille        # 通道流，4 rank
-mpirun -np 4 build/babelsim-solve -case cases/cavity -time mpi4 # 已有串行结果时用 -time 分开存
+build-petsc/babelsim-solve -case cases/cavity                        # 64² Re=100 方腔，串行
+mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille        # 通道流，4 rank
+mpirun -np 4 build-petsc/babelsim-solve -case cases/cavity -time mpi4 # 已有串行结果时用 -time 分开存
 ```
 
 控制台在首迭代、之后每 100 次、以及收敛时各报一行迭代指标：
 
 ```text
-$ build/babelsim-solve -case cases/cavity
+$ build-petsc/babelsim-solve -case cases/cavity
 SIMPLE 1 mass=1.34188e-09 dU=1 rU=1 dP=3.33333 linP=9.9512e-09 … converged=false
 SIMPLE 100 mass=1.3434e-13 dU=0.00332187 rU=0.00586256 dP=0.00877011 … converged=false
 …
@@ -348,7 +358,7 @@ SIMPLE 2908 mass=1.28267e-14 dU=3.1504e-07 rU=7.39902e-07 dP=9.97043e-07 … con
 `-time mpi4` 时是 `results/mpi4/`），退出码 0；迭代耗尽未收敛则退出码 2、不写结果。看图：
 
 ```bash
-build/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu、post/final.dat
+build-petsc/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu、post/final.dat
 ```
 
 改这个算例：Re 由 `physics/simple.bs` 的 `density`/`dynamicViscosity` 决定（腔体边长 1、
@@ -379,13 +389,19 @@ build/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu�
 | 时间步内结构          | 反复做带欠松弛的动量/压力迭代，直到步内收敛              | 一次动量预测 + `nCorrectors` 次压力修正（修正步不欠松弛）                            |
 | `maxIterations` | 步内迭代上限（默认 1000）                     | 预测–修正流程的额外外层遍数，**默认 1 即标准 PISO**                                 |
 | 时间格式            | `euler` / `bdf2`（BDF2 首步自动降为 Euler） | 同左；必须瞬态                                                          |
-| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 只要求守恒 `mass ≤ continuityTolerance`；`maxIterations > 1` 时额外要求外层收敛 |
+| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 要求线性求解成功、守恒及湍流输运收敛；`maxIterations > 1` 时额外要求外层收敛 |
 | 动量预测欠松弛         | `velocityRelaxation`（默认 0.7）        | 同左，但修正步始终施加完整修正                                                  |
 | 压力欠松弛           | `pressureRelaxation`（默认 0.3）        | 不适用（修正不做欠松弛）                                                     |
 
 `piso` 使用的键：`maxIterations`(1)、`nCorrectors`(2)、`nonOrthogonalCorrections`(1)、
 `velocityRelaxation`(0.7)、`continuityTolerance`(1e-8)、`velocityTolerance`(1e-7)、
-`momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。守恒判据不满足时立即
+`momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。
+启用湍流且 `maxIterations=1` 时，`turbulenceMaxIterations`（默认 1000）限制
+同一时间层的模型输运内迭代；保持 `turbulenceRelaxation` 和模型接口不变，历史只在
+物理步开始时推进一次。模型变化量与初始残差均须达到 `turbulenceTolerance`，
+且所有湍流线性方程必须收敛。超过内迭代上限或线性迭代上限时返回
+`notConverged`，不推进下一时间步。`maxIterations>1` 时仍由原有外层迭代收敛模型，
+不使用此内迭代设置。守恒判据不满足时返回
 `notConverged`（退出码 2），不会带着质量不平衡继续推进。
 
 场与边界、`physics` 键与 `simple` 相同（`density`、`dynamicViscosity`，湍流时可加模型键）。
@@ -397,29 +413,36 @@ build/babelsim-post -case cases/cavity -format vtk tecplot     # post/final.vtu�
 ```bash
 cp -r cases/naca0012 /tmp/naca-short
 # 编辑 /tmp/naca-short/control.bs：endTime 8.0 → 0.01（先跑 10 步看流程）
-mpirun -np 4 build/babelsim-solve -case /tmp/naca-short -time smoke
+mpirun -np 4 build-petsc/babelsim-solve -case /tmp/naca-short -time smoke
 ```
 
-`piso` **没有内置算例**；最轻量的做法是把 `cases/cavity`（64² 层流）复制成瞬态版本，
-改四处（本手册在仓库当前源码上按此跑通，串行与 4 rank 都通过）：
+PISO 的层流示例是 [`cases/planar_jet`](../cases/planar_jet/README.md)：二维平面射流，展向只有一层六面体，
+前后面使用对称边界；没有启用 RANS/LES 湍流模型。喷口宽度 `D=1`、出口方向域长 `20D`，
+网格为 `500×200×1=100000` 个正交六面体，`Re_D=1000`。算例采用 `deltaT=0.01 D/Uj`、
+`endTime=60 D/Uj`、BDF2（首步由求解器以 Euler 启动）、动量对流 `linearUpwind`、每步三次压力修正，
+并每 100 步保存一次 `U` 与 `p`。在仓库根目录运行：
 
 ```bash
-cp -r cases/cavity /tmp/piso-cavity && rm -rf /tmp/piso-cavity/results
-# 编辑 /tmp/piso-cavity：
-#   case.bs              solver simple → solver piso
-#   numerics/methods.bs  time steady → time euler
-#   numerics/solution.bs 删掉 pressureRelaxation；可选 maxIterations 改成 1（标准 PISO 单遍）
-#   control.bs           改成 startTime 0 / endTime 0.005 / deltaT 0.001
-build/babelsim-solve -case /tmp/piso-cavity
-mpirun -np 4 build/babelsim-solve -case /tmp/piso-cavity -time mpi4
+python3 cases/planar_jet/generate_mesh.py
+mpirun -np 2 build-petsc/babelsim-solve -case cases/planar_jet
+python3 cases/planar_jet/plot_flow.py
+python3 cases/planar_jet/make_vorticity_gif.py
 ```
+
+生成器会重建网格、几何质量报告和初始速度场；网格与算例参数、运行记录、后处理脚本及图像均保存在该目录。
+已记录的运行从 `t=0` 到 `t=60` 共 6000 步，2 个 MPI rank 正常退出；6000 条 PISO 记录均为 `linear=ok`
+且求解器报告 `converged=true`，最大相对质量误差为 `1.47991e-14`（容差 `1e-8`），写出了 60 个时刻的结果。
+`converged=true` 对 `maxIterations=1` 的 PISO 时间步主要表示守恒判据通过，不是物理精度判据。可查看
+[运行摘要](../cases/planar_jet/validation/run_summary.json)、[网格报告](../cases/planar_jet/mesh/mesh_quality.json)
+和[涡量 GIF](../cases/planar_jet/validation/planar_jet_vorticity.gif)。
 
 同样改法对 `transientSimple` 也适用（它保留 `solution.bs` 的 `pressureRelaxation`）。
 `transientSimple` 在步内迭代收敛时报
 `Transient SIMPLE <iter> mass=… dU=… rU=… dP=… linear=ok converged=true`；`piso` 每步报
 `PISO <遍数> mass=… dU=… rU=… dP=… linU=… linP=… converged=…`，`maxIterations 1` 时
-时间步的接受判据只有守恒量 `mass`，其余指标只报告（第 6 节开头）。两者都按 `writeInterval`
-写时间序列（见 2.4），看图用 `build/babelsim-post -case <算例> -time mpi4/all -format vtk`。
+时间步要求线性求解成功、守恒量 `mass` 达标，以及启用时的湍流输运收敛；
+速度的物理步间变化无需趋零（第 6 节开头）。两者都按 `writeInterval`
+写时间序列（见 2.4），看图用 `build-petsc/babelsim-post -case <算例> -time mpi4/all -format vtk`。
 
 **复制算例改 `solver` 时的坑**：`numerics/solution.bs` 与 `physics/*.bs` 里属于原求解器的键
 必须删干净（例如 `pressureRelaxation` 之于 `piso`），否则启动即报 `unused or unknown entry`；
@@ -433,11 +456,13 @@ mpirun -np 4 build/babelsim-solve -case /tmp/piso-cavity -time mpi4
   （阈值 `5e-6 + 5e-6·max|·|`），并复核每个时间步都收敛；`make test-mpi` 与
   `make test-simple-parallel` 可在当前源码上复跑。`cases/naca0012` 是可运行示例，
   **没有**对应的定量验证报告。
-- `piso`：**只有结构门禁**。`make test-architecture` 保证它是一个自包含模块
-  （`equ::solve` + 显式循环，不含 `coupling::`/`solveIncompressible` 之类共享封装），
-  但仓库内没有 PISO 的回归用例或基准对比。要用它出结论，请按
-  [validation.md](validation.md) 第 5 节为新算例补验证：守恒判据、解析解或基准数据、
-  串并行一致性和失败路径。
+- `piso`：**单算例长时程数值运行完成；按本手册五级词汇最高仍记为“短跑稳定”**。
+  [`cases/planar_jet`](../cases/planar_jet/README.md) 的 100,000 单元算例完成 6000 步，质量判据通过，
+  但尚无针对射流基准的定量比较、网格/时间步收敛研究或专门的 PISO 回归用例。探针后处理显示波动在
+  本次运行后段减小；每 1 个 `D/Uj` 保存一次不足以确认持续周期性涡脱落。因此这组结果说明该配置完成了
+  数值推进，不构成物理验证，也不能据此断言存在稳定涡街。结构独立性仍由 `make test-architecture`
+  覆盖；若要形成物理结论，还需按 [validation.md](validation.md) 第 5 节补充基准比较、网格与时间步研究、
+  更密的探针采样和失败路径验证。
 
 ## 7. RANS 湍流模块
 

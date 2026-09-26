@@ -1,0 +1,3 @@
+exit_code=0
+fixture=/tmp/babelsim-rans-validation-j5c003nx/piso-failed-turbulence
+PISO 1 mass=0 dU=0 rU=0 dP=0 rCouplingFirst=0 rCoupling=0 linU=0 linP=0 dTurb=0.280842 rTurb=0.000147863 linear=ok converged=true

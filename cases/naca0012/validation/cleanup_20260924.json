@@ -1,0 +1,55 @@
+{
+  "date": "2026-09-24",
+  "removed": [
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/failed_relax_u07_t03",
+      "bytes": 498126232
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/failed_unrelaxed_dt005",
+      "bytes": 196834370
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/final",
+      "bytes": 99628815
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-111847",
+      "bytes": 596851278
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112030",
+      "bytes": 198664889
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112149",
+      "bytes": 895754133
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112509",
+      "bytes": 4346
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112528",
+      "bytes": 1095009592
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112927",
+      "bytes": 198661554
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113014",
+      "bytes": 198522842
+    },
+    {
+      "path": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113137",
+      "bytes": 198668329
+    }
+  ],
+  "preserved": [
+    "0.05 through 0.5 successful dt=0.005 snapshots for comparison",
+    "dt0.05_100steps latest completed run",
+    "dt0.5_100steps completed run and t=50 flow visualization"
+  ],
+  "reason": "Remove obsolete smoke outputs, failed trial fields and exact duplicate final snapshot."
+}

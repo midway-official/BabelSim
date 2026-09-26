@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 namespace babelsim {
 namespace {
@@ -132,7 +133,9 @@ void writeOwnedResultMetadata(
     geometry << std::setprecision(17);
     for (Index cell : detail::meshData(mesh).owned_cells) {
         geometry << detail::globalCellId(mesh, cell);
-        for (Index vertex : mesh.cellVertices(cell)) {
+        const IndexRange vertices = mesh.cellVertices(cell);
+        geometry << ',' << vertices.size();
+        for (Index vertex : vertices) {
             const Vec3& value = mesh.vertex(vertex);
             geometry << ',' << value.x << ',' << value.y << ',' << value.z;
         }
@@ -145,7 +148,7 @@ void writeOwnedResultMetadata(
     if (parallel.maximum(output ? 0 : 1) != 0) {
         throw std::runtime_error("cannot create result metadata: " + path.string());
     }
-    output << "format babelsim_result 2\n"
+    output << "format babelsim_result 3\n"
            << "time " << time_name << '\n'
            << "rank " << parallel.rank << '\n'
            << "ranks " << parallel.size << '\n'

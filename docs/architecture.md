@@ -31,12 +31,18 @@ SolverResult 映射为命令行退出码。
 | 时间 | include/babelsim/time.h、history.h | TimeStepper、History；不存储算法状态 |
 | 诊断/监视 | solver.h、monitor.h | 只读 residual/change/flux；通用 metric 报告 |
 | Runtime/FVM | src/runtime、src/internal/fvm_execution.h | 活动运行域、同步、离散工作区、后端调用 |
-| 后端 | src/backend、src/algebra、src/parallel | MPI halo、稀疏装配、线性代数和预条件 |
+| 后端 | src/backend、src/internal/petsc_*、src/parallel | PETSc 稀疏系统生命周期，场同步、MPI halo 与并行结果写出 |
 | Physics | src/physics/heat、transport、simple、transient_simple、RANS | 方程、算法循环、修正、收敛 |
 | Application | include/babelsim/application.h、src/runtime/application.cpp | 注册分派、MPI 生命周期、错误映射 |
 
 Physics 不能包含 src/internal、MPI、Eigen、CSR、其它 Solver 的私有头或原始 Field 存储。
 后端可以替换，但不改变 Physics 的方程和字段语义。
+
+默认数值后端使用 PETSc 的 Mat/Vec/KSP/PC。每个具名方程拥有长期存在的后端线性系统；首次装配
+建立稀疏模式，之后按需要更新矩阵数值与右端，并可仅更新 RHS 后重复求解。PETSc 类型和句柄留在
+backend/internal 层，不进入 Physics 或公开 Equation 抽象。线性系统选择从 `solution.bs` 的
+`equation.<name>.kspType` 和 `pcType` 读取；压力方程可选 Hypre BoomerAMG 或 PETSc GAMG。
+Eigen 仍用于离散算子中的局部最小二乘，不再是稀疏线性求解后端。
 
 ## 3. 所有权和生命周期
 

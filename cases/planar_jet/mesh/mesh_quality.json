@@ -1,0 +1,65 @@
+{
+  "mesh_format": "BABELSIM_MESH 3",
+  "cells": 100000,
+  "hexahedra": 100000,
+  "non_hexahedral_cells": 0,
+  "vertices": 201402,
+  "dimensions": [
+    500,
+    200,
+    1
+  ],
+  "bounds_D": {
+    "x": [
+      0.0,
+      20.0
+    ],
+    "y": [
+      -5.0,
+      5.0
+    ],
+    "z": [
+      0.0,
+      0.05
+    ]
+  },
+  "spacing_D": {
+    "dx": 0.04,
+    "dy": 0.05,
+    "dz": 0.05
+  },
+  "cell_volume_D3": 0.0001,
+  "minimum_cell_volume_D3": 0.0001,
+  "maximum_cell_volume_D3": 0.0001,
+  "maximum_nonorthogonality_deg": 0.0,
+  "maximum_skewness": 0.0,
+  "orthogonal_hex_by_structured_construction": true,
+  "patch_face_counts": {
+    "jet_core": 10,
+    "inlet_ramp_00": 2,
+    "inlet_ramp_01": 2,
+    "inlet_ramp_02": 2,
+    "inlet_ramp_03": 2,
+    "inlet_ramp_04": 2,
+    "inlet_ramp_05": 2,
+    "inlet_ramp_06": 2,
+    "inlet_ramp_07": 2,
+    "inlet_ramp_08": 2,
+    "inlet_ramp_09": 2,
+    "coflow_inlet": 170,
+    "outlet": 200,
+    "farfield": 1000,
+    "frontBack": 200000
+  },
+  "jet_width_D": 1.0,
+  "jet_cells_across": 20.0,
+  "discrete_inlet_mass_flow_rho_Uj_D2": 1.0000000030957017,
+  "initial_perturbation": {
+    "type": "transverse velocity near both shear layers",
+    "amplitude_Uj": 0.01,
+    "wavelength_D": 4.0,
+    "field": "Uy",
+    "file": "fields/initial/U.initial.dat"
+  },
+  "note": "Orthogonality follows from axis-aligned uniform Cartesian coordinates; the runtime mesh reader is also exercised by the solver run."
+}

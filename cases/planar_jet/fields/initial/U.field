@@ -1,0 +1,24 @@
+field U
+{
+    type vector
+    location cell
+    internal file U.initial.dat
+    boundary
+    {
+        jet_core { type fixedValue value (1 0 0) }
+        inlet_ramp_00 { type fixedValue value (0.99945 0 0) }
+        inlet_ramp_01 { type fixedValue value (0.99709 0 0) }
+        inlet_ramp_02 { type fixedValue value (0.98475 0 0) }
+        inlet_ramp_03 { type fixedValue value (0.92415 0 0) }
+        inlet_ramp_04 { type fixedValue value (0.69705 0 0) }
+        inlet_ramp_05 { type fixedValue value (0.30295 0 0) }
+        inlet_ramp_06 { type fixedValue value (0.07585 0 0) }
+        inlet_ramp_07 { type fixedValue value (0.01525 0 0) }
+        inlet_ramp_08 { type fixedValue value (0.00291 0 0) }
+        inlet_ramp_09 { type fixedValue value (0.00055 0 0) }
+        coflow_inlet { type fixedValue value (0 0 0) }
+        outlet { type zeroGradient }
+        farfield { type symmetry }
+        frontBack { type symmetry }
+    }
+}

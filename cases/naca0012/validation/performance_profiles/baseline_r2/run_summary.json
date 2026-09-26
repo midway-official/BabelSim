@@ -1,0 +1,10 @@
+{
+  "ranks": 2,
+  "steps": 5,
+  "dt": 0.005,
+  "returncode": 0,
+  "wall_seconds": 103.08491035999032,
+  "case": "/tmp/naca0012-performance-profile/case-r2",
+  "performance_directory": "/tmp/naca0012-performance-profile/perf-r2",
+  "log": "/tmp/naca0012-performance-profile/run-r2.log"
+}

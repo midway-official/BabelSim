@@ -1,0 +1,12 @@
+PISO 1 mass=1.27528e-08 dU=0.19786 rU=7.15125e-05 dP=0.000814955 linU=1 linP=0.00523831 dTurb=0.999983 rTurb=0.930526 linear=inexact converged=false
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[12365,1],0]
+  Exit code:    2
+--------------------------------------------------------------------------

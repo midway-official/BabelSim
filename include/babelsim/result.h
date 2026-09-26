@@ -2,6 +2,7 @@
 
 #include "babelsim/field.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -24,8 +25,10 @@ struct ResultData {
     std::string time_name;
     Index global_cell_count = 0;
     std::vector<ResultField> fields;
-    // Version 2: ordered hexahedron vertices at output time, indexed by global cell id.
-    // Empty for legacy version 1 files, which cannot prove geometric provenance.
+    // Version 3: variable-length cell vertex provenance indexed by global cell id.
+    // The old fixed-size vector is retained solely for reading version 2 result
+    // directories; mesh input never uses this representation.
+    std::vector<std::vector<Vec3>> cell_geometry;
     std::vector<std::array<Vec3, 8>> cell_vertices;
 };
 }  // babelsim 命名空间

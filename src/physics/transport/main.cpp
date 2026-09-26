@@ -25,6 +25,13 @@ SolverResult runTransport(Case& problem) {
     while (time.value() < time.end()) {
         time.advance();
         C_old.save(C, time.dt());
+        // BDF2 also requires a second-order time value for deferred convection
+        // and diffusion corrections; the first step retains Euler startup.
+        if (problem.methods().time == TimeMethod::BDF2 && C_old.levels() >= 2) {
+            const double ratio = C_old.dt() / C_old.previousDt();
+            C.assignScaled(1.0 + ratio, C_old.previous());
+            C.addScaled(-ratio, C_old.older());
+        }
         transportEquation.reset();
         equ::ddt(transportEquation, storage, C_old);
         equ::div(transportEquation, phi, 1.0, "convection");

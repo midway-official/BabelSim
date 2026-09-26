@@ -1,0 +1,16 @@
+{
+  "mesh_sha256": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+  "command": [
+    "mpirun",
+    "-np",
+    "4",
+    "/home/midway/BabelSim/build/babelsim-solve",
+    "-case",
+    "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113137"
+  ],
+  "returncode": 0,
+  "steps_requested": 1,
+  "deltaT": 0.005,
+  "elapsed_seconds": 32.57587108699954,
+  "run_directory": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113137"
+}

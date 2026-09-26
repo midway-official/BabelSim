@@ -52,14 +52,13 @@ int main() {
         "operation.pressureGradient.diffusion orthogonal\n";
     writeFile(root/"numerics/methods.bs", defaults);
     writeFile(root/"numerics/solution.bs",
-        "equation.first.solver bicgstab\n"
-        "equation.first.preconditioner ilut\n"
+        "equation.first.kspType bcgs\n"
+        "equation.first.pcType bjacobi\n"
         "equation.first.absoluteTolerance 1e-13\n"
         "equation.first.relativeTolerance 1e-7\n"
         "equation.first.maxIterations 300\n"
-        "equation.first.ilutFillFactor 3\n"
-        "equation.second.solver cg\n"
-        "equation.second.preconditioner incompleteCholesky\n"
+        "equation.second.kspType cg\n"
+        "equation.second.pcType icc\n"
         "equation.second.absoluteTolerance 1e-14\n"
         "equation.second.relativeTolerance 1e-10\n"
         "equation.second.maxIterations 1000\n");
@@ -71,7 +70,7 @@ int main() {
         require(first.spatial.convection==ConvectionMethod::LinearUpwind &&
             first.options("advection").convection==ConvectionMethod::Upwind &&
             second.spatial.convection==ConvectionMethod::Central,"field/equation/term precedence");
-        require(first.linear.max_iterations==300 && first.linear.ilut_fill_factor==3 &&
+        require(first.linear.max_iterations==300 && first.linear.preconditioner==PreconditionerType::BlockJacobi &&
             first.linear.absolute_tolerance==1e-13 && first.linear.relative_tolerance==1e-7,
             "partial solver inheritance lost a parent member");
         require(first.spatial.coefficientGradient==GradientMethod::LeastSquares &&
@@ -111,7 +110,7 @@ int main() {
         "equation.only.gradient greenGauss\n"
         "equation.only.convection upwind\n"
         "equation.only.diffusion orthogonal\n");
-    writeFile(root/"numerics/solution.bs","equation.only.solver bicgstab\nequation.only.preconditioner ilut\n"
+    writeFile(root/"numerics/solution.bs","equation.only.kspType bcgs\nequation.only.pcType bjacobi\n"
         "equation.only.absoluteTolerance 1e-14\nequation.only.relativeTolerance 1e-10\nequation.only.maxIterations 100\n");
     {
         Case problem(root); auto& x=problem.scalarField("T");

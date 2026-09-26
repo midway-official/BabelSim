@@ -1,0 +1,11 @@
+time bdf2
+
+equation.momentum.interpolation linear
+equation.momentum.gradient leastSquares
+equation.momentum.convection linearUpwind
+equation.momentum.diffusion orthogonal
+
+equation.pressureCorrection.interpolation linear
+equation.pressureCorrection.gradient leastSquares
+equation.pressureCorrection.convection upwind
+equation.pressureCorrection.diffusion orthogonal

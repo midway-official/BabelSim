@@ -1,0 +1,22 @@
+# One momentum predictor followed by three pressure corrections.
+maxIterations 1
+nCorrectors 3
+nonOrthogonalCorrections 0
+velocityRelaxation 1.0
+continuityTolerance 1.0e-8
+velocityTolerance 1.0e-7
+momentumTolerance 1.0e-6
+pressureCorrectionTolerance 1.0e-7
+
+equation.momentum.kspType bcgs
+equation.momentum.pcType bjacobi
+equation.momentum.absoluteTolerance 1.0e-12
+equation.momentum.relativeTolerance 1.0e-8
+equation.momentum.maxIterations 1000
+
+equation.pressureCorrection.kspType cg
+equation.pressureCorrection.pcType hypre
+equation.pressureCorrection.warmStart true
+equation.pressureCorrection.absoluteTolerance 1.0e-14
+equation.pressureCorrection.relativeTolerance 1.0e-9
+equation.pressureCorrection.maxIterations 2400

@@ -44,7 +44,8 @@ make test-rans            # tests/rans_validation_test.py
 ~~~
 
 工作流测试覆盖 Heat/Transport/耦合时间序列、结果读取和失败路径。外部 Solver 测试在仓库
-外只使用 include/ 和预编译库，确保 Physics 不需要 MPI/Eigen/内部头。RANS 脚本覆盖 SA、
+外只使用 include/ 和预编译库，最终链接通过 MPI 编译器和 PETSc pkg-config 依赖完成；Physics
+源码无需包含 MPI、PETSc、Eigen 或内部头。RANS 脚本覆盖 SA、
 k–omega、k–epsilon 的 Euler/BDF2 和稳态/瞬态配置。
 
 ## 3. MPI 和并行结果

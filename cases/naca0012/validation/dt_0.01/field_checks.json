@@ -1,0 +1,74 @@
+{
+  "mesh_sha256": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+  "command": [
+    "mpirun",
+    "-np",
+    "4",
+    "/home/midway/BabelSim/build/babelsim-solve",
+    "-case",
+    "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113014"
+  ],
+  "returncode": 1,
+  "steps_requested": 10,
+  "deltaT": 0.01,
+  "elapsed_seconds": 87.74075675099448,
+  "run_directory": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113014",
+  "saved_steps": {
+    "0.01": {
+      "U": {
+        "min": 0.0021356488206310488,
+        "max": 8.478961733879817,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -36.60974764850622,
+        "max": 56.81134163501591,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1e-12,
+        "max": 17820.758119541926,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1e-10,
+        "max": 34795273467.61049,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 5.0474861793800265e-22,
+        "max": 15020540206372.697,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    }
+  },
+  "completed_step_records": 1,
+  "inexact_linear_records": 0,
+  "max_reported_mass_error": 6.67669e-11,
+  "convection": {
+    "equation.momentum.convection": "linearUpwind",
+    "equation.pressureCorrection.convection": "upwind",
+    "equation.kTransport.convection": "central",
+    "equation.omegaTransport.convection": "central"
+  },
+  "acceptance": {
+    "exit_zero": false,
+    "all_requested_steps": false,
+    "all_linear_records_ok": true,
+    "no_startup_turbulence_floor_clipping": false,
+    "finite_fields": true,
+    "complete_unique_cell_fields": true,
+    "bounded_startup_fields": false
+  },
+  "smoke_passed": false
+}

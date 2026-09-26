@@ -22,12 +22,11 @@ template<class T> struct Equation<T>::Storage {
     struct DiffusionSnapshot {
         ScalarField coefficient;
         ScalarField boundary;
-        VectorField gradient;
+        ScalarField correction;
     };
     struct DiffusionContribution {
         std::shared_ptr<const DiffusionSnapshot> snapshot;
         double factor;
-        DiffusionMethod method;
     };
     std::vector<DiffusionContribution> diffusion;
 
@@ -71,6 +70,20 @@ template<class T> void accumulate(DiscreteEquation<T>& a, const DiscreteEquation
 template<class T> void finish(Field<T>& f) { backend().synchronize(f); }
 template<class T> Field<T> resultField(const Equation<T>& a, const char* name) {
     return Field<T>(state(a).unknown->mesh(), FieldLocation::Cell, name);
+}
+// Freeze the actual explicit flux, including any limiter evaluated at assembly.
+// A frozen gradient alone is insufficient when the limiter also depends on x.
+ScalarField diffusionCorrection(const ScalarField& k, const ScalarField& x,
+    GradientMethod gradientMethod, DiffusionMethod diffusionMethod) {
+    ScalarField correction(x.mesh(), FieldLocation::Face, "equ.frozenCorrection");
+    if (diffusionMethod == DiffusionMethod::Orthogonal) return correction;
+    VectorField g(x.mesh(), FieldLocation::Cell, "equ.frozenGradient");
+    gradient(x, g, gradientMethod); finish(g);
+    diffusionFlux(k, x, g, correction, diffusionMethod);
+    ScalarField orthogonal(x.mesh(), FieldLocation::Face, "equ.orthogonalFlux");
+    diffusionFlux(k, x, g, orthogonal, DiffusionMethod::Orthogonal);
+    correction -= orthogonal;
+    return correction;
 }
 }
 template<class T> Equation<T>::Equation(Field<T>& x, const EquationControl& control)
@@ -122,10 +135,9 @@ template<class T> void laplacian(Equation<T>& a, double k, double factor, const 
     accumulate(s.coefficients, contribution, -factor);
     if constexpr(std::is_same_v<T,double>) {
         ScalarField kf(x.mesh(),FieldLocation::Face,"equ.frozenDiffusivity",k);
-        VectorField g(x.mesh(),FieldLocation::Cell,"equ.frozenGradient");
-        gradient(x,g,*m.gradient); finish(g);
+        auto correction = diffusionCorrection(kf, x, *m.gradient, *m.diffusion);
         using Snapshot=typename std::remove_reference_t<decltype(s)>::DiffusionSnapshot;
-        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{std::move(kf),x,std::move(g)}),factor,*m.diffusion});
+        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{std::move(kf),x,std::move(correction)}),factor});
     }
 
 }
@@ -145,10 +157,9 @@ template<class T> void laplacian(Equation<T>& a, const ScalarField& k, double fa
     addDiffusion(contribution, *face, x, *m.gradient, *m.diffusion);
     accumulate(s.coefficients, contribution, -factor);
     if constexpr(std::is_same_v<T,double>) {
-        VectorField g(x.mesh(),FieldLocation::Cell,"equ.frozenGradient");
-        gradient(x,g,*m.gradient); finish(g);
+        auto correction = diffusionCorrection(*face, x, *m.gradient, *m.diffusion);
         using Snapshot=typename std::remove_reference_t<decltype(s)>::DiffusionSnapshot;
-        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{*face,x,std::move(g)}),factor,*m.diffusion});
+        s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{*face,x,std::move(correction)}),factor});
     }
 
 }
@@ -313,14 +324,17 @@ void reference(Equation<double>& a,double value) {
 ScalarField faceFlux(const Equation<double>& a,const ScalarField& solution) {
     const auto& s=state(a); cell(solution,s.unknown->mesh());
     ScalarField result(solution.mesh(),FieldLocation::Face,"equ.diffusionFlux");
+    // Orthogonal flux ignores this gradient; the explicit part is already frozen.
+    VectorField zeroGradient(solution.mesh(),FieldLocation::Cell);
     for(const auto& contribution:s.diffusion) {
         const auto& snapshot=*contribution.snapshot;
         auto value=snapshot.boundary;
         value=solution; // keep the assembled boundary constraints
         finish(value);
         ScalarField increment(solution.mesh(),FieldLocation::Face,"equ.diffusionFluxTerm");
-        diffusionFlux(snapshot.coefficient,value,snapshot.gradient,increment,
-            contribution.method);
+        diffusionFlux(snapshot.coefficient,value,zeroGradient,increment,
+            DiffusionMethod::Orthogonal);
+        increment += snapshot.correction;
         result.addScaled(contribution.factor,increment);
     }
     finish(result); return result;

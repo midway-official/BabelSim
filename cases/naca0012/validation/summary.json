@@ -1,0 +1,40 @@
+{
+  "default_deltaT": 0.01,
+  "user_minimum_deltaT": 0.005,
+  "k_convection": "central",
+  "omega_convection": "central",
+  "mesh_checks": "passed",
+  "trial_status": "failed",
+  "trials": [
+    {
+      "deltaT": 0.01,
+      "saved_steps": 1,
+      "status": "failed_field_checks",
+      "solver_returncode": 1,
+      "termination": "Stopped after first saved state showed runaway turbulence; requested 10 steps not completed.",
+      "max_mass_error": 6.67669e-11,
+      "max_U": 8.478961733879817,
+      "max_k": 17820.758119541926,
+      "max_omega": 34795273467.61049,
+      "max_mut": 15020540206372.697,
+      "k_floor_clipped": true,
+      "omega_floor_clipped": true,
+      "run_directory": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113014"
+    },
+    {
+      "deltaT": 0.005,
+      "saved_steps": 1,
+      "status": "failed_field_checks",
+      "solver_returncode": 0,
+      "termination": "One-step diagnostic completed naturally; post-run field checks failed.",
+      "max_mass_error": 6.35808e-11,
+      "max_U": 8.17772883521566,
+      "max_k": 15.799514078074429,
+      "max_omega": 10535541.781791907,
+      "max_mut": 26839241025.608837,
+      "k_floor_clipped": true,
+      "omega_floor_clipped": true,
+      "run_directory": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-113137"
+    }
+  ]
+}

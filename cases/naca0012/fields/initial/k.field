@@ -2,13 +2,13 @@ field k
 {
     type scalar
     location cell
-    internal uniform (1.5e-4)
+    internal uniform (1.5e-6)
     boundary
     {
-        airfoil { type fixedValue value (1e-12) }
-        inlet { type fixedValue value (1.5e-4) }
+        airfoil { type fixedValue value (1.0e-12) }
+        inlet { type fixedValue value (1.5e-6) }
         outlet { type zeroGradient }
-        farfield { type fixedValue value (1.5e-4) }
+        farfield { type fixedValue value (1.5e-6) }
         front { type symmetry }
         back { type symmetry }
     }

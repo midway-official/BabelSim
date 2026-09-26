@@ -1,0 +1,10 @@
+{
+  "ranks": 4,
+  "steps": 1,
+  "deltaT": 0.005,
+  "returncode": 0,
+  "wall_seconds": 25.061319996006205,
+  "case": "/tmp/naca0012-performance-profile/baseline_r4_1step",
+  "performance_directory": "/tmp/naca0012-performance-profile/perf-baseline_r4_1step",
+  "log": "/tmp/naca0012-performance-profile/baseline_r4_1step.log"
+}

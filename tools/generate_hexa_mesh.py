@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Generate an explicit BABELSIM_MESH 2 hexahedral mesh file."""
+"""Generate an explicit face-based BABELSIM_MESH 3 mesh file."""
 
 from __future__ import annotations
 
 import argparse
 import math
 from pathlib import Path
+
+from polyhedral_mesh import write_hex_v3
 
 
 FACES = (
@@ -82,20 +84,9 @@ def main() -> int:
                     faces["minus_z"].append(tuple(cell[index] for index in FACES[4][1]))
                 if c + 1 == c_count:
                     faces["plus_z"].append(tuple(cell[index] for index in FACES[5][1]))
-    with args.output.open("w", encoding="utf-8") as output:
-        output.write(f"BABELSIM_MESH 2\nvertices {len(vertices)}\n")
-        for point in vertices:
-            output.write(" ".join(f"{value:.17g}" for value in point) + "\n")
-        output.write(f"cells {len(cells)}\n")
-        for cell in cells:
-            output.write(" ".join(str(value) for value in cell) + "\n")
-        output.write("patches 6\n")
-        for face, _ in FACES:
-            name, kind = patch_values[face]
-            output.write(f"patch {name} {kind} {len(faces[face])}\n")
-            for quad in faces[face]:
-                output.write(" ".join(str(value) for value in quad) + "\n")
-        output.write("end\n")
+    patches = [(patch_values[face][0], patch_values[face][1], faces[face])
+               for face, _ in FACES]
+    write_hex_v3(args.output, vertices, cells, patches)
     return 0
 
 

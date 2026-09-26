@@ -2,7 +2,6 @@
 
 #include "babelsim/vector.h"
 
-#include <array>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -13,6 +12,30 @@ namespace detail { struct MeshAccess; }
 
 using Index = std::int32_t;
 constexpr Index invalid_index = -1;
+
+// A zero-allocation view over one variable-length connectivity row.  Mesh
+// finalization stores all rows in contiguous CSR-style arrays; this view keeps
+// face/cell traversal out of the solver's hot path free of temporary vectors.
+class IndexRange {
+public:
+    using const_iterator = const Index*;
+
+    IndexRange() = default;
+    IndexRange(const Index* first, const Index* last) : m_first(first) {
+        m_size = first != nullptr && last != nullptr
+            ? static_cast<std::size_t>(last - first) : 0U;
+    }
+
+    const_iterator begin() const { return m_first; }
+    const_iterator end() const { return m_first == nullptr ? nullptr : m_first + m_size; }
+    std::size_t size() const { return m_size; }
+    bool empty() const { return m_size == 0U; }
+    const Index& operator[](std::size_t i) const { return m_first[i]; }
+
+private:
+    const Index* m_first = nullptr;
+    std::size_t m_size = 0U;
+};
 
 // Mesh 的数组一旦构造完成，其长度决定所有整数索引和 Field 布局。该轻量容器
 // 保留连续 vector 存储和索引性能，但把会改变容量的操作限制为 Mesh 的成员函数。
@@ -73,10 +96,22 @@ struct BoundaryPatch {
     MeshStorage<Index> faces;
 };
 
-// 每个边界四边形通过全局于该 Mesh 的顶点编号及所属 patch 显式给出。
-// 顶点环绕方向可以任选；Mesh 会按 owner 单元的外法向修正面方向。
+// A boundary face declaration used by mesh producers before owner/neighbour
+// resolution.  The ring is variable length; Mesh::polyhedral resolves it to a
+// face with one owner and no neighbour.
 struct BoundaryFaceSpec {
-    std::array<Index, 4> vertices{};
+    std::vector<Index> vertices;
+    Index patch = invalid_index;
+};
+
+// General face input.  The vertex ring may contain any number of vertices >= 3.
+// The ring orientation is normalized by Mesh::polyhedral so that the face area
+// vector points out of its owner cell.  A boundary face uses invalid_index for
+// neighbour and must name a physical patch.
+struct PolyhedralFaceSpec {
+    std::vector<Index> vertices;
+    Index owner = invalid_index;
+    Index neighbour = invalid_index;
     Index patch = invalid_index;
 };
 
@@ -94,9 +129,9 @@ struct MeshPartitionInfo {
     Index neighbour_ranks = 0;
 };
 
-// 只表示显式连接的非结构六面体网格。Hex 顶点顺序采用 VTK_HEXAHEDRON：
-// (0,1,2,3) 为一侧环，(4,5,6,7) 为对侧对应环。网格没有逻辑坐标、维度
-// 或规则编号；单元、面所有权和 ghost 信息只服务局部并行分区。
+// Explicit face based polyhedral mesh.  Every face has exactly one owner and
+// either one neighbour or one boundary patch.  Cell/face connectivity is
+// stored in contiguous CSR arrays, so traversal remains allocation-free.
 struct Mesh {
 private:
     friend struct detail::MeshAccess;
@@ -106,14 +141,18 @@ private:
         bool orthogonal_geometry = true;
 
         MeshStorage<Vec3> vertices;
-        MeshStorage<std::array<Index, 8>> cell_vertices;
         MeshStorage<Vec3> cell_centres;
         MeshStorage<double> cell_volumes;
         MeshStorage<double> cell_inverse_volumes;
-        MeshStorage<std::array<Index, 6>> cell_faces;
-        MeshStorage<std::array<Index, 6>> cell_neighbours;
-
-        MeshStorage<std::array<Index, 4>> face_vertices;
+        MeshStorage<Index> face_point_offsets;
+        MeshStorage<Index> face_point_ids;
+        MeshStorage<Index> cell_face_offsets;
+        MeshStorage<Index> cell_face_ids;
+        MeshStorage<Index> cell_face_signs;
+        MeshStorage<Index> cell_vertex_offsets;
+        MeshStorage<Index> cell_vertex_ids;
+        MeshStorage<Index> cell_neighbour_offsets;
+        MeshStorage<Index> cell_neighbour_ids;
         MeshStorage<Index> face_owner;
         MeshStorage<Index> face_neighbour;
         MeshStorage<Index> face_patch;
@@ -142,13 +181,22 @@ public:
     Mesh(const Mesh&) = default;
     Mesh(Mesh&&) noexcept = default;
 
-    static Mesh unstructured(
+    static Mesh polyhedral(
         std::vector<Vec3> vertices,
-        std::vector<std::array<Index, 8>> cells,
-        std::vector<PatchSpec> patches,
-        std::vector<BoundaryFaceSpec> boundary_faces);
+        std::vector<PolyhedralFaceSpec> faces,
+        std::vector<PatchSpec> patches);
 
-    Index cellCount() const { return static_cast<Index>(m_storage.cell_vertices.size()); }
+    static Mesh polyhedral(
+        std::vector<Vec3> vertices,
+        std::vector<std::vector<Index>> face_vertices,
+        std::vector<Index> owners,
+        std::vector<Index> neighbours,
+        std::vector<Index> face_patches,
+        std::vector<PatchSpec> patches);
+
+    Index cellCount() const {
+        return static_cast<Index>(m_storage.cell_face_offsets.size() - 1U);
+    }
     Index globalCellCount() const { return m_storage.global_cell_count; }
     Index faceCount() const { return static_cast<Index>(m_storage.face_owner.size()); }
     MeshPartitionInfo partitionInfo() const;
@@ -159,11 +207,41 @@ public:
     const Vec3& faceCentre(Index face) const { return m_storage.face_centres.at(face); }
     const Vec3& cellCentre(Index cell) const { return m_storage.cell_centres.at(cell); }
     const Vec3& faceAreaVector(Index face) const { return m_storage.face_area_vectors.at(face); }
-    const std::array<Index, 8>& cellVertices(Index cell) const {
-        return m_storage.cell_vertices.at(cell);
+    IndexRange cellVertices(Index cell) const {
+        const std::size_t c = static_cast<std::size_t>(cell);
+        const Index first = m_storage.cell_vertex_offsets.at(c);
+        const Index last = m_storage.cell_vertex_offsets.at(c + 1U);
+        return {m_storage.cell_vertex_ids.data() + first,
+                m_storage.cell_vertex_ids.data() + last};
     }
-    const std::array<Index, 4>& faceVertices(Index face) const {
-        return m_storage.face_vertices.at(face);
+    IndexRange faceVertices(Index face) const { return facePoints(face); }
+    IndexRange facePoints(Index face) const {
+        const std::size_t f = static_cast<std::size_t>(face);
+        const Index first = m_storage.face_point_offsets.at(f);
+        const Index last = m_storage.face_point_offsets.at(f + 1U);
+        return {m_storage.face_point_ids.data() + first,
+                m_storage.face_point_ids.data() + last};
+    }
+    IndexRange cellFaces(Index cell) const {
+        const std::size_t c = static_cast<std::size_t>(cell);
+        const Index first = m_storage.cell_face_offsets.at(c);
+        const Index last = m_storage.cell_face_offsets.at(c + 1U);
+        return {m_storage.cell_face_ids.data() + first,
+                m_storage.cell_face_ids.data() + last};
+    }
+    IndexRange cellFaceSigns(Index cell) const {
+        const std::size_t c = static_cast<std::size_t>(cell);
+        const Index first = m_storage.cell_face_offsets.at(c);
+        const Index last = m_storage.cell_face_offsets.at(c + 1U);
+        return {m_storage.cell_face_signs.data() + first,
+                m_storage.cell_face_signs.data() + last};
+    }
+    IndexRange cellNeighbours(Index cell) const {
+        const std::size_t c = static_cast<std::size_t>(cell);
+        const Index first = m_storage.cell_neighbour_offsets.at(c);
+        const Index last = m_storage.cell_neighbour_offsets.at(c + 1U);
+        return {m_storage.cell_neighbour_ids.data() + first,
+                m_storage.cell_neighbour_ids.data() + last};
     }
     double faceArea(Index face) const { return m_storage.face_areas.at(face); }
     double faceOrthogonalCoefficient(Index face) const {

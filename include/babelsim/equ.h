@@ -80,8 +80,8 @@ template<class T> Field<T> apply(const Equation<T>&, const Field<T>&);
 template<class T> Field<T> residual(const Equation<T>&, const Field<T>&); // b-Ax
 // Canonical relaxation: diagonal/=alpha; b+=(new-old diagonal)*previous.
 template<class T> void relax(Equation<T>&, const Field<T>& previous, double alpha);
-// Sum of scalar diffusion LHS face fluxes, using the gradients and boundary
-// data frozen during assembly. This is consistent with deferred corrections.
+// Sum of scalar diffusion LHS face fluxes, using the explicit corrections
+// (including their limiters) and boundary data frozen during assembly.
 ScalarField faceFlux(const Equation<double>&, const ScalarField& solution);
 template<class T> SolveResult solve(const Equation<T>&, Field<T>&);
 template<class T> SolveResult solve(const Equation<T>&, Field<T>&, const LinearSolverConfig&);

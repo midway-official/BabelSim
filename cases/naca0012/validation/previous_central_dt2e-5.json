@@ -1,0 +1,406 @@
+{
+  "command": [
+    "mpirun",
+    "-np",
+    "4",
+    "/home/midway/BabelSim/build/babelsim-solve",
+    "-case",
+    "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112528"
+  ],
+  "returncode": 0,
+  "steps_requested": 10,
+  "deltaT": 2e-05,
+  "elapsed_seconds": 166.60045633200207,
+  "run_directory": "/home/midway/BabelSim/cases/naca0012/results/smoke-20260924-112528",
+  "saved_steps": {
+    "0.0001": {
+      "U": {
+        "min": 0.003876742621115168,
+        "max": 6.3123740467669895,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -20.635555950858524,
+        "max": 3.2436362730698325,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4999797501491613e-06,
+        "max": 0.7795147954261601,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4999831249535,
+        "max": 569692.1904093515,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 1.413508517106774e-10,
+        "max": 9.52993852877864e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.00012": {
+      "U": {
+        "min": 0.0040945991527141035,
+        "max": 6.329416529479336,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -24.141969258272216,
+        "max": 2.1250117180226082,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4999757002580583e-06,
+        "max": 0.800306689669907,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4999797500401983,
+        "max": 566349.6999962217,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 1.0116119077263227e-10,
+        "max": 9.788401759005879e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.00014": {
+      "U": {
+        "min": 0.004474190758143246,
+        "max": 6.3466191862197245,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -22.30786378914955,
+        "max": 1.608121080334769,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.499971650347976e-06,
+        "max": 0.8192550759361457,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4999763751416677,
+        "max": 563256.4260856254,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 7.545027097188044e-11,
+        "max": 9.787000401574668e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.00016": {
+      "U": {
+        "min": 0.004896918804170955,
+        "max": 6.3576969569040855,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -23.154738632416816,
+        "max": 1.4550416716100123,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1e-12,
+        "max": 0.8363172379085232,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4999730002583842,
+        "max": 560402.1664964637,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 4.768211952052544e-15,
+        "max": 1.0750223144174801e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.00018": {
+      "U": {
+        "min": 0.005291695056856575,
+        "max": 6.3676985668220585,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -22.695515041779846,
+        "max": 1.3157693113992606,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1e-12,
+        "max": 0.8516287716823214,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1e-10,
+        "max": 557793.8836499974,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 4.7197903826003845e-11,
+        "max": 0.01,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.0002": {
+      "U": {
+        "min": 0.005641209788773497,
+        "max": 6.374400196841123,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -22.882413788251913,
+        "max": 1.1801204316352554,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1e-12,
+        "max": 0.8665902078482074,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1e-10,
+        "max": 555351.2254950947,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 3.9225507836637194e-11,
+        "max": 0.01,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "2e-05": {
+      "U": {
+        "min": 0.0022353447327055956,
+        "max": 4.813527608542277,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -7356.157709815336,
+        "max": 6863.1274283713865,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.499976924044054e-06,
+        "max": 0.4083813734299415,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.499986011779452,
+        "max": 372422.7183901172,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 1.053324850824276e-09,
+        "max": 2.1523110193136076e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "4e-05": {
+      "U": {
+        "min": 0.004621442557089138,
+        "max": 6.42758498751615,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -73.06203245311976,
+        "max": 98.1985237182837,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4999918999611268e-06,
+        "max": 0.7050203806072275,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4999932499745028,
+        "max": 579577.6889127863,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 5.164885878568219e-10,
+        "max": 4.468926675955916e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "6e-05": {
+      "U": {
+        "min": 0.004662426986696361,
+        "max": 6.23641531684885,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -23.36142342478641,
+        "max": 13.984226761763413,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4999878500200506e-06,
+        "max": 0.7298977787806227,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.499989875016124,
+        "max": 575237.8558076179,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 3.140457492252052e-10,
+        "max": 6.927772227449335e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "8e-05": {
+      "U": {
+        "min": 0.004008750751638163,
+        "max": 6.289648312673265,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -27.7567205311906,
+        "max": 5.735432072275283,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4999838000599013e-06,
+        "max": 0.7572163143216583,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4999864999753434,
+        "max": 573449.2892876926,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 2.0585248705761746e-10,
+        "max": 8.66800693705164e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    }
+  },
+  "completed_step_records": 10,
+  "inexact_linear_records": 0,
+  "max_reported_mass_error": 2.29546e-11,
+  "convection": {
+    "equation.momentum.convection": "linearUpwind",
+    "equation.pressureCorrection.convection": "upwind",
+    "equation.kTransport.convection": "central",
+    "equation.omegaTransport.convection": "central"
+  },
+  "acceptance": {
+    "exit_zero": true,
+    "all_requested_steps": true,
+    "all_linear_records_ok": true,
+    "no_startup_turbulence_floor_clipping": false,
+    "finite_fields": true,
+    "complete_unique_cell_fields": true,
+    "bounded_startup_fields": true
+  },
+  "smoke_passed": false
+}

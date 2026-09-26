@@ -1,6 +1,6 @@
 # transport
-equation.transport.solver bicgstab
-equation.transport.preconditioner ilut
+equation.transport.kspType gmres
+equation.transport.pcType bjacobi
 equation.transport.absoluteTolerance 1e-14
-equation.transport.relativeTolerance 1e-10
+equation.transport.relativeTolerance 1e-9
 equation.transport.maxIterations 1000

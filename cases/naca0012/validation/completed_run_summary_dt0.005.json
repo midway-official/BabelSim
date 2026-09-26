@@ -1,0 +1,444 @@
+{
+  "solver": "PISO",
+  "turbulence_model": "Wilcox1988m kOmega",
+  "ranks": 4,
+  "mesh_cells": 127013,
+  "mesh_sha256": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+  "convection": {
+    "equation.momentum.convection": "upwind",
+    "equation.pressureCorrection.convection": "upwind",
+    "equation.kTransport.convection": "upwind",
+    "equation.omegaTransport.convection": "upwind"
+  },
+  "deltaT": 0.005,
+  "endTime": 0.5,
+  "requested_steps": 100,
+  "completed_PISO_records": 100,
+  "log_return_code": 0,
+  "saved_times": [
+    "0.05",
+    "0.1",
+    "0.15",
+    "0.2",
+    "0.25",
+    "0.3",
+    "0.35",
+    "0.4",
+    "0.45",
+    "0.5"
+  ],
+  "max_mass_error": 4.4157e-11,
+  "inexact_records": 0,
+  "max_reported_dU": 0.197869,
+  "max_reported_dTurb": 0.999983,
+  "max_reported_rTurb": 0.930526,
+  "aggregate_extrema": {
+    "U": {
+      "min": 0.0005099891337598694,
+      "max": 1.6419846289593256
+    },
+    "p": {
+      "min": -1.9011160220966197,
+      "max": 1.4867392199537788
+    },
+    "k": {
+      "min": 1.470860712088885e-06,
+      "max": 0.11010133460840857
+    },
+    "omega": {
+      "min": 1.4756753653535408,
+      "max": 128847.83145454581
+    },
+    "mut": {
+      "min": 2.4345415664523095e-11,
+      "max": 4.510394880970445e-05
+    }
+  },
+  "floor_cell_counts": {
+    "k": 0,
+    "omega": 0
+  },
+  "acceptance": {
+    "100_steps_completed": true,
+    "10_expected_snapshots_present": true,
+    "all_fields_finite": true,
+    "all_cells_present_once": true,
+    "bounded_sanity_ranges": true,
+    "all_linear_records_ok": true,
+    "mass_error_below_1e-8": true
+  },
+  "scope_note": "This verifies numerical completion, full finite fields and broad sanity bounds. PISO maxIterations=1 accepts a time step on mass balance; reported transient momentum/turbulence changes are not steady convergence, and this is not physical validation.",
+  "numerical_run_passed": true,
+  "saved_steps": {
+    "0.05": {
+      "U": {
+        "min": 0.004950047964225439,
+        "max": 1.6297241389441661,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.9011160220966197,
+        "max": 1.4867392199537788,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4970320041674301e-06,
+        "max": 0.11010133460840857,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.49752602912014,
+        "max": 128847.83145454581,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 1.1118420507784366e-08,
+        "max": 7.829523149448714e-06,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.1": {
+      "U": {
+        "min": 0.0018790199410259625,
+        "max": 1.6419846289593256,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.5166818942314144,
+        "max": 0.4528307667718391,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4940756203375584e-06,
+        "max": 0.05412184417608808,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4950609252909388,
+        "max": 120040.25889326035,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 1.7491464381441458e-09,
+        "max": 1.3365322859840039e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.15": {
+      "U": {
+        "min": 0.0012991689013930787,
+        "max": 1.6321338486632824,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.2756407719925638,
+        "max": 0.4623597336856372,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4911330560874429e-06,
+        "max": 0.022278398702349964,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4926065378779219,
+        "max": 114473.46890980481,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 5.094247505706716e-10,
+        "max": 1.838267258901685e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.2": {
+      "U": {
+        "min": 0.0039580557847403285,
+        "max": 1.5974413378408951,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.044878530617234,
+        "max": 0.4784352196457001,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4882045768874829e-06,
+        "max": 0.016705492064994925,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4901630914302695,
+        "max": 109686.56378032546,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 1.1925386588780512e-10,
+        "max": 2.3105061804601133e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.25": {
+      "U": {
+        "min": 0.0015090247634179667,
+        "max": 1.5479919091033445,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -0.9759670717799088,
+        "max": 0.4903443897583035,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4852835490263416e-06,
+        "max": 0.01990449525928324,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.487725069297135,
+        "max": 104978.61183188883,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 5.1778258645665343e-11,
+        "max": 2.741620638020075e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.3": {
+      "U": {
+        "min": 0.0018017580427346438,
+        "max": 1.4915557409338878,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.0136480340377851,
+        "max": 0.4993512298196966,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4823751251401626e-06,
+        "max": 0.02317397674381013,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4852967736616005,
+        "max": 100696.68916492158,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 3.3331606516539453e-11,
+        "max": 3.1550637168950585e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.35": {
+      "U": {
+        "min": 0.0027165845857681555,
+        "max": 1.4358190039706307,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.0538074786085925,
+        "max": 0.5055592572809152,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4794805510658842e-06,
+        "max": 0.026261827598868998,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4828792532889583,
+        "max": 97321.22477626025,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 2.6537374007612746e-11,
+        "max": 3.5440499238006715e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.4": {
+      "U": {
+        "min": 0.0015894474749143888,
+        "max": 1.3918777824377189,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.0959045832114793,
+        "max": 0.5098950427313098,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4766012605609962e-06,
+        "max": 0.027595773047333277,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4804737040075437,
+        "max": 94368.62910422494,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 2.4345415664523095e-11,
+        "max": 3.883423972470993e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.45": {
+      "U": {
+        "min": 0.0005099891337598694,
+        "max": 1.4098376693995993,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.1385896194989629,
+        "max": 0.5132270687439204,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.4737249742965576e-06,
+        "max": 0.028267144555931132,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4780698983210638,
+        "max": 92006.17053198678,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 2.4534687878307188e-11,
+        "max": 4.20037831276822e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    },
+    "0.5": {
+      "U": {
+        "min": 0.001819256770130407,
+        "max": 1.4570500404408846,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "p": {
+        "min": -1.1799748789645845,
+        "max": 0.5155737350996319,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "k": {
+        "min": 1.470860712088885e-06,
+        "max": 0.0279994913341255,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "omega": {
+        "min": 1.4756753653535408,
+        "max": 90355.87851998379,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      },
+      "mut": {
+        "min": 2.6018612426884066e-11,
+        "max": 4.510394880970445e-05,
+        "finite": true,
+        "cells": 127013,
+        "unique_cells": 127013
+      }
+    }
+  }
+}

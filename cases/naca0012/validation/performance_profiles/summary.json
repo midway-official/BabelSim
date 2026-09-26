@@ -1,0 +1,629 @@
+{
+  "case": "NACA0012 transient kOmega PISO startup profiling",
+  "meshCells": 127013,
+  "deltaT": 0.005,
+  "steps": 5,
+  "profiles": [
+    {
+      "id": "baseline_r2",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 3,
+      "preconditioner": "ilut",
+      "ranks": 2,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": 0,
+      "wallSeconds": 103.08491035999032,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 63507,
+          "ghostCells": 5395,
+          "communicationFaces": 1066,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 63506,
+          "ghostCells": 10026,
+          "communicationFaces": 1952,
+          "neighbourRanks": 1
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 99.01892543000001,
+      "linearSolves": 105,
+      "krylovIterations": 21666,
+      "sparseMatvecs": 43540,
+      "haloExchanges": 43971,
+      "globalReductions": 65609,
+      "equationAssemblies": 95,
+      "preconditionerSetups": 95,
+      "preconditionerApplications": 43332,
+      "outputWrites": 2,
+      "assemblySeconds": 0.09661457399999998,
+      "preconditionerSeconds": 6.260040967999999,
+      "preconditionerApplySeconds": 57.372239128,
+      "linearSolveSeconds": 85.85543546299998,
+      "sparseMatvecSeconds": 25.951575611000003,
+      "haloSeconds": 11.967086179000008,
+      "globalReductionSeconds": 2.0929676429999997,
+      "outputSeconds": 1.17869811
+    },
+    {
+      "id": "baseline_r4",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 3,
+      "preconditioner": "ilut",
+      "ranks": 4,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": 0,
+      "wallSeconds": 108.42779074198916,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 104.52708567100001,
+      "linearSolves": 105,
+      "krylovIterations": 40814,
+      "sparseMatvecs": 81841,
+      "haloExchanges": 82272,
+      "globalReductions": 123063,
+      "equationAssemblies": 95,
+      "preconditionerSetups": 95,
+      "preconditionerApplications": 81628,
+      "outputWrites": 2,
+      "assemblySeconds": 0.07658237400000002,
+      "preconditionerSeconds": 2.9192683269999993,
+      "preconditionerApplySeconds": 53.08292802900001,
+      "linearSolveSeconds": 96.32055431500004,
+      "sparseMatvecSeconds": 37.28274332200001,
+      "haloSeconds": 21.906550665000008,
+      "globalReductionSeconds": 16.255735048000005,
+      "outputSeconds": 0.6701346990000001
+    },
+    {
+      "id": "baseline_r8",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 3,
+      "preconditioner": "ilut",
+      "ranks": 8,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": 0,
+      "wallSeconds": 128.80364247100079,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 15877,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 15877,
+          "ghostCells": 11103,
+          "communicationFaces": 2014,
+          "neighbourRanks": 6
+        },
+        {
+          "rank": 2,
+          "ownedCells": 15877,
+          "ghostCells": 27212,
+          "communicationFaces": 2624,
+          "neighbourRanks": 5
+        },
+        {
+          "rank": 3,
+          "ownedCells": 15877,
+          "ghostCells": 30886,
+          "communicationFaces": 2913,
+          "neighbourRanks": 5
+        },
+        {
+          "rank": 4,
+          "ownedCells": 15877,
+          "ghostCells": 14731,
+          "communicationFaces": 2190,
+          "neighbourRanks": 6
+        },
+        {
+          "rank": 5,
+          "ownedCells": 15876,
+          "ghostCells": 7597,
+          "communicationFaces": 1466,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 6,
+          "ownedCells": 15876,
+          "ghostCells": 35777,
+          "communicationFaces": 4369,
+          "neighbourRanks": 6
+        },
+        {
+          "rank": 7,
+          "ownedCells": 15876,
+          "ghostCells": 9665,
+          "communicationFaces": 2075,
+          "neighbourRanks": 6
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 124.314645303,
+      "linearSolves": 105,
+      "krylovIterations": 66551,
+      "sparseMatvecs": 133321,
+      "haloExchanges": 133752,
+      "globalReductions": 200277,
+      "equationAssemblies": 95,
+      "preconditionerSetups": 95,
+      "preconditionerApplications": 133102,
+      "outputWrites": 2,
+      "assemblySeconds": 0.08563546599999998,
+      "preconditionerSeconds": 1.608184782,
+      "preconditionerApplySeconds": 56.95178583499998,
+      "linearSolveSeconds": 116.25551924600003,
+      "sparseMatvecSeconds": 68.873501034,
+      "haloSeconds": 51.47254996700002,
+      "globalReductionSeconds": 37.088539571,
+      "outputSeconds": 0.5770913710000001
+    },
+    {
+      "id": "nonorth1_ilut_r4",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 1,
+      "preconditioner": "ilut",
+      "ranks": 4,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": 0,
+      "wallSeconds": 62.949177538001095,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 59.229447558000004,
+      "linearSolves": 65,
+      "krylovIterations": 22834,
+      "sparseMatvecs": 45800,
+      "haloExchanges": 46111,
+      "globalReductions": 68910,
+      "equationAssemblies": 55,
+      "preconditionerSetups": 55,
+      "preconditionerApplications": 45668,
+      "outputWrites": 2,
+      "assemblySeconds": 0.04538455000000002,
+      "preconditionerSeconds": 1.515536624,
+      "preconditionerApplySeconds": 28.578332181999997,
+      "linearSolveSeconds": 53.30477931100001,
+      "sparseMatvecSeconds": 20.712468104000006,
+      "haloSeconds": 12.148207423000004,
+      "globalReductionSeconds": 8.97621929,
+      "outputSeconds": 0.694643039
+    },
+    {
+      "id": "nonorth1_amg_refresh8_smooth2_r4",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 1,
+      "preconditioner": "amg",
+      "amgRefreshInterval": 8,
+      "amgSmoothingSteps": 2,
+      "ranks": 4,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": null,
+      "wallSeconds": null,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 90.903408819,
+      "linearSolves": 65,
+      "krylovIterations": 20816,
+      "sparseMatvecs": 207813,
+      "haloExchanges": 208124,
+      "globalReductions": 62844,
+      "equationAssemblies": 55,
+      "preconditionerSetups": 55,
+      "preconditionerApplications": 41632,
+      "outputWrites": 2,
+      "assemblySeconds": 0.044121874000000005,
+      "preconditionerSeconds": 0.28479753700000005,
+      "preconditionerApplySeconds": 72.48988473200004,
+      "linearSolveSeconds": 86.00118887699999,
+      "sparseMatvecSeconds": 50.402327310999986,
+      "haloSeconds": 25.322336519999993,
+      "globalReductionSeconds": 5.214714938000001,
+      "outputSeconds": 0.6567631760000001
+    },
+    {
+      "id": "nonorth1_amg_refresh8_smooth1_r4",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 1,
+      "preconditioner": "amg",
+      "amgRefreshInterval": 8,
+      "amgSmoothingSteps": 1,
+      "ranks": 4,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": 0,
+      "wallSeconds": 96.22,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 99.49812894,
+      "linearSolves": 65,
+      "krylovIterations": 30394,
+      "sparseMatvecs": 182253,
+      "haloExchanges": 182564,
+      "globalReductions": 91576,
+      "equationAssemblies": 55,
+      "preconditionerSetups": 55,
+      "preconditionerApplications": 60788,
+      "outputWrites": 2,
+      "assemblySeconds": 0.044673367,
+      "preconditionerSeconds": 0.283181667,
+      "preconditionerApplySeconds": 75.23254844700003,
+      "linearSolveSeconds": 94.63809539900002,
+      "sparseMatvecSeconds": 46.814739994000014,
+      "haloSeconds": 22.991771671000006,
+      "globalReductionSeconds": 7.204018363000001,
+      "outputSeconds": 0.6693447560000001
+    },
+    {
+      "id": "piso2_nonorth1_failed_r4",
+      "nCorrectors": 2,
+      "nonOrthogonalCorrections": 1,
+      "preconditioner": "ilut",
+      "ranks": 4,
+      "steps": 5,
+      "deltaT": 0.005,
+      "exitCode": 2,
+      "wallSeconds": 14.334060548993875,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "maxIterations",
+      "solverSeconds": 8.324805007,
+      "linearSolves": 9,
+      "krylovIterations": 2634,
+      "sparseMatvecs": 5287,
+      "haloExchanges": 5332,
+      "globalReductions": 7961,
+      "equationAssemblies": 7,
+      "preconditionerSetups": 7,
+      "preconditionerApplications": 5268,
+      "outputWrites": 0,
+      "assemblySeconds": 0.005707878,
+      "preconditionerSeconds": 0.254986708,
+      "preconditionerApplySeconds": 3.5267631749999984,
+      "linearSolveSeconds": 6.370936264000002,
+      "sparseMatvecSeconds": 2.483761137000002,
+      "haloSeconds": 1.459187218000001,
+      "globalReductionSeconds": 1.0730765820000003,
+      "outputSeconds": 0
+    },
+    {
+      "id": "baseline_r4_1step",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 3,
+      "preconditioner": "ilut",
+      "ranks": 4,
+      "steps": 1,
+      "requestedSteps": 1,
+      "deltaT": 0.005,
+      "exitCode": 0,
+      "wallSeconds": 25.061319996006205,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "converged",
+      "solverSeconds": 21.293457042,
+      "linearSolves": 21,
+      "krylovIterations": 7773,
+      "sparseMatvecs": 15591,
+      "haloExchanges": 15678,
+      "globalReductions": 23444,
+      "equationAssemblies": 19,
+      "preconditionerSetups": 19,
+      "preconditionerApplications": 15546,
+      "outputWrites": 2,
+      "assemblySeconds": 0.016262809,
+      "preconditionerSeconds": 0.619913892,
+      "preconditionerApplySeconds": 9.909038891,
+      "linearSolveSeconds": 18.096501668,
+      "sparseMatvecSeconds": 6.904118416999998,
+      "haloSeconds": 4.090853740999998,
+      "globalReductionSeconds": 2.976749376999999,
+      "outputSeconds": 0.6875304180000001
+    },
+    {
+      "id": "pressure_none_r4_1step",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 3,
+      "preconditioner": "pressure-none; other equations ILUT",
+      "ranks": 4,
+      "steps": 1,
+      "requestedSteps": 1,
+      "deltaT": 0.005,
+      "exitCode": 2,
+      "wallSeconds": 27.796356958002434,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "maxIterations",
+      "solverSeconds": 24.155400317,
+      "linearSolves": 21,
+      "krylovIterations": 38417,
+      "sparseMatvecs": 76875,
+      "haloExchanges": 76962,
+      "globalReductions": 115366,
+      "equationAssemblies": 19,
+      "preconditionerSetups": 3,
+      "preconditionerApplications": 34,
+      "outputWrites": 0,
+      "assemblySeconds": 0.015477067,
+      "preconditionerSeconds": 0.084549388,
+      "preconditionerApplySeconds": 0.012434475000000002,
+      "linearSolveSeconds": 22.142921365000003,
+      "sparseMatvecSeconds": 17.972548323,
+      "haloSeconds": 9.047219440000006,
+      "globalReductionSeconds": 7.081930695000008,
+      "outputSeconds": 0
+    },
+    {
+      "id": "all_none_r4_first_step_failed",
+      "nCorrectors": 4,
+      "nonOrthogonalCorrections": 3,
+      "preconditioner": "none",
+      "ranks": 4,
+      "steps": 1,
+      "requestedSteps": 5,
+      "deltaT": 0.005,
+      "exitCode": 2,
+      "wallSeconds": 27.69,
+      "partitionByRank": [
+        {
+          "rank": 0,
+          "ownedCells": 31754,
+          "ghostCells": 2232,
+          "communicationFaces": 746,
+          "neighbourRanks": 1
+        },
+        {
+          "rank": 1,
+          "ownedCells": 31753,
+          "ghostCells": 20576,
+          "communicationFaces": 2276,
+          "neighbourRanks": 3
+        },
+        {
+          "rank": 2,
+          "ownedCells": 31753,
+          "ghostCells": 10950,
+          "communicationFaces": 2946,
+          "neighbourRanks": 2
+        },
+        {
+          "rank": 3,
+          "ownedCells": 31753,
+          "ghostCells": 21119,
+          "communicationFaces": 1922,
+          "neighbourRanks": 2
+        }
+      ],
+      "status": "maxIterations",
+      "solverSeconds": 26.417338684,
+      "linearSolves": 21,
+      "krylovIterations": 41488,
+      "sparseMatvecs": 83019,
+      "haloExchanges": 83106,
+      "globalReductions": 124583,
+      "equationAssemblies": 19,
+      "preconditionerSetups": 0,
+      "preconditionerApplications": 0,
+      "outputWrites": 0,
+      "assemblySeconds": 0.015953576,
+      "preconditionerSeconds": 0,
+      "preconditionerApplySeconds": 0,
+      "linearSolveSeconds": 23.920489851000003,
+      "sparseMatvecSeconds": 19.487444567999976,
+      "haloSeconds": 10.16753097700001,
+      "globalReductionSeconds": 7.872513961000012,
+      "outputSeconds": 0
+    }
+  ]
+}

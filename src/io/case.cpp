@@ -69,7 +69,7 @@ PerformanceCounters maximumPerformance(
     const PerformanceCounters& local,
     const ParallelContext& parallel)
 {
-    const std::array<double, 19> local_values{
+    const std::array<double, 27> local_values{
         static_cast<double>(local.linear_solves),
         static_cast<double>(local.krylov_iterations),
         static_cast<double>(local.sparse_matvecs),
@@ -89,6 +89,14 @@ PerformanceCounters maximumPerformance(
         local.halo_seconds,
         local.global_reduction_seconds,
         local.output_seconds,
+        static_cast<double>(local.matrix_pattern_builds),
+        static_cast<double>(local.matrix_value_updates),
+        static_cast<double>(local.rhs_only_solves),
+        static_cast<double>(local.true_residual_checks),
+        local.matrix_update_seconds,
+        local.rhs_seconds,
+        local.residual_check_seconds,
+        local.pattern_build_seconds,
     };
     std::array<double, local_values.size()> global_values{};
     parallel.maximum(
@@ -114,6 +122,15 @@ PerformanceCounters maximumPerformance(
     global.halo_seconds = global_values[16];
     global.global_reduction_seconds = global_values[17];
     global.output_seconds = global_values[18];
+    global.matrix_pattern_builds = static_cast<std::uint64_t>(global_values[19]);
+    global.matrix_value_updates = static_cast<std::uint64_t>(global_values[20]);
+    global.rhs_only_solves = static_cast<std::uint64_t>(global_values[21]);
+    global.true_residual_checks = static_cast<std::uint64_t>(global_values[22]);
+    global.matrix_update_seconds = global_values[23];
+    global.rhs_seconds = global_values[24];
+    global.residual_check_seconds = global_values[25];
+    global.pattern_build_seconds = global_values[26];
+    global.equation_systems = local.equation_systems;
     return global;
 }
 
@@ -408,26 +425,28 @@ EquationControl equationControl(const Case& problem, const std::string& name,
     const auto& p = problem.solution();
     auto& c = result.linear;
     const auto prefix = "equation." + name + ".";
-    const auto solver = p.word(prefix + "solver");
+    const auto solver = p.word(prefix + "kspType");
     if (solver == "cg") c.solver = LinearSolverType::ConjugateGradient;
-    else if (solver == "bicgstab") c.solver = LinearSolverType::BiCGSTAB;
-    else throw std::invalid_argument(p.sourcePath().string() + ": unknown solver for " + name + ": " + solver);
-    const auto preconditioner = p.word(prefix + "preconditioner");
+    else if (solver == "bcgs") c.solver = LinearSolverType::BiCGSTAB;
+    else if (solver == "gmres") c.solver = LinearSolverType::GMRES;
+    else if (solver == "fgmres") c.solver = LinearSolverType::FGMRES;
+    else throw std::invalid_argument(p.sourcePath().string() + ": unknown PETSc KSP type for " + name + ": " + solver);
+    const auto preconditioner = p.word(prefix + "pcType");
     if (preconditioner == "none") c.preconditioner = PreconditionerType::None;
-    else if (preconditioner == "incompleteCholesky") c.preconditioner = PreconditionerType::IncompleteCholesky;
-    else if (preconditioner == "ilut") c.preconditioner = PreconditionerType::ILUT;
-    else if (preconditioner == "amg") c.preconditioner = PreconditionerType::AlgebraicMultigrid;
-    else throw std::invalid_argument(p.sourcePath().string() + ": unknown preconditioner for " + name + ": " + preconditioner);
+    else if (preconditioner == "icc") c.preconditioner = PreconditionerType::IncompleteCholesky;
+    else if (preconditioner == "hypre") c.preconditioner = PreconditionerType::Hypre;
+    else if (preconditioner == "gamg") c.preconditioner = PreconditionerType::GAMG;
+    else if (preconditioner == "bjacobi") c.preconditioner = PreconditionerType::BlockJacobi;
+    else if (preconditioner == "asm") c.preconditioner = PreconditionerType::ASM;
+    else if (preconditioner == "jacobi") c.preconditioner = PreconditionerType::Jacobi;
+    else throw std::invalid_argument(p.sourcePath().string() + ": unknown PETSc PC type for " + name + ": " + preconditioner);
     c.absolute_tolerance = p.number(prefix + "absoluteTolerance");
     c.relative_tolerance = p.number(prefix + "relativeTolerance");
     c.max_iterations = p.integer(prefix + "maxIterations");
     c.warm_start = p.boolean(prefix + "warmStart", c.warm_start);
-    c.ilut_drop_tolerance = p.number(prefix + "ilutDropTolerance", c.ilut_drop_tolerance);
-    c.ilut_fill_factor = p.integer(prefix + "ilutFillFactor", c.ilut_fill_factor);
     c.amg_max_levels = p.integer(prefix + "amgMaxLevels", c.amg_max_levels);
     c.amg_coarse_size = p.integer(prefix + "amgCoarseSize", c.amg_coarse_size);
     c.amg_smoothing_steps = p.integer(prefix + "amgSmoothingSteps", c.amg_smoothing_steps);
-    c.amg_refresh_interval = p.integer(prefix + "amgRefreshInterval", c.amg_refresh_interval);
     c.validate();
     return result;
 }

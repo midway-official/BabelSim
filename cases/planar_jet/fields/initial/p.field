@@ -1,0 +1,24 @@
+field p
+{
+    type scalar
+    location cell
+    internal uniform (0)
+    boundary
+    {
+        jet_core { type zeroGradient }
+        inlet_ramp_00 { type zeroGradient }
+        inlet_ramp_01 { type zeroGradient }
+        inlet_ramp_02 { type zeroGradient }
+        inlet_ramp_03 { type zeroGradient }
+        inlet_ramp_04 { type zeroGradient }
+        inlet_ramp_05 { type zeroGradient }
+        inlet_ramp_06 { type zeroGradient }
+        inlet_ramp_07 { type zeroGradient }
+        inlet_ramp_08 { type zeroGradient }
+        inlet_ramp_09 { type zeroGradient }
+        coflow_inlet { type zeroGradient }
+        outlet { type fixedValue value (0) }
+        farfield { type symmetry }
+        frontBack { type symmetry }
+    }
+}

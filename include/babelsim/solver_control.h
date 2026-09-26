@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <string>
+#include <vector>
 
 namespace babelsim {
 
@@ -11,19 +13,49 @@ namespace babelsim {
 enum class LinearSolverType {
     ConjugateGradient,
     BiCGSTAB,
+    GMRES,
+    FGMRES,
 };
 
 enum class PreconditionerType {
     None,
     IncompleteCholesky,
-    ILUT,
-    AlgebraicMultigrid,
+    Hypre,
+    GAMG,
+    BlockJacobi,
+    ASM,
+    Jacobi,
 };
 
 enum class SolveStatus {
     Converged,
     MaxIterations,
     NumericalFailure,
+};
+
+// Rank-local account of each persistent PETSc system. The values are
+// intentionally backend-neutral text/counters so no PETSc handle escapes.
+struct EquationPerformanceCounters {
+    std::string identity;
+    std::string ksp_type;
+    std::string pc_type;
+    std::string last_status;
+    std::uint64_t matrix_pattern_builds = 0;
+    std::uint64_t matrix_value_updates = 0;
+    std::uint64_t rhs_only_solves = 0;
+    std::uint64_t linear_solves = 0;
+    std::uint64_t krylov_iterations = 0;
+    std::uint64_t preconditioner_setups = 0;
+    std::uint64_t true_residual_checks = 0;
+    double last_initial_residual = 0.0;
+    double last_final_residual = 0.0;
+    double last_relative_residual = 0.0;
+    double pattern_build_seconds = 0.0;
+    double matrix_update_seconds = 0.0;
+    double preconditioner_seconds = 0.0;
+    double rhs_seconds = 0.0;
+    double solve_seconds = 0.0;
+    double residual_check_seconds = 0.0;
 };
 
 // 计算后端的只读性能快照。它只描述工作量与时间，不暴露矩阵、MPI 或存储实现；
@@ -36,6 +68,10 @@ struct PerformanceCounters {
     std::uint64_t halo_bytes = 0;
     std::uint64_t global_reductions = 0;
     std::uint64_t equation_assemblies = 0;
+    std::uint64_t matrix_pattern_builds = 0;
+    std::uint64_t matrix_value_updates = 0;
+    std::uint64_t rhs_only_solves = 0;
+    std::uint64_t true_residual_checks = 0;
     std::uint64_t preconditioner_setups = 0;
     std::uint64_t preconditioner_applications = 0;
     // Result I/O is recorded separately from numerical work so one-time and
@@ -43,6 +79,10 @@ struct PerformanceCounters {
     std::uint64_t output_writes = 0;
     double elapsed_seconds = 0.0;
     double assembly_seconds = 0.0;
+    double pattern_build_seconds = 0.0;
+    double matrix_update_seconds = 0.0;
+    double rhs_seconds = 0.0;
+    double residual_check_seconds = 0.0;
     double preconditioner_seconds = 0.0;
     double preconditioner_apply_seconds = 0.0;
     double linear_solve_seconds = 0.0;
@@ -50,6 +90,7 @@ struct PerformanceCounters {
     double halo_seconds = 0.0;
     double global_reduction_seconds = 0.0;
     double output_seconds = 0.0;
+    std::vector<EquationPerformanceCounters> equation_systems;
 
     PerformanceCounters& operator+=(const PerformanceCounters& other) {
         linear_solves += other.linear_solves;
@@ -59,11 +100,19 @@ struct PerformanceCounters {
         halo_bytes += other.halo_bytes;
         global_reductions += other.global_reductions;
         equation_assemblies += other.equation_assemblies;
+        matrix_pattern_builds += other.matrix_pattern_builds;
+        matrix_value_updates += other.matrix_value_updates;
+        rhs_only_solves += other.rhs_only_solves;
+        true_residual_checks += other.true_residual_checks;
         preconditioner_setups += other.preconditioner_setups;
         preconditioner_applications += other.preconditioner_applications;
         output_writes += other.output_writes;
         elapsed_seconds += other.elapsed_seconds;
         assembly_seconds += other.assembly_seconds;
+        pattern_build_seconds += other.pattern_build_seconds;
+        matrix_update_seconds += other.matrix_update_seconds;
+        rhs_seconds += other.rhs_seconds;
+        residual_check_seconds += other.residual_check_seconds;
         preconditioner_seconds += other.preconditioner_seconds;
         preconditioner_apply_seconds += other.preconditioner_apply_seconds;
         linear_solve_seconds += other.linear_solve_seconds;
@@ -71,27 +120,48 @@ struct PerformanceCounters {
         halo_seconds += other.halo_seconds;
         global_reduction_seconds += other.global_reduction_seconds;
         output_seconds += other.output_seconds;
+        for (const auto& source : other.equation_systems) {
+            auto target = std::find_if(equation_systems.begin(), equation_systems.end(),
+                [&](const EquationPerformanceCounters& value) { return value.identity == source.identity; });
+            if (target == equation_systems.end()) equation_systems.push_back(source);
+            else {
+                target->ksp_type = source.ksp_type;
+                target->pc_type = source.pc_type;
+                target->last_status = source.last_status;
+                target->matrix_pattern_builds += source.matrix_pattern_builds;
+                target->matrix_value_updates += source.matrix_value_updates;
+                target->rhs_only_solves += source.rhs_only_solves;
+                target->linear_solves += source.linear_solves;
+                target->krylov_iterations += source.krylov_iterations;
+                target->preconditioner_setups += source.preconditioner_setups;
+                target->true_residual_checks += source.true_residual_checks;
+                target->last_initial_residual = source.last_initial_residual;
+                target->last_final_residual = source.last_final_residual;
+                target->last_relative_residual = source.last_relative_residual;
+                target->pattern_build_seconds += source.pattern_build_seconds;
+                target->matrix_update_seconds += source.matrix_update_seconds;
+                target->preconditioner_seconds += source.preconditioner_seconds;
+                target->rhs_seconds += source.rhs_seconds;
+                target->solve_seconds += source.solve_seconds;
+                target->residual_check_seconds += source.residual_check_seconds;
+            }
+        }
         return *this;
     }
 };
 
 struct LinearSolverConfig {
     LinearSolverType solver = LinearSolverType::BiCGSTAB;
-    PreconditionerType preconditioner = PreconditionerType::ILUT;
+    PreconditionerType preconditioner = PreconditionerType::BlockJacobi;
     double absolute_tolerance = 1e-12;
     double relative_tolerance = 1e-8;
     int max_iterations = 1000;
     bool warm_start = false;
-    // ILUT 强度；默认值保持原有后端行为。非默认值用于高纵横比/强对流网格。
-    double ilut_drop_tolerance = 1e-3;
-    int ilut_fill_factor = 2;
-    // AMG 只作为 Krylov 预条件器；这些参数只改变计算后端，不改变方程 API。
+    // GAMG hierarchy controls; Hypre uses its native defaults unless PETSc
+    // options are explicitly added to the case-level typed configuration.
     int amg_max_levels = 12;
     int amg_coarse_size = 48;
     int amg_smoothing_steps = 2;
-    // AMG 仅作 Krylov 预条件器时，允许复用前几次方程的层级和粗层分解。
-    // 线性算子始终使用当前矩阵；1 表示每次更新，保持最保守的数值路径。
-    int amg_refresh_interval = 1;
 
     void validate() const;
 };
@@ -100,9 +170,8 @@ inline bool operator==(const LinearSolverConfig& a, const LinearSolverConfig& b)
     return a.solver==b.solver && a.preconditioner==b.preconditioner &&
         a.absolute_tolerance==b.absolute_tolerance && a.relative_tolerance==b.relative_tolerance &&
         a.max_iterations==b.max_iterations && a.warm_start==b.warm_start &&
-        a.ilut_drop_tolerance==b.ilut_drop_tolerance && a.ilut_fill_factor==b.ilut_fill_factor &&
         a.amg_max_levels==b.amg_max_levels && a.amg_coarse_size==b.amg_coarse_size &&
-        a.amg_smoothing_steps==b.amg_smoothing_steps && a.amg_refresh_interval==b.amg_refresh_interval;
+        a.amg_smoothing_steps==b.amg_smoothing_steps;
 }
 
 // 所有后端使用同一合同：原始（未预条件）真残差的全局 L2 范数，
@@ -168,5 +237,6 @@ struct SolveResult {
             std::isfinite(relative_residual);
     }
 };
+
 
 }  // babelsim 命名空间

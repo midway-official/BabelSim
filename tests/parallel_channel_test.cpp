@@ -1,5 +1,6 @@
 #include "internal/mesh_access.h"
 #include "internal/field_access.h"
+#include "internal/petsc_session.h"
 #include "support/simple_reference.h"
 #include "babelsim/runtime.h"
 #include "babelsim/mesh_io.h"
@@ -94,7 +95,7 @@ int main(int argc, char* argv[]) {
         control.momentum_equation.linear.relative_tolerance = 1e-9;
         control.momentum_equation.linear.max_iterations = 300;
         control.pressure_equation.linear.solver = LinearSolverType::ConjugateGradient;
-        control.pressure_equation.linear.preconditioner = PreconditionerType::IncompleteCholesky;
+        control.pressure_equation.linear.preconditioner = PreconditionerType::Hypre;
         control.pressure_equation.linear.absolute_tolerance = 1e-14;
         control.pressure_equation.linear.relative_tolerance = 1e-7;
         control.pressure_equation.linear.max_iterations = 1200;
@@ -149,5 +150,6 @@ int main(int argc, char* argv[]) {
         const int abort_status = MPI_Abort(parallel.communicator, 1);
         if (abort_status != MPI_SUCCESS) return 1;
     }
+    detail::finalizePetscSession();
     return MPI_Finalize() == MPI_SUCCESS ? 0 : 1;
 }

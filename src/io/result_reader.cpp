@@ -60,7 +60,7 @@ Metadata readMetadata(const std::filesystem::path& path) {
         const std::string& key = line.tokens.front();
         if (key == "format" && line.tokens.size() == 3 && !format &&
             line.tokens[1] == "babelsim_result" &&
-            (line.tokens[2] == "1" || line.tokens[2] == "2")) {
+            (line.tokens[2] == "1" || line.tokens[2] == "2" || line.tokens[2] == "3")) {
             format = true;
             result.version = integer(line.tokens[2], path);
         } else if (key == "time" && line.tokens.size() == 2 && !time) {
@@ -149,6 +149,7 @@ ResultData readParallelResults(
     result.time_name = first.time_name;
     result.global_cell_count = first.global_cell_count;
     if (first.version == 2) result.cell_vertices.resize(global_cell_count);
+    if (first.version == 3) result.cell_geometry.resize(global_cell_count);
     std::vector<bool> geometry_seen(global_cell_count, false);
     result.fields.reserve(first.fields.size());
     std::vector<std::vector<bool>> seen;
@@ -167,22 +168,36 @@ ResultData readParallelResults(
             !sameFields(metadata.fields, first.fields)) {
             invalid(rank_directory, "metadata does not match the other ranks");
         }
-        if (first.version == 2) {
+        if (first.version == 2 || first.version == 3) {
             const auto path = rank_directory / "mesh.geometry";
             std::ifstream geometry(path);
             if (!geometry) invalid(path, "missing mesh provenance");
             for (std::string line; std::getline(geometry, line);) {
                 const auto values = csv(line);
-                if (values.size() != 25) invalid(path, "invalid hexahedron provenance");
+                if (values.size() < 2) invalid(path, "invalid mesh provenance");
                 const int id = integer(values[0], path);
                 if (id < 0 || id >= global_cell_count || geometry_seen[id])
                     invalid(path, "duplicate or out-of-range mesh cell id");
                 geometry_seen[id] = true;
-                for (int vertex = 0; vertex < 8; ++vertex)
-                    result.cell_vertices[id][vertex] = {
-                        number(values[1 + 3 * vertex], path),
-                        number(values[2 + 3 * vertex], path),
-                        number(values[3 + 3 * vertex], path)};
+                if (first.version == 2) {
+                    if (values.size() != 25) invalid(path, "invalid hexahedron provenance");
+                    for (int vertex = 0; vertex < 8; ++vertex)
+                        result.cell_vertices[id][vertex] = {
+                            number(values[1 + 3 * vertex], path),
+                            number(values[2 + 3 * vertex], path),
+                            number(values[3 + 3 * vertex], path)};
+                } else {
+                    const int vertex_count = integer(values[1], path);
+                    if (vertex_count < 4 || values.size() != static_cast<std::size_t>(2 + 3 * vertex_count))
+                        invalid(path, "invalid variable-length mesh provenance");
+                    auto& geometry_vertices = result.cell_geometry[static_cast<std::size_t>(id)];
+                    geometry_vertices.resize(static_cast<std::size_t>(vertex_count));
+                    for (int vertex = 0; vertex < vertex_count; ++vertex)
+                        geometry_vertices[static_cast<std::size_t>(vertex)] = {
+                            number(values[2 + 3 * vertex], path),
+                            number(values[3 + 3 * vertex], path),
+                            number(values[4 + 3 * vertex], path)};
+                }
             }
         }
         for (std::size_t field = 0; field < result.fields.size(); ++field) {
@@ -220,7 +235,7 @@ ResultData readParallelResults(
             invalid(time_directory, "rank files do not cover every global cell exactly once");
         }
     }
-    if (first.version == 2 &&
+    if ((first.version == 2 || first.version == 3) &&
         std::find(geometry_seen.begin(), geometry_seen.end(), false) != geometry_seen.end())
         invalid(time_directory, "mesh provenance does not cover every global cell");
     return result;

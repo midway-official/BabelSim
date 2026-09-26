@@ -1,4 +1,5 @@
 #include "internal/field_access.h"
+#include "internal/petsc_session.h"
 #include "babelsim/case.h"
 #include "babelsim/application.h"
 #include "babelsim/mpi_support.h"
@@ -30,6 +31,7 @@ int main(int argc, char** argv) {
         std::cerr << error.what() << '\n';
         babelsim::detail::checkMpi(MPI_Abort(MPI_COMM_WORLD, 1), "MPI_Abort");
     }
+    babelsim::detail::finalizePetscSession();
     babelsim::detail::checkMpi(MPI_Finalize(), "MPI_Finalize");
     return result;
 }

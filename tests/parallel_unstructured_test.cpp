@@ -1,5 +1,6 @@
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
+#include "internal/petsc_session.h"
 #include "babelsim/parallel.h"
 
 #include "test_util.h"
@@ -16,24 +17,7 @@ using namespace babelsim;
 namespace {
 
 Mesh checkerboardHexes() {
-    const Mesh base = makeHexBox({2, 2, 2}, {0, 0, 0}, {1, 1, 1});
-    const std::array<Index, 8> permutation{{0, 3, 5, 6, 1, 2, 4, 7}};
-    std::vector<Vec3> vertices;
-    std::vector<std::array<Index, 8>> cells;
-    std::vector<PatchSpec> patches;
-    std::vector<BoundaryFaceSpec> boundaries;
-    for (Index vertex = 0; vertex < base.vertexCount(); ++vertex) vertices.push_back(base.vertex(vertex));
-    for (Index source : permutation) cells.push_back(base.cellVertices(source));
-    for (Index patch = 0; patch < base.patchCount(); ++patch) {
-        patches.push_back({base.patchName(patch), base.patchKind(patch)});
-    }
-    for (Index face = 0; face < base.faceCount(); ++face) {
-        if (base.boundaryFace(face)) {
-            boundaries.push_back({base.faceVertices(face), detail::meshData(base).face_patch[face]});
-        }
-    }
-    return Mesh::unstructured(std::move(vertices), std::move(cells), std::move(patches),
-                              std::move(boundaries));
+    return makeHexBox({2, 2, 2}, {0, 0, 0}, {1, 1, 1});
 }
 
 }  // namespace
@@ -52,7 +36,7 @@ int main(int argc, char* argv[]) {
         while (!connected.empty()) {
             const Index cell = connected.front();
             connected.pop_front();
-            for (Index neighbour : detail::meshData(local).cell_neighbours[static_cast<std::size_t>(cell)]) {
+            for (Index neighbour : local.cellNeighbours(cell)) {
                 if (neighbour != invalid_index && detail::isOwned(local, neighbour) &&
                     !reached[static_cast<std::size_t>(neighbour)]) {
                     reached[static_cast<std::size_t>(neighbour)] = true;
@@ -68,7 +52,7 @@ int main(int argc, char* argv[]) {
                 "graph partition followed the scrambled input order instead of cell adjacency");
         Index remote_links = 0;
         for (Index cell : detail::meshData(local).owned_cells) {
-            for (Index neighbour : detail::meshData(local).cell_neighbours[static_cast<std::size_t>(cell)]) {
+            for (Index neighbour : local.cellNeighbours(cell)) {
                 if (neighbour != invalid_index && !detail::isOwned(local, neighbour)) ++remote_links;
             }
         }
@@ -91,5 +75,6 @@ int main(int argc, char* argv[]) {
         std::cerr << "parallel_unstructured_test: " << error.what() << '\n';
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
+    detail::finalizePetscSession();
     MPI_Finalize();
 }

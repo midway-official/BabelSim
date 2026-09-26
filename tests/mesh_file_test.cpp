@@ -38,6 +38,11 @@ int main() {
     require(vertices.cellCount() == 1 && near(detail::meshData(vertices).cell_volumes[0], 1.0),
             "native explicit-vertex geometry is incorrect");
 
+    const Mesh concave = readMeshFile("tests/data/babelsim_concave.mesh");
+    require(concave.cellCount() == 1 && concave.faceCount() == 8 &&
+                near(concave.cellVolume(0), 3.0) && concave.facePoints(0).size() == 6,
+            "native variable polygon mesh was not reconstructed");
+
     std::cout << "mesh_file_test: cells=" << mesh.cellCount()
               << " patches=" << detail::meshData(mesh).patches.size() << '\n';
 }
