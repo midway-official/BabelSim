@@ -65,7 +65,9 @@ public:
         : m_mesh(&mesh), m_parallel(std::move(parallel)) {
         mesh.validate();
         m_parallel.validate();
-        const bool mesh_is_distributed = ownedCellCount(mesh) < mesh.cellCount();
+        // A disconnected component can own every local cell and have no
+        // ghosts while still being part of a distributed global mesh.
+        const bool mesh_is_distributed = ownedCellCount(mesh) < mesh.globalCellCount();
         if (m_parallel.distributed() != mesh_is_distributed)
             throw std::invalid_argument(
                 "PETSc backend and mesh ownership are inconsistent (rank=" +
@@ -284,7 +286,10 @@ private:
         if (&field.mesh() != m_mesh ||
             (field.location() != FieldLocation::Cell && field.location() != FieldLocation::Face))
             throw std::invalid_argument("field does not belong to the PETSc backend mesh");
-        if (haloValid(field)) return;
+        // Cache validity is local: a different owner may have modified the
+        // field. Agree before skipping this collective, including on ranks
+        // with no neighbours. Count the decision in reduction diagnostics.
+        if (m_halo ? all(haloValid(field)) : haloValid(field)) return;
         if (m_halo) {
             const Clock::time_point start = Clock::now();
             m_halo->exchange(field);

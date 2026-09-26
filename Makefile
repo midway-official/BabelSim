@@ -162,8 +162,9 @@ test-scalar-time: $(BUILD)/babelsim-solve
 test-simple-parallel: $(BUILD)/babelsim-solve
 	python3 tests/simple_parallel_consistency_test.py --solver $(BUILD)/babelsim-solve
 
-test-mpi: $(MPI_TESTS) $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
+test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_partition_test
+	TMPDIR=/tmp mpirun -np 3 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/numerical_contract_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/numerical_contract_test 4

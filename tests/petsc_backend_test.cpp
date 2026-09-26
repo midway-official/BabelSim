@@ -63,6 +63,25 @@ int main(int argc, char** argv) {
         const Mesh mesh = parallel.size == 1 ? global : decompose(global, parallel, 3);
         auto backend = detail::makeComputeBackend(mesh, parallel);
 
+        // Only one owner changes its values after all ranks cache a valid halo.
+        // Every rank must still participate in the next synchronization.
+        ScalarField asymmetric(mesh, FieldLocation::Cell, "asymmetric");
+        asymmetric.fill(0.0);
+        backend->synchronize(asymmetric);
+        if (parallel.rank == 0) {
+            double* values = detail::fieldData(asymmetric);
+            for (Index cell : detail::meshData(mesh).owned_cells) values[cell] = 7.0;
+        }
+        backend->synchronize(asymmetric);
+        for (Index cell = 0; cell < mesh.cellCount(); ++cell)
+            require(detail::fieldValues(asymmetric)[cell] ==
+                        (detail::cellOwnerRank(mesh, cell) == 0 ? 7.0 : 0.0),
+                    "rank-local update did not reach cached ghost values");
+        const auto cached = backend->performance().halo_exchanges;
+        backend->synchronize(asymmetric);
+        require(backend->performance().halo_exchanges == cached,
+                "globally valid halo was exchanged redundantly");
+
         LinearSolverConfig config;
         config.solver = LinearSolverType::ConjugateGradient;
         config.preconditioner = PreconditionerType::BlockJacobi;
@@ -157,6 +176,30 @@ int main(int argc, char** argv) {
                 require(std::abs(detail::fieldValues(split_field)[static_cast<std::size_t>(cell)] -
                                  exactValue(split_mesh, cell)) < 1e-12,
                         "PETSc repeated-COO interface lost a face contribution");
+        }
+
+        if (parallel.distributed()) {
+            // One disconnected cube per rank: a valid partition with zero
+            // communication neighbours still participates in collective solves.
+            Mesh isolated = makeHexBox({1, 1, 1}, {0, 0, 0}, {1, 1, 1});
+            std::vector<Index> face_ids(static_cast<std::size_t>(isolated.faceCount()));
+            for (Index face = 0; face < isolated.faceCount(); ++face)
+                face_ids[face] = parallel.rank * isolated.faceCount() + face;
+            detail::MeshAccess::setPartition(isolated, parallel.size, 3,
+                {parallel.rank}, {parallel.rank}, {0}, std::move(face_ids),
+                std::vector<Index>(static_cast<std::size_t>(isolated.faceCount()), parallel.rank),
+                parallel.rank);
+            auto isolated_backend = detail::makeComputeBackend(isolated, parallel);
+            ScalarField isolated_field(isolated, FieldLocation::Cell, "isolated");
+            ScalarDiscreteEquation isolated_equation(isolated);
+            isolated_equation.diagonal[0] = 2.0;
+            isolated_equation.source[0] = 2.0 * (parallel.rank + 1.0);
+            require(isolated_backend->solve(isolated_equation, isolated_field, config).converged(),
+                    "zero-neighbour partition failed to solve");
+            require(std::abs(detail::fieldValues(isolated_field)[0] - (parallel.rank + 1.0)) < 1e-12,
+                    "zero-neighbour partition solution is incorrect");
+            require(isolated_backend->performance().halo_bytes == 0,
+                    "zero-neighbour partition transferred halo values");
         }
 
         const PerformanceCounters counters = backend->performance();

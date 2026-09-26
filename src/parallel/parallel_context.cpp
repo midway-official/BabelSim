@@ -167,12 +167,13 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
     // decides ties, but never defines the partition boundary.
     const Index unreachable = std::numeric_limits<Index>::max();
     std::vector<Index> nearest(static_cast<std::size_t>(cells), unreachable);
+    std::vector<unsigned char> seeded(static_cast<std::size_t>(cells), 0);
     std::vector<Index> seeds;
     seeds.reserve(static_cast<std::size_t>(partitions));
     for (int part = 0; part < partitions; ++part) {
         Index seed = invalid_index;
         for (Index cell = 0; cell < cells; ++cell) {
-            if (std::find(seeds.begin(), seeds.end(), cell) != seeds.end()) continue;
+            if (seeded[static_cast<std::size_t>(cell)]) continue;
             if (seed == invalid_index ||
                 nearest[static_cast<std::size_t>(cell)] > nearest[static_cast<std::size_t>(seed)] ||
                 (nearest[static_cast<std::size_t>(cell)] == nearest[static_cast<std::size_t>(seed)] &&
@@ -182,26 +183,22 @@ std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
         }
         if (seed == invalid_index) throw std::logic_error("graph partition seed selection failed");
         seeds.push_back(seed);
+        seeded[static_cast<std::size_t>(seed)] = 1;
 
-        std::vector<Index> distance(static_cast<std::size_t>(cells), invalid_index);
+        // Relax only cells whose distance to the nearest seed improves.
+        // An existing shorter path also bounds all downstream paths, so a
+        // full graph traversal and a fresh N-cell distance array are needless.
         std::deque<Index> frontier{seed};
-        distance[static_cast<std::size_t>(seed)] = 0;
+        nearest[static_cast<std::size_t>(seed)] = 0;
         while (!frontier.empty()) {
             const Index cell = frontier.front();
             frontier.pop_front();
+            const Index next = nearest[static_cast<std::size_t>(cell)] + 1;
             for (Index neighbour : mesh.cellNeighbours(cell)) {
                 if (neighbour == invalid_index ||
-                    distance[static_cast<std::size_t>(neighbour)] != invalid_index) continue;
-                distance[static_cast<std::size_t>(neighbour)] =
-                    distance[static_cast<std::size_t>(cell)] + 1;
+                    nearest[static_cast<std::size_t>(neighbour)] <= next) continue;
+                nearest[static_cast<std::size_t>(neighbour)] = next;
                 frontier.push_back(neighbour);
-            }
-        }
-        for (Index cell = 0; cell < cells; ++cell) {
-            const Index path = distance[static_cast<std::size_t>(cell)];
-            if (path != invalid_index) {
-                nearest[static_cast<std::size_t>(cell)] = std::min(
-                    nearest[static_cast<std::size_t>(cell)], path);
             }
         }
     }

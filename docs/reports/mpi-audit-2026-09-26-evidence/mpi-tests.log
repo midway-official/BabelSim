@@ -1,0 +1,87 @@
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -MMD -MP -c src/backend/petsc_backend.cpp -o build-petsc/backend/petsc_backend.o
+rm -f build-petsc/libbabelsim.a
+gcc-ar rcs build-petsc/libbabelsim.a build-petsc/core/mesh.o build-petsc/io/config.o build-petsc/io/case_reader.o build-petsc/io/case.o build-petsc/io/field_reader.o build-petsc/io/numerics_reader.o build-petsc/io/mesh_reader.o build-petsc/io/result_reader.o build-petsc/io/postprocess.o build-petsc/io/monitor.o build-petsc/geometry/geometry.o build-petsc/discretization/operators.o build-petsc/discretization/fvm_execution.o build-petsc/discretization/procedural_equation.o build-petsc/discretization/field_math.o build-petsc/backend/petsc_backend.o build-petsc/backend/petsc_session.o build-petsc/backend/petsc_index_map.o build-petsc/backend/petsc_assembly_plan.o build-petsc/backend/petsc_linear_system.o build-petsc/backend/solver_control.o build-petsc/parallel/parallel_context.o build-petsc/parallel/parallel_writer.o build-petsc/runtime/runtime.o build-petsc/runtime/solver_api.o build-petsc/runtime/application.o build-petsc/physics/RANS/k_epsilon.o build-petsc/physics/RANS/k_omega.o build-petsc/physics/RANS/model.o build-petsc/physics/RANS/spalart_allmaras.o
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_partition_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_partition_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_simple_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_simple_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_math_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_math_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_channel_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_channel_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_cavity_3d_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_cavity_3d_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_transport_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_transport_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_unstructured_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_unstructured_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/petsc_backend_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/petsc_backend_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/numerical_contract_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/numerical_contract_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/physics_contract_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/physics_contract_test
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_partition_test
+partition ranks=2 cells=4096 cutFaces=126 ghostCellsTotal=436 localFaceImbalance=1 haloBytesTotal=6976 firstLayerBytesTotal=3040
+partition ranks=2 cells=561 cutFaces=78 ghostCellsTotal=211 localFaceImbalance=1.00036 haloBytesTotal=3376 firstLayerBytesTotal=1152
+partition ranks=2 cells=256 cutFaces=4 ghostCellsTotal=14 localFaceImbalance=1 haloBytesTotal=224 firstLayerBytesTotal=96
+TMPDIR=/tmp mpirun -np 3 build-petsc/parallel_partition_test
+partition ranks=3 cells=4096 cutFaces=185 ghostCellsTotal=762 localFaceImbalance=1.07561 haloBytesTotal=12192 firstLayerBytesTotal=4048
+partition ranks=3 cells=561 cutFaces=142 ghostCellsTotal=469 localFaceImbalance=1.17727 haloBytesTotal=7504 firstLayerBytesTotal=2496
+partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_partition_test
+partition ranks=4 cells=4096 cutFaces=234 ghostCellsTotal=907 localFaceImbalance=1.07006 haloBytesTotal=14512 firstLayerBytesTotal=4880
+partition ranks=4 cells=561 cutFaces=188 ghostCellsTotal=670 localFaceImbalance=1.10864 haloBytesTotal=10720 firstLayerBytesTotal=3312
+partition ranks=4 cells=256 cutFaces=16 ghostCellsTotal=64 localFaceImbalance=1.11538 haloBytesTotal=1024 firstLayerBytesTotal=384
+TMPDIR=/tmp mpirun -np 2 build-petsc/numerical_contract_test
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+TMPDIR=/tmp mpirun -np 4 build-petsc/numerical_contract_test 4
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+TMPDIR=/tmp mpirun -np 2 build-petsc/physics_contract_test
+physics_contract_test: inflow context and frozen diffusion flux passed
+TMPDIR=/tmp mpirun -np 4 build-petsc/physics_contract_test
+physics_contract_test: inflow context and frozen diffusion flux passed
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_math_test 4
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 1 build-petsc/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build-petsc/petsc_backend_test
+petsc_backend_test: ranks=2 owned=8 iterations=55
+TMPDIR=/tmp mpirun -np 4 build-petsc/petsc_backend_test
+petsc_backend_test: ranks=4 owned=4 iterations=75
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_unstructured_test
+parallel_unstructured_test: scrambled hex graph partition and halo passed
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_channel_test \
+	cases/poiseuille/mesh/poiseuille.mesh build-petsc/mpi-output
+parallel_channel_test: ranks=2 iterations=1149 mass=1.00643e-16 dU=1.72338e-08 rU=9.84514e-07 dP=1.39283e-07 sumU=(4339.07,1.35732e-06,0) maxU=1.49895
+TMPDIR=/tmp mpirun -np 1 build-petsc/parallel_simple_test build-petsc/mpi-output
+parallel_simple_test: ranks=1 iterations=153 mass=4.96115e-15 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_simple_test build-petsc/mpi-output
+parallel_simple_test: ranks=2 iterations=153 mass=6.81368e-16 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_simple_test build-petsc/mpi-output
+parallel_simple_test: ranks=4 iterations=153 mass=5.46275e-16 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_cavity_3d_test build-petsc/mpi-output
+parallel_cavity_3d_test: ranks=2 iterations=66 mass=8.8318e-17 centreU=-0.114134 maxW=0.0192033
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_transport_test
+parallel_transport_test: ranks=2 max_error=0
+make test-mpi-heat
+make[1]: Entering directory '/home/midway/BabelSim'
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -MMD -MP -c src/physics/heat/main.cpp -o build-petsc/physics/heat/main.o
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -MMD -MP -c src/physics/piso/main.cpp -o build-petsc/physics/piso/main.o
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -MMD -MP -c src/physics/simple/main.cpp -o build-petsc/physics/simple/main.o
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -MMD -MP -c src/physics/transient_simple/main.cpp -o build-petsc/physics/transient_simple/main.o
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -MMD -MP -c src/physics/transport/main.cpp -o build-petsc/physics/transport/main.o
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib src/apps/babelsim_solve.cpp build-petsc/physics/heat/main.o build-petsc/physics/piso/main.o build-petsc/physics/simple/main.o build-petsc/physics/transient_simple/main.o build-petsc/physics/transport/main.o build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/babelsim-solve
+TMPDIR=/tmp mpirun -np 1 build-petsc/babelsim-solve \
+	-case cases/heat -time mpi-np1
+heat time=0.01 residual=1.85269e-17
+heat time=0.02 residual=4.48191e-17
+heat time=0.03 residual=3.23305e-17
+heat time=0.04 residual=7.46944e-17
+heat time=0.05 residual=2.07707e-16
+TMPDIR=/tmp mpirun -np 2 build-petsc/babelsim-solve \
+	-case cases/heat -time mpi-np2
+heat time=0.01 residual=1.85269e-17
+heat time=0.02 residual=4.48191e-17
+heat time=0.03 residual=3.23305e-17
+heat time=0.04 residual=7.46944e-17
+heat time=0.05 residual=2.07707e-16
+python3 tools/compare_parallel_results.py \
+	cases/heat/results/mpi-np1 cases/heat/results/mpi-np2 \
+	--atol 1e-9 --rtol 1e-9
+T: cells=32 max_abs_difference=5.2939559e-23
+make[1]: Leaving directory '/home/midway/BabelSim'
