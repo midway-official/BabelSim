@@ -389,13 +389,19 @@ build-petsc/babelsim-post -case cases/cavity -format vtk tecplot     # post/fina
 | 时间步内结构          | 反复做带欠松弛的动量/压力迭代，直到步内收敛              | 一次动量预测 + `nCorrectors` 次压力修正（修正步不欠松弛）                            |
 | `maxIterations` | 步内迭代上限（默认 1000）                     | 预测–修正流程的额外外层遍数，**默认 1 即标准 PISO**                                 |
 | 时间格式            | `euler` / `bdf2`（BDF2 首步自动降为 Euler） | 同左；必须瞬态                                                          |
-| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 只要求守恒 `mass ≤ continuityTolerance`；`maxIterations > 1` 时额外要求外层收敛 |
+| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 要求线性求解成功、守恒及湍流输运收敛；`maxIterations > 1` 时额外要求外层收敛 |
 | 动量预测欠松弛         | `velocityRelaxation`（默认 0.7）        | 同左，但修正步始终施加完整修正                                                  |
 | 压力欠松弛           | `pressureRelaxation`（默认 0.3）        | 不适用（修正不做欠松弛）                                                     |
 
 `piso` 使用的键：`maxIterations`(1)、`nCorrectors`(2)、`nonOrthogonalCorrections`(1)、
 `velocityRelaxation`(0.7)、`continuityTolerance`(1e-8)、`velocityTolerance`(1e-7)、
-`momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。守恒判据不满足时立即
+`momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。
+启用湍流且 `maxIterations=1` 时，`turbulenceMaxIterations`（默认 1000）限制
+同一时间层的模型输运内迭代；保持 `turbulenceRelaxation` 和模型接口不变，历史只在
+物理步开始时推进一次。模型变化量与初始残差均须达到 `turbulenceTolerance`，
+且所有湍流线性方程必须收敛。超过内迭代上限或线性迭代上限时返回
+`notConverged`，不推进下一时间步。`maxIterations>1` 时仍由原有外层迭代收敛模型，
+不使用此内迭代设置。守恒判据不满足时返回
 `notConverged`（退出码 2），不会带着质量不平衡继续推进。
 
 场与边界、`physics` 键与 `simple` 相同（`density`、`dynamicViscosity`，湍流时可加模型键）。
@@ -434,7 +440,8 @@ python3 cases/planar_jet/make_vorticity_gif.py
 `transientSimple` 在步内迭代收敛时报
 `Transient SIMPLE <iter> mass=… dU=… rU=… dP=… linear=ok converged=true`；`piso` 每步报
 `PISO <遍数> mass=… dU=… rU=… dP=… linU=… linP=… converged=…`，`maxIterations 1` 时
-时间步的接受判据只有守恒量 `mass`，其余指标只报告（第 6 节开头）。两者都按 `writeInterval`
+时间步要求线性求解成功、守恒量 `mass` 达标，以及启用时的湍流输运收敛；
+速度的物理步间变化无需趋零（第 6 节开头）。两者都按 `writeInterval`
 写时间序列（见 2.4），看图用 `build-petsc/babelsim-post -case <算例> -time mpi4/all -format vtk`。
 
 **复制算例改 `solver` 时的坑**：`numerics/solution.bs` 与 `physics/*.bs` 里属于原求解器的键

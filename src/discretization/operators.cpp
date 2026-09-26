@@ -916,7 +916,17 @@ void flux(
         method != InterpolationMethod::Corrected) {
         throw std::invalid_argument("unsupported flux interpolation method");
     }
-    const_cast<VectorField&>(velocity).setBoundaryFlux(face_flux);
+    // Read the input's existing direction context, never the output buffer.
+    // On first use, seed directions from owner velocities before reconstructing
+    // gradients, which also need a defined inletOutlet branch.
+    if (!detail::FieldAccess::hasBoundaryFlux(velocity)) {
+        ScalarField initialFlux(mesh, FieldLocation::Face, "flux.initialDirection");
+        for (Index face = 0; face < mesh.faceCount(); ++face)
+            if (mesh.boundaryFace(face))
+                detail::fieldData(initialFlux)[face] = dot(
+                    detail::fieldData(velocity)[mesh.owner(face)], mesh.faceAreaVector(face));
+        const_cast<VectorField&>(velocity).setBoundaryFlux(initialFlux);
+    }
     std::optional<TensorField> velocity_gradient;
     if (method == InterpolationMethod::Corrected) {
         velocity_gradient.emplace(mesh, FieldLocation::Cell, "grad(" + velocity.name() + ')');
@@ -924,12 +934,10 @@ void flux(
     }
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
-        // 入口出口边界需要上一轮面通量判定流向；普通边界会忽略该参数。
-        const double previous_flux = detail::fieldData(face_flux)[face];
         const Vec3 face_velocity = velocity_gradient
             ? correctedFaceValue(
-                  velocity, *velocity_gradient, face, previous_flux)
-            : interpolatedFaceValue(velocity, face, previous_flux);
+                  velocity, *velocity_gradient, face)
+            : interpolatedFaceValue(velocity, face);
         detail::fieldData(face_flux)[face] = dot(
             face_velocity, detail::meshData(mesh).face_area_vectors[f]);
     }

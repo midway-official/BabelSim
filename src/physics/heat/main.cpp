@@ -23,6 +23,13 @@ SolverResult runHeat(Case& problem) {
     while (time.value() < time.end()) {
         time.advance();
         T_old.save(T, time.dt());
+        // Evaluate deferred spatial corrections at the new time to O(dt^2).
+        // Value-only updates preserve the unknown's physical boundary constraints.
+        if (problem.methods().time == TimeMethod::BDF2 && T_old.levels() >= 2) {
+            const double ratio = T_old.dt() / T_old.previousDt();
+            T.assignScaled(1.0 + ratio, T_old.previous());
+            T.addScaled(-ratio, T_old.older());
+        }
         temperatureEquation.reset();
         equ::ddt(temperatureEquation, rho * cp, T_old);
         equ::laplacian(temperatureEquation, k, -1, "diffusion");

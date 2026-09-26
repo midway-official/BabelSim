@@ -1,4 +1,4 @@
-"""Model-equation verification, homogeneous decay, and complete SIMPLE integration.
+"""Model-equation verification, homogeneous decay, and SIMPLE/PISO integration.
 
 The decay oracle is derived from the published transport equations independently
 of the C++ discretization. These are equation verification tests, not a claim of
@@ -138,6 +138,13 @@ def exact(model, end):
     return {"nuTilda": nu}
 
 
+def use_piso(fixture):
+    path = fixture / "case.bs"
+    path.write_text(path.read_text().replace("solver transientSimple", "solver piso"))
+    path = fixture / "numerics/solution.bs"
+    path.write_text(re.sub(r"(?m)^maxIterations \d+$", "maxIterations 1", path.read_text()))
+
+
 summary = {"evidence": str(BASE), "decay": [], "steady": []}
 print("RANS evidence:", BASE, flush=True)
 for model in ("SA", "kOmega", "kEpsilon"):
@@ -160,6 +167,15 @@ for model in ("SA", "kOmega", "kEpsilon"):
                     for name in reference:
                         a, b = values(fixture,"serial",name), values(fixture,f"np{ranks}",name)
                         assert max(abs(a[i]-b[i]) for i in a) < 1e-9
+            # One momentum pass must still converge relaxed model transport at
+            # the same time level. Compare to the independently iterated solver.
+            use_piso(fixture)
+            for ranks in ((1,2,4) if dt == 0.005 else (1,)):
+                label = f"piso-np{ranks}"
+                run(fixture, ranks, label)
+                for name in reference:
+                    a, b = values(fixture,"serial",name), values(fixture,label,name)
+                    assert max(abs(a[i]-b[i]) for i in a) < 2e-8, (model,method,dt,ranks,name)
         ratios = [errors[i]/errors[i+1] for i in (0,1)]
         assert min(ratios) > (1.8 if method == "euler" else 3.2), (model,method,errors,ratios)
         row = dict(model=model,method=method,errors=errors,ratios=ratios)
@@ -185,5 +201,23 @@ for ranks in (1,2,4):
     assert max(map(float,re.findall(r"rTurb=([0-9.eE+-]+)",text))) > 1e-4
     assert not (fixture / "results" / f"np{ranks}").exists()
 
+use_piso(fixture)
+path = fixture / "numerics/solution.bs"
+path.write_text(path.read_text() + "turbulenceMaxIterations 3\n")
+for ranks in (1,2,4):
+    run(fixture, ranks, f"piso-np{ranks}", expected=2)
+    assert not (fixture / "results" / f"piso-np{ranks}").exists()
+
+fixture = case("piso-linear-rejection", "kOmega", dt=0.01, end=0.01, fixed=True)
+use_piso(fixture)
+path = fixture / "numerics/solution.bs"
+path.write_text(path.read_text().replace("equation.kTransport.pcType bjacobi",
+    "equation.kTransport.pcType jacobi").replace("equation.kTransport.maxIterations 2000",
+    "equation.kTransport.maxIterations 1"))
+for ranks in (1,2,4):
+    text = run(fixture, ranks, f"np{ranks}", expected=2)
+    assert "linear=inexact" in text and "converged=true" not in text
+    assert not (fixture / "results" / f"np{ranks}").exists()
+
 (BASE / "summary.json").write_text(json.dumps(summary,indent=2))
-print("rans_validation_test: published terms, temporal order, full SIMPLE 1/2/4 ranks and clipping rejection passed",flush=True)
+print("rans_validation_test: published terms, temporal order, SIMPLE/PISO 1/2/4 ranks and clipping/linear rejection passed",flush=True)

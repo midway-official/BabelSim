@@ -1,0 +1,9 @@
+python3 tests/architecture_test.py
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/case_programming_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib src/apps/babelsim_post.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/babelsim-post
+architecture_test: 76 sources/headers, acyclic includes and layer boundaries passed
+build-petsc/time_history_test
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+python3 tests/solver_workflow_test.py --solver build-petsc/babelsim-solve --post build-petsc/babelsim-post
+ParaView: PVD time steps and VTU cell values passed
+solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed

@@ -1,0 +1,14 @@
+physics_contract_test: inflow context and frozen diffusion flux passed
+procedural_equation_test: assembly, frozen inputs, algebra, BDF2, diffusion and vector solve passed
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+math_runtime_test: explicit Field operations passed
+operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+field_boundary_test: scalar/vector and mirror conditions passed
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+physics_contract_test: inflow context and frozen diffusion flux passed
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+physics_contract_test: inflow context and frozen diffusion flux passed
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed

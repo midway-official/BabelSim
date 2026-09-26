@@ -88,6 +88,10 @@ SolverResult runPiso(Case& problem) {
     const double pressureTolerance = settings.positive("pressureCorrectionTolerance", 1e-6);
 
     auto turbulence = rans::load(problem, U, phi);
+    // With one momentum pass, converge the model's relaxed transport equations
+    // at the SAME time level. Otherwise relaxation changes physical time rates.
+    const int turbulenceCorrections = turbulence && maxIterations == 1
+        ? settings.integer("turbulenceMaxIterations", 1000, 1, std::numeric_limits<int>::max()) : 1;
     const auto& muEff = turbulence.effectiveViscosity();
     auto pPrime = field::homogeneousLike(p, "pPrime");
     auto momentumEquation = equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
@@ -193,15 +197,20 @@ SolverResult runPiso(Case& problem) {
             }
 
             bool turbulenceConverged = true;
+            bool turbulenceLinearConverged = true;
             double dTurbulence = 0.0, rTurbulence = 0.0;
             if (turbulence) {
-                const auto result = turbulence.solveTransport();
-                dTurbulence = result.relativeChange();
-                rTurbulence = result.initialResidual();
-                if (!diagnostics::all(result.healthy() && std::isfinite(dTurbulence) && std::isfinite(rTurbulence))) return SolverResult::numericalFailure();
-                turbulenceConverged = result.linearConverged()
-                    && dTurbulence <= turbulence.tolerance()
-                    && rTurbulence <= turbulence.tolerance();
+                for (int correction = 0; correction < turbulenceCorrections; ++correction) {
+                    const auto result = turbulence.solveTransport();
+                    dTurbulence = result.relativeChange();
+                    rTurbulence = result.initialResidual();
+                    if (!diagnostics::all(result.healthy() && std::isfinite(dTurbulence) && std::isfinite(rTurbulence))) return SolverResult::numericalFailure();
+                    turbulenceLinearConverged = diagnostics::all(result.linearConverged());
+                    turbulenceConverged = diagnostics::all(turbulenceLinearConverged
+                        && dTurbulence <= turbulence.tolerance()
+                        && rTurbulence <= turbulence.tolerance());
+                    if (!turbulenceLinearConverged || turbulenceConverged) break;
+                }
             }
 
             const double dU = diagnostics::relativeChange(U, U_previous);
@@ -209,15 +218,15 @@ SolverResult runPiso(Case& problem) {
             if (!diagnostics::all(std::isfinite(rU) && std::isfinite(dU)
                 && std::isfinite(dP) && std::isfinite(couplingResidual)
                 && std::isfinite(mass.relative))) return SolverResult::numericalFailure();
-            const bool linearConverged = velocitySolve.converged() && pressureConverged;
+            const bool linearConverged = velocitySolve.converged() && pressureConverged
+                && turbulenceLinearConverged;
             // A conservative flux does not excuse a failed linear solve.
             // Physical changes between time levels are not steady convergence.
             const bool stepAccepted = diagnostics::all(linearConverged && mass.relative <= massTolerance);
-            // 单次预测--修正已经是完整的 PISO 时间步；只有额外的外层迭代才要求
-            // 动量、速度和压力修正的外层变化以及湍流输运在步内收敛。
+            // 单次 PISO 不要求物理速度变化趋零；湍流的松弛输运仍须在本时间层收敛。
             const bool outerSettled = diagnostics::all(rU <= momentumTolerance
                 && dU <= velocityTolerance && dP <= pressureTolerance && turbulenceConverged);
-            converged = stepAccepted && (maxIterations == 1 || outerSettled);
+            converged = stepAccepted && (maxIterations == 1 ? turbulenceConverged : outerSettled);
 
             reporter.iteration(iter + 1, maxIterations, converged, {
                 {"mass", mass.relative}, {"dU", dU}, {"rU", rU}, {"dP", dP},

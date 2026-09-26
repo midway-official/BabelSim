@@ -5,6 +5,9 @@
 namespace babelsim::detail {
 // 存储维护接口，不安装到 Solver SDK。它只提供热路径所需的借用视图，不改变容量。
 struct FieldAccess {
+    template <typename T> static bool hasBoundaryFlux(const Field<T>& field) {
+        return !field.m_boundary_flux.empty();
+    }
     template <typename T> static BoundaryCondition<T> condition(const Field<T>& field, Index face,
         double flux = std::numeric_limits<double>::quiet_NaN()) { return field.faceCondition(face, flux); }
     template <typename T> static T trace(const Field<T>& field, Index face,

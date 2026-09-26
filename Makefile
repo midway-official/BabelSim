@@ -67,6 +67,7 @@ TEST_SOURCES := tests/numerical_configuration_test.cpp \
                 tests/procedural_equation_test.cpp \
                 tests/monitor_test.cpp \
                 tests/numerical_contract_test.cpp \
+                tests/physics_contract_test.cpp \
                 tests/unstructured_mesh_test.cpp \
                 tests/mesh_geometry_test.cpp \
                 tests/field_boundary_test.cpp \
@@ -155,14 +156,19 @@ test-rans: $(BUILD)/babelsim-solve $(BUILD)/rans_equations_test
 	python3 tests/rans_validation_test.py --solver $(BUILD)/babelsim-solve \
 		--equations $(BUILD)/rans_equations_test
 
+test-scalar-time: $(BUILD)/babelsim-solve
+	python3 tests/scalar_time_order_test.py --solver $(BUILD)/babelsim-solve
+
 test-simple-parallel: $(BUILD)/babelsim-solve
 	python3 tests/simple_parallel_consistency_test.py --solver $(BUILD)/babelsim-solve
 
-test-mpi: $(MPI_TESTS) $(BUILD)/numerical_contract_test
+test-mpi: $(MPI_TESTS) $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/numerical_contract_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/numerical_contract_test 4
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/physics_contract_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test 4
 	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_math_test
@@ -224,7 +230,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all debug test test-architecture test-external test-workflow test-rans test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all debug test test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

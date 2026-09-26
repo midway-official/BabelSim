@@ -1,0 +1,5 @@
+inletOutlet: trace_before=-2 returned_flux=1 trace_after=1 expected_flux=-2
+diffusion_flux: method=corrected stage=assembly identity_defect=2.711491035696012e-14 matrix_residual=133.7344879810479 flux_divergence=133.7344879810479
+diffusion_flux: method=corrected stage=solved identity_defect=6.078977989837151e-15 matrix_residual=1.998594182083778e-15 flux_divergence=6.511862647779083e-15
+diffusion_flux: method=limitedCorrected stage=assembly identity_defect=3.683531942280588e-14 matrix_residual=133.6935908379911 flux_divergence=133.6935908379912
+diffusion_flux: method=limitedCorrected stage=solved identity_defect=8.726647108420629 matrix_residual=2.687565378447544e-15 flux_divergence=8.726647108420631
