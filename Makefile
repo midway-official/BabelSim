@@ -81,9 +81,8 @@ TEST_SOURCES := tests/numerical_configuration_test.cpp \
                 tests/case_lifecycle_test.cpp \
                 tests/case_io_test.cpp \
                 tests/field_writer_test.cpp \
-                tests/heat_solver_test.cpp \
+                tests/scalar_equation_test.cpp \
                 tests/time_history_test.cpp \
-                tests/transport_solver_test.cpp \
                 tests/cavity_regression_test.cpp \
                 tests/cavity_3d_test.cpp \
                 tests/nonorthogonal_cavity_test.cpp \
@@ -162,6 +161,17 @@ test-scalar-time: $(BUILD)/babelsim-solve
 test-simple-parallel: $(BUILD)/babelsim-solve
 	python3 tests/simple_parallel_consistency_test.py --solver $(BUILD)/babelsim-solve
 
+# 完整测试矩阵按组顺序执行，避免工作流测试同时写入相同算例目录。
+test-full:
+	$(MAKE) test
+	$(MAKE) test-workflow
+	$(MAKE) test-external
+	$(MAKE) test-rans
+	$(MAKE) test-scalar-time
+	$(MAKE) test-simple-parallel
+	$(MAKE) test-mpi
+	$(MAKE) test-mpi-poiseuille
+
 test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 3 $(BUILD)/parallel_partition_test
@@ -231,7 +241,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	$(RM) -r $(BUILD)
 
-.PHONY: all debug test test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

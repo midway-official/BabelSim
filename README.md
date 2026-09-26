@@ -161,10 +161,13 @@ XML `.vtu`；`-time all -format vtk` 还会产生 ParaView 可直接打开的
 
 ```bash
 make test                 # 几何、算子、case/field IO、Heat/标量输运/SIMPLE、通用输出
+make test-full            # 顺序执行全部单元、工作流、外部 Solver、RANS、时间阶与并行测试组
 make test-architecture    # 头依赖与分层门禁（Physics 不得越界依赖）
 make test-workflow        # 新 Solver 单函数开发、双场耦合、时间序列、真实 ParaView 读取
 make test-external        # 仓库外 Solver 构建、1/2/4 进程、负向 API 编译、无 MPI 结果读取器
 make test-mpi             # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
+make test-scalar-time     # 生产标量 Solver 的 Euler/BDF2 时间阶和末步步长
+make test-simple-parallel # steady/Euler/BDF2 的 1/2/4 rank 跨案例一致性
 make test-mpi-heat        # 1/2 rank 热传导场比较
 make test-mpi-poiseuille  # 1/2/4 rank 案例启动器、结果比较、后处理
 make test-rans            # RANS 方程与模型常数

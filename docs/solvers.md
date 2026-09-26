@@ -224,7 +224,7 @@ build-petsc/babelsim-post -case cases/heat -time demo/all -format vtk    # post/
 
 **验证**：`make test-workflow` 把算例改成“绝热 + 均匀源 2”，此时解析解为 `T = 2t`，测试要求
 1/2/4 rank 的所有单元在 0.02/0.04/0.05s 与解析解相差小于 `1e-11`；`make test` 里的
-`heat_solver_test` 另用单胞 FVM 手算结果（`T=10/22`、变系数 `T=20/32`）作精确回归。
+`scalar_equation_test` 另用单胞 FVM 手算结果（`T=10/22`、变系数 `T=20/32`）作精确回归。
 
 ## 4. `transport`：标量对流-扩散
 

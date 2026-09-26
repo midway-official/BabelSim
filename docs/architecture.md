@@ -117,11 +117,13 @@ Solver 计算。运行时无打印逻辑。Case::output 或 output.bs 选择字�
 ~~~bash
 make -j4 all          # lib + solve + post
 make -j4 test         # 串行单元/集成测试（含 test-architecture）
+make test-full        # 顺序执行单元、工作流、外部 Solver、RANS、时间阶和并行测试组
 make test-workflow    # 新 Solver 工作流、时间序列、ParaView 读取
 make test-external    # 仓库外用公共 include 构建 Solver（含负向 API 检查）
 make test-rans        # RANS 方程与常数
 ~~~
 
+标量时间阶与跨案例一致性分别由 `make test-scalar-time` 和 `make test-simple-parallel` 覆盖。
 涉及并行和非正交时运行 `make test-mpi`、`make test-mpi-poiseuille` 及对应回归。
 完整验证入口见 [验证与维护检查](validation.md)。架构测试检查 include 闭包和 Physics
 越界依赖；外部 Solver 测试确认只用公共 include。验证报告中的历史结果只表示当时提交的

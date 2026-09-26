@@ -213,10 +213,13 @@ const auto result = equ::solve(equation);
 
 ```bash
 make test
+make test-full
 make test-architecture
 make test-external
 make test-workflow
 make test-rans
+make test-scalar-time
+make test-simple-parallel
 make test-mpi
 ```
 
