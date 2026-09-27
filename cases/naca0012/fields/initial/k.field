@@ -2,7 +2,7 @@ field k
 {
     type scalar
     location cell
-    internal uniform (1.5e-6)
+    internal file k.dat
     boundary
     {
         airfoil { type fixedValue value (1.0e-12) }

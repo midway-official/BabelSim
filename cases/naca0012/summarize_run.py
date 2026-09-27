@@ -9,7 +9,7 @@ import numpy as np
 def summarize(run):
     report=json.loads((run/'run_summary.json').read_text())
     text=(run/'solver.log').read_text()
-    lines=[line for line in text.splitlines() if line.startswith('PISO ')]
+    lines=[line for line in text.splitlines() if re.match(r'^PISO \d+ ',line)]
     mesh_report=json.loads((run/'mesh'/'mesh_quality.json').read_text())
     cell_count=mesh_report['cell_count']
     steps={}

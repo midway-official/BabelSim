@@ -389,19 +389,20 @@ build-petsc/babelsim-post -case cases/cavity -format vtk tecplot     # post/fina
 | 时间步内结构          | 反复做带欠松弛的动量/压力迭代，直到步内收敛              | 一次动量预测 + `nCorrectors` 次压力修正（修正步不欠松弛）                            |
 | `maxIterations` | 步内迭代上限（默认 1000）                     | 预测–修正流程的额外外层遍数，**默认 1 即标准 PISO**                                 |
 | 时间格式            | `euler` / `bdf2`（BDF2 首步自动降为 Euler） | 同左；必须瞬态                                                          |
-| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 要求线性求解成功、守恒及湍流输运收敛；`maxIterations > 1` 时额外要求外层收敛 |
+| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 要求线性求解成功及守恒；单次 PISO 湍流校正的变化量单独报告 |
 | 动量预测欠松弛         | `velocityRelaxation`（默认 0.7）        | 同左，但修正步始终施加完整修正                                                  |
 | 压力欠松弛           | `pressureRelaxation`（默认 0.3）        | 不适用（修正不做欠松弛）                                                     |
 
 `piso` 使用的键：`maxIterations`(1)、`nCorrectors`(2)、`nonOrthogonalCorrections`(1)、
 `velocityRelaxation`(0.7)、`continuityTolerance`(1e-8)、`velocityTolerance`(1e-7)、
 `momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。
-启用湍流且 `maxIterations=1` 时，`turbulenceMaxIterations`（默认 1000）限制
-同一时间层的模型输运内迭代；保持 `turbulenceRelaxation` 和模型接口不变，历史只在
-物理步开始时推进一次。模型变化量与初始残差均须达到 `turbulenceTolerance`，
-且所有湍流线性方程必须收敛。超过内迭代上限或线性迭代上限时返回
-`notConverged`，不推进下一时间步。`maxIterations>1` 时仍由原有外层迭代收敛模型，
-不使用此内迭代设置。守恒判据不满足时返回
+启用湍流且 `maxIterations=1` 时，`turbulenceCoupling` 默认 `iterated`：
+`turbulenceMaxIterations`（默认 1000）限制同一时间层的模型输运内迭代，
+湍流变化量与初始残差均须满足 `turbulenceTolerance`。瞬态分步可显式选择
+`turbulenceCoupling segregated`；它每物理步更新一次湍流方程、要求线性系统收敛，
+只报告湍流变化量，不把它当作物理时间步的稳态收敛条件。该模式要求
+`turbulenceRelaxation 1.0`。`maxIterations>1` 时，流场和湍流仍由 PISO 外层共同迭代。
+守恒判据不满足时返回
 `notConverged`（退出码 2），不会带着质量不平衡继续推进。
 
 场与边界、`physics` 键与 `simple` 相同（`density`、`dynamicViscosity`，湍流时可加模型键）。

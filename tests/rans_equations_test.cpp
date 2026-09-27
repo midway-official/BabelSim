@@ -49,7 +49,8 @@ int main(int argc, char** argv) {
         std::vector<double> initialResiduals;
         const std::vector<std::string> names = model_name == "SA"
             ? std::vector<std::string>{"nuTilda"}
-            : std::vector<std::string>{"k", model_name == "kOmega" ? "omega" : "epsilon"};
+            : model_name == "kOmega" ? std::vector<std::string>{"omega", "k"}
+            : std::vector<std::string>{"k", "epsilon"};
         for (const auto& name : names) {
             const std::string equationName =
                 model_name == "SA" ? "nuTildaTransport" :
@@ -83,6 +84,11 @@ int main(int argc, char** argv) {
                     return model_name == "kOmega" ? rho*sv*(name == "k" ? 0.09 : 0.075)
                         : rho*sv/kv*(name == "k" ? 1.0 : 1.92);
                 });
+                if (model_name == "kOmega" && name == "k") {
+                    // The dissipation equation is solved before k: its new
+                    // solution supplies the implicit k destruction coefficient.
+                    sink.evaluate(expected.front(), [&](double sv) { return 0.09*rho*sv; });
+                }
             } else {
                 const auto& distance = problem.scalarField("wallDistance");
                 ScalarField reaction(mesh, FieldLocation::Cell);

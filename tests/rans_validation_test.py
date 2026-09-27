@@ -219,5 +219,49 @@ for ranks in (1,2,4):
     assert "linear=inexact" in text and "converged=true" not in text
     assert not (fixture / "results" / f"np{ranks}").exists()
 
+# Standard segregated PISO: one unrelaxed turbulence update per physical
+# step. Compare against the independently derived sequential BDF2 recurrence;
+# pre-solve nonlinear residuals are diagnostics, not a linear-solve gate.
+fixture = case("piso-segregated-komega", "kOmega", "bdf2", dt=0.01, end=0.03)
+use_piso(fixture)
+path = fixture / "numerics/solution.bs"
+path.write_text(path.read_text().replace("turbulenceRelaxation 0.7", "turbulenceRelaxation 1")
+    + "turbulenceCoupling segregated\ninitializePotentialFlow 1\n")
+w_old = k_old = 1.0
+w_older = k_older = 1.0
+for step in range(3):
+    a0 = 100.0 if step == 0 else 150.0
+    w_rhs = 100*w_old if step == 0 else 200*w_old-50*w_older
+    k_rhs = 100*k_old if step == 0 else 200*k_old-50*k_older
+    w_new = w_rhs/(a0+0.075*w_old)
+    k_new = k_rhs/(a0+0.09*w_new)
+    w_older, w_old = w_old, w_new
+    k_older, k_old = k_old, k_new
+for ranks in (1, 2, 4):
+    text = run(fixture, ranks, f"np{ranks}")
+    assert "turbulenceSettled=false" in text
+    for name, expected in (("omega", w_old), ("k", k_old)):
+        assert max(abs(v-expected) for v in values(fixture, f"np{ranks}", name).values()) < 1e-9
+
+# An omega floor must also protect the viscosity closure from a huge k/omega.
+fixture = case("komega-viscosity-bound", "kOmega", dt=0.001, end=0.001)
+use_piso(fixture)
+path = fixture / "numerics/solution.bs"
+path.write_text(path.read_text().replace("turbulenceRelaxation 0.7", "turbulenceRelaxation 1")
+    + "turbulenceCoupling segregated\n")
+path = fixture / "physics/thermal.bs"
+path.write_text(path.read_text()+"maxTurbulentViscosityRatio 10\n")
+(fixture / "fields/initial/omega.field").write_text(field("omega", "scalar", "1e-20"))
+for ranks in (1, 2, 4):
+    run(fixture, ranks, f"np{ranks}")
+    assert max(values(fixture, f"np{ranks}", "mut").values()) <= 0.1*(1+1e-10)
+    assert min(values(fixture, f"np{ranks}", "omega").values()) > 0
+
+path = fixture / "numerics/solution.bs"
+path.write_text(path.read_text().replace("turbulenceRelaxation 1", "turbulenceRelaxation 0.7"))
+text = run(fixture, 1, "invalid-relaxation", expected=1)
+assert "requires turbulenceRelaxation 1" in text
+summary["segregated_piso"] = "sequential BDF2 recurrence, viscosity bound, relaxation validation: passed"
+
 (BASE / "summary.json").write_text(json.dumps(summary,indent=2))
 print("rans_validation_test: published terms, temporal order, SIMPLE/PISO 1/2/4 ranks and clipping/linear rejection passed",flush=True)

@@ -86,12 +86,25 @@ SolverResult runPiso(Case& problem) {
     const double velocityTolerance = settings.positive("velocityTolerance", 1e-7);
     const double momentumTolerance = settings.positive("momentumTolerance", 1e-6);
     const double pressureTolerance = settings.positive("pressureCorrectionTolerance", 1e-6);
+    const bool initializePotentialFlow = settings.integer("initializePotentialFlow", 0, 0, 1) != 0;
 
     auto turbulence = rans::load(problem, U, phi);
+    const std::string turbulenceCoupling = settings.contains("turbulenceCoupling")
+        ? settings.word("turbulenceCoupling") : "iterated";
+    if (turbulenceCoupling != "iterated" && turbulenceCoupling != "segregated")
+        throw std::invalid_argument("turbulenceCoupling must be iterated or segregated");
+    const bool segregatedTurbulence = turbulenceCoupling == "segregated";
+    if (segregatedTurbulence && maxIterations != 1)
+        throw std::invalid_argument("segregated turbulence requires one PISO momentum pass");
+    if (segregatedTurbulence && turbulence
+        && settings.fraction("turbulenceRelaxation", 0.7) != 1.0)
+        throw std::invalid_argument("single-pass transient turbulence requires turbulenceRelaxation 1");
     // With one momentum pass, converge the model's relaxed transport equations
     // at the SAME time level. Otherwise relaxation changes physical time rates.
-    const int turbulenceCorrections = turbulence && maxIterations == 1
-        ? settings.integer("turbulenceMaxIterations", 1000, 1, std::numeric_limits<int>::max()) : 1;
+    const int turbulenceLimit = settings.integer("turbulenceMaxIterations", 1000, 1,
+        std::numeric_limits<int>::max());
+    const int turbulenceCorrections = turbulence && maxIterations == 1 && !segregatedTurbulence
+        ? turbulenceLimit : 1;
     const auto& muEff = turbulence.effectiveViscosity();
     auto pPrime = field::homogeneousLike(p, "pPrime");
     auto momentumEquation = equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
@@ -100,6 +113,25 @@ SolverResult runPiso(Case& problem) {
     const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
         ? 1 : nonOrthogonalCorrections + 1;
     phi = math::flux(U, pressureOptions);
+    if (initializePotentialFlow) {
+        // Establish a conservative initial face flux before it enters convection
+        // and the first physical time history. The potential is not pressure.
+        const auto initialImbalance = math::div(phi);
+        for (int correction = 0; correction < pressureSolves; ++correction) {
+            pressureEquation.reset();
+            equ::laplacian(pressureEquation, 1.0, -1, "diffusion");
+            equ::source(pressureEquation, -initialImbalance);
+            pressureEquation.referenceIfUnanchored(0.0);
+            const auto initialSolve = equ::solve(pressureEquation);
+            if (!diagnostics::all(initialSolve.converged())) return SolverResult::numericalFailure();
+        }
+        U -= math::grad(pPrime, pressureOptions);
+        phi += equ::faceFlux(pressureEquation, pPrime);
+        U.setBoundaryFlux(phi);
+        pPrime.fill(0.0);
+        reporter.record({{"initialMass", diagnostics::fluxBalance(phi).relative},
+            {"initialUmax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))}});
+    }
     if (methods.time == TimeMethod::Steady)
         throw std::invalid_argument("PISO requires a transient time scheme");
     auto time = time::start(problem);
@@ -194,6 +226,10 @@ SolverResult runPiso(Case& problem) {
                 const double defect = math::normL2(nonPressureRhs - action - pressureSource);
                 couplingResidual = scale > 0.0 ? defect / scale : defect;
                 if (corrector == 0) firstCouplingResidual = couplingResidual;
+                if (corrector == 0 || corrector + 1 == correctors)
+                    reporter.record({{"corrector", corrector + 1},
+                        {"Umax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))},
+                        {"coupling", couplingResidual}});
             }
 
             bool turbulenceConverged = true;
@@ -226,13 +262,15 @@ SolverResult runPiso(Case& problem) {
             // 单次 PISO 不要求物理速度变化趋零；湍流的松弛输运仍须在本时间层收敛。
             const bool outerSettled = diagnostics::all(rU <= momentumTolerance
                 && dU <= velocityTolerance && dP <= pressureTolerance && turbulenceConverged);
-            converged = stepAccepted && (maxIterations == 1 ? turbulenceConverged : outerSettled);
+            converged = stepAccepted && (maxIterations == 1
+                ? (segregatedTurbulence || turbulenceConverged) : outerSettled);
 
             reporter.iteration(iter + 1, maxIterations, converged, {
                 {"mass", mass.relative}, {"dU", dU}, {"rU", rU}, {"dP", dP},
                 {"rCouplingFirst", firstCouplingResidual}, {"rCoupling", couplingResidual},
                 {"linU", velocitySolve.relative_residual}, {"linP", pressureLinearResidual},
                 {"dTurb", dTurbulence}, {"rTurb", rTurbulence},
+                {"turbulenceSettled", turbulenceConverged},
                 {"linear", linearConverged ? "ok" : "inexact"}, {"converged", converged}});
             if (!stepAccepted) return SolverResult::notConverged();
             if (converged) break;
