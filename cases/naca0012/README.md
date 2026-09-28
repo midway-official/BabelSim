@@ -1,8 +1,8 @@
 # NACA0012：15°、右向左来流、PISO / k–ω
 
 当前正式配置使用原有 127,013 单元网格、PISO、Wilcox 1988 k–ω、BDF2，
-`deltaT=0.05 s`、`endTime=30 s`，4 核并行。当前这次修正完成后仍须检查正式计算日志和输出；
-先前的 20 步调试结果只用于验证启动过程，不能替代 600 步正式结果。
+`deltaT=0.01 s`、`endTime=30 s`，4 核并行，共 3000 步。结果每 100 步（1 s）保存一次；
+正式计算仍须检查完整日志、保存场和最终场值，短时试算不能替代 3000 步正式结果。
 当前网格文件 SHA256 为 `ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25`。
 
 ## 几何、方向和计算域
@@ -52,7 +52,7 @@ Delaunay 连接。质量良好的三角形对合并成凸四边形，其余保�
 拓扑检查会拒绝不匹配的内界面、漏标的外边界和非流形边。
 网格预览为 `mesh/mesh_overview.png` 和 `mesh/mesh_wall_details.png`。
 
-第 100 步 `t=50 s` 的速度场云图与流线见下图，`t=30 s` 快照也保存在验证目录：
+以下为历史配置 `dt=0.5 s` 的旧图，不能作为当前 BDF2 / k–ω 配置成功或精度的证据：
 
 ![NACA0012 第 100 步速度场](validation/flow_t50_dt0.5.png)
 
@@ -73,11 +73,18 @@ Delaunay 连接。质量良好的三角形对合并成凸四边形，其余保�
 
 `fields/initial/k.dat` 和 `omega.dat` 用到翼面距离连续建立近壁初始分布。它们是可复现的启动种子，不是已收敛边界层。运行时 `initializePotentialFlow 1` 先修正初始速度和面通量，使初始通量满足连续性，再推进第一个物理时间步。
 
-时间步设置为 `0.05 s`，终止于 `30 s`。动量使用线性迎风二阶格式；k、omega 使用一阶迎风；时间格式为 BDF2。PISO 每步 1 次动量预测、4 次压力校正和 3 次附加非正交校正。速度松弛为 `1.0`；标准分步湍流校正也设为 `1.0`，每个物理步各更新一次 omega 和 k，输运残差作为诊断量，不误当作线性失败条件。PISO 使用 3 次压力校正和 1 次附加非正交校正。需要把湍流非线性变化也收敛到容差时，可使用 `turbulenceCoupling iterated`，但它每步会多次重解输运方程。
+时间步设置为 `0.01 s`，终止于 `30 s`，共 3000 步。动量使用线性迎风二阶格式；k、omega 使用一阶迎风；时间格式为 BDF2。PISO 每步执行 1 次动量预测和至少 8 次总压力校正，并进行 1 次附加非正交校正。`couplingTolerance=1e-5` 检查压力—速度耦合残差，未达到时增加校正至 `maxCorrectors=50`，仍失败则退出，避免仅凭质量守恒误报成功。速度松弛为 `1.0`；标准分步湍流校正也设为 `1.0`，每个物理步各更新一次 omega 和 k，湍流输运相对残差容限为 `0.05`。压力、动量、k 和 omega 方程均使用 Hypre AMG 预条件。需要把湍流非线性变化也迭代收敛时，可使用 `turbulenceCoupling iterated`，但它每步会多次重解输运方程。
 
 压力、k、omega 和动量方程均配置 PETSc BCGS/CG 与 Hypre AMG 预条件。为避免 BDF2 启动局部负值令 `k/omega` 人为变得极大，Wilcox 实现增加 `maxTurbulentViscosityRatio=1e5`，以 `omega >= rho*k/(1e5*mu)` 限制湍流黏度；日志中的 `omegaBoundedCells` 记录触发单元数。
 
-诊断过程和已验证的求解器/模型耦合证据见 `validation/piso-komega-diagnosis.md`。20 步试算只证明首段可推进并检查场值范围，不代表完整 30 s 的时间精度或 NACA0012 湍流模型验证。
+早期诊断见 `validation/piso-komega-diagnosis.md`；后续确定性发散、对照试验及修复见
+[2026-09-28 耦合审计](validation/piso-coupling-audit-20260928.md)。
+原 `dt=0.01 s`、3 次 PISO 校正的两次长算都在约 `8.5 s` 发散，不能归因于会话中断。
+修复后的 8 次校正已在同一 `t=8 s` 保存场上通过至 `9.5 s` 的定位试算；该试算会重新建立
+时间历史，不能替代从 `t=0` 的完整验证。
+当前完整重跑的结果目录为 `results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled`，
+日志与退出状态在 `validation/piso_audit_20260928/formal/`。`final/` 表示最近一次保存，
+并不自动表示达到 `30 s`；应同时核对 `status.json` 和最终元数据的物理时间。
 
 ## 生成、复核与运行
 
@@ -99,10 +106,10 @@ python3 cases/naca0012/run_smoke.py --steps 10 --ranks 4
 # 将上一条输出的 run_directory 传给检查器：
 python3 cases/naca0012/summarize_run.py /absolute/path/to/run_directory
 
-mpirun -np 2 build-petsc/babelsim-solve -case cases/naca0012
+mpirun -np 4 build-petsc/babelsim-solve -case cases/naca0012
 ```
 
-当前运行配置采用 `deltaT=0.5`，短算脚本也拒绝 `--dt < 0.005`。
+当前正式运行配置采用 `deltaT=0.01`，短算脚本也拒绝 `--dt < 0.005`。
 短算脚本复制配置到带时间戳的 `results/smoke-*`，引用同一份全尺寸网格，
 不修改正式 control.bs。`summarize_run.py` 同时检查退出码、完成步数、线性求解状态、
 全局单元覆盖、所有保存时刻的有限性、k/omega 下限截断和宽松启动场值上限。

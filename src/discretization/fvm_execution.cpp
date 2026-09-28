@@ -176,6 +176,32 @@ FluxBalance FvmExecution::fluxBalance(const ScalarField& face_flux) const {
     return result;
 }
 
+CourantNumber FvmExecution::courantNumber(const ScalarField& face_flux, double dt) const {
+    const Implementation& state = *m_implementation;
+    requireFaceField(face_flux, *state.mesh, "Courant flux");
+    if (!(dt > 0.0) || !std::isfinite(dt))
+        throw std::invalid_argument("Courant time step must be finite and positive");
+    CourantNumber result;
+    double weighted = 0.0, volume = 0.0;
+    for (Index cell : detail::meshData(*state.mesh).owned_cells) {
+        double sum = 0.0;
+        for (Index face : state.mesh->cellFaces(cell))
+            sum += std::abs(detail::fieldData(face_flux)[face]);
+        const double v = state.mesh->cellVolume(cell);
+        const double co = 0.5 * dt * sum / v;
+        result.maximum = std::max(result.maximum, co);
+        weighted += co * v;
+        volume += v;
+    }
+    const double local[2] = {weighted, volume};
+    double global[2]{};
+    state.backend->sum(local, global, 2);
+    const double local_max = result.maximum;
+    state.backend->maximum(&local_max, &result.maximum, 1);
+    result.mean = global[0] / global[1];
+    return result;
+}
+
 bool FvmExecution::all(bool local_condition) const {
     return m_implementation->backend->all(local_condition);
 }

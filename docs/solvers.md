@@ -386,15 +386,16 @@ build-petsc/babelsim-post -case cases/cavity -format vtk tecplot     # post/fina
 
 | <br />          | `transientSimple`                   | `piso`                                                           |
 | --------------- | ----------------------------------- | ---------------------------------------------------------------- |
-| 时间步内结构          | 反复做带欠松弛的动量/压力迭代，直到步内收敛              | 一次动量预测 + `nCorrectors` 次压力修正（修正步不欠松弛）                            |
+| 时间步内结构          | 反复做带欠松弛的动量/压力迭代，直到步内收敛              | 一次动量预测 + 至少 `nCorrectors` 次压力校正（修正步不欠松弛）                            |
 | `maxIterations` | 步内迭代上限（默认 1000）                     | 预测–修正流程的额外外层遍数，**默认 1 即标准 PISO**                                 |
 | 时间格式            | `euler` / `bdf2`（BDF2 首步自动降为 Euler） | 同左；必须瞬态                                                          |
-| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 要求线性求解成功及守恒；单次 PISO 湍流校正的变化量单独报告 |
+| 时间步接受判据         | 步内迭代达到与 `simple` 相同的收敛组合            | 要求线性求解成功、守恒，并满足显式设置的 `couplingTolerance`；湍流变化量单独报告 |
 | 动量预测欠松弛         | `velocityRelaxation`（默认 0.7）        | 同左，但修正步始终施加完整修正                                                  |
 | 压力欠松弛           | `pressureRelaxation`（默认 0.3）        | 不适用（修正不做欠松弛）                                                     |
 
-`piso` 使用的键：`maxIterations`(1)、`nCorrectors`(2)、`nonOrthogonalCorrections`(1)、
-`velocityRelaxation`(0.7)、`continuityTolerance`(1e-8)、`velocityTolerance`(1e-7)、
+`piso` 使用的键：`maxIterations`(1)、`nCorrectors`(2)、`maxCorrectors`（默认等于 `nCorrectors`）、
+`couplingTolerance`（默认不限制）、`nonOrthogonalCorrections`(1)、
+`velocityRelaxation`(1.0)、`continuityTolerance`(1e-8)、`velocityTolerance`(1e-7)、
 `momentumTolerance`(1e-6)、`pressureCorrectionTolerance`(1e-6)。
 启用湍流且 `maxIterations=1` 时，`turbulenceCoupling` 默认 `iterated`：
 `turbulenceMaxIterations`（默认 1000）限制同一时间层的模型输运内迭代，
@@ -402,14 +403,22 @@ build-petsc/babelsim-post -case cases/cavity -format vtk tecplot     # post/fina
 `turbulenceCoupling segregated`；它每物理步更新一次湍流方程、要求线性系统收敛，
 只报告湍流变化量，不把它当作物理时间步的稳态收敛条件。该模式要求
 `turbulenceRelaxation 1.0`。`maxIterations>1` 时，流场和湍流仍由 PISO 外层共同迭代。
-守恒判据不满足时返回
-`notConverged`（退出码 2），不会带着质量不平衡继续推进。
+每次校正用更新后的 U 重建 HbyA，并求解总压力方程；最终面通量取自该方程装配时
+冻结的非正交修正。对于非线性的 `limitedCorrected`，不能把分别限幅的 p 与 dp 通量相加。
+
+`couplingTolerance` 检查冻结动量方程的归一化缺陷
+`||b0 - A U - V grad(p)|| / (||b0|| + ||A U|| + ||V grad(p)||)`。
+至少执行 `nCorrectors` 次，达到该容限后退出；仍不满足则继续至 `maxCorrectors`。
+线性求解、守恒或配置的耦合判据不满足时返回 `notConverged`（退出码 2）。
+未指定 `couplingTolerance` 时保留原固定校正次数的行为。
+日志同时报告 `time`、实际 `correctors`、`accepted`、`CoMax` 和体积加权 `CoMean`。
+Co 由实际体积面通量计算：`dt/(2 V) * sum(abs(phi_f))`。通过这些代数判据不等于时间精度已验证。
 
 场与边界、`physics` 键与 `simple` 相同（`density`、`dynamicViscosity`，湍流时可加模型键）。
 瞬态算例的 `control.bs` 必须给出正的 `deltaT`；`output.bs` 的 `writeInterval` 控制写出间隔。
 
-**运行**：`transientSimple` 的内置算例是 `cases/naca0012`（112k 单元、transientSimple + k-ω，
-0→8.0、dt=0.001，共 8000 步，完整跑一遍很慢；第一次跑先把 `endTime` 改小）：
+**运行**：`cases/naca0012` 当前为 127,013 单元、PISO + k–ω、BDF2，
+`0→30 s`、`dt=0.01 s`、4 核。完整运行状态见该算例 README 与验证报告：
 
 ```bash
 cp -r cases/naca0012 /tmp/naca-short

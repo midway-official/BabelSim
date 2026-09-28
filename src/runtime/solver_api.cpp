@@ -86,6 +86,10 @@ double relativeMagnitude(const ScalarField& value, const ScalarField& reference)
     return detail::execution().relativeMagnitude(value, reference);
 }
 
+CourantNumber courantNumber(const ScalarField& face_flux, double dt) {
+    return detail::execution().courantNumber(face_flux, dt);
+}
+
 FluxBalance fluxBalance(const ScalarField& face_flux) {
     return detail::execution().fluxBalance(face_flux);
 }

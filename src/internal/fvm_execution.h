@@ -46,6 +46,7 @@ public:
     double relativeChange(const ScalarField& current, const ScalarField& previous) const;
     double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;
     FluxBalance fluxBalance(const ScalarField& face_flux) const;
+    CourantNumber courantNumber(const ScalarField& face_flux, double dt) const;
     bool all(bool local_condition) const;
     PerformanceCounters performance() const;
 

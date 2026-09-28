@@ -89,6 +89,7 @@ public:
         const auto omegaSolve = equ::solve(omegaEquation);
         if (!diagnostics::all(omegaSolve.healthy()))
             return {{{"omega", omegaSolve, omegaResidual, 0.0}}};
+        const double rawOmegaMin = -math::max(-omega);
         boundOmega();
 
         auto kEquation = equ::createEquation(k, kControl);
@@ -103,6 +104,7 @@ public:
         if (!diagnostics::all(kSolve.healthy()))
             return {{{"omega", omegaSolve, omegaResidual, 0.0}, {"k", kSolve, kResidual, 0.0}}};
 
+        const double rawKMin = -math::max(-k);
         // Bound unknowns, then publish the viscosity for the next momentum solve.
         boundTransportFields();
         updateViscosity();
@@ -110,6 +112,7 @@ public:
         if (correction == 1 || correction % 100 == 0 || boundedOmegaCells > 0.0) {
             monitor::Reporter("kOmega").record({{"iteration", correction},
                 {"rK", kResidual}, {"rOmega", omegaResidual},
+                {"kMinRaw", rawKMin}, {"omegaMinRaw", rawOmegaMin},
                 {"kMax", math::max(k)}, {"omegaMax", math::max(omega)},
                 {"mutMax", math::max(mut)}, {"productionMax", math::max(production)},
                 {"omegaBoundedCells", boundedOmegaCells}});

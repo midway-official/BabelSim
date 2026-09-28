@@ -151,6 +151,10 @@ test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)
 	$(BUILD)/time_history_test
 	python3 tests/solver_workflow_test.py --solver $(BUILD)/babelsim-solve --post $(BUILD)/babelsim-post
 
+test-piso-coupling: $(BUILD)/babelsim-solve $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/physics_contract_test
+	python3 tests/piso_coupling_test.py --solver $(BUILD)/babelsim-solve
+
 test-rans: $(BUILD)/babelsim-solve $(BUILD)/rans_equations_test
 	python3 tests/rans_validation_test.py --solver $(BUILD)/babelsim-solve \
 		--equations $(BUILD)/rans_equations_test

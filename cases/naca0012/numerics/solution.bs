@@ -1,6 +1,8 @@
-# Standard PISO: one momentum predictor and three pressure correctors.
+# PISO: one momentum predictor; correct until rCoupling passes its tolerance.
 maxIterations 1
-nCorrectors 3
+nCorrectors 8
+maxCorrectors 50
+couplingTolerance 1e-5
 nonOrthogonalCorrections 1
 velocityRelaxation 1.0
 continuityTolerance 1.0e-8

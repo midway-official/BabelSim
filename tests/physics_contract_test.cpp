@@ -1,6 +1,7 @@
 #include "babelsim/equ.h"
 #include "babelsim/geometry.h"
 #include "babelsim/runtime.h"
+#include "babelsim/solver.h"
 #include "babelsim/parallel.h"
 #include "babelsim/mpi_support.h"
 #include "internal/field_access.h"
@@ -75,6 +76,45 @@ void frozenDiffusion(const Mesh& mesh) {
     }
 }
 
+void courantContract(const Mesh& mesh) {
+    const auto control = testEquationControl("courant");
+    VectorField velocity(mesh, FieldLocation::Cell, "uniformU", Vec3{2, 0, 0});
+    velocity.useCalculatedBoundary();
+    const auto phi = math::flux(velocity, control.spatial);
+    // Sheared unit-volume cells: only the two x-normal faces carry flux.
+    const auto co = diagnostics::courantNumber(phi, 0.25);
+    require(near(co.maximum, 0.5) && near(co.mean, 0.5),
+            "Courant number must include boundaries and reduce owned cells once");
+    const auto scaled = diagnostics::courantNumber(-3.0 * phi, 0.5);
+    require(near(scaled.maximum, 3.0) && near(scaled.mean, 3.0),
+            "Courant number must use absolute volumetric flux and physical dt");
+}
+
+void nonlinearPressureFlux(const Mesh& mesh) {
+    ScalarField p(mesh, FieldLocation::Cell, "p"), dp(mesh, FieldLocation::Cell, "dp");
+    for (Index patch = 0; patch < mesh.patchCount(); ++patch) {
+        p.setBoundary(patch, fixedValue(0.0));
+        dp.setBoundary(patch, fixedValue(0.0));
+    }
+    p.evaluate([](Vec3 x) { return std::sin(1.7*x.x + 0.3*x.y); });
+    dp.evaluate([](Vec3 x) { return std::cos(0.4*x.x - 2.1*x.y); });
+    const auto area = geometry::faceAreas(mesh);
+    const auto sum = p + dp;
+    for (auto method : {DiffusionMethod::Corrected, DiffusionMethod::LimitedCorrected}) {
+        auto options = testEquationControl("pressure").spatial;
+        options.diffusion = method;
+        const auto flux = [&](const ScalarField& x) {
+            return area * math::normalGradient(x, math::grad(x, options), options);
+        };
+        const double mismatch = math::normL2(flux(sum) - flux(p) - flux(dp));
+        if (method == DiffusionMethod::Corrected)
+            require(mismatch < 1e-10, "unlimited pressure flux must be additive");
+        else
+            require(mismatch > 1e-5,
+                    "fixture must expose why separately limited p and dp fluxes cannot be added");
+    }
+}
+
 int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
     try {
@@ -86,7 +126,9 @@ int main(int argc, char** argv) {
         auto runtime = RunTime::forMesh(mesh);
         fluxContext(mesh);
         frozenDiffusion(mesh);
-        if (primaryProcess()) std::cout << "physics_contract_test: inflow context and frozen diffusion flux passed\n";
+        courantContract(mesh);
+        nonlinearPressureFlux(mesh);
+        if (primaryProcess()) std::cout << "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n'; MPI_Abort(MPI_COMM_WORLD, 1);
     }

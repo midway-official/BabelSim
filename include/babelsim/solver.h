@@ -26,11 +26,18 @@ struct FluxBalance {
 // Runtime 之外的 Solver API：显式量属于 math，隐式方程由 equ:: 组装并用 equ::solve
 // 求解，收敛与守恒量属于 diagnostics。它们自动使用当前线程唯一活动的 RunTime，
 // 因此 Solver 不需要在每个数学操作中传递执行对象。
+struct CourantNumber {
+    double maximum = 0.0;
+    double mean = 0.0; // volume-weighted mean
+};
+
 namespace diagnostics {
 double relativeChange(const VectorField& current, const VectorField& previous);
 double relativeChange(const ScalarField& current, const ScalarField& previous);
 double relativeMagnitude(const ScalarField& value, const ScalarField& reference);
 FluxBalance fluxBalance(const ScalarField& face_flux);
+// Co = dt/(2 V) sum_faces |volumetric phi|, including physical boundary faces.
+CourantNumber courantNumber(const ScalarField& face_flux, double dt);
 bool all(bool local_condition);
 }  // diagnostics 命名空间
 
