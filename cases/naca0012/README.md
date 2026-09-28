@@ -1,8 +1,18 @@
 # NACA0012：15°、右向左来流、PISO / k–ω
 
-当前正式配置使用原有 127,013 单元网格、PISO、Wilcox 1988 k–ω、BDF2，
-`deltaT=0.01 s`、`endTime=30 s`，4 核并行，共 3000 步。结果每 100 步（1 s）保存一次；
-正式计算仍须检查完整日志、保存场和最终场值，短时试算不能替代 3000 步正式结果。
+## 当前正式计算状态
+
+正式计算已于 2026-09-28 完成：原有 127,013 单元网格、PISO、Wilcox 1988 k–ω、BDF2，
+`deltaT=0.01 s`、`endTime=30 s`，4 核并行，共 3,000 步。退出码为 0；3,000 步全部
+`accepted=true`、`linear=ok`、`converged=true`。全程最大压力—速度耦合残差为
+`9.1766e-6`（容限 `1e-5`）。终点快照覆盖全部单元，U、p、k、omega、mut 均有限。
+
+终点场范围：`|U|=6.41e-6–2.88319 m/s`、`k=4.46907e-8–0.101278`、
+`omega=0.636935–124803 s^-1`、`mut=5.27407e-13–9.00291e-4`。完整根因、耦合修复和
+逐字段检查记录见[长时失稳审计](validation/piso-coupling-audit-20260928.md)。
+紧凑日志与复现实验材料在 `validation/piso_audit_20260928/`；完整瞬态场保存在本地
+`results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/`。
+
 当前网格文件 SHA256 为 `ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25`。
 
 ## 几何、方向和计算域
@@ -52,7 +62,13 @@ Delaunay 连接。质量良好的三角形对合并成凸四边形，其余保�
 拓扑检查会拒绝不匹配的内界面、漏标的外边界和非流形边。
 网格预览为 `mesh/mesh_overview.png` 和 `mesh/mesh_wall_details.png`。
 
-以下为历史配置 `dt=0.5 s` 的旧图，不能作为当前 BDF2 / k–ω 配置成功或精度的证据：
+当前正式计算的已保存快照可视化：
+
+- [t=14 s 速度场与流线](validation/flow_t14_dt0p01.png)
+- [t=27 s 速度场与流线](validation/flow_latest_t27_dt0p01.png)
+- [终点 t=30 s 速度场与流线](validation/flow_t30_dt0p01.png)
+
+以下为历史配置 `dt=0.5 s` 的旧图，不能用于判断当前 BDF2 / k–ω 结果：
 
 ![NACA0012 第 100 步速度场](validation/flow_t50_dt0.5.png)
 
@@ -77,14 +93,10 @@ Delaunay 连接。质量良好的三角形对合并成凸四边形，其余保�
 
 压力、k、omega 和动量方程均配置 PETSc BCGS/CG 与 Hypre AMG 预条件。为避免 BDF2 启动局部负值令 `k/omega` 人为变得极大，Wilcox 实现增加 `maxTurbulentViscosityRatio=1e5`，以 `omega >= rho*k/(1e5*mu)` 限制湍流黏度；日志中的 `omegaBoundedCells` 记录触发单元数。
 
-早期诊断见 `validation/piso-komega-diagnosis.md`；后续确定性发散、对照试验及修复见
-[2026-09-28 耦合审计](validation/piso-coupling-audit-20260928.md)。
-原 `dt=0.01 s`、3 次 PISO 校正的两次长算都在约 `8.5 s` 发散，不能归因于会话中断。
-修复后的 8 次校正已在同一 `t=8 s` 保存场上通过至 `9.5 s` 的定位试算；该试算会重新建立
-时间历史，不能替代从 `t=0` 的完整验证。
-当前完整重跑的结果目录为 `results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled`，
-日志与退出状态在 `validation/piso_audit_20260928/formal/`。`final/` 表示最近一次保存，
-并不自动表示达到 `30 s`；应同时核对 `status.json` 和最终元数据的物理时间。
+早期启动问题分析见 `validation/piso-komega-diagnosis.md`；历史失稳对照见
+`validation/instability_analysis.md`。完整 30 s 正式运行已经通过退出状态、耦合残差、
+最终元数据和保存场检查；审计文档列出可复核的日志、状态和字段范围。历史短算与单步
+计时数据仍保留在 `validation/`，不得与这次正式配置或其精度结论混用。
 
 ## 生成、复核与运行
 

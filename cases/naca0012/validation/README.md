@@ -1,18 +1,39 @@
-# 试算与根因分析档案
+# NACA0012 验证与诊断档案
 
-已有的长算运行计数和流场结果来自 PETSc 替换前的 Eigen 求解后端，不是迁移后的回归证据或性能对照。
-PETSc 后端已完成一个 2-rank、全尺寸网格、`deltaT=0.5 s` 的启动步计时 smoke；设置、逐方程计时和限制见
-[`petsc_one_step_timing.md`](petsc_one_step_timing.md)。完整 NACA0012 长算和物理验证仍未完成。
+本目录同时保存当前正式验证证据和早期试算记录。阅读时请先区分正式的
+`dt=0.01 s`、BDF2、PISO/k–ω 运行与旧的启动、性能 smoke；后者不能替代正式运行，
+也不能直接代表当前算法配置。
 
-`instability_analysis.md` 记录中心/迎风受控对照、两次失稳长算，以及最终稳定的 100 步试算。
+## 当前正式计算
 
-`summary.json`、`dt_0.01/`、`dt_0.005/`、`previous_central_dt2e-5.json` 记录旧中心格式试算。它们不是当前迎风设置的验收结果。
+从原始初始场完成了 `t=0–30 s` 计算，使用原 127,013 单元网格、4 个 MPI rank、
+PISO、Wilcox 1988 k–ω、BDF2、动量二阶 linearUpwind、k/ω 一阶 upwind 和 Hypre AMG。
+3,000 个时间步全部通过耦合接受条件，最终快照时间为 30 s。
 
-当前正式算例采用动量、k、omega 均一阶迎风，`dt=0.5`，速度/湍流松弛均为 0.3；压力修正启用跨时间步初值复用，
-2 核完成 100 步至 `t=50`。10 个输出时刻均通过有限性、完整单元数和质量误差检查。详见 `current_run.json`、
-`completed_run_summary.json`、`dt0.5_100steps.log`、`flow_t30_dt0.5.png` 与 `flow_t50_dt0.5.png`。原 `dt=0.05` 与
-`dt=0.005` 记录分别归档为 `current_run_dt0.05.json`、`completed_run_summary_dt0.05.json` 及对应 0.005 文件。
-清理掉旧 smoke、失败场和冗余 final 副本，具体路径见 `cleanup_20260924.json`；其余有效时间步对照结果保留。
-小质量误差或 `PISO converged=true` 本身不证明场解健康；本次也不构成物理验证。
+- [耦合失稳审计与最终验证结果](piso-coupling-audit-20260928.md)：根因、算法修复、
+  对照试验、完整日志统计和最终保存场范围。
+- [算例配置、网格和边界条件](../README.md)：当前参数及 NACA0012 建模假设。
+- 正式运行日志、退出状态和对照材料：[`piso_audit_20260928/`](piso_audit_20260928/)。
+- 速度场与流线图：[t=14 s](flow_t14_dt0p01.png)、[t=27 s](flow_latest_t27_dt0p01.png)、
+  [终点 t=30 s](flow_t30_dt0p01.png)。
+- 完整瞬态场保存在本地 [`../results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/`](../results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/)；
+  大型逐时刻场文件不纳入版本库，终点元数据与字段完整性结果已摘要记录在审计中。
 
-`performance_analysis.md` 记录 100 步耗时诊断、MPI 图分区修正、2/4/8 核扩展对比、减少非正交修正的短算例 A/B，以及压力方程 ILUT/AMG 对比。原始计数器和各 rank 分区数据在 `performance_profiles/`。
+## 历史诊断
+
+- [`piso-komega-diagnosis.md`](piso-komega-diagnosis.md)：早期启动场和 k–ω 更新顺序检查；
+  文末补充了它与最终长时失稳根因的区别。
+- [`instability_analysis.md`](instability_analysis.md)：中心/迎风离散和早期短算记录，属于
+  最终配置前的历史试验。
+
+## 历史性能与后端测试
+
+- [`performance_analysis.md`](performance_analysis.md)：旧 `dt=0.005/0.05/0.5 s` 短算的
+  求解计时和 MPI 对照，不是当前正式配置的性能报告。
+- [`petsc_one_step_timing.md`](petsc_one_step_timing.md)：PETSc 后端 `dt=0.5 s` 单步及五步
+  AMG 配置筛选。它用于早期线性求解器选择，不是 30 s 正式计算的性能 A/B。
+- [`performance_profiles/README.md`](performance_profiles/README.md)：对应原始计数器和分区证据。
+
+旧中心格式试算和已归档的 `dt=0.5 s` 100 步结果仅供追溯。小质量误差、`linear=ok` 或
+单独的 `PISO converged=true` 都不足以证明整个流场有效；当前正式结果还经过了
+`rCoupling` 接受、最终时刻及全局单元覆盖检查。
