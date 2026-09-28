@@ -1,0 +1,15 @@
+{
+  "mesh_sha256": "ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25",
+  "cells": 127013,
+  "minimum_wall_distance": 1.4999953983398852e-05,
+  "k_transition": 0.001,
+  "omega_wall_offset": 1.5e-05,
+  "k_range": [
+    3.3347926722985115e-10,
+    1.5e-06
+  ],
+  "omega_range": [
+    1.5,
+    88889.16158048609
+  ]
+}
