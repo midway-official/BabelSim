@@ -1,0 +1,116 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0010080299980472773,
+  "initialPartitionSeconds": 0.0009603190119378269,
+  "exactBalanceSeconds": 4.771098610945046e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 193232896,
+    "peakRSSBytes": 193232896,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 168,
+  "cutFacesPerPart": [
+    66,
+    90,
+    106,
+    74
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    1024,
+    1024,
+    1024,
+    1024
+  ],
+  "ghostCellsPerPart": [
+    192,
+    253,
+    304,
+    210
+  ],
+  "firstLayerGhostsPerPart": [
+    64,
+    86,
+    101,
+    70
+  ],
+  "localCellsPerPart": [
+    1216,
+    1277,
+    1328,
+    1234
+  ],
+  "localFacesPerPart": [
+    4936,
+    5187,
+    5410,
+    5016
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    3,
+    3,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    6144,
+    6144,
+    6144,
+    6144
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0530926079127938,
+  "localCellImbalance": 1.0508407517309595,
+  "totalGhostCells": 959,
+  "maxGhostCells": 304,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 321,
+  "threeLayerCommunicationVolume": 959,
+  "cellStorageDuplication": 1.234130859375,
+  "faceStorageDuplication": 1.2444888565891472,
+  "componentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "ownershipSHA256": "67fd4b2e1c493b3aa7b89f2a26b008f29862a8d92431963b8516788dc58ba165",
+  "status": "ok",
+  "graph": "thin_plate-small",
+  "graphSHA256": "3c57b63b1ca0d14b659b355296ca269ea19302a8ec8f45667335c1de600f375a",
+  "graphMetadata": {
+    "cells": 4096,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "thin_plate",
+    "graded": false,
+    "internalFaces": 8064,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 8448,
+    "rotated": false,
+    "scale": "small",
+    "shape": [
+      64,
+      64,
+      1
+    ]
+  },
+  "unixStarted": 1791377806.3387172,
+  "unixEnded": 1791377806.3708236,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/thin_plate-small__morton-isotropic__p4__seed0.json"
+}

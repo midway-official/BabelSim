@@ -1,0 +1,149 @@
+{
+  "head": "83d7b72757f7f9af2db1a01a097389f86c296117",
+  "branch": "codex/polyhedral-fvm",
+  "physicsDiffEmpty": true,
+  "finalBinary": "/tmp/babelsim-flow-opt-20261007/bin/babelsim-memory-partition-normalized",
+  "finalBinarySha256": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2",
+  "files": [
+    {
+      "path": "Makefile",
+      "sha256": "01a0e544294e4af7b565af6c92171a7a7b0723fc9d1f8c97f3b367dda84d1f4f",
+      "bytes": 12575
+    },
+    {
+      "path": "include/babelsim/runtime.h",
+      "sha256": "f5dcda36162401a99806a12e4bf1aeddc03cee1dd734d8a02885ae7460e32644",
+      "bytes": 2158
+    },
+    {
+      "path": "include/babelsim/solver_control.h",
+      "sha256": "631334fb1c09942a152a47cf053ce73af81ca6a4cae4965e5cbf06dd9d1ad897",
+      "bytes": 11083
+    },
+    {
+      "path": "src/backend/petsc_assembly_plan.cpp",
+      "sha256": "8362cdbdde3db030113375293d690e33da69c52d158652567be799a17abc1d56",
+      "bytes": 5090
+    },
+    {
+      "path": "src/backend/petsc_backend.cpp",
+      "sha256": "60c34ba35a548dca482ec3cbae25359cbd4bee22aa1123a73966e2cb4c8d7764",
+      "bytes": 15360
+    },
+    {
+      "path": "src/backend/petsc_linear_system.cpp",
+      "sha256": "6b14b2b2746f3eaa28a0f21a28964c6c9f5dc6c31b0d38ceb814515f6e92010a",
+      "bytes": 17826
+    },
+    {
+      "path": "src/backend/solver_control.cpp",
+      "sha256": "0ff4dbc97b264ac4a575dc9b9b3d10315c85deffba4f909abf10f2e420429766",
+      "bytes": 1680
+    },
+    {
+      "path": "src/internal/mesh_partition.h",
+      "sha256": "02bf1c43fc3c420432b473e7a84e1e1b6d2ab6e68fb66b54569c69b516724dd0",
+      "bytes": 230
+    },
+    {
+      "path": "src/internal/petsc_assembly_plan.h",
+      "sha256": "4112bb736bd731fd8fa4ab3736d40716156c42be6b7346362a2f214139befd8a",
+      "bytes": 1577
+    },
+    {
+      "path": "src/internal/petsc_linear_system.h",
+      "sha256": "399f0f931ab46541f6012b111f05b4e598962d50e8be717502179b17a09cf235",
+      "bytes": 3766
+    },
+    {
+      "path": "src/io/case.cpp",
+      "sha256": "15f75bf0aeafbb5a0dea4bcefabafc24dc47f0a89897318039a6259c130c1d37",
+      "bytes": 25490
+    },
+    {
+      "path": "src/io/monitor.cpp",
+      "sha256": "865d76e9196dcd3862b1cf5383db3dccd3df3b5d4a82d7eb7bc8611fae0645b7",
+      "bytes": 1309
+    },
+    {
+      "path": "src/parallel/mesh_partition.cpp",
+      "sha256": "998dbb2ae8d8a91442c0e325a821f3ad4e107d59130f8e31466f0193078e26b3",
+      "bytes": 20551
+    },
+    {
+      "path": "src/parallel/parallel_context.cpp",
+      "sha256": "67c847934cd04742096bae26a552c7847412ae5b4115302895a7c561806d01ee",
+      "bytes": 39746
+    },
+    {
+      "path": "src/runtime/application.cpp",
+      "sha256": "4a26f4789b6fbd363af25d68a2ce6c070a5e974c38505fef88299a8632dcf451",
+      "bytes": 15366
+    },
+    {
+      "path": "src/runtime/runtime.cpp",
+      "sha256": "540ecb450eda29d64f0b415a5d7425d73c1dfd7649dab0e4a725d74a15108b75",
+      "bytes": 6917
+    },
+    {
+      "path": "tests/external_solver_test.py",
+      "sha256": "6b2ba3cb22c822b8d629ed78526b4a0fb3fd3f8e07c62f87f57bba403727b2e9",
+      "bytes": 17366
+    },
+    {
+      "path": "tests/numerical_configuration_test.cpp",
+      "sha256": "4bc8d4e65ef689ba99f434290d9418d00d5b15df8314ae47f23978e8b0262120",
+      "bytes": 10439
+    },
+    {
+      "path": "tests/parallel_partition_test.cpp",
+      "sha256": "12589c7a2bb6919cac42cabe116a57848847b346661b966985ec21d9dbf021dc",
+      "bytes": 8737
+    },
+    {
+      "path": "tests/petsc_backend_test.cpp",
+      "sha256": "774d6104394ef033f5b1b7946f1eb29c840604a46f6323c1f35d40b447692e6a",
+      "bytes": 19798
+    },
+    {
+      "path": "tools/benchmark_backend.py",
+      "sha256": "d27211fff90525f6c7368c3b31082b79cef404444714dee31bb36d3d2a68ec17",
+      "bytes": 28850
+    },
+    {
+      "path": "tools/benchmark_solver_optimization.py",
+      "sha256": "22c48a34581e571514c4f6f7ebe461de959413f40492869a537f5e69fdb0651c",
+      "bytes": 11007
+    },
+    {
+      "path": "tools/check_partition_model.py",
+      "sha256": "f0f02d3982b13b58ca782fd34846aea3b2e74cf6672d9e4102aaad99f99312c5",
+      "bytes": 4175
+    },
+    {
+      "path": "tools/generate_mpi_flow_case.py",
+      "sha256": "3192fc4ff735fdf50a78963754c227c29292b64670dfeb420f6173e7037f954d",
+      "bytes": 5980
+    },
+    {
+      "path": "tools/generate_mpi_scaling_case.py",
+      "sha256": "788ba68e1a8e551c722e0080d5b9f03984c634f5c120c379c63465e093f11f90",
+      "bytes": 8269
+    },
+    {
+      "path": "tools/partition_model_algorithms.py",
+      "sha256": "e9fc8850faf42d0b349ec79a74b55bd40c6fe5e93f8a1bca6929e96110b31cb2",
+      "bytes": 18929
+    },
+    {
+      "path": "tools/partition_model_graphs.py",
+      "sha256": "0fe93767af78fbdb4c9ace612e747366063639805302ff8fddf65dad8db8e08c",
+      "bytes": 16265
+    },
+    {
+      "path": "tools/study_mesh_partition.py",
+      "sha256": "f4ba646c00c1f6d93ee3dfba0c8e15691401010a86d7e49d3c728984d28170b2",
+      "bytes": 16327
+    }
+  ]
+}

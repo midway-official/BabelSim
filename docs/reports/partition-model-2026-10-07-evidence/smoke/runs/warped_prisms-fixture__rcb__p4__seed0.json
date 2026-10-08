@@ -1,0 +1,102 @@
+{
+  "algorithm": "rcb",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.000890939001692459,
+  "initialPartitionSeconds": 0.000851516000693664,
+  "exactBalanceSeconds": 3.942300099879503e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 257114112,
+    "peakRSSBytes": 257114112,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 32,
+  "cutFacesPerPart": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    32,
+    32,
+    32,
+    32
+  ],
+  "ghostCellsPerPart": [
+    56,
+    56,
+    56,
+    56
+  ],
+  "firstLayerGhostsPerPart": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "localCellsPerPart": [
+    88,
+    88,
+    88,
+    88
+  ],
+  "localFacesPerPart": [
+    274,
+    274,
+    274,
+    274
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    160,
+    160,
+    160,
+    160
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 224,
+  "maxGhostCells": 56,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 64,
+  "threeLayerCommunicationVolume": 224,
+  "cellStorageDuplication": 2.75,
+  "faceStorageDuplication": 2.8541666666666665,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "2b101c895cc1cead951926e741b8ff50e59cae08bb233bc6aec119639ff64b82",
+  "status": "ok",
+  "graph": "warped_prisms-fixture",
+  "graphSHA256": "12c7a8d893942828ceec44a3aa006ae2c995cc24fb4580e8f80f51732e7cef68",
+  "graphMetadata": {
+    "cells": 128,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 256,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 4,
+    "physicalFaces": 128,
+    "scale": "fixture",
+    "warp": 0.15
+  },
+  "unixStarted": 1791371877.3291914,
+  "unixEnded": 1791371877.3581862
+}

@@ -1,0 +1,114 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.6130435609957203,
+  "initialPartitionSeconds": 0.41172556798846927,
+  "exactBalanceSeconds": 0.20131799300725106,
+  "quotaTransfers": 479,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0010431154381085,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 16640,
+  "memory": {
+    "beforeRSSBytes": 277045248,
+    "peakRSSBytes": 323248128,
+    "sampledRSSIncrementBytes": 46202880
+  },
+  "cutFaces": 10110,
+  "cutFacesPerPart": [
+    4916,
+    5078,
+    5032,
+    5194
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    115040,
+    115040,
+    115040,
+    115040
+  ],
+  "ghostCellsPerPart": [
+    12487,
+    12542,
+    12484,
+    12515
+  ],
+  "firstLayerGhostsPerPart": [
+    4164,
+    4164,
+    4160,
+    4160
+  ],
+  "localCellsPerPart": [
+    127527,
+    127582,
+    127524,
+    127555
+  ],
+  "localFacesPerPart": [
+    391444,
+    391740,
+    391463,
+    391676
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    690240,
+    690240,
+    690240,
+    690240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0004066849557849,
+  "localCellImbalance": 1.0002744086493607,
+  "totalGhostCells": 50028,
+  "maxGhostCells": 12542,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 16648,
+  "threeLayerCommunicationVolume": 50028,
+  "cellStorageDuplication": 1.1087187065368567,
+  "faceStorageDuplication": 1.1160025706940875,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "00ea30fecfdbafffbe3e15dfed023dcde6689e868d4cbae25745cbb3550b9eb5",
+  "status": "ok",
+  "graph": "obstructed_cube-engineering",
+  "graphSHA256": "4cb53e54f3cc59579f8377f4ea282476a567303a0ee945e5192880eeb0a6a165",
+  "graphMetadata": {
+    "cells": 460160,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "obstructed_cube",
+    "graded": false,
+    "internalFaces": 1357448,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 46064,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      80,
+      80,
+      80
+    ]
+  },
+  "unixStarted": 1791377883.122677,
+  "unixEnded": 1791377883.8354638
+}

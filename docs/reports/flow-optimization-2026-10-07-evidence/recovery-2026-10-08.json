@@ -1,0 +1,21 @@
+{
+  "recoveredUtc": "2026-10-08T02:56:15.857969+00:00",
+  "persistentWorkspace": "/home/midway/babelsim-flow-opt-20261007",
+  "lostWorkspace": "/tmp/babelsim-flow-opt-20261007",
+  "previousDriver": "stopped; no process; old session absent",
+  "completedPisoPoints": 9,
+  "originalFields": "lost with temporary workspace; no new comparison claimed",
+  "optimizedBinarySha256": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c",
+  "frozenSourceMatch": true,
+  "referenceRecovery": "byte-identical rebuild confirmed",
+  "referenceBinarySha256": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2",
+  "restoredInputManifests": true,
+  "meshes": {
+    "prism63.mesh": "f17af77e2c6208161bfd09ab27629e9d08a63215f77c242b5473b86324ca1920",
+    "prism80.mesh": "17c7481096dcbdf23440b8ed7c8619238a2f83ae9b62292a70bf244abc5d4b2f",
+    "voronoi.mesh": "793487be7ffa3dbd9d2df0bbc8244c1df2fc68d5aa0b90f905b444c39940761a",
+    "dual-graph.npz": "47f1b01913b29c3342b170db92ed3a491cb5eeabba1e8d2239e8e1f9c0b2e8bf"
+  },
+  "primaryCurveSelection": "Preselected complete post-restart epoch: all 9 measurements whose fields were lost must be recomputed; 7 remaining measurements resumed. Selection is independent of observed speed.",
+  "coordinator": "finish-sequential-studies.py; numerical phases sequential; stops on invalid or short work"
+}

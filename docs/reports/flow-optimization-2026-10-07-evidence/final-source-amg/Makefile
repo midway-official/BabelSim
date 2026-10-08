@@ -1,0 +1,269 @@
+# 默认只构建框架库和正式程序；测试仅由显式 test*/validate* 目标触发。
+.DEFAULT_GOAL := all
+
+CXX := mpic++
+AR := gcc-ar
+
+# 面向本机计算速度：跨文件优化、矢量化与浮点重结合/倒数优化。
+# 显式关闭融合乘加，避免它在不同分区的 Krylov 路径上额外放大舍入差异。
+# 保留 NaN/Inf 检查，不能让非法输入或发散结果被视为正常收敛。
+# fat LTO 同时保存机器码，允许外部 Solver 不启用 LTO 时链接静态库。
+OPTFLAGS = -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
+           -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
+CXXFLAGS = -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow \
+           -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
+PETSC_DIR ?= /home/midway/opt/petsc-3.25.5-openmpi-opt
+PETSC_PKG_CONFIG_PATH := $(PETSC_DIR)/lib/pkgconfig
+PETSC_CFLAGS := $(shell PKG_CONFIG_PATH=$(PETSC_PKG_CONFIG_PATH) pkg-config --cflags PETSc 2>/dev/null)
+PETSC_LIBS := $(shell PKG_CONFIG_PATH=$(PETSC_PKG_CONFIG_PATH) pkg-config --libs PETSc 2>/dev/null)
+CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
+CPPFLAGS += $(PETSC_CFLAGS)
+LDLIBS += $(PETSC_LIBS)
+LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+
+# Optional multilevel graph partitioner. Set USE_METIS=0 for the dependency-free
+# graph-growth fallback, or supply METIS_CFLAGS/METIS_LIBS for a custom install.
+USE_METIS ?= auto
+METIS_DIR ?= $(HOME)/opt/metis-5.1.0
+METIS_CFLAGS ?= $(shell test ! -f $(METIS_DIR)/include/metis.h || printf '%s' '-I$(METIS_DIR)/include')
+METIS_LIBS ?= $(shell if test -f $(METIS_DIR)/include/metis.h -a -f $(METIS_DIR)/lib/libmetis.so; then printf '%s' '-L$(METIS_DIR)/lib -lmetis'; elif test -f /usr/include/metis.h; then printf '%s' '-lmetis'; fi)
+PARTITION_LIBS :=
+ifneq ($(USE_METIS),0)
+ifneq ($(strip $(METIS_LIBS)),)
+CPPFLAGS += $(METIS_CFLAGS) -DBABELSIM_USE_METIS=1
+LDLIBS += $(METIS_LIBS)
+PARTITION_LIBS := $(METIS_LIBS)
+else ifeq ($(USE_METIS),1)
+$(error USE_METIS=1 requires METIS headers and library)
+endif
+endif
+
+BUILD ?= build-petsc
+DEBUG_BUILD ?= build-debug
+DEBUG_OPTFLAGS ?= -O1 -g3 -fno-omit-frame-pointer \
+                  -fsanitize=address,undefined -fno-sanitize-recover=all
+LIB := $(BUILD)/libbabelsim.a
+# 计算后端只需实现 internal/compute_backend.h 的 makeComputeBackend()。
+# Production uses PETSc Mat/Vec/KSP/PC directly. Legacy Eigen solvers are not
+# linked into the library or executable.
+COMPUTE_BACKEND_SOURCES ?= src/backend/petsc_backend.cpp \
+                          src/backend/petsc_session.cpp \
+                          src/backend/petsc_index_map.cpp \
+                          src/backend/petsc_assembly_plan.cpp \
+                          src/backend/petsc_linear_system.cpp \
+                          src/backend/solver_control.cpp
+SOURCES := src/core/mesh.cpp \
+           src/io/config.cpp \
+           src/io/case_reader.cpp \
+           src/io/case.cpp \
+           src/io/field_reader.cpp \
+           src/io/numerics_reader.cpp \
+           src/io/mesh_reader.cpp \
+           src/io/result_reader.cpp \
+           src/io/postprocess.cpp \
+           src/io/monitor.cpp \
+           src/geometry/geometry.cpp \
+           src/discretization/operators.cpp \
+           src/discretization/fvm_execution.cpp \
+           src/discretization/procedural_equation.cpp \
+           src/discretization/field_math.cpp \
+           $(COMPUTE_BACKEND_SOURCES) \
+           src/parallel/parallel_context.cpp \
+           src/parallel/mesh_partition.cpp \
+           src/parallel/parallel_writer.cpp \
+           src/runtime/runtime.cpp \
+           src/runtime/solver_api.cpp \
+           src/runtime/application.cpp \
+           $(filter-out $(wildcard src/physics/*/main.cpp),$(wildcard src/physics/*/*.cpp))
+OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOURCES))
+SOLVER_SOURCES := $(wildcard src/physics/*/main.cpp)
+SOLVER_OBJECTS := $(patsubst src/%.cpp,$(BUILD)/%.o,$(SOLVER_SOURCES))
+HEADERS := $(wildcard include/babelsim/*.h)
+TEST_SUPPORT_HEADERS := $(wildcard tests/support/*.h)
+
+TEST_SOURCES := tests/numerical_configuration_test.cpp \
+                tests/procedural_equation_test.cpp \
+                tests/monitor_test.cpp \
+                tests/numerical_contract_test.cpp \
+                tests/physics_contract_test.cpp \
+                tests/unstructured_mesh_test.cpp \
+                tests/mesh_geometry_test.cpp \
+                tests/field_boundary_test.cpp \
+                tests/operators_test.cpp \
+                tests/math_runtime_test.cpp \
+                tests/public_equation_test.cpp \
+                tests/backend_interface_test.cpp \
+                tests/petsc_backend_test.cpp \
+                tests/simple_solver_test.cpp \
+                tests/mesh_file_test.cpp \
+                tests/case_lifecycle_test.cpp \
+                tests/case_io_test.cpp \
+                tests/field_writer_test.cpp \
+                tests/scalar_equation_test.cpp \
+                tests/time_history_test.cpp \
+                tests/cavity_regression_test.cpp \
+                tests/cavity_3d_test.cpp \
+                tests/nonorthogonal_cavity_test.cpp \
+                tests/nonorthogonal_cavity_3d_test.cpp
+TESTS := $(patsubst tests/%.cpp,$(BUILD)/%,$(TEST_SOURCES))
+MPI_TESTS := $(BUILD)/parallel_partition_test $(BUILD)/parallel_simple_test \
+             $(BUILD)/parallel_math_test \
+             $(BUILD)/parallel_channel_test $(BUILD)/parallel_cavity_3d_test \
+             $(BUILD)/parallel_transport_test $(BUILD)/parallel_unstructured_test
+APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
+
+all: $(LIB) $(APPS)
+
+# Small-case lifetime and bounds checks use a separate tree and do not alter
+# the release benchmark binary or its optimization flags.
+debug:
+	$(MAKE) BUILD=$(DEBUG_BUILD) OPTFLAGS="$(DEBUG_OPTFLAGS)" \
+		all
+
+# 目录依赖使删除/新增 Solver 文件后也会重新归档，避免残留旧模块。
+PHYSICS_DIRECTORIES := src/physics $(wildcard src/physics/*/)
+$(LIB): $(OBJECTS) $(PHYSICS_DIRECTORIES) Makefile
+	@mkdir -p $(dir $@)
+	$(RM) $@
+	$(AR) rcs $@ $(OBJECTS)
+
+$(BUILD)/%.o: src/%.cpp Makefile
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD)/%: tests/%.cpp tests/test_util.h $(TEST_SUPPORT_HEADERS) $(HEADERS) $(LIB)
+	@mkdir -p $(dir $@)
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
+
+# 注册源文件作为目标文件直接链接，不能仅藏在静态库中等待按需抽取。
+# 链接命令前的 + 让 LTO 使用 Make 的并行作业配额，避免另起不限额编译进程。
+$(BUILD)/babelsim-solve: src/apps/babelsim_solve.cpp $(HEADERS) $(SOLVER_OBJECTS) $(LIB) $(PHYSICS_DIRECTORIES)
+	@mkdir -p $(dir $@)
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(SOLVER_OBJECTS) $(LIB) $(LDLIBS) -o $@
+
+$(BUILD)/babelsim-post: src/apps/babelsim_post.cpp $(HEADERS) $(LIB)
+	@mkdir -p $(dir $@)
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
+
+$(BUILD)/parallel_channel_test: tests/parallel_channel_test.cpp tests/test_util.h $(HEADERS) $(LIB)
+	@mkdir -p $(dir $@)
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
+
+$(BUILD)/parallel_cavity_3d_test: tests/parallel_cavity_3d_test.cpp tests/test_util.h $(HEADERS) $(LIB)
+	@mkdir -p $(dir $@)
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< $(LIB) $(LDLIBS) -o $@
+
+test-architecture:
+	python3 tests/architecture_test.py
+
+test-external: $(LIB)
+	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR) --partition-libs='$(PARTITION_LIBS)'
+
+test: test-architecture $(TESTS)
+	@set -e; for test in $(TESTS); do $$test; done
+
+$(BUILD)/case_programming_test: tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(HEADERS) $(LIB)
+	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) $(LDLIBS) -o $@
+
+test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
+	$(BUILD)/time_history_test
+	python3 tests/solver_workflow_test.py --solver $(BUILD)/babelsim-solve --post $(BUILD)/babelsim-post
+
+test-piso-coupling: $(BUILD)/babelsim-solve $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/physics_contract_test
+	python3 tests/piso_coupling_test.py --solver $(BUILD)/babelsim-solve
+
+test-rans: $(BUILD)/babelsim-solve $(BUILD)/rans_equations_test
+	python3 tests/rans_validation_test.py --solver $(BUILD)/babelsim-solve \
+		--equations $(BUILD)/rans_equations_test
+
+test-scalar-time: $(BUILD)/babelsim-solve
+	python3 tests/scalar_time_order_test.py --solver $(BUILD)/babelsim-solve
+
+test-simple-parallel: $(BUILD)/babelsim-solve
+	python3 tests/simple_parallel_consistency_test.py --solver $(BUILD)/babelsim-solve
+
+# 完整测试矩阵按组顺序执行，避免工作流测试同时写入相同算例目录。
+test-full:
+	$(MAKE) test
+	$(MAKE) test-workflow
+	$(MAKE) test-external
+	$(MAKE) test-rans
+	$(MAKE) test-scalar-time
+	$(MAKE) test-simple-parallel
+	$(MAKE) test-mpi
+	$(MAKE) test-mpi-poiseuille
+
+test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_partition_test
+	TMPDIR=/tmp mpirun -np 3 $(BUILD)/parallel_partition_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_partition_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/numerical_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/numerical_contract_test 4
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test 4
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_math_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_math_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_unstructured_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
+		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_simple_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_cavity_3d_test $(BUILD)/mpi-output
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_transport_test
+	$(MAKE) test-mpi-heat
+
+test-mpi-heat: $(BUILD)/babelsim-solve
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/babelsim-solve \
+		-case cases/heat -time mpi-np1
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/babelsim-solve \
+		-case cases/heat -time mpi-np2
+	python3 tools/compare_parallel_results.py \
+		cases/heat/results/mpi-np1 cases/heat/results/mpi-np2 \
+		--atol 1e-9 --rtol 1e-9
+
+test-mpi-poiseuille: $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
+	TMPDIR=/tmp mpirun -np 1 $(BUILD)/babelsim-solve \
+		-case cases/poiseuille -time mpi-np1
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/babelsim-solve \
+		-case cases/poiseuille -time mpi-np2
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/babelsim-solve \
+		-case cases/poiseuille -time mpi-np4
+	python3 tools/compare_parallel_results.py \
+		cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np2 \
+		--atol 5e-6 --rtol 5e-6
+	python3 tools/compare_parallel_results.py \
+		cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np4 \
+		--atol 5e-6 --rtol 5e-6
+	$(BUILD)/babelsim-post -case cases/poiseuille -time mpi-np4 -format vtk tecplot
+
+validate-cavity: $(BUILD)/babelsim-solve
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/babelsim-solve \
+		-case cases/cavity -time validation-mpi4
+	python3 cases/cavity/validation/validate_cavity.py \
+		cases/cavity/results/validation-mpi4
+
+postprocess-mpi-poiseuille:
+	@test -d cases/poiseuille/results/mpi-np4 || \
+		(echo "run make test-mpi-poiseuille first" && exit 1)
+	$(BUILD)/babelsim-post -case cases/poiseuille -time mpi-np4 -format vtk tecplot
+
+validate-poiseuille: $(BUILD)/babelsim-solve
+	$(BUILD)/babelsim-solve -case cases/poiseuille -time validation
+	python3 tools/validate_poiseuille.py cases/poiseuille/results/validation/rank-0000/U.csv \
+		--y-min 0.0 --y-max 1.0
+
+validate: test validate-cavity validate-poiseuille
+
+clean:
+	$(RM) -r $(BUILD)
+
+.PHONY: all debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+	validate validate-cavity validate-poiseuille clean
+
+-include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

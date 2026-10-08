@@ -102,6 +102,8 @@ void writePerformance(
            << ",\n  \"caseSetupSeconds\": " << case_setup_seconds
            << ",\n  \"solverSeconds\": " << solver_seconds
            << ",\n  \"solverComputeSeconds\": " << solver_compute_seconds
+           << ",\n  \"iterationComputeSeconds\": " << local.iteration_compute_seconds
+           << ",\n  \"reportedIterationIntervals\": " << local.reported_iteration_intervals
            << ",\n  \"applicationSeconds\": " << application_seconds
            << ",\n  \"partition\": {"
            << "\n    \"globalCells\": " << partition.global_cells
@@ -125,6 +127,8 @@ void writePerformance(
            << ",\n  \"rhsOnlySolves\": " << counters.rhs_only_solves
            << ",\n  \"trueResidualChecks\": " << counters.true_residual_checks
            << ",\n  \"preconditionerSetups\": " << counters.preconditioner_setups
+           << ",\n  \"preconditionerReuses\": " << counters.preconditioner_reuses
+           << ",\n  \"preconditionerRetries\": " << counters.preconditioner_retries
            << ",\n  \"preconditionerApplications\": " << counters.preconditioner_applications
            << ",\n  \"outputWrites\": " << counters.output_writes
            << ",\n  \"elapsedSeconds\": " << counters.elapsed_seconds
@@ -153,6 +157,8 @@ void writePerformance(
            << ",\n    \"rhsOnlySolves\": " << local.rhs_only_solves
            << ",\n    \"trueResidualChecks\": " << local.true_residual_checks
            << ",\n    \"preconditionerSetups\": " << local.preconditioner_setups
+           << ",\n    \"preconditionerReuses\": " << local.preconditioner_reuses
+           << ",\n    \"preconditionerRetries\": " << local.preconditioner_retries
            << ",\n    \"preconditionerApplications\": " << local.preconditioner_applications
            << ",\n    \"outputWrites\": " << local.output_writes
            << ",\n    \"elapsedSeconds\": " << local.elapsed_seconds
@@ -182,6 +188,8 @@ void writePerformance(
                << ", \"linearSolves\": " << equation.linear_solves
                << ", \"krylovIterations\": " << equation.krylov_iterations
                << ", \"preconditionerSetups\": " << equation.preconditioner_setups
+               << ", \"preconditionerReuses\": " << equation.preconditioner_reuses
+               << ", \"preconditionerRetries\": " << equation.preconditioner_retries
                << ", \"trueResidualChecks\": " << equation.true_residual_checks
                << ", \"lastInitialResidual\": " << equation.last_initial_residual
                << ", \"lastFinalResidual\": " << equation.last_final_residual

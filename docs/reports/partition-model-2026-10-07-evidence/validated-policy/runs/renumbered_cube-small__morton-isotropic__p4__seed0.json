@@ -1,0 +1,110 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0029388059920165688,
+  "initialPartitionSeconds": 0.0028752569924108684,
+  "exactBalanceSeconds": 6.354899960570037e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 196718592,
+    "peakRSSBytes": 196718592,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 1152,
+  "cutFacesPerPart": [
+    576,
+    576,
+    576,
+    576
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    3456,
+    3456,
+    3456,
+    3456
+  ],
+  "ghostCellsPerPart": [
+    1800,
+    1800,
+    1800,
+    1800
+  ],
+  "firstLayerGhostsPerPart": [
+    576,
+    576,
+    576,
+    576
+  ],
+  "localCellsPerPart": [
+    5256,
+    5256,
+    5256,
+    5256
+  ],
+  "localFacesPerPart": [
+    16707,
+    16707,
+    16707,
+    16707
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    20736,
+    20736,
+    20736,
+    20736
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 7200,
+  "maxGhostCells": 1800,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2304,
+  "threeLayerCommunicationVolume": 7200,
+  "cellStorageDuplication": 1.5208333333333333,
+  "faceStorageDuplication": 1.5469444444444445,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "f06b83eb44294e2e9c8a23d04485c0ab91a025a3944dff558b1d98825ff0a55e",
+  "status": "ok",
+  "graph": "renumbered_cube-small",
+  "graphSHA256": "7ea0b68d826d4c42d5c5e722a4187df3113be28c3bf2de7794f31e7075709c5f",
+  "graphMetadata": {
+    "cells": 13824,
+    "components": 1,
+    "construction": "hex cube with scrambled cell IDs",
+    "family": "renumbered_cube",
+    "internalFaces": 39744,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 3456,
+    "scale": "small",
+    "seed": 73021
+  },
+  "unixStarted": 1791377823.9263713,
+  "unixEnded": 1791377823.9662585,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/renumbered_cube-small__morton-isotropic__p4__seed0.json"
+}

@@ -1,0 +1,113 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.025057951992494054,
+  "initialPartitionSeconds": 0.02496735699241981,
+  "exactBalanceSeconds": 9.059500007424504e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 498,
+  "memory": {
+    "beforeRSSBytes": 190427136,
+    "peakRSSBytes": 190427136,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 524,
+  "cutFacesPerPart": [
+    333,
+    276,
+    179,
+    260
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    512,
+    512,
+    512,
+    512
+  ],
+  "ghostCellsPerPart": [
+    735,
+    451,
+    348,
+    428
+  ],
+  "firstLayerGhostsPerPart": [
+    173,
+    119,
+    81,
+    125
+  ],
+  "localCellsPerPart": [
+    1247,
+    963,
+    860,
+    940
+  ],
+  "localFacesPerPart": [
+    5513,
+    4213,
+    3774,
+    4080
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    2,
+    2,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    3968,
+    3888,
+    3834,
+    3990
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0178571428571428,
+  "localFaceImbalance": 1.2543799772468713,
+  "localCellImbalance": 1.2438902743142144,
+  "totalGhostCells": 1962,
+  "maxGhostCells": 735,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 498,
+  "threeLayerCommunicationVolume": 1962,
+  "cellStorageDuplication": 1.9580078125,
+  "faceStorageDuplication": 2.0789971617786187,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "e4c995911cd939f9af0c85aebb7776c35d0c3e30c6113138f605e4a0ae55d4d2",
+  "status": "ok",
+  "graph": "graded_voronoi-small",
+  "graphSHA256": "61e89e03865cdc20909d653e6e11a0fad7304ad60e330ca7ff5e0f24b3c496bf",
+  "graphMetadata": {
+    "cells": 2048,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 7224,
+    "layers": 8,
+    "maxCellFaces": 13,
+    "minCellFaces": 5,
+    "physicalFaces": 1232,
+    "scale": "small",
+    "seed": 20261007,
+    "sites": 256
+  },
+  "unixStarted": 1791378309.7921388,
+  "unixEnded": 1791378309.8346455,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/graded-voronoi-validation",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/graded-voronoi-validation/runs/graded_voronoi-small__metis-volume-work__p4__seed7.json"
+}

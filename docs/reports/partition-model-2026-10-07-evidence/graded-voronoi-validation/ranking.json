@@ -1,0 +1,83 @@
+[
+  {
+    "algorithm": "metis-volume-work",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 0.7962153663844425,
+    "worstGhostRatio": 0.9283216783216783,
+    "worstSeedGhostRatio": 0.958041958041958,
+    "maxOwnedFaceWorkImbalance": 1.0584183673469387,
+    "maxComponentsPerPart": 1
+  },
+  {
+    "algorithm": "metis-volume-contig",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 0.8013606173931476,
+    "worstGhostRatio": 0.9283216783216783,
+    "worstSeedGhostRatio": 0.9606643356643356,
+    "maxOwnedFaceWorkImbalance": 1.0392857142857144,
+    "maxComponentsPerPart": 1
+  },
+  {
+    "algorithm": "metis-cut",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 0.8076820362932332,
+    "worstGhostRatio": 0.923951048951049,
+    "worstSeedGhostRatio": 0.9261363636363636,
+    "maxOwnedFaceWorkImbalance": 1.047704081632653,
+    "maxComponentsPerPart": 1
+  },
+  {
+    "algorithm": "metis-cut-work",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 0.8376703112577545,
+    "worstGhostRatio": 0.9715909090909091,
+    "worstSeedGhostRatio": 1.0782342657342658,
+    "maxOwnedFaceWorkImbalance": 1.0331632653061225,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "graph-growth",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 1.0,
+    "worstGhostRatio": 1.0,
+    "worstSeedGhostRatio": 1.0,
+    "maxOwnedFaceWorkImbalance": 1.045408163265306,
+    "maxComponentsPerPart": 19
+  },
+  {
+    "algorithm": "rcb",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 1.0120401514085815,
+    "worstGhostRatio": 1.168111052647869,
+    "worstSeedGhostRatio": 1.168111052647869,
+    "maxOwnedFaceWorkImbalance": 1.0377551020408162,
+    "maxComponentsPerPart": 1
+  },
+  {
+    "algorithm": "rib",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 1.168037910174823,
+    "worstGhostRatio": 1.759679042799019,
+    "worstSeedGhostRatio": 1.759679042799019,
+    "maxOwnedFaceWorkImbalance": 1.0385204081632653,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "morton",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 1.4776898113079078,
+    "worstGhostRatio": 1.9829149772509207,
+    "worstSeedGhostRatio": 1.9829149772509207,
+    "maxOwnedFaceWorkImbalance": 1.011734693877551,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "morton-isotropic",
+    "comparisons": 4,
+    "geometricMeanGhostRatio": 1.4802666342076687,
+    "worstGhostRatio": 1.9862834916999392,
+    "worstSeedGhostRatio": 1.9862834916999392,
+    "maxOwnedFaceWorkImbalance": 1.011734693877551,
+    "maxComponentsPerPart": 2
+  }
+]

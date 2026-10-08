@@ -12,15 +12,20 @@
 
 namespace babelsim::detail {
 
+struct PetscSetupMetrics { bool preconditioner_was_setup = false; double seconds = 0.0; };
+
 struct PetscSolveMetrics {
     SolveResult result;
     double rhs_seconds = 0.0;
     double solve_seconds = 0.0;
     double residual_seconds = 0.0;
+    PetscSetupMetrics recovery_setup;
+    bool preconditioner_reused = false;
+    std::uint64_t retries = 0;
+    std::uint64_t true_residual_checks = 0;
 };
 
 struct PetscMatrixUpdateMetrics { bool changed = false; double seconds = 0.0; };
-struct PetscSetupMetrics { bool preconditioner_was_setup = false; double seconds = 0.0; };
 
 // A long-lived PETSc matrix/vector/KSP set for one logical BabelSim equation.
 class PetscLinearSystem {
@@ -32,7 +37,7 @@ public:
     PetscLinearSystem(const PetscLinearSystem&) = delete;
     PetscLinearSystem& operator=(const PetscLinearSystem&) = delete;
 
-    PetscMatrixUpdateMetrics updateMatrix(const std::vector<PetscScalar>& matrix_values);
+    PetscMatrixUpdateMetrics updateMatrix(std::vector<PetscScalar>& matrix_values);
     PetscSetupMetrics prepare(const LinearSolverConfig& config);
     PetscSolveMetrics solveRhs(const std::vector<PetscScalar>& rhs_values,
                                const std::vector<double>& initial_guess,
@@ -53,6 +58,7 @@ private:
     void configure(const LinearSolverConfig& config);
     void setupPreconditioner(const LinearSolverConfig& config);
     void configureBlockJacobiSubsolvers(const LinearSolverConfig& config);
+    PetscSetupMetrics setup(bool reuse);
     void setVectorValues(Vec vector, const std::vector<PetscScalar>& values);
     double vectorNorm(Vec vector) const;
     void computeTrueResidual(Vec rhs, Vec solution, double& norm);
@@ -64,20 +70,25 @@ private:
     ParallelContext m_parallel;
     Mat m_matrix = nullptr;
     KSP m_ksp = nullptr;
-    std::array<Vec, 3> m_rhs{{nullptr, nullptr, nullptr}};
-    std::array<Vec, 3> m_solution{{nullptr, nullptr, nullptr}};
+    // Components are solved sequentially and copied out immediately. One
+    // work pair serves every RHS; iteration history remains component-specific.
+    Vec m_rhs = nullptr;
+    Vec m_solution = nullptr;
     Vec m_residual = nullptr;
     std::vector<PetscScalar> m_previous_matrix_values;
-    std::vector<double> m_work_solution;
     std::size_t m_right_hand_sides = 0;
     bool m_matrix_ready = false;
     bool m_setup_pending = true;
     bool m_configured = false;
+    bool m_force_rebuild = true;
     LinearSolverConfig m_config;
     ConvergenceContext m_convergence;
     std::uint64_t m_matrix_updates = 0;
     std::uint64_t m_rhs_only_solves = 0;
     std::uint64_t m_preconditioner_setups = 0;
+    std::uint64_t m_preconditioner_matrix_update = 0;
+    std::uint64_t m_preconditioner_rhs_solves = 0;
+    std::array<int, 3> m_fresh_iterations{{0, 0, 0}};
     std::uint64_t m_true_residual_checks = 0;
 };
 

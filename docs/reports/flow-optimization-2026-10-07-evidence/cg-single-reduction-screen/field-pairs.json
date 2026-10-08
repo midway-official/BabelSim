@@ -1,0 +1,17 @@
+[
+  {
+    "label": "cg-single-reduction-1",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/reference/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/optimized/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1"
+  },
+  {
+    "label": "cg-single-reduction-2",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/reference/prism/ranks-12/repeat-02/results/benchmark-r12-n02/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/optimized/prism/ranks-12/repeat-02/results/benchmark-r12-n02/0.1"
+  },
+  {
+    "label": "cg-single-reduction-3",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/reference/prism/ranks-12/repeat-03/results/benchmark-r12-n03/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/optimized/prism/ranks-12/repeat-03/results/benchmark-r12-n03/0.1"
+  }
+]

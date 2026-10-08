@@ -1,0 +1,107 @@
+{
+  "algorithm": "rcb",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.018889222003053874,
+  "initialPartitionSeconds": 0.01807376700162422,
+  "exactBalanceSeconds": 0.0008154550014296547,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 284504064,
+    "peakRSSBytes": 284504064,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 768,
+  "cutFacesPerPart": [
+    384,
+    384,
+    384,
+    384
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    36864,
+    36864,
+    36864,
+    36864
+  ],
+  "ghostCellsPerPart": [
+    1155,
+    1155,
+    1155,
+    1155
+  ],
+  "firstLayerGhostsPerPart": [
+    384,
+    384,
+    384,
+    384
+  ],
+  "localCellsPerPart": [
+    38019,
+    38019,
+    38019,
+    38019
+  ],
+  "localFacesPerPart": [
+    152466,
+    152466,
+    152466,
+    152466
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    221184,
+    221184,
+    221184,
+    221184
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 4620,
+  "maxGhostCells": 1155,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1536,
+  "threeLayerCommunicationVolume": 4620,
+  "cellStorageDuplication": 1.0313313802083333,
+  "faceStorageDuplication": 1.0326316644993498,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "46e5d39f85a8966429f6a59100909a764a22ea4a03782246eae6541f00e7f73d",
+  "status": "ok",
+  "graph": "thin_plate-engineering",
+  "graphSHA256": "70f70f79d07bf8f21bdb516a5e10625c5b135d8d61865e5467856f9f78004a6a",
+  "graphMetadata": {
+    "cells": 147456,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "thin_plate",
+    "graded": false,
+    "internalFaces": 294144,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 296448,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      384,
+      384,
+      1
+    ]
+  },
+  "unixStarted": 1791372023.5929575,
+  "unixEnded": 1791372023.6604629
+}

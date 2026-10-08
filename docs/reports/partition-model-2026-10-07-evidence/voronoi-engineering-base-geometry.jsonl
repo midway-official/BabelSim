@@ -1,0 +1,2 @@
+{"mesh":"/tmp/babelsim-partition-model-20261007/voronoi-base-valid-False.mesh","cells":16000,"internalFaces":47536,"maxCellFaces":15,"totalVolume":1,"minVolume":9.23882e-07}
+{"mesh":"/tmp/babelsim-partition-model-20261007/voronoi-base-valid-True.mesh","cells":16000,"internalFaces":46860,"maxCellFaces":14,"totalVolume":1,"minVolume":1.51942e-08}

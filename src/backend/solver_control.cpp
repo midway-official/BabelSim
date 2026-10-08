@@ -36,6 +36,11 @@ void LinearSolverConfig::validate() const {
         (amg_max_levels <= 0 || amg_coarse_size <= 0 || amg_smoothing_steps <= 0)) {
         throw std::invalid_argument("GAMG hierarchy controls must be positive");
     }
+    if (preconditioner_rebuild_interval < 1 ||
+        !std::isfinite(preconditioner_reuse_iteration_growth) ||
+        preconditioner_reuse_iteration_growth < 1.0) {
+        throw std::invalid_argument("preconditioner rebuild interval must be positive and iteration growth must be finite and >= 1");
+    }
 }
 
 }  // namespace babelsim

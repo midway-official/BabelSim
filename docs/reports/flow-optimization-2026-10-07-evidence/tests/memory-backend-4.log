@@ -1,0 +1,1 @@
+petsc_backend_test: ranks=4 owned=4 iterations=50

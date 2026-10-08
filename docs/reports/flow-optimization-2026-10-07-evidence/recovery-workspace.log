@@ -1,0 +1,8 @@
+GENERATING PRISM 63
+GENERATING PRISM 80
+GENERATING VORONOI
+RESTORED simple /home/midway/babelsim-flow-opt-20261007/formal-inputs/simple128 ca8dab8c3af252489dbf2b14d307b8a3132fa429ed73646364c5e764dda1618b
+RESTORED piso /home/midway/babelsim-flow-opt-20261007/formal-inputs/piso6 aba8474cb902462fa5997d7b86074653e18eb1415cfe74709041fed6bea6c4e2
+RESTORED prism /home/midway/babelsim-flow-opt-20261007/strong-inputs/prism-piso10 37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159
+RESTORED voronoi /home/midway/babelsim-flow-opt-20261007/strong-inputs/voronoi-piso10 362fa6b0bf3a0dbbd668e8ab537036d3ccc0689746bb3d746da6510ccec65ffe
+ALL INPUT AND BINARY CHECKSUMS MATCH

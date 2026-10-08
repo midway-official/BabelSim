@@ -1,0 +1,111 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 0.031191246991511434,
+  "initialPartitionSeconds": 0.030764711991650984,
+  "exactBalanceSeconds": 0.0004265349998604506,
+  "quotaTransfers": 8,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0009765625,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 621,
+  "memory": {
+    "beforeRSSBytes": 195395584,
+    "peakRSSBytes": 195395584,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 618,
+  "cutFacesPerPart": [
+    267,
+    376,
+    304,
+    289
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    783,
+    1034,
+    885,
+    841
+  ],
+  "firstLayerGhostsPerPart": [
+    228,
+    306,
+    264,
+    256
+  ],
+  "localCellsPerPart": [
+    2831,
+    3082,
+    2933,
+    2889
+  ],
+  "localFacesPerPart": [
+    7581,
+    8263,
+    7847,
+    7759
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    3,
+    3,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    10240,
+    10240,
+    10240,
+    10240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0509379968203498,
+  "localCellImbalance": 1.0505325948018747,
+  "totalGhostCells": 3543,
+  "maxGhostCells": 1034,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1054,
+  "threeLayerCommunicationVolume": 3543,
+  "cellStorageDuplication": 1.4324951171875,
+  "faceStorageDuplication": 1.4625186011904763,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "553c47456c5737a7a98534c4a1c1c60bee757cbe0060bb59afcd7b64d6a67b29",
+  "status": "ok",
+  "graph": "warped_prisms-small",
+  "graphSHA256": "766cb0295beda7a64f3a89c1182b6d2ed4d96459bbeddf19f66250fb581a9a58",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 19456,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 16,
+    "physicalFaces": 2048,
+    "scale": "small",
+    "warp": 0.15
+  },
+  "unixStarted": 1791377815.8640501,
+  "unixEnded": 1791377815.9269376,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/warped_prisms-small__metis-cut-work__p4__seed29.json"
+}

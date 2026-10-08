@@ -1,0 +1,13 @@
+{
+  "cells": 512000,
+  "faces": 2064032,
+  "minCellFaces": 5,
+  "maxCellFaces": 15,
+  "template": "/tmp/babelsim-flow-opt-20261007/formal-inputs/voronoi-piso6",
+  "templateInputSha256": "58f010b291a8865679b902fc3431163bc1ea03faf1b880a4e8f0c3a37874e3f6",
+  "acceptedSteps": 10,
+  "measuredIntervals": 9,
+  "deltaT": 0.01,
+  "unchangedSolutionControls": true,
+  "meshSha256": "793487be7ffa3dbd9d2df0bbc8244c1df2fc68d5aa0b90f905b444c39940761a"
+}

@@ -1,0 +1,45 @@
+{
+  "purpose": "paired diagnostic screening; not a production scaling curve",
+  "baseline": "unchanged production v12",
+  "candidate": "same v12 with public CG single-reduction overlay",
+  "paired": [
+    {
+      "repeat": 1,
+      "baselineSeconds": 159.531172677,
+      "singleReductionSeconds": 180.05396319500002,
+      "speedup": 0.8860186682157412,
+      "baselineKrylov": 5207,
+      "singleReductionKrylov": 5207,
+      "baselinePeakPssKiB": 4100419,
+      "singleReductionPeakPssKiB": 4154220
+    },
+    {
+      "repeat": 2,
+      "baselineSeconds": 158.06520608300002,
+      "singleReductionSeconds": 174.326283074,
+      "speedup": 0.9067204514186923,
+      "baselineKrylov": 5207,
+      "singleReductionKrylov": 5207,
+      "baselinePeakPssKiB": 4118818,
+      "singleReductionPeakPssKiB": 4128365
+    },
+    {
+      "repeat": 3,
+      "baselineSeconds": 116.796162361,
+      "singleReductionSeconds": 183.22386771700002,
+      "speedup": 0.6374505888141085,
+      "baselineKrylov": 5207,
+      "singleReductionKrylov": 5207,
+      "baselinePeakPssKiB": 4126126,
+      "singleReductionPeakPssKiB": 4132575
+    }
+  ],
+  "pairedGeometricMeanSpeedup": 0.8000570138092568,
+  "baselineMedianSeconds": 158.06520608300002,
+  "singleReductionMedianSeconds": 180.05396319500002,
+  "allFieldsPassed": true,
+  "promising": false,
+  "screenCriterion": "at least 5 percent geometric paired gain and positive gain in all three pairs; inspect variability before production adoption",
+  "overlayManifestSha256": "76d7ae04c550ed9d4ff79dfc35a70db67941a66c6e6b5fb06ac23f62816f1bdd",
+  "memoryMetric": "whole-lifetime process-tree PSS; name-matched peakSolverRssKiB excluded because the diagnostic wrapper execs a differently named binary"
+}

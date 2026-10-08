@@ -130,6 +130,12 @@ equation.momentum.maxIterations 1000
 `pcType`、`absoluteTolerance`、`relativeTolerance`、`maxIterations` 五个核心键。`icc` 只用于
 串行求解；MPI 可选择 `hypre`、`gamg` 或 `bjacobi`。GAMG 层级选项和 warm-start 键也使用
 相同的 `equation.<name>.*` 前缀。
+通用后端默认以 8 个矩阵版本为上限复用预条件器；累积 RHS 工作量达到同一上限后，
+在下一次矩阵变化时提前重建，矩阵未变化的 RHS-only 调用仍复用原预条件器。
+迭代增长也会提前触发重建；失败的旧
+预条件器会重建后重试一次。矩阵更新和真实残差标准保持独立。
+`preconditionerRebuildInterval 1` 可恢复逐矩阵重建，
+`preconditionerReuseIterationGrowth` 设置提前重建的增长倍数（默认 2）。
 
 完整的配置示例、内置方程名称和迁移规则见
 [方程、项与算子的数值配置](numerical-configuration.md)。

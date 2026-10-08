@@ -1,0 +1,7 @@
+[midway:563340] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+[midway:563340] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+[midway:563340] MCW rank 2 bound to socket 0[core 2[hwt 0-1]]: [../../BB/../../../../../../../../..]
+[midway:563340] MCW rank 3 bound to socket 0[core 3[hwt 0-1]]: [../../../BB/../../../../../../../..]
+PISO corrector=1 Umax=1.21534 coupling=0.692315
+PISO corrector=40 Umax=1.12551 coupling=9.38481e-06
+PISO 1 time=0.01 correctors=40 CoMax=1.64368 CoMean=1.26844 accepted=true mass=1.16336e-11 dU=1 rU=1 dP=5.30416 rCouplingFirst=0.692315 rCoupling=9.38481e-06 linU=8.58589e-09 linP=7.67623e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true

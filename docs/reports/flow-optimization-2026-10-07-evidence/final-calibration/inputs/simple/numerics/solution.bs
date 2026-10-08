@@ -1,0 +1,17 @@
+maxIterations 48
+velocityRelaxation 0.5
+pressureRelaxation 0.3
+continuityTolerance 1e-30
+velocityTolerance 1e-30
+momentumTolerance 1e-30
+pressureCorrectionTolerance 1e-30
+equation.momentum.kspType bcgs
+equation.momentum.pcType bjacobi
+equation.momentum.absoluteTolerance 1e-14
+equation.momentum.relativeTolerance 1e-8
+equation.momentum.maxIterations 1000
+equation.pressureCorrection.kspType cg
+equation.pressureCorrection.pcType hypre
+equation.pressureCorrection.absoluteTolerance 1e-14
+equation.pressureCorrection.relativeTolerance 1e-7
+equation.pressureCorrection.maxIterations 1200

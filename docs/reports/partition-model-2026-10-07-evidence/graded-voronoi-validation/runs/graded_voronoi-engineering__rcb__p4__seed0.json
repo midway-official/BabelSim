@@ -1,0 +1,111 @@
+{
+  "algorithm": "rcb",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.13921757800562773,
+  "initialPartitionSeconds": 0.13805567999952473,
+  "exactBalanceSeconds": 0.0011618980061030015,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 352579584,
+    "peakRSSBytes": 352579584,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 17760,
+  "cutFacesPerPart": [
+    6912,
+    11104,
+    6688,
+    10816
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128000,
+    128000,
+    128000,
+    128000
+  ],
+  "ghostCellsPerPart": [
+    11456,
+    18752,
+    11648,
+    18848
+  ],
+  "firstLayerGhostsPerPart": [
+    3424,
+    5568,
+    3456,
+    5376
+  ],
+  "localCellsPerPart": [
+    139456,
+    146752,
+    139648,
+    146848
+  ],
+  "localFacesPerPart": [
+    566790,
+    599146,
+    567564,
+    599181
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    1008640,
+    1020608,
+    1009568,
+    1020736
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0057622121849898,
+  "localFaceImbalance": 1.0274546755428624,
+  "localCellImbalance": 1.0256467564396268,
+  "totalGhostCells": 60704,
+  "maxGhostCells": 18848,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 17824,
+  "threeLayerCommunicationVolume": 60704,
+  "cellStorageDuplication": 1.1185625,
+  "faceStorageDuplication": 1.1301573812809105,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "64b450a75daf195e303ccd73c4fc73f5787bb047370fcd1f2a7b534a68eb7e1a",
+  "status": "ok",
+  "graph": "graded_voronoi-engineering",
+  "graphSHA256": "22628d51906fe8dabedb51d08dded9498c0bcb6b4c8df2b79e7781abeecf3512",
+  "graphMetadata": {
+    "cells": 512000,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 1995520,
+    "layers": 32,
+    "maxCellFaces": 14,
+    "minCellFaces": 5,
+    "physicalFaces": 68512,
+    "scale": "engineering",
+    "seed": 20261007,
+    "sites": 16000
+  },
+  "unixStarted": 1791378322.283706,
+  "unixEnded": 1791378322.6074982
+}

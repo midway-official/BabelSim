@@ -77,6 +77,12 @@ SIMPLE 状态只归算法，线性控制只归运行配置。`make test-architec
 分布式稀疏线性系统由 PETSc 求解。默认配置面向 GCC 工具链：
 `mpic++` 调用 GCC，`gcc-ar` 归档 LTO 对象，正式程序与显式构建的测试使用相同 ABI。
 
+可选 METIS 5.1 提供多约束网格图划分。`USE_METIS=auto` 在找到公开头文件和库时启用，
+否则使用已有图生长算法；`USE_METIS=1` 要求依赖可用，`USE_METIS=0` 显式禁用。
+可用 `METIS_DIR` 或 `METIS_CFLAGS`/`METIS_LIBS` 指定安装位置。
+切换这些构建选项时使用新的 `BUILD` 目录或先清理。启用 METIS 的静态库在外部 Solver
+链接时也需要其 `METIS_LIBS`，通常为 `-lmetis`；公开 Solver 头和物理代码不需要包含 METIS。
+
 默认 `make` 只构建 `build-petsc/libbabelsim.a`、`build-petsc/babelsim-solve` 和 `build-petsc/babelsim-post`，
 不编译或运行任何测试。测试与验证必须另行显式调用 `make test*` / `make validate*` 的具体目标。
 

@@ -30,6 +30,9 @@ struct RunTime::Implementation {
     int current_step = 0;
     std::chrono::steady_clock::time_point started;
     PerformanceCounters lifecycle_performance;
+    bool iteration_window_started = false;
+    std::chrono::steady_clock::time_point first_iteration_end;
+    double first_iteration_output_seconds = 0.0;
 };
 
 void RuntimeControl::validate() const {
@@ -97,6 +100,8 @@ PerformanceCounters RunTime::performance() const {
     PerformanceCounters result = m_implementation->fvm.performance();
     result.output_writes = m_implementation->lifecycle_performance.output_writes;
     result.output_seconds = m_implementation->lifecycle_performance.output_seconds;
+    result.reported_iteration_intervals = m_implementation->lifecycle_performance.reported_iteration_intervals;
+    result.iteration_compute_seconds = m_implementation->lifecycle_performance.iteration_compute_seconds;
     result.elapsed_seconds = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - m_implementation->started).count();
     return result;
@@ -107,6 +112,21 @@ void RunTime::recordOutput(double seconds) {
         throw std::invalid_argument("result output time is invalid");
     ++m_implementation->lifecycle_performance.output_writes;
     m_implementation->lifecycle_performance.output_seconds += seconds;
+}
+
+void RunTime::recordIteration() {
+    auto& state = *m_implementation;
+    const auto now = std::chrono::steady_clock::now();
+    if (!state.iteration_window_started) {
+        state.first_iteration_end = now;
+        state.first_iteration_output_seconds = state.lifecycle_performance.output_seconds;
+        state.iteration_window_started = true;
+        return;
+    }
+    ++state.lifecycle_performance.reported_iteration_intervals;
+    const double elapsed = std::chrono::duration<double>(now - state.first_iteration_end).count();
+    state.lifecycle_performance.iteration_compute_seconds = std::max(0.0, elapsed -
+        (state.lifecycle_performance.output_seconds - state.first_iteration_output_seconds));
 }
 
 

@@ -1,0 +1,116 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.03698870199150406,
+  "initialPartitionSeconds": 0.036519271990982816,
+  "exactBalanceSeconds": 0.0004694300005212426,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 272748544,
+    "peakRSSBytes": 272748544,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 10028,
+  "cutFacesPerPart": [
+    8320,
+    8320,
+    1836,
+    1580
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    65536,
+    65536,
+    65536,
+    65536
+  ],
+  "ghostCellsPerPart": [
+    25008,
+    25008,
+    5200,
+    4014
+  ],
+  "firstLayerGhostsPerPart": [
+    8320,
+    8320,
+    1753,
+    1462
+  ],
+  "localCellsPerPart": [
+    90544,
+    90544,
+    70736,
+    69550
+  ],
+  "localFacesPerPart": [
+    285707,
+    285707,
+    221839,
+    217953
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    2,
+    3,
+    1
+  ],
+  "ownedFaceIncidencesPerPart": [
+    393216,
+    393216,
+    393216,
+    393216
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.1301633890621694,
+  "localCellImbalance": 1.1269611107307995,
+  "totalGhostCells": 59230,
+  "maxGhostCells": 25008,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 19855,
+  "threeLayerCommunicationVolume": 59230,
+  "cellStorageDuplication": 1.2259445190429688,
+  "faceStorageDuplication": 1.233996700249922,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "0638180df18008b584317a238a5cdffd2fee44c5f0ee7835b3ff9a6b88004a52",
+  "status": "ok",
+  "graph": "graded_channel-engineering",
+  "graphSHA256": "d3f7ce688520fba9b9c8150e784b9526afd4ecbc280ef2724c03967ce8aa7438",
+  "graphMetadata": {
+    "cells": 262144,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "graded_channel",
+    "graded": true,
+    "internalFaces": 753408,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 66048,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      1024,
+      16,
+      16
+    ]
+  },
+  "unixStarted": 1791377899.6527934,
+  "unixEnded": 1791377899.7510834,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/graded_channel-engineering__morton-isotropic__p4__seed0.json"
+}

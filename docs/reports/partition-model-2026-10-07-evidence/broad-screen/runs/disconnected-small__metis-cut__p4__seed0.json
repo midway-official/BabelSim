@@ -1,0 +1,100 @@
+{
+  "algorithm": "metis-cut",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0067626999953063205,
+  "initialPartitionSeconds": 0.006632990000071004,
+  "exactBalanceSeconds": 0.00012970999523531646,
+  "quotaTransfers": 3,
+  "rawCellImbalance": 1.000925925925926,
+  "nativeObjective": 592,
+  "memory": {
+    "beforeRSSBytes": 216240128,
+    "peakRSSBytes": 216240128,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 594,
+  "cutFacesPerPart": [
+    356,
+    336,
+    352,
+    144
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2160,
+    2160,
+    2160,
+    2160
+  ],
+  "ghostCellsPerPart": [
+    988,
+    1005,
+    1008,
+    468
+  ],
+  "firstLayerGhostsPerPart": [
+    324,
+    323,
+    324,
+    144
+  ],
+  "localCellsPerPart": [
+    3148,
+    3165,
+    3168,
+    2628
+  ],
+  "localFacesPerPart": [
+    10133,
+    10157,
+    10187,
+    8607
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    2,
+    3,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    12960,
+    12960,
+    12960,
+    12960
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0425749667383073,
+  "localCellImbalance": 1.0464943430506235,
+  "totalGhostCells": 3469,
+  "maxGhostCells": 1008,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1115,
+  "threeLayerCommunicationVolume": 3469,
+  "cellStorageDuplication": 1.4015046296296296,
+  "faceStorageDuplication": 1.4210296684118673,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    2
+  ],
+  "ownershipSHA256": "29ff4248abccfddad76433fce077e511dc7c287d9a6fa34787a2858124afb22a",
+  "status": "ok",
+  "graph": "disconnected-small",
+  "graphSHA256": "66988a7145a3777575ec023c044f9645db37b44192c47bafa3667a13abdbf2bb",
+  "graphMetadata": {
+    "cells": 8640,
+    "components": 2,
+    "construction": "two disconnected conforming hex domains",
+    "family": "disconnected",
+    "internalFaces": 24336,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 3168,
+    "scale": "small"
+  },
+  "unixStarted": 1791372012.3406572,
+  "unixEnded": 1791372012.3773336
+}

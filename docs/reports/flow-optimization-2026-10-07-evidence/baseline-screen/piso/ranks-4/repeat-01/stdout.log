@@ -1,0 +1,48 @@
+[midway:554760] MCW rank 3 bound to socket 0[core 3[hwt 0-1]]: [../../../BB/../../../../../../../..]
+[midway:554760] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+[midway:554760] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+[midway:554760] MCW rank 2 bound to socket 0[core 2[hwt 0-1]]: [../../BB/../../../../../../../../..]
+PISO corrector=1 Umax=1.20865 coupling=0.456642
+PISO corrector=17 Umax=1.09617 coupling=6.85982e-06
+PISO 1 time=0.01 correctors=17 CoMax=0.870321 CoMean=0.745363 accepted=true mass=4.77084e-12 dU=1 rU=1 dP=1.84887 rCouplingFirst=0.456642 rCoupling=6.85982e-06 linU=7.44726e-10 linP=7.59141e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.22272 coupling=0.548535
+PISO corrector=22 Umax=1.09793 coupling=7.64982e-06
+PISO 1 time=0.02 correctors=22 CoMax=0.90695 CoMean=0.746672 accepted=true mass=3.55739e-12 dU=0.0353136 rU=0.324278 dP=321.324 rCouplingFirst=0.548535 rCoupling=7.64982e-06 linU=7.40053e-09 linP=1.33242e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.10268 coupling=0.00454258
+PISO corrector=8 Umax=1.10255 coupling=9.67808e-06
+PISO 1 time=0.03 correctors=8 CoMax=0.929988 CoMean=0.747374 accepted=true mass=1.29822e-12 dU=0.0248957 rU=0.0170638 dP=0.63978 rCouplingFirst=0.00454258 rCoupling=9.67808e-06 linU=2.04529e-09 linP=6.9956e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.11379 coupling=0.00170428
+PISO corrector=8 Umax=1.11342 coupling=6.64033e-06
+PISO 1 time=0.04 correctors=8 CoMax=0.941555 CoMean=0.747933 accepted=true mass=2.15169e-12 dU=0.0192679 rU=0.0120758 dP=0.776042 rCouplingFirst=0.00170428 rCoupling=6.64033e-06 linU=9.59169e-09 linP=9.23167e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.12175 coupling=0.00113196
+PISO corrector=8 Umax=1.12147 coupling=5.23268e-06
+PISO 1 time=0.05 correctors=8 CoMax=0.947005 CoMean=0.748421 accepted=true mass=2.98291e-11 dU=0.0156282 rU=0.00937331 dP=0.587225 rCouplingFirst=0.00113196 rCoupling=5.23268e-06 linU=6.60561e-09 linP=9.6684e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.12639 coupling=0.000823046
+PISO corrector=8 Umax=1.12618 coupling=4.24011e-06
+PISO 1 time=0.06 correctors=8 CoMax=0.952901 CoMean=0.748858 accepted=true mass=1.72961e-12 dU=0.0131313 rU=0.00761617 dP=0.445937 rCouplingFirst=0.000823046 rCoupling=4.24011e-06 linU=5.55059e-09 linP=5.73536e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.1316 coupling=0.00062422
+PISO corrector=8 Umax=1.13141 coupling=3.49469e-06
+PISO 1 time=0.07 correctors=8 CoMax=0.961038 CoMean=0.749251 accepted=true mass=1.76772e-12 dU=0.0113325 rU=0.00640581 dP=0.348563 rCouplingFirst=0.00062422 rCoupling=3.49469e-06 linU=5.01127e-09 linP=5.9568e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.13668 coupling=0.000487926
+PISO corrector=8 Umax=1.13652 coupling=2.92398e-06
+PISO 1 time=0.08 correctors=8 CoMax=0.966482 CoMean=0.749608 accepted=true mass=3.06421e-11 dU=0.00998089 rU=0.00553143 dP=0.279549 rCouplingFirst=0.000487926 rCoupling=2.92398e-06 linU=4.6903e-09 linP=9.91787e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.14037 coupling=0.00039021
+PISO corrector=8 Umax=1.14025 coupling=2.4734e-06
+PISO 1 time=0.09 correctors=8 CoMax=0.970089 CoMean=0.749934 accepted=true mass=2.60429e-11 dU=0.00892824 rU=0.00487302 dP=0.229138 rCouplingFirst=0.00039021 rCoupling=2.4734e-06 linU=7.12405e-09 linP=8.48731e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.14317 coupling=0.000319185
+PISO corrector=8 Umax=1.14308 coupling=2.11451e-06
+PISO 1 time=0.1 correctors=8 CoMax=0.972449 CoMean=0.750236 accepted=true mass=1.43229e-12 dU=0.0080842 rU=0.00435964 dP=0.191327 rCouplingFirst=0.000319185 rCoupling=2.11451e-06 linU=7.99626e-09 linP=9.79659e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+babelsim-solve: output writeFields requires an available cell field: phi
+babelsim-solve: output writeFields requires an available cell field: phi
+babelsim-solve: output writeFields requires an available cell field: phi
+babelsim-solve: output writeFields requires an available cell field: phi
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 1 in communicator MPI_COMM_WORLD
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+[midway:554760] 3 more processes have sent help message help-mpi-api.txt / mpi-abort
+[midway:554760] Set MCA parameter "orte_base_help_aggregate" to 0 to see all help / error messages

@@ -1,0 +1,280 @@
+make test
+make[1]: Entering directory '/home/midway/BabelSim'
+python3 tests/architecture_test.py
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/numerical_configuration_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/numerical_configuration_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/procedural_equation_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/procedural_equation_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/monitor_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/monitor_test
+architecture_test: 76 sources/headers, acyclic includes and layer boundaries passed
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/unstructured_mesh_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/unstructured_mesh_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/mesh_geometry_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/mesh_geometry_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/field_boundary_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/field_boundary_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/operators_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/operators_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/math_runtime_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/math_runtime_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/public_equation_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/public_equation_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/backend_interface_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/backend_interface_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/simple_solver_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/simple_solver_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/mesh_file_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/mesh_file_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/case_lifecycle_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/case_lifecycle_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/case_io_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/case_io_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/field_writer_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/field_writer_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/scalar_equation_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/scalar_equation_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/time_history_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/time_history_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/cavity_regression_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/cavity_regression_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/cavity_3d_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/cavity_3d_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/nonorthogonal_cavity_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/nonorthogonal_cavity_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/nonorthogonal_cavity_3d_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/nonorthogonal_cavity_3d_test
+numerical_configuration_test: hierarchy, named solvers, explicit math, independent coefficient reconstruction and frozen flux passed
+procedural_equation_test: assembly, frozen inputs, algebra, BDF2, diffusion and vector solve passed
+monitor_test: generic observations, cadence and urgent event passed
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed
+unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed
+mesh_geometry_test: cells=18 volume=18.543 max_nonorth=0.383992 max_skew=0.00392164
+field_boundary_test: scalar/vector and mirror conditions passed
+operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed
+math_runtime_test: explicit Field operations passed
+public_equation_test: vector source, response, reference and face operators passed
+backend_interface_test: replaceable coarse-grained backend passed
+petsc_backend_test: ranks=1 owned=16 iterations=40
+simple_solver_test: iterations=62 mass=1.34339e-17 dU=1.20739e-08
+mesh_file_test: cells=9 patches=6
+case_lifecycle_test: stable references and deterministic destruction passed
+case_io_test: SIMPLE, heat-compatible and transport dictionaries passed
+field_writer_test: scalar/vector/tensor owned output passed
+scalar_equation_test: heat coefficients and transport assembly passed
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+cavity_regression_test: iterations=153 mass=1.52804e-16 dU=2.62494e-07 centreU=-0.149237 pLin=3.55964e-09
+cavity_3d_test: cells=216 iterations=66 mass=6.07326e-15 centreU=-0.114134 maxW=0.0192033
+nonorthogonal_cavity_test: cells=100 iterations=178 mass=1.36302e-15 centreU=-0.151693 maxKbySf=0.412398
+nonorthogonal_cavity_3d_test: cells=125 iterations=116 mass=6.7182e-15 centreU=-0.0940688 maxW=0.0108375 maxKbySf=0.347666 maxSkew=0.0774395
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-workflow
+make[1]: Entering directory '/home/midway/BabelSim'
+python3 tests/architecture_test.py
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/case_programming_test
+architecture_test: 76 sources/headers, acyclic includes and layer boundaries passed
+build-petsc/time_history_test
+time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed
+python3 tests/solver_workflow_test.py --solver build-petsc/babelsim-solve --post build-petsc/babelsim-post
+ParaView: PVD time steps and VTU cell values passed
+solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-external
+make[1]: Entering directory '/home/midway/BabelSim'
+python3 tests/external_solver_test.py --library build-petsc/libbabelsim.a --petsc-dir /home/midway/opt/petsc-3.25.5-openmpi-opt
+external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed
+external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-rans
+make[1]: Entering directory '/home/midway/BabelSim'
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/rans_equations_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/rans_equations_test
+python3 tests/rans_validation_test.py --solver build-petsc/babelsim-solve \
+	--equations build-petsc/rans_equations_test
+RANS evidence: /tmp/babelsim-rans-validation-1v9p_nto
+{"model": "SA", "method": "euler", "errors": [0.004054368810360809, 0.00207394627242094, 0.0010491725824849085], "ratios": [1.9549054207793435, 1.9767446338608188]}
+{"model": "SA", "method": "bdf2", "errors": [0.000376417109575089, 9.095902759984065e-05, 2.2575805683128225e-05], "ratios": [4.13831501399811, 4.029049012758728]}
+{"model": "kOmega", "method": "euler", "errors": [7.272315446726907e-06, 3.6398668152859415e-06, 1.8235708167946285e-06], "ratios": [1.9979619628350622, 1.9960106740926558]}
+{"model": "kOmega", "method": "bdf2", "errors": [1.088007955507564e-06, 2.746145597587457e-07, 7.255840073217001e-08], "ratios": [3.961945631955568, 3.784738320961788]}
+{"model": "kEpsilon", "method": "euler", "errors": [0.001920966195128715, 0.0009691351351899247, 0.0004867673397979111], "ratios": [1.9821448272559603, 1.9909617099460206]}
+{"model": "kEpsilon", "method": "bdf2", "errors": [0.00026043173488266014, 6.43952292582739e-05, 1.601843710297146e-05], "ratios": [4.044270637474254, 4.020069426519046]}
+rans_validation_test: published terms, temporal order, SIMPLE/PISO 1/2/4 ranks and clipping/linear rejection passed
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-scalar-time
+make[1]: Entering directory '/home/midway/BabelSim'
+python3 tests/scalar_time_order_test.py --solver build-petsc/babelsim-solve
+Scalar time-order evidence: /tmp/babelsim-scalar-time-order-v3fsy6ca
+heat shortened=False differences= [0.0011244341560398244, 0.0002731297565386621, 6.74728516294221e-05] ratios= [4.116849699167283, 4.047994859306667]
+heat shortened=True differences= [0.0010769635640191391, 0.00026740757353331676, 6.67670906578365e-05] ratios= [4.027423568408987, 4.005080510452509]
+transport shortened=False differences= [0.0012451512539381146, 0.0003077818777210116, 7.641750276327255e-05] ratios= [4.045563901155934, 4.027635902660462]
+transport shortened=True differences= [0.001170888245429425, 0.00029842322264968143, 7.524523632510906e-05] ratios= [3.9235828734546203, 3.966008178382167]
+scalar_time_order_test: production BDF2 deferred corrections, shortened last step, 1/2/4 ranks passed
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-simple-parallel
+make[1]: Entering directory '/home/midway/BabelSim'
+python3 tests/simple_parallel_consistency_test.py --solver build-petsc/babelsim-solve
+Evidence: /tmp/babelsim-simple-mpi-yloq71_f
+cavity/steady/np1: 4096 cells, 1 converged step(s), 13.60s
+cavity/steady/np2: 4096 cells, 1 converged step(s), 10.96s
+cavity/steady/np4: 4096 cells, 1 converged step(s), 9.34s
+cavity/euler/np1: 4096 cells, 5 converged step(s), 1.84s
+cavity/euler/np2: 4096 cells, 5 converged step(s), 1.51s
+cavity/euler/np4: 4096 cells, 5 converged step(s), 1.24s
+cavity/bdf2/np1: 4096 cells, 5 converged step(s), 1.68s
+cavity/bdf2/np2: 4096 cells, 5 converged step(s), 1.40s
+cavity/bdf2/np4: 4096 cells, 5 converged step(s), 1.23s
+channel/steady/np1: 4340 cells, 1 converged step(s), 6.44s
+channel/steady/np2: 4340 cells, 1 converged step(s), 5.35s
+channel/steady/np4: 4340 cells, 1 converged step(s), 4.46s
+channel/euler/np1: 4340 cells, 5 converged step(s), 2.03s
+channel/euler/np2: 4340 cells, 5 converged step(s), 1.70s
+channel/euler/np4: 4340 cells, 5 converged step(s), 1.45s
+channel/bdf2/np1: 4340 cells, 5 converged step(s), 2.02s
+channel/bdf2/np2: 4340 cells, 5 converged step(s), 1.70s
+channel/bdf2/np4: 4340 cells, 5 converged step(s), 1.41s
+cube/steady/np1: 384 cells, 1 converged step(s), 0.41s
+cube/steady/np2: 384 cells, 1 converged step(s), 0.43s
+cube/steady/np4: 384 cells, 1 converged step(s), 0.46s
+cube/euler/np1: 384 cells, 5 converged step(s), 0.49s
+cube/euler/np2: 384 cells, 5 converged step(s), 0.52s
+cube/euler/np4: 384 cells, 5 converged step(s), 0.58s
+cube/bdf2/np1: 384 cells, 5 converged step(s), 0.49s
+cube/bdf2/np2: 384 cells, 5 converged step(s), 0.52s
+cube/bdf2/np4: 384 cells, 5 converged step(s), 0.61s
+warped/steady/np1: 480 cells, 1 converged step(s), 0.63s
+warped/steady/np2: 480 cells, 1 converged step(s), 0.80s
+warped/steady/np4: 480 cells, 1 converged step(s), 0.86s
+warped/euler/np1: 480 cells, 5 converged step(s), 0.79s
+warped/euler/np2: 480 cells, 5 converged step(s), 0.97s
+warped/euler/np4: 480 cells, 5 converged step(s), 0.97s
+warped/bdf2/np1: 480 cells, 5 converged step(s), 0.78s
+warped/bdf2/np2: 480 cells, 5 converged step(s), 0.96s
+warped/bdf2/np4: 480 cells, 5 converged step(s), 1.00s
+warped4/steady/np1: 480 cells, 1 converged step(s), 0.62s
+warped4/steady/np2: 480 cells, 1 converged step(s), 0.77s
+warped4/steady/np4: 480 cells, 1 converged step(s), 0.84s
+warped4/euler/np1: 480 cells, 5 converged step(s), 0.78s
+warped4/euler/np2: 480 cells, 5 converged step(s), 0.97s
+warped4/euler/np4: 480 cells, 5 converged step(s), 0.99s
+warped4/bdf2/np1: 480 cells, 5 converged step(s), 0.77s
+warped4/bdf2/np2: 480 cells, 5 converged step(s), 0.96s
+warped4/bdf2/np4: 480 cells, 5 converged step(s), 1.03s
+simple_parallel_consistency_test: all states, fields, geometry, and physical times passed
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-mpi
+make[1]: Entering directory '/home/midway/BabelSim'
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_partition_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_partition_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_simple_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_simple_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_math_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_math_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_channel_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_channel_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_cavity_3d_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_cavity_3d_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_transport_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_transport_test
+mpic++ -Iinclude -Isrc -I/usr/include/eigen3 -I/home/midway/opt/petsc-3.25.5-openmpi-opt/include -std=c++17 -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1 -Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib tests/parallel_unstructured_test.cpp build-petsc/libbabelsim.a -L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib -lpetsc -o build-petsc/parallel_unstructured_test
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_partition_test
+partition ranks=2 cells=4096 cutFaces=126 ghostCellsTotal=436 localFaceImbalance=1 haloBytesTotal=6976 firstLayerBytesTotal=3040
+partition ranks=2 cells=561 cutFaces=78 ghostCellsTotal=211 localFaceImbalance=1.00036 haloBytesTotal=3376 firstLayerBytesTotal=1152
+partition ranks=2 cells=256 cutFaces=4 ghostCellsTotal=14 localFaceImbalance=1 haloBytesTotal=224 firstLayerBytesTotal=96
+TMPDIR=/tmp mpirun -np 3 build-petsc/parallel_partition_test
+partition ranks=3 cells=4096 cutFaces=185 ghostCellsTotal=762 localFaceImbalance=1.07561 haloBytesTotal=12192 firstLayerBytesTotal=4048
+partition ranks=3 cells=561 cutFaces=142 ghostCellsTotal=469 localFaceImbalance=1.17727 haloBytesTotal=7504 firstLayerBytesTotal=2496
+partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_partition_test
+partition ranks=4 cells=4096 cutFaces=234 ghostCellsTotal=907 localFaceImbalance=1.07006 haloBytesTotal=14512 firstLayerBytesTotal=4880
+partition ranks=4 cells=561 cutFaces=188 ghostCellsTotal=670 localFaceImbalance=1.10864 haloBytesTotal=10720 firstLayerBytesTotal=3312
+partition ranks=4 cells=256 cutFaces=16 ghostCellsTotal=64 localFaceImbalance=1.11538 haloBytesTotal=1024 firstLayerBytesTotal=384
+TMPDIR=/tmp mpirun -np 2 build-petsc/numerical_contract_test
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+TMPDIR=/tmp mpirun -np 4 build-petsc/numerical_contract_test 4
+numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed
+TMPDIR=/tmp mpirun -np 2 build-petsc/physics_contract_test
+physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed
+TMPDIR=/tmp mpirun -np 4 build-petsc/physics_contract_test
+physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_math_test 4
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 1 build-petsc/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_math_test
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+TMPDIR=/tmp mpirun -np 2 build-petsc/petsc_backend_test
+petsc_backend_test: ranks=2 owned=8 iterations=55
+TMPDIR=/tmp mpirun -np 4 build-petsc/petsc_backend_test
+petsc_backend_test: ranks=4 owned=4 iterations=75
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_unstructured_test
+parallel_unstructured_test: scrambled hex graph partition and halo passed
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_channel_test \
+	cases/poiseuille/mesh/poiseuille.mesh build-petsc/mpi-output
+parallel_channel_test: ranks=2 iterations=1149 mass=1.01094e-16 dU=1.72338e-08 rU=9.84514e-07 dP=1.39283e-07 sumU=(4339.07,1.35727e-06,0) maxU=1.49895
+TMPDIR=/tmp mpirun -np 1 build-petsc/parallel_simple_test build-petsc/mpi-output
+parallel_simple_test: ranks=1 iterations=153 mass=4.96845e-15 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_simple_test build-petsc/mpi-output
+parallel_simple_test: ranks=2 iterations=153 mass=6.60105e-16 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 4 build-petsc/parallel_simple_test build-petsc/mpi-output
+parallel_simple_test: ranks=4 iterations=153 mass=5.34328e-16 dU=2.62494e-07 centreU=-0.149237
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_cavity_3d_test build-petsc/mpi-output
+parallel_cavity_3d_test: ranks=2 iterations=66 mass=9.14086e-17 centreU=-0.114134 maxW=0.0192033
+TMPDIR=/tmp mpirun -np 2 build-petsc/parallel_transport_test
+parallel_transport_test: ranks=2 max_error=0
+make test-mpi-heat
+make[2]: Entering directory '/home/midway/BabelSim'
+TMPDIR=/tmp mpirun -np 1 build-petsc/babelsim-solve \
+	-case cases/heat -time mpi-np1
+heat time=0.01 residual=1.85269e-17
+heat time=0.02 residual=4.48191e-17
+heat time=0.03 residual=3.18829e-17
+heat time=0.04 residual=7.87687e-17
+heat time=0.05 residual=2.08426e-16
+TMPDIR=/tmp mpirun -np 2 build-petsc/babelsim-solve \
+	-case cases/heat -time mpi-np2
+heat time=0.01 residual=1.85269e-17
+heat time=0.02 residual=4.48191e-17
+heat time=0.03 residual=3.18829e-17
+heat time=0.04 residual=7.87687e-17
+heat time=0.05 residual=2.08426e-16
+python3 tools/compare_parallel_results.py \
+	cases/heat/results/mpi-np1 cases/heat/results/mpi-np2 \
+	--atol 1e-9 --rtol 1e-9
+T: cells=32 max_abs_difference=3.3881318e-21
+make[2]: Leaving directory '/home/midway/BabelSim'
+make[1]: Leaving directory '/home/midway/BabelSim'
+make test-mpi-poiseuille
+make[1]: Entering directory '/home/midway/BabelSim'
+TMPDIR=/tmp mpirun -np 1 build-petsc/babelsim-solve \
+	-case cases/poiseuille -time mpi-np1
+SIMPLE 1 mass=1.24105e-09 dU=1 rU=1 dP=3.33333 linP=7.26614e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 100 mass=3.85465e-13 dU=0.00107586 rU=0.0593729 dP=0.0104307 linP=4.035e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 200 mass=7.80535e-14 dU=0.000432663 rU=0.0245043 dP=0.00329522 linP=3.29502e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 300 mass=3.37259e-14 dU=0.000186425 rU=0.0106697 dP=0.00128549 linP=3.80345e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 400 mass=1.30995e-14 dU=8.00421e-05 rU=0.00460074 dP=0.000504092 linP=3.52462e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 500 mass=4.16662e-15 dU=3.38604e-05 rU=0.00194984 dP=0.000186566 linP=2.47194e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 600 mass=1.52433e-15 dU=1.39694e-05 rU=0.000805178 dP=6.17951e-05 linP=2.19491e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 700 mass=5.16513e-16 dU=5.52207e-06 rU=0.000318524 dP=1.62285e-05 linP=1.5631e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 800 mass=2.75529e-16 dU=2.0248e-06 rU=0.000116907 dP=2.39128e-06 linP=1.71826e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 900 mass=1.23134e-16 dU=6.56086e-07 rU=3.79337e-05 dP=1.33212e-06 linP=1.18942e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1000 mass=7.67718e-16 dU=1.78479e-07 rU=1.03382e-05 dP=8.09047e-07 linP=2.25321e-06 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1100 mass=2.00809e-16 dU=3.92986e-08 rU=2.28116e-06 dP=2.74242e-07 linP=1.3124e-06 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1150 mass=1.42516e-16 dU=1.69364e-08 rU=9.84212e-07 dP=1.37251e-07 linP=1.77092e-06 dTurb=0 rTurb=0 linear=ok converged=true
+TMPDIR=/tmp mpirun -np 2 build-petsc/babelsim-solve \
+	-case cases/poiseuille -time mpi-np2
+SIMPLE 1 mass=2.04605e-08 dU=1 rU=1 dP=3.33333 linP=8.93753e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 100 mass=1.34334e-13 dU=0.00107586 rU=0.0593729 dP=0.0104307 linP=1.35149e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 200 mass=1.91435e-14 dU=0.000432664 rU=0.0245041 dP=0.00329538 linP=7.83177e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 300 mass=7.04239e-15 dU=0.000186425 rU=0.0106696 dP=0.00128549 linP=7.64513e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 400 mass=1.27499e-14 dU=8.00417e-05 rU=0.00460069 dP=0.00050409 linP=3.36169e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 500 mass=4.08854e-15 dU=3.38602e-05 rU=0.00194981 dP=0.000186565 linP=2.54056e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 600 mass=1.66696e-15 dU=1.39693e-05 rU=0.000805149 dP=6.17947e-05 linP=2.43042e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 700 mass=5.70766e-16 dU=5.52205e-06 rU=0.000318497 dP=1.62284e-05 linP=1.82421e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 800 mass=1.91444e-16 dU=2.02479e-06 rU=0.000116881 dP=2.39126e-06 linP=1.27612e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 900 mass=1.20055e-15 dU=6.56083e-07 rU=3.79097e-05 dP=1.33211e-06 linP=1.72871e-06 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1000 mass=2.87121e-16 dU=1.78478e-07 rU=1.03203e-05 dP=8.09044e-07 linP=7.30484e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1100 mass=1.49924e-16 dU=3.92985e-08 rU=2.28764e-06 dP=2.74241e-07 linP=1.00743e-06 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1152 mass=1.00944e-16 dU=1.6356e-08 rU=9.97477e-07 dP=1.33258e-07 linP=1.11775e-06 dTurb=0 rTurb=0 linear=ok converged=true
+TMPDIR=/tmp mpirun -np 4 build-petsc/babelsim-solve \
+	-case cases/poiseuille -time mpi-np4
+SIMPLE 1 mass=1.99503e-08 dU=1 rU=1 dP=3.33333 linP=8.3876e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 100 mass=2.54458e-13 dU=0.00107586 rU=0.0593729 dP=0.0104307 linP=2.42581e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 200 mass=7.74149e-14 dU=0.000432664 rU=0.0245042 dP=0.00329538 linP=3.15697e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 300 mass=2.79325e-14 dU=0.000186425 rU=0.0106696 dP=0.00128549 linP=3.02683e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 400 mass=7.40292e-15 dU=8.00417e-05 rU=0.00460072 dP=0.00050409 linP=1.88271e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 500 mass=3.458e-15 dU=3.38602e-05 rU=0.00194984 dP=0.000186565 linP=2.10044e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 600 mass=1.01851e-15 dU=1.39693e-05 rU=0.000805175 dP=6.17948e-05 linP=1.43357e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 700 mass=6.29406e-16 dU=5.52205e-06 rU=0.000318523 dP=1.62284e-05 linP=1.94911e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 800 mass=2.83238e-16 dU=2.02479e-06 rU=0.000116907 dP=2.39127e-06 linP=1.7276e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 900 mass=1.52839e-15 dU=6.56084e-07 rU=3.79342e-05 dP=1.3321e-06 linP=2.072e-06 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1000 mass=2.63625e-16 dU=1.78478e-07 rU=1.03387e-05 dP=8.09039e-07 linP=7.20983e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1100 mass=1.0169e-16 dU=3.92987e-08 rU=2.28172e-06 dP=2.74239e-07 linP=5.8774e-07 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 1150 mass=8.82659e-16 dU=1.69365e-08 rU=9.84852e-07 dP=1.3725e-07 linP=1.55329e-05 dTurb=0 rTurb=0 linear=ok converged=true
+python3 tools/compare_parallel_results.py \
+	cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np2 \
+	--atol 5e-6 --rtol 5e-6
+U: cells=4340 max_abs_difference=6.1635624e-07
+p: cells=4340 max_abs_difference=4.5197236e-07
+python3 tools/compare_parallel_results.py \
+	cases/poiseuille/results/mpi-np1 cases/poiseuille/results/mpi-np4 \
+	--atol 5e-6 --rtol 5e-6
+U: cells=4340 max_abs_difference=3.3584846e-08
+p: cells=4340 max_abs_difference=3.4673338e-08
+build-petsc/babelsim-post -case cases/poiseuille -time mpi-np4 -format vtk tecplot
+BabelSim postprocessed 1 time set(s) into "/home/midway/BabelSim/cases/poiseuille/post/"
+make[1]: Leaving directory '/home/midway/BabelSim'

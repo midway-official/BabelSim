@@ -1,0 +1,101 @@
+{
+  "algorithm": "rib",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0034080759942298755,
+  "initialPartitionSeconds": 0.0032316579890903085,
+  "exactBalanceSeconds": 0.00017641800513956696,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 216436736,
+    "peakRSSBytes": 216436736,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 1248,
+  "cutFacesPerPart": [
+    672,
+    672,
+    576,
+    576
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    3456,
+    3456,
+    3456,
+    3456
+  ],
+  "ghostCellsPerPart": [
+    1800,
+    1800,
+    1800,
+    1800
+  ],
+  "firstLayerGhostsPerPart": [
+    576,
+    576,
+    576,
+    576
+  ],
+  "localCellsPerPart": [
+    5256,
+    5256,
+    5256,
+    5256
+  ],
+  "localFacesPerPart": [
+    16767,
+    16767,
+    16707,
+    16707
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    20736,
+    20736,
+    20736,
+    20736
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0017924359204158,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 7200,
+  "maxGhostCells": 1800,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2304,
+  "threeLayerCommunicationVolume": 7200,
+  "cellStorageDuplication": 1.5208333333333333,
+  "faceStorageDuplication": 1.5497222222222222,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "a284be013ecff2710470786fb6181edd568532e66c92f7ab0530ce74b2675f7f",
+  "status": "ok",
+  "graph": "renumbered_cube-small",
+  "graphSHA256": "7ea0b68d826d4c42d5c5e722a4187df3113be28c3bf2de7794f31e7075709c5f",
+  "graphMetadata": {
+    "cells": 13824,
+    "components": 1,
+    "construction": "hex cube with scrambled cell IDs",
+    "family": "renumbered_cube",
+    "internalFaces": 39744,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 3456,
+    "scale": "small",
+    "seed": 73021
+  },
+  "unixStarted": 1791372013.6240058,
+  "unixEnded": 1791372013.6528673
+}

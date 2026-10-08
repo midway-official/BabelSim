@@ -1,0 +1,92 @@
+{
+  "families": [
+    "hex_cube",
+    "thin_plate",
+    "long_duct",
+    "rotated_duct",
+    "obstructed_cube",
+    "branching_duct",
+    "graded_channel",
+    "warped_prisms",
+    "tet_cube",
+    "voronoi_prisms",
+    "graded_voronoi",
+    "disconnected",
+    "renumbered_cube"
+  ],
+  "scales": [
+    "small",
+    "engineering"
+  ],
+  "algorithms": [
+    "graph-growth",
+    "morton-isotropic",
+    "metis-cut-work",
+    "metis-volume-work",
+    "metis-volume-contig"
+  ],
+  "ranks": [
+    4,
+    12
+  ],
+  "seeds": [
+    0,
+    7,
+    29
+  ],
+  "sources": {
+    "study_mesh_partition.py": "69853ed1e88435ff475b9abe5512ad516e0ddc5f59af571911fcbf29191663f3",
+    "partition_model_graphs.py": "3e96ccada9397672b7361fc584f48f9b40bb66bb53d0847060b29dbe7281e522",
+    "partition_model_algorithms.py": "5dc0c9857dc443abb5a570cbfa185e52a266773da89dad52d230fa65543f7f3a"
+  },
+  "versions": {
+    "python": "3.10.12",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "numba": "0.62.1",
+    "host": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "cpuAffinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "NUMBA_NUM_THREADS": "1"
+    }
+  },
+  "metisHeader": "/home/midway/opt/metis-5.1.0/include/metis.h",
+  "metisHeaderSHA256": "20826dae4a5ff3fce9ad5fd0cf28ed0f8899e1cbdab1e318dfb33c8123840616",
+  "sourcesReferences": {
+    "METIS manual": "https://karypis.github.io/glaros/files/sw/metis/manual.pdf",
+    "Graph partitioning research": "https://papers.karypis.org/glaros/projects/gp.html",
+    "Zoltan RCB": "https://sandialabs.github.io/Zoltan/ug_html/ug_alg_rcb.html",
+    "Zoltan RIB": "https://sandialabs.github.io/Zoltan/ug_html/ug_alg_rib.html",
+    "Zoltan geometry guide": "https://sandialabs.github.io/Zoltan/ug_html/ug_alg_geom.html"
+  },
+  "ghostLayers": 3,
+  "exactCellQuotas": true
+}

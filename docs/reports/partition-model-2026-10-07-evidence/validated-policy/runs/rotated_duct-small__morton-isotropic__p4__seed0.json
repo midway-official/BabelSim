@@ -1,0 +1,116 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0016378200089093298,
+  "initialPartitionSeconds": 0.0015703030076110736,
+  "exactBalanceSeconds": 6.751700129825622e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    2,
+    1,
+    1,
+    2
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 193822720,
+    "peakRSSBytes": 193822720,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 1735,
+  "cutFacesPerPart": [
+    690,
+    891,
+    1044,
+    845
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    1311,
+    1332,
+    1619,
+    1779
+  ],
+  "firstLayerGhostsPerPart": [
+    480,
+    555,
+    662,
+    597
+  ],
+  "localCellsPerPart": [
+    3359,
+    3380,
+    3667,
+    3827
+  ],
+  "localFacesPerPart": [
+    11237,
+    11218,
+    12170,
+    12862
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    12288,
+    12288,
+    12288,
+    12288
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0834123023143176,
+  "localCellImbalance": 1.0755287009063443,
+  "totalGhostCells": 6041,
+  "maxGhostCells": 1779,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2294,
+  "threeLayerCommunicationVolume": 6041,
+  "cellStorageDuplication": 1.7374267578125,
+  "faceStorageDuplication": 1.7793390287769784,
+  "componentsPerPart": [
+    2,
+    1,
+    1,
+    2
+  ],
+  "ownershipSHA256": "afce4ea5e9886bc30bfc2ddad86f9de23f3b4bc8f7c9f5fbf617006fa049a812",
+  "status": "ok",
+  "graph": "rotated_duct-small",
+  "graphSHA256": "cd46b3f224035fa5d5153d1806686cea88d257e18276cf6bc4baae481991f447",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "rotated_duct",
+    "graded": false,
+    "internalFaces": 22464,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 4224,
+    "rotated": true,
+    "scale": "small",
+    "shape": [
+      128,
+      8,
+      8
+    ]
+  },
+  "unixStarted": 1791377809.7126205,
+  "unixEnded": 1791377809.749784,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/rotated_duct-small__morton-isotropic__p4__seed0.json"
+}

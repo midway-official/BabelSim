@@ -9,6 +9,8 @@
 #include "test_util.h"
 
 #include <mpi.h>
+#include <petscsys.h>
+#include <petscoptions.h>
 
 #include <cmath>
 #include <iostream>
@@ -50,6 +52,188 @@ void verifyField(const ScalarField& field, double scale, double tolerance) {
                 "PETSc field differs from manufactured solution");
 }
 
+void verifyHypreOptionsIsolation(const Mesh& mesh, const ParallelContext& parallel) {
+    detail::ensurePetscSession();
+    const char* key = "-pc_hypre_boomeramg_coarsen_type";
+    char previous[256] = {};
+    PetscBool existed = PETSC_FALSE;
+    require(PetscOptionsGetString(nullptr, nullptr, key, previous, sizeof(previous), &existed) == 0,
+            "cannot save global Hypre option");
+    require(PetscOptionsSetValue(nullptr, key, "invalid-global-coarsening") == 0,
+            "cannot set global Hypre option probe");
+
+    auto backend = detail::makeComputeBackend(mesh, parallel);
+    ScalarField field(mesh, FieldLocation::Cell, "isolatedOptions");
+    ScalarDiscreteEquation equation(mesh);
+    equation.numerical_identity = "isolatedOptions";
+    assembleManufactured(equation);
+    LinearSolverConfig config;
+    config.solver = LinearSolverType::ConjugateGradient;
+    config.absolute_tolerance = 1e-13;
+    config.relative_tolerance = 1e-12;
+    config.max_iterations = 200;
+    // Switching away and back also exercises destruction of the Hypre PC
+    // after its temporary options database has already gone out of scope.
+    for (auto solver : {LinearSolverType::ConjugateGradient,
+                        LinearSolverType::BiCGSTAB, LinearSolverType::GMRES,
+                        LinearSolverType::FGMRES}) {
+        config.solver = solver;
+        for (auto pc : {PreconditionerType::Hypre, PreconditionerType::Jacobi,
+                        PreconditionerType::Hypre}) {
+            config.preconditioner = pc;
+            require(backend->solve(equation, field, config).converged(),
+                    "typed PC configuration read unrelated global options");
+            verifyField(field, 1.0, 5e-11);
+        }
+    }
+    char current[256] = {};
+    PetscBool present = PETSC_FALSE;
+    require(PetscOptionsGetString(nullptr, nullptr, key, current, sizeof(current), &present) == 0 &&
+                present && std::string(current) == "invalid-global-coarsening",
+            "equation PC configuration changed the global options database");
+    require((existed ? PetscOptionsSetValue(nullptr, key, previous)
+                     : PetscOptionsClearValue(nullptr, key)) == 0,
+            "cannot restore global Hypre option");
+}
+
+void verifyPreconditionerReuse(const Mesh& mesh, const ParallelContext& parallel) {
+    // Independently known solutions for changed operators, including a change
+    // confined to one rank. PC reuse must never suppress an update of A.
+    for (const auto pc : {PreconditionerType::BlockJacobi, PreconditionerType::Hypre,
+                          PreconditionerType::GAMG}) {
+        auto backend = detail::makeComputeBackend(mesh, parallel);
+        ScalarField field(mesh, FieldLocation::Cell, "lagged");
+        ScalarDiscreteEquation equation(mesh);
+        equation.numerical_identity = "lagged";
+        LinearSolverConfig config;
+        config.solver = LinearSolverType::ConjugateGradient;
+        config.preconditioner = pc;
+        config.absolute_tolerance = 1e-13;
+        config.relative_tolerance = 1e-12;
+        config.max_iterations = 200;
+        config.preconditioner_rebuild_interval = 3;
+        for (int version = 0; version < 7; ++version) {
+            assembleManufactured(equation);
+            const double factor = 1.0 + 0.01 * version;
+            for (auto* values : {&equation.diagonal, &equation.upper,
+                                 &equation.lower, &equation.source})
+                for (double& value : *values) value *= factor;
+            const auto result = backend->solve(equation, field, config);
+            require(result.converged(), "lagged PC did not solve the current operator");
+            verifyField(field, 1.0, 5e-11);
+        }
+        auto counters = backend->performance();
+        require(counters.matrix_value_updates == 7 && counters.preconditioner_setups == 3,
+                "PC rebuild interval did not retain the current matrix updates");
+        require(counters.preconditioner_reuses == 4 && counters.preconditioner_retries == 0,
+                "ordinary PC reuse accounting is incorrect");
+        // Warm-start from an exact solution; configuration changes must invalidate
+        // the old setup even though matrix values and the RHS are unchanged.
+        config.warm_start = true;
+        const auto warm = backend->solve(equation, field, config);
+        require(warm.converged() && warm.iterations == 0,
+                "warm-start true initial residual was replaced by the RHS norm");
+        require(warm.initial_residual < 1e-10, "warm start did not measure b-A*x0");
+        if (parallel.rank == 0) {
+            for (Index cell : detail::meshData(mesh).owned_cells) {
+                equation.diagonal[cell] += 0.1;
+                equation.source[cell] += 0.1 * exactValue(mesh, cell);
+            }
+        }
+        require(backend->solve(equation, field, config).converged(),
+                "rank-local matrix change was not handled collectively");
+        verifyField(field, 1.0, 5e-11);
+
+        // Multiple RHS on an unchanged A keep its PC. Once A changes, their
+        // accumulated work requests a fresh PC before another RHS batch.
+        backend = detail::makeComputeBackend(mesh, parallel);
+        config.warm_start = false;
+        for (int rhs = 1; rhs <= 5; ++rhs) {
+            assembleManufactured(equation, static_cast<double>(rhs));
+            require(backend->solve(equation, field, config).converged(),
+                    "unchanged-matrix RHS batch failed");
+            verifyField(field, static_cast<double>(rhs), 3e-10);
+        }
+        require(backend->performance().preconditioner_setups == 1 &&
+                backend->performance().matrix_value_updates == 1,
+                "RHS work budget rebuilt an unchanged matrix's PC");
+        assembleManufactured(equation, 6.0);
+        if (parallel.rank == 0) {
+            for (Index cell : detail::meshData(mesh).owned_cells) {
+                equation.diagonal[cell] += 0.1;
+                equation.source[cell] += 0.6 * exactValue(mesh, cell);
+            }
+        }
+        require(backend->solve(equation, field, config).converged(),
+                "changed matrix after RHS batch failed");
+        verifyField(field, 6.0, 4e-10);
+        require(backend->performance().preconditioner_setups == 2 &&
+                backend->performance().matrix_value_updates == 2 &&
+                backend->performance().preconditioner_reuses == 0,
+                "RHS work budget did not refresh collectively after A changed");
+
+    }
+
+    auto backend = detail::makeComputeBackend(mesh, parallel);
+    ScalarField field(mesh, FieldLocation::Cell, "retry");
+    ScalarDiscreteEquation equation(mesh);
+    equation.numerical_identity = "retry";
+    LinearSolverConfig config;
+    config.solver = LinearSolverType::ConjugateGradient;
+    config.preconditioner = PreconditionerType::Jacobi;
+    config.absolute_tolerance = 1e-13;
+    config.relative_tolerance = 1e-12;
+    config.max_iterations = 2;
+    config.preconditioner_rebuild_interval = 8;
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        equation.diagonal[cell] = 2.0;
+        equation.source[cell] = 2.0 * exactValue(mesh, cell);
+    }
+    require(backend->solve(equation, field, config).converged(), "fresh Jacobi solve failed");
+    if (parallel.rank == 0) {
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            equation.diagonal[cell] = 3.0 + detail::globalCellId(mesh, cell);
+            equation.source[cell] = equation.diagonal[cell] * exactValue(mesh, cell);
+        }
+    }
+    const auto recovered = backend->solve(equation, field, config);
+    require(recovered.converged(), "failed stale PC was not rebuilt and retried");
+    verifyField(field, 1.0, 5e-11);
+    const auto counters = backend->performance();
+    require(counters.preconditioner_retries == 1 && counters.preconditioner_setups == 2 &&
+            counters.true_residual_checks == 3,
+            "PC retry did not retain both attempts and the rebuild in metrics");
+    require(recovered.iterations == 3, "PC retry lost the failed attempt's iterations");
+
+    // A successful but more expensive lagged solve must request a new PC on
+    // the next RHS, even without another matrix update.
+    backend = detail::makeComputeBackend(mesh, parallel);
+    config.max_iterations = 200;
+    for (Index cell : detail::meshData(mesh).owned_cells) {
+        equation.diagonal[cell] = 2.0;
+        equation.source[cell] = 2.0 * exactValue(mesh, cell);
+    }
+    require(backend->solve(equation, field, config).iterations == 1,
+            "fresh diagonal solve should require one CG iteration");
+    if (parallel.rank == 0) {
+        for (Index cell : detail::meshData(mesh).owned_cells) {
+            equation.diagonal[cell] = 3.0 + detail::globalCellId(mesh, cell);
+            equation.source[cell] = equation.diagonal[cell] * exactValue(mesh, cell);
+        }
+    }
+    const auto growing = backend->solve(equation, field, config);
+    require(growing.converged() && growing.iterations > 2,
+            "iteration growth probe did not exercise a deteriorated PC");
+    const auto refreshed = backend->solve(equation, field, config);
+    require(refreshed.converged() && refreshed.iterations == 1,
+            "iteration growth failed to rebuild before the next unchanged-matrix RHS");
+    require(backend->performance().preconditioner_setups == 2 &&
+            backend->performance().preconditioner_retries == 0 &&
+            backend->performance().matrix_value_updates == 2,
+            "adaptive rebuild accounting is incorrect");
+    verifyField(field, 1.0, 5e-11);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -61,6 +245,8 @@ int main(int argc, char** argv) {
         const ParallelContext parallel = ParallelContext::world();
         const Mesh global = makeHexBox({4, 2, 2}, {0, 0, 0}, {1, 1, 1});
         const Mesh mesh = parallel.size == 1 ? global : decompose(global, parallel, 3);
+        verifyHypreOptionsIsolation(mesh, parallel);
+        verifyPreconditionerReuse(mesh, parallel);
         auto backend = detail::makeComputeBackend(mesh, parallel);
 
         // Only one owner changes its values after all ranks cache a valid halo.

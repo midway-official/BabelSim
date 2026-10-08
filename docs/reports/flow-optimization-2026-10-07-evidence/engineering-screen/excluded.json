@@ -1,0 +1,5 @@
+{
+  "reason": "User reported gaming during these runs; host contention is uncontrolled. Exclude all four samples from timing conclusions. Work counts and numerical results remain available for correctness checks.",
+  "samples": 4,
+  "rawEvidenceRetained": true
+}

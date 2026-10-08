@@ -1,0 +1,9 @@
+{
+  "metisPackageVersion": "5.1.0.dfsg-7build2",
+  "library": "/usr/lib/x86_64-linux-gnu/libmetis.so.5.1.0",
+  "librarySHA256": "d0ad52903eee2ae1f79540a9de989acd7ddccff1b7499bbcb466184c15cbc4f7",
+  "header": "/home/midway/opt/metis-5.1.0/include/metis.h",
+  "headerSHA256": "20826dae4a5ff3fce9ad5fd0cf28ed0f8899e1cbdab1e318dfb33c8123840616",
+  "pythonDependencyDirectory": "/home/midway/opt/babelsim-partition-model-python",
+  "sequential": true
+}

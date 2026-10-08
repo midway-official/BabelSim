@@ -1,0 +1,113 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.0266940620058449,
+  "initialPartitionSeconds": 0.026577402008115314,
+  "exactBalanceSeconds": 0.00011665999772958457,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 531,
+  "memory": {
+    "beforeRSSBytes": 195985408,
+    "peakRSSBytes": 195985408,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 537,
+  "cutFacesPerPart": [
+    222,
+    302,
+    243,
+    307
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    512,
+    512,
+    512,
+    512
+  ],
+  "ghostCellsPerPart": [
+    473,
+    678,
+    513,
+    574
+  ],
+  "firstLayerGhostsPerPart": [
+    111,
+    159,
+    106,
+    155
+  ],
+  "localCellsPerPart": [
+    985,
+    1190,
+    1025,
+    1086
+  ],
+  "localFacesPerPart": [
+    4296,
+    5233,
+    4498,
+    4788
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    3968,
+    4021,
+    3941,
+    4038
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0115230460921845,
+  "localFaceImbalance": 1.1125166090884933,
+  "localCellImbalance": 1.1105926271581894,
+  "totalGhostCells": 2238,
+  "maxGhostCells": 678,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 531,
+  "threeLayerCommunicationVolume": 2238,
+  "cellStorageDuplication": 2.0927734375,
+  "faceStorageDuplication": 2.2250473036896876,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "7e21e2f0394d491fb97a96b437c7d775824f9f181c55e158d4d41b31009e3d52",
+  "status": "ok",
+  "graph": "voronoi_prisms-small",
+  "graphSHA256": "9e1736ca33cbc0b9b26c1f94fe5a3707b60eb63e3fde172f17e1652159b6c50d",
+  "graphMetadata": {
+    "cells": 2048,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "voronoi_prisms",
+    "graded": false,
+    "internalFaces": 7512,
+    "layers": 8,
+    "maxCellFaces": 12,
+    "minCellFaces": 5,
+    "physicalFaces": 944,
+    "scale": "small",
+    "seed": 20261007,
+    "sites": 256
+  },
+  "unixStarted": 1791377820.143554,
+  "unixEnded": 1791377820.1994658,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/voronoi_prisms-small__metis-volume-contig__p4__seed7.json"
+}

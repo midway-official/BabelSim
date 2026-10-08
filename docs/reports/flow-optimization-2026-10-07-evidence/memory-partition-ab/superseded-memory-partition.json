@@ -1,0 +1,7 @@
+{
+  "variant": "memory-partition",
+  "sha256": "44f8bb239835a971b05debd3632e54e2e3c5c4bdc3f507876dd647b3738540c8",
+  "reason": "Partition target reciprocal rounding differed from the selected Python policy. Retain these valid pre-correction measurements, but exclude this variant from the final binary strong-scaling curve.",
+  "replacementSha256": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2",
+  "retainedReferenceVariant": "rhs-budget"
+}

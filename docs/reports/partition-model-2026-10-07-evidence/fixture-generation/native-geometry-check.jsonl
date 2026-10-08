@@ -1,0 +1,13 @@
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/branching_duct-fixture.mesh","cells":48,"internalFaces":92,"maxCellFaces":6,"totalVolume":0.375,"minVolume":0.0078125}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/disconnected-fixture.mesh","cells":320,"internalFaces":784,"maxCellFaces":6,"totalVolume":2,"minVolume":0.00390625}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/graded_channel-fixture.mesh","cells":128,"internalFaces":252,"maxCellFaces":6,"totalVolume":8,"minVolume":6.10352e-05}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/graded_voronoi-fixture.mesh","cells":64,"internalFaces":170,"maxCellFaces":12,"totalVolume":1,"minVolume":0.000273495}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/hex_cube-fixture.mesh","cells":512,"internalFaces":1344,"maxCellFaces":6,"totalVolume":1,"minVolume":0.00195312}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/long_duct-fixture.mesh","cells":128,"internalFaces":252,"maxCellFaces":6,"totalVolume":8,"minVolume":0.0625}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/obstructed_cube-fixture.mesh","cells":480,"internalFaces":1220,"maxCellFaces":6,"totalVolume":0.9375,"minVolume":0.00195312}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/renumbered_cube-fixture.mesh","cells":512,"internalFaces":1344,"maxCellFaces":6,"totalVolume":1,"minVolume":0.00195312}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/rotated_duct-fixture.mesh","cells":128,"internalFaces":252,"maxCellFaces":6,"totalVolume":8,"minVolume":0.0625}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/tet_cube-fixture.mesh","cells":384,"internalFaces":672,"maxCellFaces":4,"totalVolume":1,"minVolume":0.00260417}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/thin_plate-fixture.mesh","cells":64,"internalFaces":112,"maxCellFaces":6,"totalVolume":0.01,"minVolume":0.00015625}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/voronoi_prisms-fixture.mesh","cells":64,"internalFaces":174,"maxCellFaces":10,"totalVolume":1,"minVolume":0.00433643}
+{"mesh":"/tmp/babelsim-partition-model-20261007/fixtures/warped_prisms-fixture.mesh","cells":128,"internalFaces":256,"maxCellFaces":5,"totalVolume":1,"minVolume":0.00698386}

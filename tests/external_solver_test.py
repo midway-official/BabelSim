@@ -14,6 +14,7 @@ ENV = dict(os.environ, TMPDIR="/tmp", OMPI_ALLOW_RUN_AS_ROOT="1",
 parser = argparse.ArgumentParser()
 parser.add_argument("--library", type=Path, required=True)
 parser.add_argument("--petsc-dir", type=Path, required=True)
+parser.add_argument("--partition-libs", default="", help="link flags for the static library's optional partitioner")
 args = parser.parse_args()
 LIBRARY = args.library.resolve()
 PETSC_DIR = args.petsc_dir.resolve()
@@ -21,6 +22,7 @@ PETSC_ENV = dict(ENV, PKG_CONFIG_PATH=str(PETSC_DIR / "lib/pkgconfig"))
 PETSC_LINK = shlex.split(subprocess.check_output(
     ["pkg-config", "--libs", "PETSc"], cwd=ROOT, env=PETSC_ENV, text=True))
 PETSC_LINK.append(f"-Wl,-rpath,{PETSC_DIR / 'lib'}")
+PETSC_LINK.extend(shlex.split(args.partition_libs))
 
 
 def run(*args, cwd, success=True):

@@ -1,0 +1,19 @@
+[
+  {
+    "path": "/tmp/babelsim-partition-model-20261007/fixtures-v2/graded_voronoi-fixture.npz",
+    "sha256": "c6a0c5e6e3eae910e4360a2e73c9fbff69f7666744d405065bb5cc09eb2cb8e7",
+    "cells": 64,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 170,
+    "layers": 2,
+    "maxCellFaces": 12,
+    "minCellFaces": 5,
+    "physicalFaces": 120,
+    "scale": "fixture",
+    "seed": 20261007,
+    "sites": 32
+  }
+]

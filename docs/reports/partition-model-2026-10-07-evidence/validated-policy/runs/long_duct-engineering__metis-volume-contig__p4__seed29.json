@@ -1,0 +1,116 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 0.2445709280000301,
+  "initialPartitionSeconds": 0.23779485998966265,
+  "exactBalanceSeconds": 0.006776068010367453,
+  "quotaTransfers": 156,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0010223388671875,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 1536,
+  "memory": {
+    "beforeRSSBytes": 306282496,
+    "peakRSSBytes": 306282496,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 877,
+  "cutFacesPerPart": [
+    277,
+    585,
+    292,
+    600
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    65536,
+    65536,
+    65536,
+    65536
+  ],
+  "ghostCellsPerPart": [
+    768,
+    1536,
+    768,
+    1536
+  ],
+  "firstLayerGhostsPerPart": [
+    256,
+    512,
+    256,
+    512
+  ],
+  "localCellsPerPart": [
+    66304,
+    67072,
+    66304,
+    67072
+  ],
+  "localFacesPerPart": [
+    207466,
+    209892,
+    207473,
+    209902
+  ],
+  "neighbourRanksPerPart": [
+    1,
+    2,
+    1,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    393216,
+    393216,
+    393216,
+    393216
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0058401908155064,
+  "localCellImbalance": 1.0057581573896353,
+  "totalGhostCells": 4608,
+  "maxGhostCells": 1536,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 1536,
+  "threeLayerCommunicationVolume": 4608,
+  "cellStorageDuplication": 1.017578125,
+  "faceStorageDuplication": 1.0186428557482037,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "ff3fecc358002eb9a68ffce984e41932f575bee9f3fdcc0464f641099ef47ba1",
+  "status": "ok",
+  "graph": "long_duct-engineering",
+  "graphSHA256": "97d2ff55215a993def354355a573ce4bbf5a16c0999bcdad06b757571181239b",
+  "graphMetadata": {
+    "cells": 262144,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "long_duct",
+    "graded": false,
+    "internalFaces": 753408,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 66048,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      1024,
+      16,
+      16
+    ]
+  },
+  "unixStarted": 1791377852.3016226,
+  "unixEnded": 1791377852.6238995,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/long_duct-engineering__metis-volume-contig__p4__seed29.json"
+}

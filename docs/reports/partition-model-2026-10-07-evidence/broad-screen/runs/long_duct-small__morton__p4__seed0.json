@@ -1,0 +1,107 @@
+{
+  "algorithm": "morton",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0016144319961313158,
+  "initialPartitionSeconds": 0.0015264709945768118,
+  "exactBalanceSeconds": 8.796100155450404e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 213880832,
+    "peakRSSBytes": 213880832,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 2048,
+  "cutFacesPerPart": [
+    1024,
+    1024,
+    1024,
+    1024
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    3456,
+    3456,
+    3456,
+    3456
+  ],
+  "firstLayerGhostsPerPart": [
+    1024,
+    1024,
+    1024,
+    1024
+  ],
+  "localCellsPerPart": [
+    5504,
+    5504,
+    5504,
+    5504
+  ],
+  "localFacesPerPart": [
+    18347,
+    18347,
+    18347,
+    18347
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    12288,
+    12288,
+    12288,
+    12288
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 13824,
+  "maxGhostCells": 3456,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 4096,
+  "threeLayerCommunicationVolume": 13824,
+  "cellStorageDuplication": 2.6875,
+  "faceStorageDuplication": 2.749850119904077,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "5327baf259d0cbae2e22548f02b6e7746747c702f271de233c7a516f2d3f4bc3",
+  "status": "ok",
+  "graph": "long_duct-small",
+  "graphSHA256": "961b1189fccd9ddff79c3992a2071c3db663e73a0de2c9aa566a09cbc3653b38",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "long_duct",
+    "graded": false,
+    "internalFaces": 22464,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 4224,
+    "rotated": false,
+    "scale": "small",
+    "shape": [
+      128,
+      8,
+      8
+    ]
+  },
+  "unixStarted": 1791372007.8544514,
+  "unixEnded": 1791372007.895932
+}

@@ -69,7 +69,7 @@ PerformanceCounters maximumPerformance(
     const PerformanceCounters& local,
     const ParallelContext& parallel)
 {
-    const std::array<double, 27> local_values{
+    const std::array<double, 31> local_values{
         static_cast<double>(local.linear_solves),
         static_cast<double>(local.krylov_iterations),
         static_cast<double>(local.sparse_matvecs),
@@ -97,6 +97,10 @@ PerformanceCounters maximumPerformance(
         local.rhs_seconds,
         local.residual_check_seconds,
         local.pattern_build_seconds,
+        static_cast<double>(local.preconditioner_reuses),
+        static_cast<double>(local.preconditioner_retries),
+        static_cast<double>(local.reported_iteration_intervals),
+        local.iteration_compute_seconds,
     };
     std::array<double, local_values.size()> global_values{};
     parallel.maximum(
@@ -130,6 +134,10 @@ PerformanceCounters maximumPerformance(
     global.rhs_seconds = global_values[24];
     global.residual_check_seconds = global_values[25];
     global.pattern_build_seconds = global_values[26];
+    global.preconditioner_reuses = static_cast<std::uint64_t>(global_values[27]);
+    global.preconditioner_retries = static_cast<std::uint64_t>(global_values[28]);
+    global.reported_iteration_intervals = static_cast<std::uint64_t>(global_values[29]);
+    global.iteration_compute_seconds = global_values[30];
     global.equation_systems = local.equation_systems;
     return global;
 }
@@ -444,6 +452,8 @@ EquationControl equationControl(const Case& problem, const std::string& name,
     c.relative_tolerance = p.number(prefix + "relativeTolerance");
     c.max_iterations = p.integer(prefix + "maxIterations");
     c.warm_start = p.boolean(prefix + "warmStart", c.warm_start);
+    c.preconditioner_rebuild_interval = p.integer(prefix + "preconditionerRebuildInterval", c.preconditioner_rebuild_interval);
+    c.preconditioner_reuse_iteration_growth = p.number(prefix + "preconditionerReuseIterationGrowth", c.preconditioner_reuse_iteration_growth);
     c.amg_max_levels = p.integer(prefix + "amgMaxLevels", c.amg_max_levels);
     c.amg_coarse_size = p.integer(prefix + "amgCoarseSize", c.amg_coarse_size);
     c.amg_smoothing_steps = p.integer(prefix + "amgSmoothingSteps", c.amg_smoothing_steps);

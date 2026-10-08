@@ -219,8 +219,8 @@ void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result)
     gradient(operation.field, result, operation.options.gradient.value());
     state.synchronize(result);
     if (result.calculatedBoundary()) {
-        for (Index face = 0; face < state.mesh->faceCount(); ++face) {
-            if (!state.mesh->boundaryFace(face)) continue;
+        for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
+          for (Index face : state.mesh->patchFaces(patch)) {
             const Index owner = state.mesh->owner(face);
             const Vec3 n = state.mesh->faceNormal(face);
             const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
@@ -245,8 +245,8 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
     gradient(operation.field, result, operation.options.gradient.value());
     state.synchronize(result);
     if (result.calculatedBoundary()) {
-        for (Index face = 0; face < state.mesh->faceCount(); ++face) {
-            if (!state.mesh->boundaryFace(face)) continue;
+        for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
+          for (Index face : state.mesh->patchFaces(patch)) {
             const Index owner = state.mesh->owner(face);
             const Vec3 n = state.mesh->faceNormal(face);
             const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);

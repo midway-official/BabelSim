@@ -1,0 +1,40 @@
+[
+  {
+    "case": "piso",
+    "variant": "rhs-budget",
+    "ranks": 4,
+    "samples": 1,
+    "sustainedSamples": 1,
+    "computeMedian": 148.6907136,
+    "computeMin": 148.6907136,
+    "computeMax": 148.6907136,
+    "speedup": null,
+    "efficiency": null,
+    "workMedian": 6,
+    "setups": 9,
+    "iterations": 1353,
+    "setupSeconds": 9.738203907,
+    "solveSeconds": 175.2107693999999,
+    "haloSeconds": 0.4604536520000001,
+    "reductionSeconds": 1.7263661450000023
+  },
+  {
+    "case": "piso",
+    "variant": "transpose-cache",
+    "ranks": 4,
+    "samples": 1,
+    "sustainedSamples": 1,
+    "computeMedian": 148.737713721,
+    "computeMin": 148.737713721,
+    "computeMax": 148.737713721,
+    "speedup": null,
+    "efficiency": null,
+    "workMedian": 6,
+    "setups": 9,
+    "iterations": 1353,
+    "setupSeconds": 9.658066638,
+    "solveSeconds": 173.99485641400005,
+    "haloSeconds": 0.46719348700000035,
+    "reductionSeconds": 1.6603606999999978
+  }
+]

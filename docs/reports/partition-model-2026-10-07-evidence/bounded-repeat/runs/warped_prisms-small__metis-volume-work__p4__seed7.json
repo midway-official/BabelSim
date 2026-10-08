@@ -1,0 +1,103 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.03431601500778925,
+  "initialPartitionSeconds": 0.03407000900187995,
+  "exactBalanceSeconds": 0.0002460060059092939,
+  "quotaTransfers": 4,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0009765625,
+  "nativeObjective": 977,
+  "memory": {
+    "beforeRSSBytes": 271286272,
+    "peakRSSBytes": 271286272,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 556,
+  "cutFacesPerPart": [
+    286,
+    258,
+    270,
+    298
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    855,
+    754,
+    777,
+    851
+  ],
+  "firstLayerGhostsPerPart": [
+    257,
+    225,
+    239,
+    256
+  ],
+  "localCellsPerPart": [
+    2903,
+    2802,
+    2825,
+    2899
+  ],
+  "localFacesPerPart": [
+    7763,
+    7510,
+    7569,
+    7757
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    2,
+    2,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    10240,
+    10240,
+    10240,
+    10240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0148044053727245,
+  "localCellImbalance": 1.0160118995537668,
+  "totalGhostCells": 3237,
+  "maxGhostCells": 855,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 977,
+  "threeLayerCommunicationVolume": 3237,
+  "cellStorageDuplication": 1.3951416015625,
+  "faceStorageDuplication": 1.422944568452381,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "9043f9d021eedc0c0615e182d62bbbfc6421b5bf099512058e28d21e928b39ac",
+  "status": "ok",
+  "graph": "warped_prisms-small",
+  "graphSHA256": "766cb0295beda7a64f3a89c1182b6d2ed4d96459bbeddf19f66250fb581a9a58",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 19456,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 16,
+    "physicalFaces": 2048,
+    "scale": "small",
+    "warp": 0.15
+  },
+  "unixStarted": 1791372804.3732123,
+  "unixEnded": 1791372804.4617367
+}

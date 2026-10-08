@@ -79,6 +79,37 @@ equation.pressureCorrection.maxIterations 800
 每个实际创建的方程都必须有五个核心线性参数，缺少任意一个都会报错。算法控制键和方程线性键
 必须使用各自的完整名字；框架不再提供标量/矢量类型默认值或按场覆盖。
 
+每个方程还支持通用的预条件器复用控制，不依赖 SIMPLE/PISO 或算例名称：
+
+```text
+equation.momentum.preconditionerRebuildInterval 8
+equation.momentum.preconditionerReuseIterationGrowth 2
+```
+
+默认在至多 8 个不同矩阵版本间复用预条件器；当前矩阵 A 仍在每次系数改变时更新。
+相同矩阵只更新 RHS，不触发周期重建。每次有实际 Krylov 迭代的逻辑 RHS 求解还累积
+工作预算；达到同一间隔上限后，在下一次矩阵变化时提前重建。这使一版矩阵承载很多
+RHS 时及时重新准备预条件器，避免旧层级的少量迭代增长在整批求解中累积。
+计数在各 rank 上一致，不依赖计时或额外归约。某个 RHS 的迭代数超过新预条件器参考次数的
+2 倍时，下次求解提前重建；矢量方程按分量保存参考次数。配置改变也重新准备预条件器。
+旧预条件器的求解未满足当前矩阵的真实残差要求时，重建并从原初猜重试一次；第二次失败
+仍按原收敛/失败合同返回。重试使用相同容差，并计入实际迭代数和耗时。
+`preconditionerRebuildInterval 1` 恢复每次矩阵数值更新都准备预条件器的策略。
+间隔必须为正整数，增长倍数必须有限且不小于 1。`pcType none` 不使用这项复用策略。
+复用会改变 Krylov 路径和迭代次数；用同一精度要求的总计算时间和结果验证评价收益。
+
+`pcType hypre` 的 CPU 后端统一使用 HMIS 粗化、ext+i 插值、每行最多 4 个插值项，
+CG、GMRES、FGMRES 使用 1 层 aggressive coarsening；BiCGStab 使用常规粗化和 CF 松弛顺序，
+避免在已验证的非奇异扩散算子上发生 shadow-residual breakdown。
+其他 Krylov 方法在串行保留 CF 松弛顺序，分布式 MPI 使用自然顺序；
+两者均保留对称 SOR/Jacobi 平滑、一次 V-cycle 和零预条件器内部容差。该设置在后端
+按 Krylov 类型和执行方式选择，适用于所有选择 Hypre 的方程，不读取算例名称或几何类别。
+它遵循 [Hypre 的 CPU BoomerAMG 配置建议](https://hypre.readthedocs.io/en/stable/solvers-boomeramg.html)，
+并以本机持续运行和真实残差验证选择松弛顺序。
+配置改变 Krylov 路径，但不改变方程线性容差、失败判断或最终的 `b-A*x` 检查。
+后端通过临时私有 PETSc options 数据库解析高级选项，不修改全局 options；
+`amgMaxLevels`、`amgCoarseSize`、`amgSmoothingSteps` 继续仅用于 GAMG。
+
 ## C++ 使用方式
 
 内置 Solver 或外部 Solver 通过稳定的方程名字取得已经解析的配置：

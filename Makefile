@@ -21,6 +21,23 @@ CPPFLAGS += $(PETSC_CFLAGS)
 LDLIBS += $(PETSC_LIBS)
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 
+# Optional multilevel graph partitioner. Set USE_METIS=0 for the dependency-free
+# graph-growth fallback, or supply METIS_CFLAGS/METIS_LIBS for a custom install.
+USE_METIS ?= auto
+METIS_DIR ?= $(HOME)/opt/metis-5.1.0
+METIS_CFLAGS ?= $(shell test ! -f $(METIS_DIR)/include/metis.h || printf '%s' '-I$(METIS_DIR)/include')
+METIS_LIBS ?= $(shell if test -f $(METIS_DIR)/include/metis.h -a -f $(METIS_DIR)/lib/libmetis.so; then printf '%s' '-L$(METIS_DIR)/lib -lmetis'; elif test -f /usr/include/metis.h; then printf '%s' '-lmetis'; fi)
+PARTITION_LIBS :=
+ifneq ($(USE_METIS),0)
+ifneq ($(strip $(METIS_LIBS)),)
+CPPFLAGS += $(METIS_CFLAGS) -DBABELSIM_USE_METIS=1
+LDLIBS += $(METIS_LIBS)
+PARTITION_LIBS := $(METIS_LIBS)
+else ifeq ($(USE_METIS),1)
+$(error USE_METIS=1 requires METIS headers and library)
+endif
+endif
+
 BUILD ?= build-petsc
 DEBUG_BUILD ?= build-debug
 DEBUG_OPTFLAGS ?= -O1 -g3 -fno-omit-frame-pointer \
@@ -52,6 +69,7 @@ SOURCES := src/core/mesh.cpp \
            src/discretization/field_math.cpp \
            $(COMPUTE_BACKEND_SOURCES) \
            src/parallel/parallel_context.cpp \
+           src/parallel/mesh_partition.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
            src/runtime/solver_api.cpp \
@@ -139,7 +157,7 @@ test-architecture:
 	python3 tests/architecture_test.py
 
 test-external: $(LIB)
-	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR)
+	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR) --partition-libs='$(PARTITION_LIBS)'
 
 test: test-architecture $(TESTS)
 	@set -e; for test in $(TESTS); do $$test; done

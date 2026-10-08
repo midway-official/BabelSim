@@ -1,0 +1,37 @@
+[
+  {
+    "label": "normalized-v5-np1-vs-np4",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r1-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r4-n01"
+  },
+  {
+    "label": "normalized-v5-np1-vs-np8",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r1-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r8-n01"
+  },
+  {
+    "label": "normalized-v5-np1-vs-np12",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r1-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r12-n01"
+  },
+  {
+    "label": "v2-vs-normalized-v5-np4",
+    "reference": "/tmp/babelsim-flow-opt-20261007/memory-partition-ab-work/rhs-budget/piso/results/benchmark-r4-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r4-n01"
+  },
+  {
+    "label": "normalized-v5-vs-HMIS-np4",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r4-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/hmis-pilot-work/hmis/piso/results/benchmark-r4-n01"
+  },
+  {
+    "label": "v2-vs-normalized-v5-np12",
+    "reference": "/tmp/babelsim-flow-opt-20261007/memory-partition-ab-work/rhs-budget/piso/results/benchmark-r12-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r12-n01"
+  },
+  {
+    "label": "normalized-v5-vs-HMIS-np12",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r12-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/hmis-pilot-work/hmis/piso/results/benchmark-r12-n01"
+  }
+]

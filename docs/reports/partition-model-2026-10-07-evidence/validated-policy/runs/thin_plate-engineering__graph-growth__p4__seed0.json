@@ -1,0 +1,116 @@
+{
+  "algorithm": "graph-growth",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.006509116996312514,
+  "initialPartitionSeconds": 0.006158165997476317,
+  "exactBalanceSeconds": 0.00035095099883619696,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 306085888,
+    "peakRSSBytes": 306085888,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 2091,
+  "cutFacesPerPart": [
+    573,
+    570,
+    1735,
+    1304
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    36864,
+    36864,
+    36864,
+    36864
+  ],
+  "ghostCellsPerPart": [
+    1134,
+    1154,
+    3240,
+    2367
+  ],
+  "firstLayerGhostsPerPart": [
+    377,
+    385,
+    1081,
+    790
+  ],
+  "localCellsPerPart": [
+    37998,
+    38018,
+    40104,
+    39231
+  ],
+  "localFacesPerPart": [
+    152568,
+    152651,
+    161485,
+    157586
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    221184,
+    221184,
+    221184,
+    221184
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0346793957936216,
+  "localCellImbalance": 1.0326035880039395,
+  "totalGhostCells": 7895,
+  "maxGhostCells": 3240,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2633,
+  "threeLayerCommunicationVolume": 7895,
+  "cellStorageDuplication": 1.0535413953993056,
+  "faceStorageDuplication": 1.0570580028175118,
+  "componentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "ownershipSHA256": "89d14070f9bed668887671a1cc6751df30b66ce73cd9d37bdaf2be838eff8d0b",
+  "status": "ok",
+  "graph": "thin_plate-engineering",
+  "graphSHA256": "70f70f79d07bf8f21bdb516a5e10625c5b135d8d61865e5467856f9f78004a6a",
+  "graphMetadata": {
+    "cells": 147456,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "thin_plate",
+    "graded": false,
+    "internalFaces": 294144,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 296448,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      384,
+      384,
+      1
+    ]
+  },
+  "unixStarted": 1791377849.9382925,
+  "unixEnded": 1791377849.9899607,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/thin_plate-engineering__graph-growth__p4__seed0.json"
+}

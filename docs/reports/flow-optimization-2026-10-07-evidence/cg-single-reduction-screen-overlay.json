@@ -1,0 +1,27 @@
+{
+  "purpose": "diagnostic screening; excluded from final production scaling statistics",
+  "files": [
+    {
+      "path": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/cg-single-reduction-preload.c",
+      "sha256": "78b22304141255736b0939532832490786643fce55dc46def3417db0f06dba01"
+    },
+    {
+      "path": "/home/midway/babelsim-flow-opt-20261007/bin/cg-single-reduction-preload.so",
+      "sha256": "c7a129682d39174875ee58f314e8b7df1f7374d5bf43c352298a141c46f2e60f"
+    },
+    {
+      "path": "/home/midway/babelsim-flow-opt-20261007/bin/babelsim-cg-single-reduction-screen",
+      "sha256": "563083eb45ff4615af2a1fd6bb234cf6221bca43f5c1b6d48e76598eb42440b1"
+    },
+    {
+      "path": "/home/midway/babelsim-flow-opt-20261007/bin/babelsim-amg-krylov-policy-cf",
+      "sha256": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c"
+    }
+  ],
+  "policy": "every distributed CG KSP; same preconditioner, unpreconditioned norm, convergence callback and final true residual",
+  "extraMemory": "two PETSc owned-cell work vectors per CG system",
+  "primarySources": [
+    "https://petsc.org/release/manualpages/KSP/KSPCGUseSingleReduction/",
+    "https://raw.githubusercontent.com/petsc/petsc/v3.25.5/src/ksp/ksp/impls/cg/cg.c"
+  ]
+}

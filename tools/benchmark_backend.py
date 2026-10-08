@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import signal
 import statistics
 import subprocess
@@ -158,33 +159,34 @@ def build_metadata() -> dict[str, Any]:
     except OSError as error:
         return {"makefile": f"<unavailable: {error}>"}
 
-    def assignment(name: str) -> str:
+    def assignment(name: str) -> str | None:
         lines = text.splitlines()
         for index, line in enumerate(lines):
-            if not line.startswith(name) or "?=" not in line:
+            match = re.match(r"^" + re.escape(name) + r"\s*(?:\?=|:=|=)\s*(.*)$", line)
+            if match is None:
                 continue
-            parts = [line.split("?=", 1)[1].strip().rstrip("\\").strip()]
-            while parts and index + len(parts) < len(lines):
-                continuation = lines[index + len(parts)]
-                if not continuation.lstrip().startswith("-") and not continuation.startswith(" "):
-                    break
-                previous = lines[index + len(parts) - 1]
-                if not previous.rstrip().endswith("\\"):
-                    break
-                parts.append(continuation.strip().rstrip("\\").strip())
+            value = match[1].strip()
+            parts = [value.rstrip("\\").strip()]
+            while value.endswith("\\") and index + 1 < len(lines):
+                index += 1
+                value = lines[index].strip()
+                parts.append(value.rstrip("\\").strip())
             return " ".join(parts)
-        return ""
+        return None
 
     return {
         "makefileSha256": sha256(makefile),
         "optimizationFlags": assignment("OPTFLAGS"),
         "compilerFlags": assignment("CXXFLAGS"),
+        "compiler": assignment("CXX"),
+        "archiveTool": assignment("AR"),
         "backendDefaults": {
             name: assignment(name)
             for name in (
                 "ASYNC_HALO", "CSR_SPMV", "SERIAL_CSR_SPMV",
                 "INPLACE_PRECONDITIONER",
             )
+            if assignment(name) is not None
         },
     }
 
@@ -236,7 +238,8 @@ class ProcessTreeSampler:
     while MPI ranks exit.  It never participates in solver decisions.
     """
 
-    def __init__(self, root_pid: int, solver_name: str, interval: float = 0.1) -> None:
+    def __init__(self, root_pid: int, solver_name: str, interval: float = 0.1,
+                 trace_path: Path | None = None, log_path: Path | None = None) -> None:
         self.root_pid = root_pid
         self.solver_name = solver_name
         self.interval = interval
@@ -245,6 +248,16 @@ class ProcessTreeSampler:
         self._lock = threading.Lock()
         self.peak_tree_kib = 0
         self.peak_solver_kib = 0
+        self.peak_swap_kib = 0
+        self.peak_tree_pss_kib: int | None = None
+        self.trace_path = trace_path
+        self.log_path = log_path
+        self._trace = []
+        self._last_trace = 0.0
+        self._log_offset = 0
+        self._work_reported = 0
+        self._log_fragment = ""
+        self._start = time.monotonic()
 
     @staticmethod
     def _children(pid: int) -> list[int]:
@@ -261,14 +274,62 @@ class ProcessTreeSampler:
         return values
 
     @staticmethod
-    def _rss_kib(pid: int) -> int:
+    def _memory_kib(pid: int) -> tuple[int, int]:
+        rss = swap = 0
         try:
             for line in Path(f"/proc/{pid}/status").read_text().splitlines():
                 if line.startswith("VmRSS:"):
+                    rss = int(line.split()[1])
+                elif line.startswith("VmSwap:"):
+                    swap = int(line.split()[1])
+        except (OSError, ValueError, IndexError):
+            pass
+        return rss, swap
+
+    @staticmethod
+    def _pss_kib(pid: int) -> int | None:
+        try:
+            for line in Path(f"/proc/{pid}/smaps_rollup").read_text().splitlines():
+                if line.startswith("Pss:"):
                     return int(line.split()[1])
         except (OSError, ValueError, IndexError):
             pass
-        return 0
+        return None
+
+    def _trace_once(self, tree_rss: int, solver_rss: int, tree_swap: int, pids: set[int]) -> None:
+        now = time.monotonic()
+        if self.trace_path is None or now - self._last_trace < 1.0:
+            return
+        self._last_trace = now
+        # Read proportional set size only at the one-second trace rate. It
+        # apportions shared mappings rather than counting them once per rank.
+        proportional = [self._pss_kib(pid) for pid in pids]
+        tree_pss = sum(proportional) if proportional and all(value is not None for value in proportional) else None
+        if tree_pss is not None:
+            self.peak_tree_pss_kib = max(self.peak_tree_pss_kib or 0, tree_pss)
+        paging = {}
+        try:
+            for line in Path("/proc/vmstat").read_text().splitlines():
+                key, value = line.split()
+                if key in ("pswpin", "pswpout"):
+                    paging[key] = int(value)
+        except (OSError, ValueError):
+            pass
+        if self.log_path is not None:
+            try:
+                with self.log_path.open() as stream:
+                    stream.seek(self._log_offset)
+                    self._log_fragment += stream.read()
+                    self._log_offset = stream.tell()
+                lines = self._log_fragment.split("\n")
+                self._log_fragment = lines.pop()
+                self._work_reported += sum(bool(re.match(r"^(SIMPLE|PISO) \d+ ", line)) for line in lines)
+            except OSError:
+                pass
+        self._trace.append(dict(elapsedSeconds=now-self._start, unixSeconds=time.time(),
+            treeRssKiB=tree_rss, maxSolverRssKiB=solver_rss, treeSwapKiB=tree_swap,
+            treePssKiB=tree_pss,
+            reportedWork=self._work_reported, logBytes=self._log_offset, **paging))
 
     @staticmethod
     def _command_line(pid: int) -> str:
@@ -283,19 +344,23 @@ class ProcessTreeSampler:
         seen: set[int] = set()
         tree_rss = 0
         solver_rss = 0
+        tree_swap = 0
         while pending:
             pid = pending.pop()
             if pid in seen:
                 continue
             seen.add(pid)
-            rss = self._rss_kib(pid)
+            rss, swap = self._memory_kib(pid)
             tree_rss += rss
+            tree_swap += swap
             if self.solver_name in self._command_line(pid):
                 solver_rss = max(solver_rss, rss)
             pending.extend(self._children(pid))
         with self._lock:
             self.peak_tree_kib = max(self.peak_tree_kib, tree_rss)
             self.peak_solver_kib = max(self.peak_solver_kib, solver_rss)
+            self.peak_swap_kib = max(self.peak_swap_kib, tree_swap)
+            self._trace_once(tree_rss, solver_rss, tree_swap, seen)
 
     def _run(self) -> None:
         while not self._stop.is_set():
@@ -306,13 +371,17 @@ class ProcessTreeSampler:
     def start(self) -> None:
         self._thread.start()
 
-    def stop(self) -> dict[str, int]:
+    def stop(self) -> dict[str, int | None]:
         self._stop.set()
         self._thread.join(timeout=2.0)
         with self._lock:
+            if self.trace_path is not None:
+                self.trace_path.write_text("".join(json.dumps(row)+"\n" for row in self._trace))
             return {
                 "peakTreeRssKiB": self.peak_tree_kib,
                 "peakSolverRssKiB": self.peak_solver_kib,
+                "peakTreeSwapKiB": self.peak_swap_kib,
+                "peakTreePssKiB": self.peak_tree_pss_kib,
             }
 
 
@@ -398,12 +467,19 @@ def run_one(
     start = time.monotonic()
     timed_out = False
     sampler: ProcessTreeSampler | None = None
+    live_log = None
+    process = None
     try:
+        if getattr(args, "live_log", False):
+            live_log = (run_dir / "stdout.log").open("w")
         process = subprocess.Popen(
             command, cwd=ROOT, env=environment, text=True,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            stdout=live_log if live_log is not None else subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             start_new_session=True)
-        sampler = ProcessTreeSampler(process.pid, args.binary.name)
+        sampler = ProcessTreeSampler(process.pid, args.binary.name,
+            trace_path=run_dir / "memory-trace.jsonl" if getattr(args, "memory_trace", False) else None,
+            log_path=run_dir / "stdout.log" if live_log is not None else None)
         sampler.start()
         try:
             stdout, _ = process.communicate(timeout=args.timeout)
@@ -414,6 +490,11 @@ def run_one(
     except OSError as error:
         process = None
         stdout = f"cannot start benchmark process: {error}\n"
+    finally:
+        if live_log is not None:
+            live_log.close()
+            if process is not None:
+                stdout = (run_dir / "stdout.log").read_text()
     memory = sampler.stop() if sampler is not None else {
         "peakTreeRssKiB": 0,
         "peakSolverRssKiB": 0,

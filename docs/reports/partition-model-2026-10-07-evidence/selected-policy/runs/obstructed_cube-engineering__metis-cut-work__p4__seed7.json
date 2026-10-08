@@ -1,0 +1,114 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.47904219600604847,
+  "initialPartitionSeconds": 0.3681048670114251,
+  "exactBalanceSeconds": 0.11093732899462339,
+  "quotaTransfers": 344,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0010431154381085,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 9244,
+  "memory": {
+    "beforeRSSBytes": 277782528,
+    "peakRSSBytes": 316907520,
+    "sampledRSSIncrementBytes": 39124992
+  },
+  "cutFaces": 9200,
+  "cutFacesPerPart": [
+    4643,
+    4633,
+    4567,
+    4557
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    115040,
+    115040,
+    115040,
+    115040
+  ],
+  "ghostCellsPerPart": [
+    12490,
+    12488,
+    12508,
+    12506
+  ],
+  "firstLayerGhostsPerPart": [
+    4170,
+    4168,
+    4188,
+    4186
+  ],
+  "localCellsPerPart": [
+    127530,
+    127528,
+    127548,
+    127546
+  ],
+  "localFacesPerPart": [
+    391243,
+    391261,
+    391383,
+    391349
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    690240,
+    690240,
+    690240,
+    690240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0001891088628168,
+  "localCellImbalance": 1.0000784080038891,
+  "totalGhostCells": 49992,
+  "maxGhostCells": 12508,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 16712,
+  "threeLayerCommunicationVolume": 49992,
+  "cellStorageDuplication": 1.1086404728789987,
+  "faceStorageDuplication": 1.1152280849754046,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "96f3c9bf350170aa5b09d0f3cde694cc634682ad3295f3688ad53efd45767ac2",
+  "status": "ok",
+  "graph": "obstructed_cube-engineering",
+  "graphSHA256": "4cb53e54f3cc59579f8377f4ea282476a567303a0ee945e5192880eeb0a6a165",
+  "graphMetadata": {
+    "cells": 460160,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "obstructed_cube",
+    "graded": false,
+    "internalFaces": 1357448,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 46064,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      80,
+      80,
+      80
+    ]
+  },
+  "unixStarted": 1791377870.8572142,
+  "unixEnded": 1791377871.4337206
+}

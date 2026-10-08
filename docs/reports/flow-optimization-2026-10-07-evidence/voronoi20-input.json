@@ -1,0 +1,71 @@
+{
+  "case": "/home/midway/babelsim-flow-opt-20261007/strong-inputs/voronoi-piso20",
+  "cells": 512000,
+  "faces": 2064032,
+  "acceptedSteps": 20,
+  "measuredIntervals": 19,
+  "deltaT": 0.01,
+  "finalTime": 0.2,
+  "input": {
+    "sha256": "ee1c131df959b50e9b1eef6a71bbb84132a3185f3c8beaed72fde05d8a10c903",
+    "files": [
+      {
+        "path": "case.bs",
+        "bytes": 186,
+        "sha256": "ec44118ef613342df588c8422271fc1a48a2757a39c25e17b5508178e8a5374d"
+      },
+      {
+        "path": "control.bs",
+        "bytes": 36,
+        "sha256": "49725bcd001a0e8f2a84e672521a8c7f42117c5811d70884f9c6a473c3bc5421"
+      },
+      {
+        "path": "dual-graph.npz",
+        "bytes": 32523688,
+        "sha256": "47f1b01913b29c3342b170db92ed3a491cb5eeabba1e8d2239e8e1f9c0b2e8bf"
+      },
+      {
+        "path": "fields/initial/U.field",
+        "bytes": 300,
+        "sha256": "192205da309f5d1b96d8d2d6b82d5b20e65426e4c974103aee2c994553e94af8"
+      },
+      {
+        "path": "fields/initial/p.field",
+        "bytes": 268,
+        "sha256": "84062f8b4a2ce677b0902e3862bdf34bf8d429de66096cb3718403f5a281d94d"
+      },
+      {
+        "path": "generation.json",
+        "bytes": 743,
+        "sha256": "56afb2d5d0e98a619b256513679cd0b15d0af78a0945c2d6a2180e203ba41274"
+      },
+      {
+        "path": "mesh/flow.mesh",
+        "bytes": 160912119,
+        "sha256": "793487be7ffa3dbd9d2df0bbc8244c1df2fc68d5aa0b90f905b444c39940761a"
+      },
+      {
+        "path": "numerics/methods.bs",
+        "bytes": 355,
+        "sha256": "870d4c58a73ac8c3b272915248b494bb4e6ffa6d6c732970cb65a2ca0c67f9dc"
+      },
+      {
+        "path": "numerics/solution.bs",
+        "bytes": 637,
+        "sha256": "cd63d7488573e62686bb2e3268ae54629154745e982dc5c39a70684f5b8fc15d"
+      },
+      {
+        "path": "output.bs",
+        "bytes": 66,
+        "sha256": "32f0514ce0f2d43ddab3b9d7edaae3a71f2364c10174cd8633264a6343b848d0"
+      },
+      {
+        "path": "physics/flow.bs",
+        "bytes": 53,
+        "sha256": "282f382b9cd54c1ef253754bf6fbdedde960f933cbe3c9333f7f14486764f872"
+      }
+    ]
+  },
+  "unchangedMeshAndNumericalControls": true,
+  "allVariantsAndRanksUseThisFixedWork": true
+}

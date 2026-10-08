@@ -1,0 +1,13 @@
+{
+  "case": "/tmp/babelsim-flow-opt-20261007/strong-inputs/simple384",
+  "source": "/tmp/babelsim-flow-opt-20261007/formal-inputs/simple128",
+  "cells": 500094,
+  "faces": 1266111,
+  "outerIterations": 384,
+  "measuredIntervals": 383,
+  "status": "expected maxIterations",
+  "purpose": "SIMPLE throughput; not time to physical steady convergence",
+  "unchangedExceptOuterIterationCap": true,
+  "inputSha256": "9c6c402b05e484922f91cc8434f07bfb397c50ef21daabf04f1517bf1b83cfe1",
+  "meshSha256": "f17af77e2c6208161bfd09ab27629e9d08a63215f77c242b5473b86324ca1920"
+}

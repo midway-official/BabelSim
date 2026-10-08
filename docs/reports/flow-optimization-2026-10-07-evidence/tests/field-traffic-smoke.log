@@ -1,0 +1,9 @@
+operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed
+math_runtime_test: explicit Field operations passed
+public_equation_test: vector source, response, reference and face operators passed
+petsc_backend_test: ranks=1 owned=16 iterations=40
+petsc_backend_test: ranks=2 owned=8 iterations=55
+petsc_backend_test: ranks=4 owned=4 iterations=50
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0
+parallel_math_test: 23 operations x 3 diffusion x 2 gradient methods, poisoned halos, maxError=0

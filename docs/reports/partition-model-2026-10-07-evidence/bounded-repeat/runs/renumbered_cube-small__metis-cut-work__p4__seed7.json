@@ -1,0 +1,102 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.042597656007274054,
+  "initialPartitionSeconds": 0.04217377700842917,
+  "exactBalanceSeconds": 0.00042387899884488434,
+  "quotaTransfers": 6,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0008680555555556,
+  "nativeObjective": 1411,
+  "memory": {
+    "beforeRSSBytes": 271482880,
+    "peakRSSBytes": 271482880,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 1410,
+  "cutFacesPerPart": [
+    708,
+    723,
+    686,
+    703
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    3456,
+    3456,
+    3456,
+    3456
+  ],
+  "ghostCellsPerPart": [
+    1729,
+    1784,
+    1720,
+    1766
+  ],
+  "firstLayerGhostsPerPart": [
+    576,
+    587,
+    556,
+    578
+  ],
+  "localCellsPerPart": [
+    5185,
+    5240,
+    5176,
+    5222
+  ],
+  "localFacesPerPart": [
+    16584,
+    16740,
+    16530,
+    16657
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    20736,
+    20736,
+    20736,
+    20736
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.006750763031679,
+  "localCellImbalance": 1.006579263314604,
+  "totalGhostCells": 6999,
+  "maxGhostCells": 1784,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2297,
+  "threeLayerCommunicationVolume": 6999,
+  "cellStorageDuplication": 1.5062934027777777,
+  "faceStorageDuplication": 1.5396064814814814,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "fcede44797a8533774b84dcf26de01269301030251fb6dd81449042a3cc04703",
+  "status": "ok",
+  "graph": "renumbered_cube-small",
+  "graphSHA256": "7ea0b68d826d4c42d5c5e722a4187df3113be28c3bf2de7794f31e7075709c5f",
+  "graphMetadata": {
+    "cells": 13824,
+    "components": 1,
+    "construction": "hex cube with scrambled cell IDs",
+    "family": "renumbered_cube",
+    "internalFaces": 39744,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 3456,
+    "scale": "small",
+    "seed": 73021
+  },
+  "unixStarted": 1791372813.635435,
+  "unixEnded": 1791372813.7496283
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "case": "prism",
+    "variant": "optimized",
+    "ranks": 12,
+    "samples": 3,
+    "sustainedSamples": 3,
+    "computeMedian": 180.05396319500002,
+    "computeMin": 174.326283074,
+    "computeMax": 183.22386771700002,
+    "speedup": null,
+    "efficiency": null,
+    "workMedian": 10,
+    "setups": 14,
+    "iterations": 5207,
+    "setupSeconds": 4.020110733,
+    "solveSeconds": 152.48706918100007,
+    "haloSeconds": 5.978109537000001,
+    "reductionSeconds": 36.54925833200002
+  },
+  {
+    "case": "prism",
+    "variant": "reference",
+    "ranks": 12,
+    "samples": 3,
+    "sustainedSamples": 3,
+    "computeMedian": 158.06520608300002,
+    "computeMin": 116.796162361,
+    "computeMax": 159.531172677,
+    "speedup": null,
+    "efficiency": null,
+    "workMedian": 10,
+    "setups": 14,
+    "iterations": 5207,
+    "setupSeconds": 3.9613448460000003,
+    "solveSeconds": 132.75524187900018,
+    "haloSeconds": 4.85586999600001,
+    "reductionSeconds": 30.519487636000118
+  }
+]

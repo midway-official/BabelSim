@@ -1,0 +1,85 @@
+[
+  {
+    "name": "heat",
+    "ranks": 2,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "build-petsc/babelsim-solve",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/case",
+      "-time",
+      "final-cf-np2"
+    ],
+    "returncode": 0
+  },
+  {
+    "name": "heat",
+    "ranks": 4,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "4",
+      "build-petsc/babelsim-solve",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/case",
+      "-time",
+      "final-cf-np4"
+    ],
+    "returncode": 0
+  },
+  {
+    "name": "backend",
+    "ranks": 1,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "1",
+      "build-petsc/petsc_backend_test"
+    ],
+    "returncode": 0
+  },
+  {
+    "name": "backend",
+    "ranks": 2,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "build-petsc/petsc_backend_test"
+    ],
+    "returncode": 0
+  },
+  {
+    "name": "backend",
+    "ranks": 4,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "4",
+      "build-petsc/petsc_backend_test"
+    ],
+    "returncode": 0
+  }
+]

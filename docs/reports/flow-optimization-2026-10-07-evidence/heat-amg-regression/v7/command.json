@@ -1,0 +1,19 @@
+{
+  "command": [
+    "mpirun",
+    "--bind-to",
+    "core",
+    "--map-by",
+    "core",
+    "-np",
+    "2",
+    "/tmp/babelsim-flow-opt-20261007/bin/babelsim-hmis-exti4-agg1",
+    "-case",
+    "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/case",
+    "-time",
+    "v7",
+    "-performance",
+    "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/heat-amg-regression/v7/performance"
+  ],
+  "returncode": 2
+}

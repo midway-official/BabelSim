@@ -1,0 +1,97 @@
+[
+  {
+    "variant": "v10",
+    "solver": "bcgs",
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "/tmp/babelsim-flow-opt-20261007/bin/babelsim-amg-execution-policy",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/v10-bcgs",
+      "-time",
+      "diagnostic"
+    ],
+    "returncode": 2
+  },
+  {
+    "variant": "v6",
+    "solver": "bcgs",
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "/tmp/babelsim-flow-opt-20261007/bin/babelsim-hmis-exti4",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/v6-bcgs",
+      "-time",
+      "diagnostic"
+    ],
+    "returncode": 0
+  },
+  {
+    "variant": "v10",
+    "solver": "cg",
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "/tmp/babelsim-flow-opt-20261007/bin/babelsim-amg-execution-policy",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/v10-cg",
+      "-time",
+      "diagnostic"
+    ],
+    "returncode": 0
+  },
+  {
+    "variant": "v10",
+    "solver": "gmres",
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "/tmp/babelsim-flow-opt-20261007/bin/babelsim-amg-execution-policy",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/v10-gmres",
+      "-time",
+      "diagnostic"
+    ],
+    "returncode": 0
+  },
+  {
+    "variant": "v10",
+    "solver": "fgmres",
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "/tmp/babelsim-flow-opt-20261007/bin/babelsim-amg-execution-policy",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/v10-fgmres",
+      "-time",
+      "diagnostic"
+    ],
+    "returncode": 0
+  }
+]

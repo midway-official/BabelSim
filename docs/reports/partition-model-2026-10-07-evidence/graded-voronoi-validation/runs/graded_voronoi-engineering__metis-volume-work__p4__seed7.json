@@ -1,0 +1,111 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.5741443279985106,
+  "initialPartitionSeconds": 0.5655818390077911,
+  "exactBalanceSeconds": 0.00856248899071943,
+  "quotaTransfers": 132,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.00103125,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 12221,
+  "memory": {
+    "beforeRSSBytes": 358084608,
+    "peakRSSBytes": 358084608,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 12704,
+  "cutFacesPerPart": [
+    6212,
+    6463,
+    5636,
+    7097
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128000,
+    128000,
+    128000,
+    128000
+  ],
+  "ghostCellsPerPart": [
+    12226,
+    12431,
+    11643,
+    14408
+  ],
+  "firstLayerGhostsPerPart": [
+    2977,
+    3020,
+    2761,
+    3472
+  ],
+  "localCellsPerPart": [
+    140226,
+    140431,
+    139643,
+    142408
+  ],
+  "localFacesPerPart": [
+    570911,
+    571902,
+    568434,
+    580289
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    2,
+    2,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    1019655,
+    1013976,
+    1014175,
+    1011746
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0046970700215196,
+  "localFaceImbalance": 1.0129258279162972,
+  "localCellImbalance": 1.0123047832979093,
+  "totalGhostCells": 50708,
+  "maxGhostCells": 14408,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 12230,
+  "threeLayerCommunicationVolume": 50708,
+  "cellStorageDuplication": 1.0990390625,
+  "faceStorageDuplication": 1.1102230973163207,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "c20989d7209c1c06994280a53c62a2e3392f0116393d9bb534594da5c124ce48",
+  "status": "ok",
+  "graph": "graded_voronoi-engineering",
+  "graphSHA256": "22628d51906fe8dabedb51d08dded9498c0bcb6b4c8df2b79e7781abeecf3512",
+  "graphMetadata": {
+    "cells": 512000,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 1995520,
+    "layers": 32,
+    "maxCellFaces": 14,
+    "minCellFaces": 5,
+    "physicalFaces": 68512,
+    "scale": "engineering",
+    "seed": 20261007,
+    "sites": 16000
+  },
+  "unixStarted": 1791378334.8463037,
+  "unixEnded": 1791378335.6098816
+}

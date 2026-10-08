@@ -1,0 +1,28 @@
+{
+  "family": "voronoi_prisms",
+  "scale": "engineering",
+  "construction": "bounded convex Voronoi-polygon extrusion",
+  "sites": 16000,
+  "layers": 32,
+  "graded": false,
+  "seed": 20261007,
+  "cells": 512000,
+  "internalFaces": 2017152,
+  "physicalFaces": 46880,
+  "components": 1,
+  "minCellFaces": 5,
+  "maxCellFaces": 15,
+  "template": "/tmp/babelsim-flow-opt-20261007/formal-inputs/piso6",
+  "templateInputSha256": "aba8474cb902462fa5997d7b86074653e18eb1415cfe74709041fed6bea6c4e2",
+  "mesh": "/tmp/babelsim-flow-opt-20261007/formal-inputs/voronoi-piso6/mesh/flow.mesh",
+  "meshSha256": "793487be7ffa3dbd9d2df0bbc8244c1df2fc68d5aa0b90f905b444c39940761a",
+  "csrAndFaceCountsIndependentlyChecked": true,
+  "boundaryPlanes": [
+    "inlet",
+    "outlet",
+    "lower_wall",
+    "upper_wall",
+    "front",
+    "back"
+  ]
+}

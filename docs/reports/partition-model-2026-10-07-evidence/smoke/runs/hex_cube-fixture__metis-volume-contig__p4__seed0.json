@@ -1,0 +1,107 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.02233490499202162,
+  "initialPartitionSeconds": 0.022262792990659364,
+  "exactBalanceSeconds": 7.21120013622567e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": 269,
+  "memory": {
+    "beforeRSSBytes": 257114112,
+    "peakRSSBytes": 257114112,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 228,
+  "cutFacesPerPart": [
+    128,
+    120,
+    110,
+    98
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128,
+    128,
+    128,
+    128
+  ],
+  "ghostCellsPerPart": [
+    228,
+    236,
+    210,
+    204
+  ],
+  "firstLayerGhostsPerPart": [
+    72,
+    71,
+    66,
+    60
+  ],
+  "localCellsPerPart": [
+    356,
+    364,
+    338,
+    332
+  ],
+  "localFacesPerPart": [
+    1254,
+    1291,
+    1197,
+    1168
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    768,
+    768,
+    768,
+    768
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0517311608961304,
+  "localCellImbalance": 1.0474820143884893,
+  "totalGhostCells": 878,
+  "maxGhostCells": 236,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 269,
+  "threeLayerCommunicationVolume": 878,
+  "cellStorageDuplication": 2.71484375,
+  "faceStorageDuplication": 2.841435185185185,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "80143ffbccb793c2c7c2d6ba3d088c3729440151c054fdff431b63def493087c",
+  "status": "ok",
+  "graph": "hex_cube-fixture",
+  "graphSHA256": "d007a5a39be79e6358f017f8859c394d81708aafdd2a7d64b88e37267baf6701",
+  "graphMetadata": {
+    "cells": 512,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "hex_cube",
+    "graded": false,
+    "internalFaces": 1344,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 384,
+    "rotated": false,
+    "scale": "fixture",
+    "shape": [
+      8,
+      8,
+      8
+    ]
+  },
+  "unixStarted": 1791371877.0937703,
+  "unixEnded": 1791371877.1619687
+}
