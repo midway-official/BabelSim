@@ -1,0 +1,19 @@
+START amg-voronoi20-strong-scaling
+FINISHED amg-voronoi20-strong-scaling
+START strong-field-comparison
+FINISHED strong-field-comparison
+START simple-strong-scaling
+FINISHED simple-strong-scaling
+START amg-prism-repeat
+FINISHED amg-prism-repeat
+START amg-voronoi20-repeat
+FINISHED amg-voronoi20-repeat
+START simple-repeat
+FINISHED simple-repeat
+START analyze-strong-scaling
+FINISHED analyze-strong-scaling
+START analyze-simple-throughput
+FINISHED analyze-simple-throughput
+START render-strong-report
+FINISHED render-strong-report
+ALL FIXED-WORK STUDIES AND REPORT GENERATION COMPLETED

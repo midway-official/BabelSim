@@ -1,0 +1,590 @@
+{
+  "createdUtc": "2026-10-08T12:44:26.816981+00:00",
+  "git": {
+    "branch": "codex/polyhedral-fvm",
+    "commit": "78b712ef24704d14fc64cbcba3b4f9f7cbd2c438",
+    "sourceBaselineCommit": "83d7b72757f7f9af2db1a01a097389f86c296117",
+    "trackedPaths": [
+      "Makefile",
+      "README.md",
+      "docs/dsl-runtime-manual.md",
+      "docs/numerical-configuration.md",
+      "docs/performance/README.md",
+      "docs/reports/flow-optimization-2026-10-07-evidence/analyze-cg-single-reduction-screen.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/analyze-results.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/analyze-simple-throughput.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/analyze-strong-scaling.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/audit-delivery.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/cg-single-reduction-preload.c",
+      "docs/reports/flow-optimization-2026-10-07-evidence/compare-flow-fields.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/extend-voronoi-work.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/finish-extended-studies.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/finish-screen-and-campaign.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/finish-sequential-studies.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/prepare-simple-throughput.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/prepare-strong-cases.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/recover-strong-fields.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/recover-workspace.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/render-report.py",
+      "docs/reports/flow-optimization-2026-10-07-evidence/render-strong-report.py",
+      "include/babelsim/field.h",
+      "include/babelsim/mesh.h",
+      "include/babelsim/runtime.h",
+      "include/babelsim/solver_control.h",
+      "src/backend/petsc_assembly_plan.cpp",
+      "src/backend/petsc_backend.cpp",
+      "src/backend/petsc_linear_system.cpp",
+      "src/backend/solver_control.cpp",
+      "src/discretization/fvm_execution.cpp",
+      "src/discretization/operators.cpp",
+      "src/internal/field_access.h",
+      "src/internal/mesh_partition.h",
+      "src/internal/petsc_assembly_plan.h",
+      "src/internal/petsc_linear_system.h",
+      "src/io/case.cpp",
+      "src/io/monitor.cpp",
+      "src/parallel/mesh_partition.cpp",
+      "src/parallel/parallel_context.cpp",
+      "src/runtime/application.cpp",
+      "src/runtime/runtime.cpp",
+      "tests/external_solver_test.py",
+      "tests/numerical_configuration_test.cpp",
+      "tests/parallel_partition_test.cpp",
+      "tests/petsc_backend_test.cpp",
+      "tools/benchmark_backend.py",
+      "tools/benchmark_solver_optimization.py",
+      "tools/check_partition_model.py",
+      "tools/generate_mpi_flow_case.py",
+      "tools/generate_mpi_scaling_case.py",
+      "tools/generate_partition_flow_case.py",
+      "tools/partition_model_algorithms.py",
+      "tools/partition_model_graphs.py",
+      "tools/study_mesh_partition.py"
+    ]
+  },
+  "binarySha256": {
+    "reference": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2",
+    "optimized": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c"
+  },
+  "binaries": {
+    "reference": "/home/midway/babelsim-flow-opt-20261007/bin/babelsim-memory-partition-normalized",
+    "optimized": "/home/midway/babelsim-flow-opt-20261007/bin/babelsim-amg-krylov-policy-cf"
+  },
+  "physicsDiffEmpty": true,
+  "productionAndTestSourceMatchPassedFullRegression": true,
+  "fullTest": {
+    "command": "env -u LD_PRELOAD -u PETSC_OPTIONS TMPDIR=/tmp OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 make -j4 test-full",
+    "exitCode": 0,
+    "log": "docs/reports/flow-optimization-2026-10-07-evidence/tests/test-full-amg-krylov-policy-cf.log",
+    "logSha256": "f3dd1cc211ec519e94931536580711b5a9b2ab10e098684b64375aeb89cb2ada"
+  },
+  "build": {
+    "makefileSha256": "01a0e544294e4af7b565af6c92171a7a7b0723fc9d1f8c97f3b367dda84d1f4f",
+    "optimizationFlags": "-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG",
+    "compilerFlags": "-std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1",
+    "compiler": "mpic++",
+    "archiveTool": "gcc-ar",
+    "backendDefaults": {}
+  },
+  "scalingDataAudit": {
+    "strong-summary.json": {
+      "distinctRuns": 32,
+      "groups": 16,
+      "medianDenominatorsRecomputed": true,
+      "currentPerformanceFilesMatch": true
+    },
+    "simple-summary.json": {
+      "distinctRuns": 16,
+      "groups": 8,
+      "medianDenominatorsRecomputed": true,
+      "currentPerformanceFilesMatch": true
+    }
+  },
+  "currentFieldDirectoriesRehashed": 16,
+  "files": [
+    {
+      "path": "Makefile",
+      "sha256": "01a0e544294e4af7b565af6c92171a7a7b0723fc9d1f8c97f3b367dda84d1f4f",
+      "bytes": 12575
+    },
+    {
+      "path": "README.md",
+      "sha256": "1c62d7eb0a20525ac4ecc9f00057d66f0a1c654c932db565a11ef5133e763f85",
+      "bytes": 15678
+    },
+    {
+      "path": "docs/dsl-runtime-manual.md",
+      "sha256": "638847cd57f081f5364bd13fafcf5018d111950c406cd32220ac686f7662d0cf",
+      "bytes": 10601
+    },
+    {
+      "path": "docs/numerical-configuration.md",
+      "sha256": "456a5530746805f03c83ae2dde0156e36dd0faa020ce9e2145cd2fabb040a3a7",
+      "bytes": 9751
+    },
+    {
+      "path": "docs/performance/README.md",
+      "sha256": "5500a04559830a0aca7d7e2fd4e3e02d72fcd77375d477f0a36369a737c7b022",
+      "bytes": 11824
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/analyze-cg-single-reduction-screen.py",
+      "sha256": "deeb3144bd10bfdcc9c813048c16653e371f7f6210a17159627757ef33b6661e",
+      "bytes": 3574
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/analyze-results.py",
+      "sha256": "f9ac104d43761c9717a6ca534a05bded1a4cfaa6734a64e2604584d2fc91bced",
+      "bytes": 8083
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/analyze-simple-throughput.py",
+      "sha256": "d8e6eb0a17199b98a7f8500e64e2d787f49732da650c049022846c1574535fa2",
+      "bytes": 6724
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/analyze-strong-scaling.py",
+      "sha256": "921b0161464cb7887bce1213c26d31a136ec126d5615bdaa55246e7304b694cc",
+      "bytes": 11583
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/audit-delivery.py",
+      "sha256": "71b4e59e08382667dd55971cdc22418b674ef19f849f7cf7e0e8943591c47ab0",
+      "bytes": 10544
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/cg-single-reduction-preload.c",
+      "sha256": "78b22304141255736b0939532832490786643fce55dc46def3417db0f06dba01",
+      "bytes": 1122
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/compare-flow-fields.py",
+      "sha256": "4e65ff5db3a9cc7a6cbc7a514fc3e07e39e74ef1baee29dfa0fb2f502a8be869",
+      "bytes": 4748
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/extend-voronoi-work.py",
+      "sha256": "01d142ce1e77cbefa9c595291e7627d171a2e307d3e908ee53308743a4dcd879",
+      "bytes": 2173
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/finish-extended-studies.py",
+      "sha256": "a357a40d60458eb9485ddb2ea7e365ed8a2763eb7a5b535d7d213bacd61d26e8",
+      "bytes": 7002
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/finish-screen-and-campaign.py",
+      "sha256": "dd174651dc16ee2228c415bf734e0684e54d2783aff40d98e256418e6c928fc3",
+      "bytes": 2373
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/finish-sequential-studies.py",
+      "sha256": "b3e5e7031d195c28229c285e9b9010d7592b0debf574bf926053e0503eb63b82",
+      "bytes": 6677
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/prepare-simple-throughput.py",
+      "sha256": "46faada26ff3dfe9087820fb70e30ad847ccbbd8090d3910756adc34f460de0e",
+      "bytes": 2043
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/prepare-strong-cases.py",
+      "sha256": "e94ad26c0d532d482a1aa202eb75e7a350a6ca7538404ac4c21d62c6fcfdc826",
+      "bytes": 3201
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/recover-strong-fields.py",
+      "sha256": "e3587ffa3d14e6a108fe6fd48d0653cbc82c1051e2dca80275377034779efe2a",
+      "bytes": 4654
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/recover-workspace.py",
+      "sha256": "811ded8f9e4776d1443a5ab797f25a9b1e4de3e3349807386697095d6b6fabfd",
+      "bytes": 4017
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/render-report.py",
+      "sha256": "7b40e13982176e8fdef861dad9bf1de5076c9f28453939fca2af3afc123715ca",
+      "bytes": 12423
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/render-strong-report.py",
+      "sha256": "84e1be8a28cca3957fe017c7f5e2fd9b396a0101063e8733bdb7a050dd336294",
+      "bytes": 23729
+    },
+    {
+      "path": "include/babelsim/field.h",
+      "sha256": "612f48eadc130ca3b727007d009771d39d78802aa2cdf027b820baccd27eba09",
+      "bytes": 19953
+    },
+    {
+      "path": "include/babelsim/mesh.h",
+      "sha256": "f60a008f5d8279cc209a2a93b032a290c8d7f34f68d90cc75ab1788c91b4b652",
+      "bytes": 11835
+    },
+    {
+      "path": "include/babelsim/runtime.h",
+      "sha256": "f5dcda36162401a99806a12e4bf1aeddc03cee1dd734d8a02885ae7460e32644",
+      "bytes": 2158
+    },
+    {
+      "path": "include/babelsim/solver_control.h",
+      "sha256": "be61ece3cb6033b6d056637c5547f0fccbe427777ca90d01be6dd252a0c81651",
+      "bytes": 11075
+    },
+    {
+      "path": "src/backend/petsc_assembly_plan.cpp",
+      "sha256": "8362cdbdde3db030113375293d690e33da69c52d158652567be799a17abc1d56",
+      "bytes": 5090
+    },
+    {
+      "path": "src/backend/petsc_backend.cpp",
+      "sha256": "60c34ba35a548dca482ec3cbae25359cbd4bee22aa1123a73966e2cb4c8d7764",
+      "bytes": 15360
+    },
+    {
+      "path": "src/backend/petsc_linear_system.cpp",
+      "sha256": "293a01822fbfe8c0ec8d71bb9d5a26450215a63d0df2ba2f8e783e7c715f3201",
+      "bytes": 20843
+    },
+    {
+      "path": "src/backend/solver_control.cpp",
+      "sha256": "0ff4dbc97b264ac4a575dc9b9b3d10315c85deffba4f909abf10f2e420429766",
+      "bytes": 1680
+    },
+    {
+      "path": "src/discretization/fvm_execution.cpp",
+      "sha256": "0167c03292e595e1a7bfc3d8e53a2bb8fbf4ba479441a56d99b6fb130ea87791",
+      "bytes": 25539
+    },
+    {
+      "path": "src/discretization/operators.cpp",
+      "sha256": "dbf262a341e857f194fd5a850c1ccb254d8555cefae8105ebf07b1dc734a661b",
+      "bytes": 64676
+    },
+    {
+      "path": "src/internal/field_access.h",
+      "sha256": "cf728c776a97056f6d256ad511d603ee1acf796bd4bf191601dabd309fcdc526",
+      "bytes": 2468
+    },
+    {
+      "path": "src/internal/mesh_partition.h",
+      "sha256": "02bf1c43fc3c420432b473e7a84e1e1b6d2ab6e68fb66b54569c69b516724dd0",
+      "bytes": 230
+    },
+    {
+      "path": "src/internal/petsc_assembly_plan.h",
+      "sha256": "4112bb736bd731fd8fa4ab3736d40716156c42be6b7346362a2f214139befd8a",
+      "bytes": 1577
+    },
+    {
+      "path": "src/internal/petsc_linear_system.h",
+      "sha256": "399f0f931ab46541f6012b111f05b4e598962d50e8be717502179b17a09cf235",
+      "bytes": 3766
+    },
+    {
+      "path": "src/io/case.cpp",
+      "sha256": "15f75bf0aeafbb5a0dea4bcefabafc24dc47f0a89897318039a6259c130c1d37",
+      "bytes": 25490
+    },
+    {
+      "path": "src/io/monitor.cpp",
+      "sha256": "865d76e9196dcd3862b1cf5383db3dccd3df3b5d4a82d7eb7bc8611fae0645b7",
+      "bytes": 1309
+    },
+    {
+      "path": "src/parallel/mesh_partition.cpp",
+      "sha256": "998dbb2ae8d8a91442c0e325a821f3ad4e107d59130f8e31466f0193078e26b3",
+      "bytes": 20551
+    },
+    {
+      "path": "src/parallel/parallel_context.cpp",
+      "sha256": "67c847934cd04742096bae26a552c7847412ae5b4115302895a7c561806d01ee",
+      "bytes": 39746
+    },
+    {
+      "path": "src/runtime/application.cpp",
+      "sha256": "4a26f4789b6fbd363af25d68a2ce6c070a5e974c38505fef88299a8632dcf451",
+      "bytes": 15366
+    },
+    {
+      "path": "src/runtime/runtime.cpp",
+      "sha256": "540ecb450eda29d64f0b415a5d7425d73c1dfd7649dab0e4a725d74a15108b75",
+      "bytes": 6917
+    },
+    {
+      "path": "tests/external_solver_test.py",
+      "sha256": "6b2ba3cb22c822b8d629ed78526b4a0fb3fd3f8e07c62f87f57bba403727b2e9",
+      "bytes": 17366
+    },
+    {
+      "path": "tests/numerical_configuration_test.cpp",
+      "sha256": "4bc8d4e65ef689ba99f434290d9418d00d5b15df8314ae47f23978e8b0262120",
+      "bytes": 10439
+    },
+    {
+      "path": "tests/parallel_partition_test.cpp",
+      "sha256": "12589c7a2bb6919cac42cabe116a57848847b346661b966985ec21d9dbf021dc",
+      "bytes": 8737
+    },
+    {
+      "path": "tests/petsc_backend_test.cpp",
+      "sha256": "3a5d44853a57ea137066eafd36eb29c97680e392541e13b207808bb32564bbc9",
+      "bytes": 22159
+    },
+    {
+      "path": "tools/benchmark_backend.py",
+      "sha256": "7ed69028cff1009e2e6c65909c8a3e7eca9797d81bb4c0e87b132fec2db854ed",
+      "bytes": 29037
+    },
+    {
+      "path": "tools/benchmark_solver_optimization.py",
+      "sha256": "a18e593c33dcf961f576550d883ab9cd3064a7a92bfc4833b20ccc068228f067",
+      "bytes": 13619
+    },
+    {
+      "path": "tools/check_partition_model.py",
+      "sha256": "f0f02d3982b13b58ca782fd34846aea3b2e74cf6672d9e4102aaad99f99312c5",
+      "bytes": 4175
+    },
+    {
+      "path": "tools/generate_mpi_flow_case.py",
+      "sha256": "3192fc4ff735fdf50a78963754c227c29292b64670dfeb420f6173e7037f954d",
+      "bytes": 5980
+    },
+    {
+      "path": "tools/generate_mpi_scaling_case.py",
+      "sha256": "788ba68e1a8e551c722e0080d5b9f03984c634f5c120c379c63465e093f11f90",
+      "bytes": 8269
+    },
+    {
+      "path": "tools/generate_partition_flow_case.py",
+      "sha256": "4ad5871754474673408e0f3f6980d7e36d6b71c8f55b858ff4a733aac8805311",
+      "bytes": 2667
+    },
+    {
+      "path": "tools/partition_model_algorithms.py",
+      "sha256": "e9fc8850faf42d0b349ec79a74b55bd40c6fe5e93f8a1bca6929e96110b31cb2",
+      "bytes": 18929
+    },
+    {
+      "path": "tools/partition_model_graphs.py",
+      "sha256": "7a1926e6a194d0ffdea65dfc87a41041d1ee3dcf19e2ce1ed9f3ddf30354def6",
+      "bytes": 17389
+    },
+    {
+      "path": "tools/study_mesh_partition.py",
+      "sha256": "f4ba646c00c1f6d93ee3dfba0c8e15691401010a86d7e49d3c728984d28170b2",
+      "bytes": 16327
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-summary.json",
+      "sha256": "7999867a02ee82af8e2f635ea384a2f5286b1f6545343dcac47df2d7d9d5790e",
+      "bytes": 27665
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-summary.json",
+      "sha256": "8c23902e219e39677ce2a6b82dc31be748738f5d712448ca3f6c877d6d507cd3",
+      "bytes": 7896
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-field-comparisons.json",
+      "sha256": "aa1a68d15299cee07221f7bfbf71abc879fa48fff6d649bd01b53200fe099fc6",
+      "bytes": 14586
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-field-pairs.json",
+      "sha256": "9108291633977aa34dbe8972a079ac6c200b1aaeedb4e59e67ff57828664f9d2",
+      "bytes": 5194
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-scaling.csv",
+      "sha256": "3eec130384e06012c1a4ec9f5d6972b8743246884ca609dd5345e5a814a74072",
+      "bytes": 8565
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-comparison.csv",
+      "sha256": "cb893ef29ceaf64fee89d631dad9056cd5e6711aed1e242bfaa013ce5557629e",
+      "bytes": 1831
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-scaling.csv",
+      "sha256": "a8532ee561e7a7c98678447600c130fdc8aaa4a1cc946445354e5c12bf1754d7",
+      "bytes": 2309
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-comparison.csv",
+      "sha256": "ca66a3b88a12067f0e6f7d762be839fc64e0a74d3512250593d9a3495329f707",
+      "bytes": 426
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/voronoi20-input.json",
+      "sha256": "7ef8c1dfdb8751941d5fcb68dcde251c2636d380706f9b05f649d3970411e4a7",
+      "bytes": 2183
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-throughput-input.json",
+      "sha256": "abf7916b45a95fac80036342073d42286874af3c80aaa632568ae6edb548b26c",
+      "bytes": 562
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/recovery-2026-10-08.json",
+      "sha256": "1eeae2cc08a061d5939e6091d164dda6e69c36b50532ca7be1161f4757f952ba",
+      "bytes": 1355
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/recovered-build-recipe.json",
+      "sha256": "7cbeaa0dc73bf0e5253e5655a05be43ae2e212c537ad64551b5fecd7f68e18db",
+      "bytes": 437
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/checkpoint-git-push.json",
+      "sha256": "b2e60a48745e7ec3292ecb357d01d7de51d3acc0ab1cb1bafc23b7d520a8e519",
+      "bytes": 1274
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/framework-scope-review.md",
+      "sha256": "4d292d38817544f4bd3243c405ac2a77e9f4033c5b73bce378ea02dc3d2ac6f0",
+      "bytes": 2381
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/benchmark-exit-contract-audit.json",
+      "sha256": "a7405baae82f8b0845131ed49bef43a5292750c0d0d659194b033603a5383e93",
+      "bytes": 1795
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/cg-single-reduction-screen-summary.json",
+      "sha256": "263e317aa5bea28323bd1e0be551367380444af10baa8e902d3a0c60bd98205d",
+      "bytes": 1734
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/cg-single-reduction-decision.json",
+      "sha256": "a46d35b9e117d46ccc93ec584241ff3246f570874622db52537a8dc8ec31584f",
+      "bytes": 508
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/cg-single-reduction-screen-overlay.json",
+      "sha256": "76d7ae04c550ed9d4ff79dfc35a70db67941a66c6e6b5fb06ac23f62816f1bdd",
+      "bytes": 1277
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/v12-current-profile-summary.json",
+      "sha256": "796008566166f42277f6ac93b4847d64cd4e2ac2284a0fe528dd746b53e868ad",
+      "bytes": 4122
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07.md",
+      "sha256": "187bff6c77745c32af773a856e98588e6f9ce0d000ebda4898a1b0a3eb16be4a",
+      "bytes": 23466
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-scaling.png",
+      "sha256": "58276e3ff8751d43b4d3101470061684deb5d544c163ebd2cd53938e2a1641fb",
+      "bytes": 259093
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-scaling.svg",
+      "sha256": "fa7a471fe1dde611d39b874dc87eac6cc183f32a1c145617453c71daa5ce5835",
+      "bytes": 110627
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-scaling.pdf",
+      "sha256": "4eea48f8f8c50af2d935aef90cf0ceca66c0be7262ace36269e1602087f45ffa",
+      "bytes": 24607
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-memory.png",
+      "sha256": "5acfb0c4a0d6f1e89f905ebab051a7d65862c80928ef18f80d4e4b8062fda5fa",
+      "bytes": 137892
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-memory.svg",
+      "sha256": "6fc4e027ee0a07270aadcf7e52e28dff5524de7d38b32725091769e3cf7513bf",
+      "bytes": 66341
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/strong-memory.pdf",
+      "sha256": "855cd590a0dd06da80cd2bf13e4ec18f0e03857871d986f746700d4837b8be79",
+      "bytes": 19981
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-scaling.png",
+      "sha256": "b1bac5b7ad4bdba5f3c5b91122ec9e94826d598a78419853d087c52d4c1dbb7c",
+      "bytes": 162209
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-scaling.svg",
+      "sha256": "068cfa6bec32f576ea1ce86d3ca29c9ee19b4a72a78195094b45cbeb09ef4840",
+      "bytes": 73316
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-scaling.pdf",
+      "sha256": "a9f6926b508cbbe73324ae59b4c785ddc35068727f10e26c5c9c95da65f3d095",
+      "bytes": 22205
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-post-restart/study.json",
+      "sha256": "53f581b3a4034ca320aadb2c5ac127982b8974289b098e6ad2b6f3afa3a31fd0",
+      "bytes": 160609
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-post-restart/records.json",
+      "sha256": "9380329819e21606db23ae698d39082af3f92beabd845320e846f192e18fe39e",
+      "bytes": 424872
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-voronoi20-strong-scaling/study.json",
+      "sha256": "ed0f24d1b8d48fa27fd6ed2f9a81fc7a00246890604b71884e5d875957c93618",
+      "bytes": 164457
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-voronoi20-strong-scaling/records.json",
+      "sha256": "211f9ab46d853c4231287ccc1e928dba48cbe5291215b2b57b9a15ae16993fdb",
+      "bytes": 424513
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-prism-repeat/study.json",
+      "sha256": "281940acb305c553706ce2f401685ab15276982f2069aee1a0554c52f3aabab5",
+      "bytes": 44215
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-prism-repeat/records.json",
+      "sha256": "c7c43751aa068da9174811680a8289e6bd145bf743ee36bfebcd1cb7739076c9",
+      "bytes": 438720
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-voronoi20-repeat/study.json",
+      "sha256": "9a64561f487b0255ef48d49d193f18087438e1fb8ed3e9075b0f9a9ae4bfb91f",
+      "bytes": 50124
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/amg-voronoi20-repeat/records.json",
+      "sha256": "6a732829e14c80f70c97ddfa0cb16c43b8ec24c116dca1ef5aa7f8ca004fe9ee",
+      "bytes": 440515
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-strong-scaling/study.json",
+      "sha256": "9f098672abfecf0d8ddbbdfc7f81a2a9bd2d1d9a7891eef2241887941dc56cd3",
+      "bytes": 14904
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-strong-scaling/records.json",
+      "sha256": "e9262d833587fd7955c59fa19ceafc1df3396ff89f331e9bf9c6d389266461bb",
+      "bytes": 286783
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-repeat/study.json",
+      "sha256": "4d120e33e4dd46f24e189ae6e3eb860bf31b2a34769fc2f4f12938bdaea0f9b7",
+      "bytes": 54171
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/simple-repeat/records.json",
+      "sha256": "b28a5c22818882355d414a21eac8751462fe1aa9dee963e0960689d6720bb3a6",
+      "bytes": 296653
+    }
+  ],
+  "finalFieldPairsPassed": 14,
+  "previousImmutableSnapshot": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/final-source-amg/manifest.json"
+}

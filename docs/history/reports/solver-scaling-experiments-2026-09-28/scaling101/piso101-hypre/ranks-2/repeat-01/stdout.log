@@ -1,0 +1,17 @@
+[midway:330453] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+[midway:330453] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+PISO corrector=1 Umax=1.20865 coupling=0.456642
+PISO corrector=17 Umax=1.09617 coupling=6.85982e-06
+PISO 1 time=0.01 correctors=17 CoMax=0.870321 CoMean=0.745363 accepted=true mass=5.11607e-12 dU=1 rU=1 dP=1.84887 rCouplingFirst=0.456642 rCoupling=6.85982e-06 linU=4.73121e-09 linP=7.98189e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.22272 coupling=0.548535
+PISO corrector=22 Umax=1.09793 coupling=7.64982e-06
+PISO 1 time=0.02 correctors=22 CoMax=0.90695 CoMean=0.746672 accepted=true mass=3.35704e-12 dU=0.0353136 rU=0.324278 dP=321.324 rCouplingFirst=0.548535 rCoupling=7.64982e-06 linU=2.90139e-09 linP=1.39598e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.10268 coupling=0.00454258
+PISO corrector=8 Umax=1.10255 coupling=9.67808e-06
+PISO 1 time=0.03 correctors=8 CoMax=0.929988 CoMean=0.747374 accepted=true mass=2.37397e-12 dU=0.0248957 rU=0.0170638 dP=0.63978 rCouplingFirst=0.00454258 rCoupling=9.67808e-06 linU=2.50453e-09 linP=7.36985e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.11379 coupling=0.00170428
+PISO corrector=8 Umax=1.11342 coupling=6.64033e-06
+PISO 1 time=0.04 correctors=8 CoMax=0.941555 CoMean=0.747933 accepted=true mass=2.17431e-12 dU=0.0192679 rU=0.0120758 dP=0.776042 rCouplingFirst=0.00170428 rCoupling=6.64033e-06 linU=2.59812e-09 linP=6.77159e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.12175 coupling=0.00113197
+PISO corrector=8 Umax=1.12147 coupling=5.23268e-06
+PISO 1 time=0.05 correctors=8 CoMax=0.947005 CoMean=0.748421 accepted=true mass=2.71228e-12 dU=0.0156282 rU=0.00937331 dP=0.587225 rCouplingFirst=0.00113197 rCoupling=5.23268e-06 linU=2.58047e-09 linP=8.63506e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true

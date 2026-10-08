@@ -58,6 +58,17 @@ def main():
             f"相对优化版本自身的单进程加速 {twelve['speedup']:.2f} 倍、效率 {100*twelve['efficiency']:.1f}%；"
             f"相同 12 进程下比参考后端快 {gain['versionSpeedup']:.2f} 倍。")
     cg_section=''
+    checkpoint_section=''
+    checkpoint=ROOT/'checkpoint-git-push.json'
+    if checkpoint.exists():
+        saved=json.loads(checkpoint.read_text())
+        assert saved['remoteCommit']==saved['commit'] and saved['pushExitCode']==0
+        checkpoint_section=f"""\n用户要求先保存远端检查点时，提交 `{saved['commit']}` 并正常推送到
+`{saved['remoteRef']}`，随后以 `git ls-remote` 核对远端与本地 HEAD 一致。
+该 Git 操作与 Voronoi 20 步参考版本的首次单进程样本重叠，Git 绑定逻辑 CPU 2，
+打包线程数为 1；求解二进制和输入没有变化。保留该样本，并使用预先安排的串行与
+12 进程重复样本统计，不将它描述为宿主完全空闲的测量。
+见[检查点与宿主活动记录]({NAME}/checkpoint-git-push.json)。\n"""
     screen=ROOT/'cg-single-reduction-screen-summary.json'
     decision=ROOT/'cg-single-reduction-decision.json'
     if screen.exists() and decision.exists():
@@ -133,6 +144,7 @@ Voronoi 的 10 步补算在优化后 12 进程上只得到 55.395 秒窗口，�
 报告的峰值涵盖完整进程生命周期，包括初始化和输出，不能称为计算窗口内峰值。
 多样本峰值取中位数，VmSwap 单独记录。宿主 Windows 的活动和动态频率未被完全控制，
 单样本点不能判定几个百分点的差异稳定存在。
+{checkpoint_section}
 
 ## 相同进程数的版本收益
 
@@ -151,6 +163,9 @@ Voronoi 的 10 步补算在优化后 12 进程上只得到 55.395 秒窗口，�
 计量后 383 个完整间隔。除了外迭代上限从 128 增至 384，输入保持先前吞吐实验的配置；
 两个版本、各进程数的输入完全相同，保持既有离散、松弛和线性精度要求。
 较严的外层容差使其达到迭代上限，预期退出状态为 `maxIterations`。
+验收同时要求生产 CLI 的预期退出码 2、全部 rank 的 383 个计量间隔，以及正常线性检查；
+完成日志或性能报告不能使异常退出成为有效样本。退出判定核对见
+[验收检查]({NAME}/benchmark-exit-contract-audit.json)。
 这是一项持续吞吐实验，**不能解释为达到物理稳态收敛的时间**。
 生产 SIMPLE 在未收敛时不输出最终场，因此此处以线性检查、完整工作量和独立收敛回归验证它的运行。
 
@@ -270,6 +285,10 @@ KSPSolve 为 128.22 秒（约 74.5%），CG 的 VecTDot 为 13.761 秒（约 10.
 源码快照、补丁与构建/验证清单见[最终源码清单]({NAME}/final-source-amg/manifest.json)。
 该回归快照保持原样；之后的测量恢复、输入延长、构建元数据解析修正及报告脚本由
 [交付清单]({NAME}/delivery-source/manifest.json)单独记录。生产 C++ 与通过回归的快照逐文件匹配。
+顶层流程、Case 参数解析、矩阵/PC 生命周期、真实残差与拓扑划分依据的源码核对见
+[框架优化范围核对]({NAME}/framework-scope-review.md)。
+交付审计从不同运行目录的原始测点重新计算中位数、范围、同版串行分母、加速比和效率，
+并核对当前性能文件、研究的二进制/输入哈希，以及 14 组全字段比较涉及的导出文件内容哈希。
 源码比较基线为 `83d7b72757f7f9af2db1a01a097389f86c296117`；
 生成报告时本地分支为 `{git_branch}`，HEAD 为 `{git_head}`。
 阶段提交及远端状态单独核对，不以源码快照或本地 HEAD 推断推送已完成。

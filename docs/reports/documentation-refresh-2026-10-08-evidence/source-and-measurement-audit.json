@@ -1,0 +1,80 @@
+{
+  "status": "passed",
+  "productionAndTestSnapshotFilesMatched": 25,
+  "productionTreeUnchangedSinceCheckpoint": true,
+  "binarySha256": {
+    "reference": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2",
+    "optimized": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c"
+  },
+  "fullTest": {
+    "command": "env -u LD_PRELOAD -u PETSC_OPTIONS TMPDIR=/tmp OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 make -j4 test-full",
+    "exitCode": 0,
+    "log": "docs/reports/flow-optimization-2026-10-07-evidence/tests/test-full-amg-krylov-policy-cf.log",
+    "logSha256": "f3dd1cc211ec519e94931536580711b5a9b2ab10e098684b64375aeb89cb2ada"
+  },
+  "scalingDataAudit": {
+    "strong-summary.json": {
+      "distinctRuns": 32,
+      "groups": 16,
+      "medianDenominatorsRecomputed": true,
+      "currentPerformanceFilesMatch": true
+    },
+    "simple-summary.json": {
+      "distinctRuns": 16,
+      "groups": 8,
+      "medianDenominatorsRecomputed": true,
+      "currentPerformanceFilesMatch": true
+    }
+  },
+  "fieldPairs": 14,
+  "fieldDataAudit": "16 archived field directories rehashed by frozen delivery audit before documentation changes; field archives were not modified by this update",
+  "frozenSourceManifests": [
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/final-source/manifest.json",
+      "sha256": "62f28d8ff6762f8f6d1465c47b85245951e586dcfc2612c93d486c3c9964b7d7"
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/final-source-amg/manifest.json",
+      "sha256": "6a684f784d0132b3aa12f63f28b2c2a7eaa1b34c082a7701481f5ab24929362a"
+    },
+    {
+      "path": "docs/reports/flow-optimization-2026-10-07-evidence/delivery-source/manifest.json",
+      "sha256": "1e4927ef3687a0c372aa6f0e57c2da7d0e9bbfa87a34cd60373a3cbabb8d97c6"
+    }
+  ],
+  "documentationTests": {
+    "architecture": {
+      "exitCode": 0,
+      "sourcesAndHeaders": 78
+    },
+    "minimalHeatSyntax": {
+      "exitCode": 0
+    },
+    "minimalHeatLinkedAndSolvedRanks": [
+      1,
+      2
+    ],
+    "minimalHeatFieldComparison": {
+      "exitCode": 0,
+      "atol": 1e-09,
+      "rtol": 1e-09
+    },
+    "externalSolver": {
+      "exitCode": 0,
+      "ranks": [
+        1,
+        2,
+        4
+      ]
+    },
+    "pisoCoupling": {
+      "exitCode": 0,
+      "ranks": [
+        1,
+        2,
+        4
+      ]
+    }
+  },
+  "historicalNonMarkdownTrackedFilesByteIdentical": 295
+}

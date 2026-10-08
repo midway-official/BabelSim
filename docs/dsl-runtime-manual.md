@@ -69,7 +69,8 @@ output output.bs
 ghostLayers 3
 ```
 
-路径必须相对于 Case 根目录；重复键、未知键、绝对路径和缺少必需文件都会被拒绝。目录
+推荐文件路径相对于 Case 根目录；重复键、未知键和缺少必需文件会被拒绝。reader
+按根目录拼接输入路径，并未统一禁止绝对输入路径。输出路径有单独限制。目录
 通常包含：
 
 ```text
@@ -197,6 +198,9 @@ const auto result = equ::solve(equation);
 也不接触 Eigen、CSR/LDU 或 rank 本地索引。`runApplication` 负责 MPI 生命周期、Solver
 注册和退出码映射。串行和 MPI 使用同一套方程与配置格式。
 
+结果目录、原生 mesh/field 与重启格式见 [网格、场与结果](mesh-and-results.md)。
+构建和外部链接见 [构建说明](building.md)。
+
 结果由 Case 写成每个 rank 的拥有单元 CSV 和元数据；`babelsim-post` 再按 global cell ID
 合并为 VTK 或 Tecplot。不同 MPI 规模应使用不同的 `-time` 运行名称，避免混合结果目录。
 
@@ -226,6 +230,7 @@ make test-workflow
 make test-rans
 make test-scalar-time
 make test-simple-parallel
+make test-piso-coupling
 make test-mpi
 ```
 
@@ -248,3 +253,20 @@ make test-mpi
 的装配状态，时间导数仍读取真实物理历史。只更新场值，保留物理边界约束。
 首步仍用 Euler，缩短的末步使用实际步长比。这保证显式修正的二阶时间一致性；
 显式处理仍有稳定性限制，不代表任意时间步下无条件稳定。
+
+## 线性结果、诊断与性能
+
+`equ::solve` 用绑定方程的线性配置，返回结构化状态。最终检查未预条件的全局 L2 真实残差：
+`||b-Ax|| <= max(atol, rtol * max(||r0||, ||b||))`。向量三个分量分别求解，全部通过才
+收敛；迭代数是实际分量总数。欠松弛前的方程诊断与 KSP 线性残差是不同指标。
+具体公式和复用控制见 [数值配置](numerical-configuration.md)。
+
+`monitor::Reporter` 只观测和打印，Solver 判断收敛/时间步接受。应用把完成映射为退出码 0，
+迭代耗尽/数值失败映射为 2，配置或应用错误为 1。实际求解失败不能因已有结果文件而判成功。
+`-performance` 的循环窗口从首次迭代观测后开始；排除整个首迭代和此前初始化。有效持续
+时间、完整工作量及各 rank 关键路径的解释见 [性能测量](performance/README.md)。
+
+新增 Solver 优先参照已测试的 [双场示例](../tests/examples/coupled_scalar.cpp)，为其 Case
+提供完整具名方法/线性配置，再执行 `make test-external`。本页是开发入口；全部重载与
+参数契约查 [math.h](../include/babelsim/math.h)、[equ.h](../include/babelsim/equ.h)、
+[case.h](../include/babelsim/case.h)，不把概述当作全部 API 清单。

@@ -1,0 +1,1386 @@
+{
+  "status": "passed",
+  "measuredRuns": 60,
+  "comparisons": [
+    {
+      "case": "heat101-hypre",
+      "ranks": 1,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 1,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 1,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 2,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r2-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 8.573142196155459e-12,
+          "maxToleranceRatio": 0.0006539344267880757,
+          "relativeL2": 4.285251560877014e-12
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 2,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r2-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 8.573142196155459e-12,
+          "maxToleranceRatio": 0.0006539344267880757,
+          "relativeL2": 4.285251560877014e-12
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 2,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r2-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 8.573142196155459e-12,
+          "maxToleranceRatio": 0.0006539344267880757,
+          "relativeL2": 4.285251560877014e-12
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 4,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r4-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 6.916356376507338e-12,
+          "maxToleranceRatio": 0.0005264871876667174,
+          "relativeL2": 3.15866967960108e-12
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 4,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r4-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 6.916356376507338e-12,
+          "maxToleranceRatio": 0.0005264871876667174,
+          "relativeL2": 3.15866967960108e-12
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 4,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r4-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 6.916356376507338e-12,
+          "maxToleranceRatio": 0.0005264871876667174,
+          "relativeL2": 3.15866967960108e-12
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 8,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r8-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.476407884837272e-11,
+          "maxToleranceRatio": 0.0011916172109340708,
+          "relativeL2": 1.3485032857370942e-11
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 8,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r8-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.476407884837272e-11,
+          "maxToleranceRatio": 0.0011916172109340708,
+          "relativeL2": 1.3485032857370942e-11
+        }
+      }
+    },
+    {
+      "case": "heat101-hypre",
+      "ranks": 8,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r8-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.476407884837272e-11,
+          "maxToleranceRatio": 0.0011916172109340708,
+          "relativeL2": 1.3485032857370942e-11
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 1,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r1-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 3.5345691928867495e-09,
+          "maxToleranceRatio": 0.3073647745601065,
+          "relativeL2": 3.6536892727585393e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 1,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r1-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 3.5345691928867495e-09,
+          "maxToleranceRatio": 0.3073647745601065,
+          "relativeL2": 3.6536892727585393e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 1,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r1-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 3.5345691928867495e-09,
+          "maxToleranceRatio": 0.3073647745601065,
+          "relativeL2": 3.6536892727585393e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 2,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r2-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 5.785237844335711e-09,
+          "maxToleranceRatio": 0.5057103685608786,
+          "relativeL2": 4.779134028720991e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 2,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r2-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 5.785237844335711e-09,
+          "maxToleranceRatio": 0.5057103685608786,
+          "relativeL2": 4.779134028720991e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 2,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r2-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 5.785237844335711e-09,
+          "maxToleranceRatio": 0.5057103685608786,
+          "relativeL2": 4.779134028720991e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 4,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r4-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 6.073951369645059e-09,
+          "maxToleranceRatio": 0.5290100822695578,
+          "relativeL2": 3.643795952862111e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 4,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r4-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 6.073951369645059e-09,
+          "maxToleranceRatio": 0.5290100822695578,
+          "relativeL2": 3.643795952862111e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 4,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r4-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 6.073951369645059e-09,
+          "maxToleranceRatio": 0.5290100822695578,
+          "relativeL2": 3.643795952862111e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 8,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r8-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 5.315225676261193e-09,
+          "maxToleranceRatio": 0.46309995807567145,
+          "relativeL2": 3.2708901414353795e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 8,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r8-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 5.315225676261193e-09,
+          "maxToleranceRatio": 0.46309995807567145,
+          "relativeL2": 3.2708901414353795e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-bjacobi",
+      "ranks": 8,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-bjacobi/results/benchmark-r8-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 5.315225676261193e-09,
+          "maxToleranceRatio": 0.46309995807567145,
+          "relativeL2": 3.2708901414353795e-09
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 1,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r1-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.7624074422073477e-10,
+          "maxToleranceRatio": 0.013709005582036192,
+          "relativeL2": 1.0145778326703981e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 1,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r1-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.7624074422073477e-10,
+          "maxToleranceRatio": 0.013709005582036192,
+          "relativeL2": 1.0145778326703981e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 1,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r1-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.7624074422073477e-10,
+          "maxToleranceRatio": 0.013709005582036192,
+          "relativeL2": 1.0145778326703981e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 2,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r2-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.6093447408049855e-10,
+          "maxToleranceRatio": 0.014348816782371107,
+          "relativeL2": 1.0351591676425307e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 2,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r2-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.6093447408049855e-10,
+          "maxToleranceRatio": 0.014348816782371107,
+          "relativeL2": 1.0351591676425307e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 2,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r2-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.6093447408049855e-10,
+          "maxToleranceRatio": 0.014348816782371107,
+          "relativeL2": 1.0351591676425307e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 4,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r4-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.8904933174468397e-10,
+          "maxToleranceRatio": 0.01478383820818425,
+          "relativeL2": 1.252345026929552e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 4,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r4-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.8904966481159136e-10,
+          "maxToleranceRatio": 0.01478386425433435,
+          "relativeL2": 1.252346474280137e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 4,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r4-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.890497203227426e-10,
+          "maxToleranceRatio": 0.014783868595359365,
+          "relativeL2": 1.2523458670905913e-10
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 8,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r8-n01",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.0972694974853425e-10,
+          "maxToleranceRatio": 0.008691660192976057,
+          "relativeL2": 4.617371676452958e-11
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 8,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r8-n02",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.0972661668162687e-10,
+          "maxToleranceRatio": 0.008691633810174137,
+          "relativeL2": 4.617373729554159e-11
+        }
+      }
+    },
+    {
+      "case": "heat101-gamg1",
+      "ranks": 8,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/heat101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/heat101-gamg1/results/benchmark-r8-n03",
+      "atol": 1e-08,
+      "rtol": 1e-08,
+      "fields": {
+        "T": {
+          "cells": 101306,
+          "maxAbs": 1.0972700525968548e-10,
+          "maxToleranceRatio": 0.008691664590109711,
+          "relativeL2": 4.617374599961689e-11
+        }
+      }
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 1,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 7.61212e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 1,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 7.61212e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 1,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 7.61212e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 2,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r2-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.3112242402968377e-09,
+          "maxToleranceRatio": 0.00019523536744563285,
+          "relativeL2": 2.695301487337322e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0074258316450369e-08,
+          "maxToleranceRatio": 0.0008144780803606347,
+          "relativeL2": 4.588642056748321e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 5.11607e-12,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 2,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r2-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.3112242402968377e-09,
+          "maxToleranceRatio": 0.00019523536744563285,
+          "relativeL2": 2.695301487337322e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0074258316450369e-08,
+          "maxToleranceRatio": 0.0008144780803606347,
+          "relativeL2": 4.588642056748321e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 5.11607e-12,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 2,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r2-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.3112242402968377e-09,
+          "maxToleranceRatio": 0.00019523536744563285,
+          "relativeL2": 2.695301487337322e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0074258316450369e-08,
+          "maxToleranceRatio": 0.0008144780803606347,
+          "relativeL2": 4.588642056748321e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 5.11607e-12,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 4,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r4-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.1141454203666967e-08,
+          "maxToleranceRatio": 0.0010831501833479915,
+          "relativeL2": 4.261732394884825e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.2165393359353516e-08,
+          "maxToleranceRatio": 0.0015326205378191733,
+          "relativeL2": 7.631285401905757e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 2.98291e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 4,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r4-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.1141454203666967e-08,
+          "maxToleranceRatio": 0.0010831501833479915,
+          "relativeL2": 4.261732394884825e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.2165393359353516e-08,
+          "maxToleranceRatio": 0.0015326205378191733,
+          "relativeL2": 7.631285401905757e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 2.98291e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 4,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r4-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.1141454203666967e-08,
+          "maxToleranceRatio": 0.0010831501833479915,
+          "relativeL2": 4.261732394884825e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.2165393359353516e-08,
+          "maxToleranceRatio": 0.0015326205378191733,
+          "relativeL2": 7.631285401905757e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 2.98291e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 8,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r8-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 3.1374833842079397e-09,
+          "maxToleranceRatio": 0.0003053733458437211,
+          "relativeL2": 2.780003017881079e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.1222054840942519e-08,
+          "maxToleranceRatio": 0.0012008718149038127,
+          "relativeL2": 7.0848396675184525e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 9.05036e-12,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 8,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r8-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 3.1374833842079397e-09,
+          "maxToleranceRatio": 0.0003053733458437211,
+          "relativeL2": 2.780003017881079e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.1222054840942519e-08,
+          "maxToleranceRatio": 0.0012008718149038127,
+          "relativeL2": 7.0848396675184525e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 9.05036e-12,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-hypre",
+      "ranks": 8,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r8-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 3.1374833842079397e-09,
+          "maxToleranceRatio": 0.0003053733458437211,
+          "relativeL2": 2.780003017881079e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.1222054840942519e-08,
+          "maxToleranceRatio": 0.0012008718149038127,
+          "relativeL2": 7.0848396675184525e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 9.05036e-12,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 1,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r1-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.3399952258907888e-09,
+          "maxToleranceRatio": 0.00019705584686082267,
+          "relativeL2": 1.7916297896122854e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0701580288596801e-08,
+          "maxToleranceRatio": 0.0009312800074355173,
+          "relativeL2": 5.371357825267635e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 5.2452e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 1,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r1-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.3399952258907888e-09,
+          "maxToleranceRatio": 0.00019705584686082267,
+          "relativeL2": 1.7916297896122854e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0701580288596801e-08,
+          "maxToleranceRatio": 0.0009312800074355173,
+          "relativeL2": 5.371357825267635e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 5.2452e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 1,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r1-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.3399952258907888e-09,
+          "maxToleranceRatio": 0.00019705584686082267,
+          "relativeL2": 1.7916297896122854e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0701580288596801e-08,
+          "maxToleranceRatio": 0.0009312800074355173,
+          "relativeL2": 5.371357825267635e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 5.2452e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 2,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r2-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.2633645241066915e-09,
+          "maxToleranceRatio": 0.0001916611760789499,
+          "relativeL2": 2.7263694748820446e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0765277780322435e-08,
+          "maxToleranceRatio": 0.0009522887425101558,
+          "relativeL2": 5.4097324706008885e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 3.92041e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 2,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r2-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.2633645241066915e-09,
+          "maxToleranceRatio": 0.0001916611760789499,
+          "relativeL2": 2.7263694748820446e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0765277780322435e-08,
+          "maxToleranceRatio": 0.0009522887425101558,
+          "relativeL2": 5.4097324706008885e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 3.92041e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 2,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r2-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.2633645241066915e-09,
+          "maxToleranceRatio": 0.0001916611760789499,
+          "relativeL2": 2.7263694748820446e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0765277780322435e-08,
+          "maxToleranceRatio": 0.0009522887425101558,
+          "relativeL2": 5.4097324706008885e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 3.92041e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 4,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r4-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.1295769208885531e-08,
+          "maxToleranceRatio": 0.0010981523835222578,
+          "relativeL2": 4.360735918497574e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0122658267164297e-08,
+          "maxToleranceRatio": 0.0009498642043018754,
+          "relativeL2": 5.4005525455601795e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 6.12379e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 4,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r4-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.1295769652974741e-08,
+          "maxToleranceRatio": 0.0010981524266957341,
+          "relativeL2": 4.360735922034129e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0122645166532607e-08,
+          "maxToleranceRatio": 0.0009498629747092133,
+          "relativeL2": 5.400547299910133e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 6.12379e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 4,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r4-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 1.1295769430930136e-08,
+          "maxToleranceRatio": 0.001098152405108996,
+          "relativeL2": 4.360736058330514e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0122656046718248e-08,
+          "maxToleranceRatio": 0.000949863995187477,
+          "relativeL2": 5.400552230076108e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 6.12379e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 8,
+      "repeat": 1,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r8-n01",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 3.1353517560006594e-09,
+          "maxToleranceRatio": 0.0003051658730516648,
+          "relativeL2": 2.772640344843936e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.083831913106792e-08,
+          "maxToleranceRatio": 0.0009679123714562107,
+          "relativeL2": 5.4215608751209064e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 3.93611e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 8,
+      "repeat": 2,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r8-n02",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 3.1353522000898693e-09,
+          "maxToleranceRatio": 0.00030516591627516315,
+          "relativeL2": 2.77264028411272e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.083831602244345e-08,
+          "maxToleranceRatio": 0.000967912215220896,
+          "relativeL2": 5.421557537068572e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 3.93611e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "case": "piso101-gamg1",
+      "ranks": 8,
+      "repeat": 3,
+      "reference": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre/results/benchmark-r1-n01",
+      "candidate": "/tmp/babelsim-solver-scaling-20260928/piso101-gamg1/results/benchmark-r8-n03",
+      "atol": 5e-06,
+      "rtol": 5e-06,
+      "fields": {
+        "U": {
+          "cells": 101306,
+          "maxAbs": 3.1353522000898693e-09,
+          "maxToleranceRatio": 0.00030516591627516315,
+          "relativeL2": 2.7726403992649925e-10
+        },
+        "p": {
+          "cells": 101306,
+          "maxAbs": 1.0838307806793068e-08,
+          "maxToleranceRatio": 0.0009679109740181189,
+          "relativeL2": 5.421557209227978e-09
+        }
+      },
+      "maxCoupling": 9.67808e-06,
+      "maxMass": 3.93611e-11,
+      "correctors": [
+        17,
+        22,
+        8,
+        8,
+        8
+      ]
+    }
+  ]
+}

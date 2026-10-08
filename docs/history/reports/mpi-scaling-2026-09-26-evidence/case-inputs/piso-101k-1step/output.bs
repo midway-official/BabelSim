@@ -1,0 +1,4 @@
+directory results
+timeName final
+writeInterval 1
+writeFields U p

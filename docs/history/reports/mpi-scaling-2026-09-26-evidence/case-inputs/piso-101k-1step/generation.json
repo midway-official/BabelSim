@@ -1,0 +1,11 @@
+{
+  "gridN": 37,
+  "cells": 101306,
+  "vertices": 54872,
+  "faces": 258741,
+  "warpFraction": 0.15,
+  "case": "/tmp/babelsim-mpi-study/piso-n37",
+  "meshBytes": 13363247,
+  "solver": "piso",
+  "simpleOuterCap": null
+}

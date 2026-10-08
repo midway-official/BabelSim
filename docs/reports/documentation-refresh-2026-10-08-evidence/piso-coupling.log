@@ -1,0 +1,4 @@
+TMPDIR=/tmp mpirun -np 4 build-petsc/physics_contract_test
+physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed
+python3 tests/piso_coupling_test.py --solver build-petsc/babelsim-solve
+piso_coupling_test: conservative-but-unsettled rejection, adaptive correction, 1/2/4 ranks passed

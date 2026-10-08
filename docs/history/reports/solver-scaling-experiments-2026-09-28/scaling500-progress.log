@@ -1,0 +1,49 @@
+RUN case=heat500-hypre ranks=4 repeat=0
+DONE status=converged compute=2.800197598
+RUN case=heat500-hypre ranks=1 repeat=0
+DONE status=converged compute=7.260758426
+RUN case=heat500-bjacobi ranks=1 repeat=0
+DONE status=converged compute=3.0315969870000004
+RUN case=heat500-hypre ranks=8 repeat=0
+DONE status=converged compute=2.807324152
+RUN case=heat500-bjacobi ranks=4 repeat=0
+DONE status=converged compute=1.2130536120000002
+RUN case=heat500-bjacobi ranks=8 repeat=0
+DONE status=converged compute=0.9872840270000001
+RUN case=heat500-hypre ranks=8 repeat=1
+DONE status=converged compute=2.761584528
+RUN case=heat500-bjacobi ranks=4 repeat=1
+DONE status=converged compute=1.4380908319999999
+RUN case=heat500-bjacobi ranks=8 repeat=1
+DONE status=converged compute=0.9612123509999999
+RUN case=heat500-bjacobi ranks=1 repeat=1
+DONE status=converged compute=3.2329215720000004
+RUN case=heat500-hypre ranks=1 repeat=1
+DONE status=converged compute=7.033168904
+RUN case=heat500-hypre ranks=4 repeat=1
+DONE status=converged compute=2.8968291489999998
+RUN case=heat500-bjacobi ranks=4 repeat=2
+DONE status=converged compute=1.120828484
+RUN case=heat500-bjacobi ranks=1 repeat=2
+DONE status=converged compute=2.967407946
+RUN case=heat500-hypre ranks=4 repeat=2
+DONE status=converged compute=3.0133787350000008
+RUN case=heat500-hypre ranks=1 repeat=2
+DONE status=converged compute=7.793439116000002
+RUN case=heat500-hypre ranks=8 repeat=2
+DONE status=converged compute=2.7254192340000003
+RUN case=heat500-bjacobi ranks=8 repeat=2
+DONE status=converged compute=0.9136650640000004
+RUN case=heat500-hypre ranks=4 repeat=3
+DONE status=converged compute=2.826311371
+RUN case=heat500-bjacobi ranks=8 repeat=3
+DONE status=converged compute=0.936039206
+RUN case=heat500-bjacobi ranks=4 repeat=3
+DONE status=converged compute=1.210114233
+RUN case=heat500-hypre ranks=1 repeat=3
+DONE status=converged compute=7.119078008000001
+RUN case=heat500-bjacobi ranks=1 repeat=3
+DONE status=converged compute=2.9914549989999992
+RUN case=heat500-hypre ranks=8 repeat=3
+DONE status=converged compute=2.6778956660000004
+Completed 24 runs; 0 did not converge. Evidence: /home/midway/BabelSim/docs/reports/solver-scaling-experiments-2026-09-28/scaling500

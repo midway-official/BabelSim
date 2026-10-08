@@ -1,0 +1,36 @@
+{
+  "root": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-prism-repeat/reference/prism/ranks-1/repeat-02",
+  "files": [
+    {
+      "path": "results/benchmark-r1-n02/0.1/rank-0000/U.csv",
+      "bytes": 132794559,
+      "sha256": "5eaa98699026e708d3541f6058be0aeb74741fe474cc3039573e6d08bbce8c9a"
+    },
+    {
+      "path": "results/benchmark-r1-n02/0.1/rank-0000/metadata.bs",
+      "bytes": 135,
+      "sha256": "b459aa570780330073b3414533d9a2e679bb0b818ee2bf4e98234b88f7ea3104"
+    },
+    {
+      "path": "results/benchmark-r1-n02/0.1/rank-0000/p.csv",
+      "bytes": 87858950,
+      "sha256": "7ce143db8c587cd988d4b851069a332b438afb129c31b6f84bf4b716b6e59358"
+    },
+    {
+      "path": "results/benchmark-r1-n02/rank-0000/U.csv",
+      "bytes": 132794559,
+      "sha256": "5eaa98699026e708d3541f6058be0aeb74741fe474cc3039573e6d08bbce8c9a"
+    },
+    {
+      "path": "results/benchmark-r1-n02/rank-0000/metadata.bs",
+      "bytes": 135,
+      "sha256": "b459aa570780330073b3414533d9a2e679bb0b818ee2bf4e98234b88f7ea3104"
+    },
+    {
+      "path": "results/benchmark-r1-n02/rank-0000/p.csv",
+      "bytes": 87858950,
+      "sha256": "7ce143db8c587cd988d4b851069a332b438afb129c31b6f84bf4b716b6e59358"
+    }
+  ],
+  "status": "retained"
+}

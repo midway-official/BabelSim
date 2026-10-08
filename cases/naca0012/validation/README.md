@@ -16,8 +16,9 @@ PISO、Wilcox 1988 k–ω、BDF2、动量二阶 linearUpwind、k/ω 一阶 upwin
 - 正式运行日志、退出状态和对照材料：[`piso_audit_20260928/`](piso_audit_20260928/)。
 - 速度场与流线图：[t=14 s](flow_t14_dt0p01.png)、[t=27 s](flow_latest_t27_dt0p01.png)、
   [终点 t=30 s](flow_t30_dt0p01.png)。
-- 完整瞬态场保存在本地 [`../results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/`](../results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/)；
-  大型逐时刻场文件不纳入版本库，终点元数据与字段完整性结果已摘要记录在审计中。
+- 正式运行的原完整场路径为 `../results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/`；
+  大型逐时刻场不纳入版本库，该路径在当前工作区已不可用，不能由摘要恢复完整场。
+  终点元数据与当时的字段完整性结果已记录在审计中。
 
 ## 历史诊断
 

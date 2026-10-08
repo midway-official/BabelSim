@@ -1,0 +1,68 @@
+{
+  "checkedUtc": "2026-10-08T07:38:03.213231+00:00",
+  "productionContract": "src/runtime/application.cpp: unconverged and numerical failure exit 2; configuration and finalize errors exit 1",
+  "purpose": "Reject unexpected process exits even if completed maxIterations reports remain",
+  "classificationChecks": [
+    {
+      "scenario": "expected iteration limit",
+      "returncode": 2,
+      "timedOut": false,
+      "reportedStatuses": [
+        "maxIterations"
+      ],
+      "classification": "maxIterations",
+      "passed": true
+    },
+    {
+      "scenario": "exception after iteration reports",
+      "returncode": 1,
+      "timedOut": false,
+      "reportedStatuses": [
+        "maxIterations"
+      ],
+      "classification": "numericalFailure",
+      "passed": true
+    },
+    {
+      "scenario": "unexpected finalize exit",
+      "returncode": 56,
+      "timedOut": false,
+      "reportedStatuses": [
+        "maxIterations"
+      ],
+      "classification": "numericalFailure",
+      "passed": true
+    },
+    {
+      "scenario": "completed solve",
+      "returncode": 0,
+      "timedOut": false,
+      "reportedStatuses": [
+        "converged"
+      ],
+      "classification": "converged",
+      "passed": true
+    },
+    {
+      "scenario": "timed out despite last report",
+      "returncode": null,
+      "timedOut": true,
+      "reportedStatuses": [
+        "maxIterations"
+      ],
+      "classification": "timeout",
+      "passed": true
+    },
+    {
+      "scenario": "no reports after failed process",
+      "returncode": 1,
+      "timedOut": false,
+      "reportedStatuses": [],
+      "classification": "infrastructureFailure",
+      "passed": true
+    }
+  ],
+  "completedSimpleRecordsChecked": 1,
+  "productionBinaryUnchanged": true,
+  "liveDriverUninterrupted": true
+}

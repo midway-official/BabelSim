@@ -1,0 +1,8 @@
+{
+  "phase": "strong-field-recovery",
+  "command": [
+    "/usr/bin/python3",
+    "-u",
+    "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/recover-strong-fields.py"
+  ]
+}

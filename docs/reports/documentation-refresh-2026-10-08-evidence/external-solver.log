@@ -1,0 +1,3 @@
+python3 tests/external_solver_test.py --library build-petsc/libbabelsim.a --petsc-dir /home/midway/opt/petsc-3.25.5-openmpi-opt --partition-libs='-L/home/midway/opt/metis-5.1.0/lib -lmetis'
+external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed
+external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed

@@ -200,8 +200,10 @@ def main() -> int:
                 work = max(outer, default=0) if name in throughput else accepted
                 valid = (len(run["performance"]) == rank and
                          bool(iterations) and all("linear=ok" in line for line in iterations) and
-                         ((name in throughput and run["status"] == "maxIterations" and work == throughput[name]) or
+                         ((name in throughput and run["status"] == "maxIterations" and
+                           run["returncode"] == 2 and work == throughput[name]) or
                           (name not in throughput and run["status"] == "converged" and
+                           run["returncode"] == 0 and
                            (name not in steps or accepted == steps[name]))))
                 if valid and work > 0:
                     valid = all(p["reportedIterationIntervals"] == work - 1 for p in run["performance"])

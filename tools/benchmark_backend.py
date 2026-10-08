@@ -392,7 +392,10 @@ def status_from_process(returncode: int | None, timed_out: bool, reports: list[d
         if not reports:
             return "infrastructureFailure"
         statuses = {report.get("status") for report in reports}
-        if statuses and statuses <= {"maxIterations"}:
+        # The production CLI reserves exit 2 for an unconverged solve. An
+        # exception or finalize failure can leave complete reports behind;
+        # those reports must not turn another nonzero exit into valid work.
+        if returncode == 2 and statuses and statuses <= {"maxIterations"}:
             return "maxIterations"
         return "numericalFailure"
     statuses = {report.get("status") for report in reports}

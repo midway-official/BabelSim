@@ -32,10 +32,10 @@ SolverResult 映射为命令行退出码。
 | 诊断/监视 | solver.h、monitor.h | 只读 residual/change/flux；通用 metric 报告 |
 | Runtime/FVM | src/runtime、src/internal/fvm_execution.h | 活动运行域、同步、离散工作区、后端调用 |
 | 后端 | src/backend、src/internal/petsc_*、src/parallel | PETSc 稀疏系统生命周期，场同步、MPI halo 与并行结果写出 |
-| Physics | src/physics/heat、transport、simple、transient_simple、RANS | 方程、算法循环、修正、收敛 |
+| Physics | src/physics/heat、transport、simple、transient_simple、piso、RANS | 方程、算法循环、修正、收敛 |
 | Application | include/babelsim/application.h、src/runtime/application.cpp | 注册分派、MPI 生命周期、错误映射 |
 
-Physics 不能包含 src/internal、MPI、Eigen、CSR、其它 Solver 的私有头或原始 Field 存储。
+Physics 不能包含 src/internal、MPI/PETSc、Eigen、CSR、其它 Solver 的私有头或原始 Field 存储。
 后端可以替换，但不改变 Physics 的方程和字段语义。
 
 默认数值后端使用 PETSc 的 Mat/Vec/KSP/PC。每个具名方程拥有长期存在的后端线性系统；首次装配
@@ -56,9 +56,9 @@ auto& again = problem.existingFaceField("phi");
 ~~~
 
 Case 构造期间读取方法一次并创建 Runtime。problem.methods() 只读返回生效配置。参数
-声明完成后调用 problem.validate()；start/time::start/setTime 会锁定声明阶段，随后不允许
+声明完成后调用 problem.validate()；validate 只检查。start/time::start/setTime 会锁定声明阶段，随后不允许
 创建新命名场。面标量场使用 `createFaceScalarField`，面向量/面张量分别使用对应的显式类型名称。
-Equation 和 History 的析构顺序由 Case/Runtime 保证，Solver 不管理后端。
+Equation 和 History 应在 Case 有效期内创建、使用和销毁；Solver 不管理 PETSc 句柄。
 
 ## 4. DSL 契约
 
@@ -72,16 +72,17 @@ equ::faceFlux 读取实际离散项，因此 Physics 不应复制通量公式。
 equ::laplacian(eq, coefficient, multiplier) 的统一定义是
 multiplier * div(coefficient * grad(unknown))；调用点允许直接使用 -1 表示常用扩散左端。
 math::interpolate 只有插值语义。Rhie–Chow、SIMPLE pressure correction 和其它专用算法
-只能在相应 Physics main.cpp 中组合。逐项语义、全部算子与配置键见
-[DSL 与运行时用户手册](dsl-runtime-manual.md) 第 6、7 节；本文档不再重述签名。
+留在对应 Physics 的算法实现中，通用层只提供数学入口。
+逐项用法见 [DSL 与运行时](dsl-runtime-manual.md) 和 [数值配置](numerical-configuration.md)。
 
 ## 5. Solver 独立性
 
-Heat、Transport、稳态 SIMPLE、瞬态 SIMPLE 都是独立注册函数。稳态 SIMPLE 使用一个主要
+Heat、Transport、稳态 SIMPLE、瞬态 SIMPLE、PISO 都是独立注册函数。稳态 SIMPLE 使用一个主要
 外循环；瞬态 SIMPLE 使用时间循环加自己的内层循环。两者不共享算法实现或模式开关。
 non-orthogonal correction 可以作为各自压力步骤内的显式子循环。
 
-RANS 模型 SA、k–omega、k–epsilon 分别拥有输运场、历史和闭合公式。SIMPLE 只通过
+PISO 使用时间循环、动量预测及压力校正，与瞬态 SIMPLE 的步内收敛循环分别实现。
+RANS 模型 SA、k–omega、k–epsilon 分别拥有输运场、历史和闭合公式。流动求解器通过
 rans::load、effectiveViscosity、deviatoricStressRemainder、solveTransport 交互，不知道
 具体闭合。
 
@@ -99,7 +100,7 @@ Solver 计算。运行时无打印逻辑。Case::output 或 output.bs 选择字�
 
 ### 改动 DSL
 
-先更新公共头和实现，再同步所有四个 Physics Solver、外部示例和测试。保持当前配置规范
+先更新公共头和实现，再核对全部五个内置 Solver、RANS、外部示例和测试。保持当前配置规范
 与实现一致；不要为了表面去重复引入 Manager、Provider、Registry 或深层继承。
 
 ### 改动离散或后端
@@ -121,6 +122,7 @@ make test-full        # 顺序执行单元、工作流、外部 Solver、RANS、
 make test-workflow    # 新 Solver 工作流、时间序列、ParaView 读取
 make test-external    # 仓库外用公共 include 构建 Solver（含负向 API 检查）
 make test-rans        # RANS 方程与常数
+make test-piso-coupling # PISO 校正、耦合缺陷与接受判据专用回归
 ~~~
 
 标量时间阶与跨案例一致性分别由 `make test-scalar-time` 和 `make test-simple-parallel` 覆盖。
@@ -128,3 +130,18 @@ make test-rans        # RANS 方程与常数
 完整验证入口见 [验证与维护检查](validation.md)。架构测试检查 include 闭包和 Physics
 越界依赖；外部 Solver 测试确认只用公共 include。验证报告中的历史结果只表示当时提交的
 证据，不替代当前构建测试。
+
+## 9. 通用优化的落点
+
+后端根据方程身份保留稀疏模式及线性系统。矩阵系数有变化时更新当前 A；矩阵不变时只换
+RHS。预条件器可以跨矩阵版本复用，但最终始终检查当前 A 的真实残差。复用预算、迭代增长
+与失败重试见 [数值配置](numerical-configuration.md)，不能把旧 PC 误写为旧矩阵。
+
+MPI 读取由 rank 0 完成全局解析、划分与分发，工作 rank 只构造 owned 加完整所需 halo 的
+局部网格。释放全局与传输暂存降低生命周期峰值；保留全局 ID、面方向、patch 及至少三层
+ghost。METIS 同时约束单元数和面关联工作量，并修复精确 owned 配额；无 METIS 时仍使用
+图生长。初始化与划分耗时单独记录，不计作迭代速度收益。
+
+COO 行列在模式建立时暂存，向量分量顺序共用工作 Vec，场重构复用必要的值快照；优化
+在网格/场/离散执行/后端内部实施，不添加按算例名、网格族或特定 rank 数分支。
+工程证据及抽象边界审查见 [优化报告](reports/flow-optimization-2026-10-07.md)。

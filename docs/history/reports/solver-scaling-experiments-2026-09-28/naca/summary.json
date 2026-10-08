@@ -1,0 +1,32 @@
+[
+  {
+    "case": "naca-gamg1",
+    "ranks": 4,
+    "samples": 3,
+    "computeMedian": 17.355713287,
+    "computeMin": 16.94559787,
+    "computeMax": 17.422381292,
+    "speedup": null,
+    "efficiency": null,
+    "setup": 0.4620250640000001,
+    "solve": 12.692282774000002,
+    "iterations": 6244,
+    "pcSetups": 21,
+    "linearSolves": 107
+  },
+  {
+    "case": "naca-hypre",
+    "ranks": 4,
+    "samples": 3,
+    "computeMedian": 9.499420852000002,
+    "computeMin": 9.388365487000002,
+    "computeMax": 9.557863288000002,
+    "speedup": null,
+    "efficiency": null,
+    "setup": 0.5390880709999999,
+    "solve": 4.750177597000002,
+    "iterations": 833,
+    "pcSetups": 21,
+    "linearSolves": 107
+  }
+]

@@ -125,7 +125,7 @@ equ::source(temperature, source);
 const auto result = equ::solve(temperature);
 ```
 
-如果方程在循环中反复创建，可在初始化阶段读取一次：
+反复求解的方程在初始化时创建一次，循环中 reset/装配/solve，以保留后端生命周期：
 
 ```cpp
 const auto control = readEquationControl(
@@ -135,12 +135,12 @@ auto temperature = equ::createEquation(T, control);
 
 `EquationControl` 同时持有方程级空间配置、项级解析配置和线性求解配置。调用
 `equation.options("diffusion")` 可取得项的最终配置；调用 `math` 时应显式传入
-`OperatorOptions`：
+`OperatorOptions`（下例 k 是已加载/创建的 ScalarField 系数；常数系数直接传给 laplacian）：
 
 ```cpp
 const auto options = temperature.options("diffusion");
 auto gradT = math::grad(T, options);
-auto faceK = math::interpolate(conductivity, options.coefficientOptions());
+auto faceK = math::interpolate(k, options.coefficientOptions());
 ```
 
 `math::div(faceFlux)`、`math::reconstruct(field, gradient)` 等本身不需要选择空间格式的
@@ -153,13 +153,15 @@ auto faceK = math::interpolate(conductivity, options.coefficientOptions());
 | `heat` | `temperature` | `T` | `diffusion` |
 | `transport` | `transport` | `C` | `convection`、`diffusion` |
 | SIMPLE、transient SIMPLE、PISO | `momentum` | `U` | `convection`、`diffusion` |
-| SIMPLE、transient SIMPLE、PISO | `pressureCorrection` | `pPrime` | `diffusion` |
+| SIMPLE、transient SIMPLE | `pressureCorrection` | `pPrime` | `diffusion` |
+| PISO | `pressureCorrection` | `p`（总压力），潜势初始化另用 `pPrime` | `diffusion` |
 | k-omega、k-epsilon | `kTransport` | `k` | `convection`、`diffusion` |
 | k-omega | `omegaTransport` | `omega` | `convection`、`diffusion` |
 | k-epsilon | `epsilonTransport` | `epsilon` | `convection`、`diffusion` |
 | Spalart--Allmaras | `nuTildaTransport` | `nuTilda` | `convection`、`diffusion` |
 
-方程名称是配置和方程身份的一部分。同一个 Case 中，同名方程不能绑定到不同未知场。每个
+方程名称是配置和方程身份的一部分。Case 读取配置时，同名方程不能绑定到不同未知场；PISO 先读取绑定 p 的
+控制，再显式传给私有潜势方程。后端身份还含标量/向量和未知场名，不能仅按配置名推断系统。每个
 方程项必须在创建方程时声明；未声明的项名会立即报错。
 
 ## 迁移规则
@@ -191,3 +193,27 @@ make test-mpi
 
 这些测试覆盖配置拒绝、项级继承、公开方程 API、外部 Solver、MPI 后端和内置算例。它们验证
 的是配置和数值执行契约，不替代长时间的物理精度验证。
+
+## 容差、初猜与残差口径
+
+五个核心线性键必须显式提供。`warmStart` 可选、默认 false；`preconditionerRebuildInterval`
+默认 8，`preconditionerReuseIterationGrowth` 默认 2。GAMG 可选键默认分别为
+`amgMaxLevels=12`、`amgCoarseSize=48`、`amgSmoothingSteps=2`；这些键不配置 Hypre。
+容差需有限且为正，迭代上限需为正，详细检查见 [solver_control.h](../include/babelsim/solver_control.h)。
+
+最终收敛按当前矩阵的未预条件全局 L2 残差判定：
+
+```text
+r0 = b - A*x0
+scale = max(||r0||_2, ||b||_2)
+||b-A*x||_2 <= max(absoluteTolerance, relativeTolerance * scale)
+```
+
+scale 为零时相对残差显示用 1，绝对判据仍生效。重新准备 PC 后的重试保持原初猜及同一
+当前矩阵和目标，不因第一次尝试改变尺度。向量各分量均需收敛，实际迭代数求和。
+外层 `diagnostics::relativeResidual` 观察原方程，使用 `||Ax||+||b||` 尺度，与线性
+KSP 判据不同；不能把两类指标互换或用一个放宽另一个。
+
+使用 CG 需确认矩阵和 PC 的适用性质，设置名本身不能证明对称正定。更换 Krylov/PC 或
+复用策略可能改变迭代路径；用同精度结果、真实残差及总计算时间评估。配置收益不等于
+旧 Eigen 与当前 PETSc 的直接对照，历史报告只表示当时实验。

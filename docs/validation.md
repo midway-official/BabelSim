@@ -1,75 +1,82 @@
-# BabelSim 验证与维护检查
+# 验证与维护检查
 
-本文是测试与验证入口的维护清单。当前测试源码以 `Makefile` 的 `TEST_SOURCES` 和专用
-`test-*` 目标为准；历史性能和物理研究报告保存在 [reports/](reports/)，仅作为对应提交的证据。
-接口与用法以 [DSL 与运行时用户手册](dsl-runtime-manual.md) 和
-[架构与维护边界](architecture.md) 为准。
+测试入口以 [Makefile](../Makefile) 与测试源码为准。现行用法见 [文档中心](README.md)；
+旧审查和验证报告在 [历史记录](history/README.md)，仅证明对应时期的工作。
 
-## 测试分组
+## 选择测试组
 
-| 入口 | 覆盖范围 |
+| 命令 | 覆盖 |
 | --- | --- |
-| `make test` | 架构门禁和本地 C++ 回归：网格与几何、边界、算子与数学、配置与方程契约、后端、Case/字段 I/O、标量方程、SIMPLE 与腔体回归 |
-| `make test-workflow` | 内置 Heat/Transport 和自定义耦合 Solver 的完整运行工作流、输出时间序列与失败路径 |
-| `make test-external` | 仓库外只依赖公开头和库构建 Solver；检查 1/2/4 rank、错误 API 用法和 MPI-free 结果读取 |
-| `make test-rans` | SA、k–omega、k–epsilon 方程项、时间推进、并行和失败处理 |
-| `make test-scalar-time` | 生产 Solver 的标量时间精度、Euler/BDF2 与末步步长 |
-| `make test-simple-parallel` | cavity/channel/cube/warped 的 steady/Euler/BDF2 在 1/2/4 rank 间的一致性 |
-| `make test-mpi` | 分区、halo、并行数学/算子、PETSc、SIMPLE 和标量输运；包含 Heat 的 1/2 rank 对照 |
-| `make test-mpi-poiseuille` | Poiseuille 案例的 1/2/4 rank 启动、结果对照和后处理 |
+| `make test` | 架构门禁、几何/边界/算子/配置/方程/后端/IO 与本地 C++ 回归 |
+| `make test-workflow` | 生产 Heat/Transport、自定义双场 Solver、时间序列与失败路径 |
+| `make test-external` | 只用公开头和静态库、1/2/4 rank、负向 API、无 MPI 结果读取器 |
+| `make test-rans` | SA/k–ω/k–ε 方程、时间推进、并行及失败处理 |
+| `make test-scalar-time` | 生产标量 Euler/BDF2 时间阶、显式修正和缩短末步 |
+| `make test-simple-parallel` | cavity/channel/cube/warped，steady/Euler/BDF2，1/2/4 rank |
+| `make test-piso-coupling` | PISO 校正与冻结动量缺陷、耦合接受和失败路径；独立专用组 |
+| `make test-mpi` | 分区/halo、数学与算子、PETSc、数值与 Physics 契约、流动/标量；含 Heat 对照 |
+| `make test-mpi-heat` | 生产 Heat 的 1/2 rank 字段对照；已被 test-mpi 调用 |
+| `make test-mpi-poiseuille` | 生产 Poiseuille 的 1/2/4 rank、字段与后处理 |
+| `make test-architecture` | 项目头依赖、公开接口和 Physics 分层门禁 |
 
-Heat 与 Transport 的一单元方程装配检查合并在 `scalar_equation_test` 中；完整生产求解流程仍由
-`test-workflow` 覆盖。`time_history_test` 单独检查 History 生命周期和重复内迭代，生产级时间阶由
-`test-scalar-time` 检查。
+`make test-full` 严格按以下顺序执行：test → test-workflow → test-external → test-rans →
+test-scalar-time → test-simple-parallel → test-mpi → test-mpi-poiseuille。
+**PISO 专用 test-piso-coupling 不在该列表里，需另行执行。**
+Heat/Transport 的局部装配手算在 `scalar_equation_test`，History 生命周期与重复内迭代
+在 `time_history_test`；它们不替代生产 Solver 的时间阶测试。
 
-## 常用命令
+## 执行方式
 
-快速本地回归：
-
-~~~bash
-make -j4 test
-~~~
-
-完整测试矩阵按组顺序执行，避免不同工作流并行写入相同算例结果目录：
-
-~~~bash
+```bash
+make -j4 all
 make test-full
-~~~
-
-`test-full` 按顺序包含上表全部入口。物理基准快速检查另由下列目标执行：
-
-~~~bash
-make validate-cavity
-make validate-poiseuille
-make validate
-~~~
-
-`make validate` 运行 `make test`、Ghia 方腔检查和 Poiseuille 解析解比较；它不替代完整测试矩阵。
-MPI 数值一致性不代表逐 bit 可复现，也不构成大规模扩展性证明。不同进程数不要复用同一结果目录；
-Case 会拒绝分区数不一致的旧目录。
-
-## 架构门禁
-
-~~~bash
+make test-piso-coupling
+python3 tools/check_docs.py
 python3 tests/architecture_test.py
 git diff --check
-~~~
+```
 
-门禁检查生产 include 闭包、分层边界、Physics 禁止依赖和公共头的独立包含。它还防止已移除的临时
-装配/求解包装、旧配置别名和隐藏 `Case::loop()` 重新出现。
+编译可用多个作业，测试组和求解任务按顺序执行，不同时启动另一个求解器或性能驱动。
+切换编译选项/依赖需独立 BUILD；调试配置见 [构建页](building.md)。
 
-## 新 Solver 的验证最低线
+物理基准快速检查逐项执行：
 
-新增物理求解器时至少增加：
+```bash
+make validate-cavity
+make validate-poiseuille
+```
 
-1. typed 参数缺失、重复、错误范围和未消费配置测试；
-2. load/create/existing 的生命周期测试，确认初值没有被静默忽略；
-3. 一个解析解或制造解；
-4. 稳态和瞬态（若适用）的结构化 SolverResult；
-5. 线性不收敛、NaN/Inf、外迭代耗尽的失败路径；
-6. 串行和 1/2/4 rank 的收敛、输出字段和时间目录检查；
-7. 若使用 RANS 或非正交格式，模型/修正子循环的独立回归。
+`make validate` 的依赖为 test、validate-cavity、validate-poiseuille，不含完整测试矩阵。
+不要用 `make -j validate` 并行运行数值验证。Ghia 快速目标针对当前 Re=100 方腔；多 Re
+和网格研究是 [历史报告](history/reports/cavity-ghia-validation.md) 的特定实验，不能把它们
+全部算作一次快速目标已验证的内容。
 
-新增长期运行或多 rank 脚本时，为其选择明确的 `test-*` Make 目标，并同步本页入口表。新增小型
-C++ 回归时，将源文件加入 `TEST_SOURCES`，并按功能归入对应测试分组。不要把未收敛结果作为物理精度
-结果；报告中区分源码存在、调用链接入、回归通过、短跑稳定和物理验证五种状态。
+## 证据分别说明
+
+| 证据 | 能证明什么 |
+| --- | --- |
+| 源码/API 核对 | 定义和调用路径存在 |
+| 构建、回归、失败路径 | 测试覆盖的执行和契约成立 |
+| 解析解、制造解、阶数研究 | 指定问题与细化范围的数值精度 |
+| 同输入 MPI 字段对照 | 给定网格、时刻和容差下的一致性 |
+| 持续运行和强扩展 | 相同工作量下的实测速度与效率 |
+| 独立物理基准 | 指定物理范围的定量适用性 |
+
+有限值、线性收敛、质量误差小或一次数值推进完成，均不能单独证明工程物理正确。
+MPI 对照不要求逐 bit 一致，也不证明强扩展。固定工作量 SIMPLE 允许以明确的迭代耗尽
+状态测吞吐，必须单独说明尚未达到稳态判据，不能作为收敛时间或稳态精度数据。
+
+## 改动与最低检查
+
+配置/IO 变更检查合法输入、缺失/重复/未知/未消费键、初场读取、输出与重启。
+公开接口变更检查 architecture、external、workflow 和全部调用方。离散/后端/分区
+变更增加对应局部契约、守恒、1/2/4 rank 对照；涉及 PISO 执行专用耦合组。
+时间格式变更用实际生产 Solver 检查 Euler/BDF2、启动与末步，不只检查一个时间系数函数。
+
+新 Solver 至少覆盖 typed 参数、load/create/existing 生命周期、一个解析/制造解、
+结构化成功/失败状态、线性不收敛/NaN/外迭代耗尽、同一时刻的串并行字段与输出。
+RANS 或非正交子循环还需独立验证。长期物理结论需适当的网格/时间步研究与采样。
+
+最近工程优化的完整回归日志、源码哈希、字段及测量审计见
+[优化报告](reports/flow-optimization-2026-10-07.md)。文档变更不能改写历史测试日志；
+源码快照相符才可引用其结果，最新文档检查单独记录。

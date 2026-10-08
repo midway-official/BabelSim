@@ -1,0 +1,62 @@
+[
+  {
+    "case": "piso101-asm",
+    "ranks": 4,
+    "samples": 1,
+    "computeMedian": 9.879453149,
+    "computeMin": 9.879453149,
+    "computeMax": 9.879453149,
+    "speedup": null,
+    "efficiency": null,
+    "setup": 1.274316101,
+    "solve": 7.321196443,
+    "iterations": 514,
+    "pcSetups": 10,
+    "linearSolves": 78
+  },
+  {
+    "case": "piso101-gamg1",
+    "ranks": 4,
+    "samples": 1,
+    "computeMedian": 2.9576779020000004,
+    "computeMin": 2.9576779020000004,
+    "computeMax": 2.9576779020000004,
+    "speedup": null,
+    "efficiency": null,
+    "setup": 0.13890139900000004,
+    "solve": 1.5555038200000004,
+    "iterations": 897,
+    "pcSetups": 10,
+    "linearSolves": 78
+  },
+  {
+    "case": "piso101-gamg2",
+    "ranks": 4,
+    "samples": 1,
+    "computeMedian": 3.6720315040000004,
+    "computeMin": 3.6720315040000004,
+    "computeMax": 3.6720315040000004,
+    "speedup": null,
+    "efficiency": null,
+    "setup": 0.272194378,
+    "solve": 1.998427627,
+    "iterations": 708,
+    "pcSetups": 10,
+    "linearSolves": 78
+  },
+  {
+    "case": "piso101-hypre",
+    "ranks": 4,
+    "samples": 1,
+    "computeMedian": 9.87852257,
+    "computeMin": 9.87852257,
+    "computeMax": 9.87852257,
+    "speedup": null,
+    "efficiency": null,
+    "setup": 1.280410872,
+    "solve": 7.361204179999999,
+    "iterations": 555,
+    "pcSetups": 10,
+    "linearSolves": 78
+  }
+]

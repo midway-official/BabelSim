@@ -1,0 +1,9 @@
+{
+  "gridN": 37,
+  "cells": 101306,
+  "vertices": 54872,
+  "faces": 258741,
+  "warpFraction": 0.0,
+  "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+  "meshBytes": 13364615
+}

@@ -1,0 +1,246 @@
+{
+  "root": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/reference/voronoi/ranks-8/repeat-01",
+  "files": [
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0000/U.csv",
+      "bytes": 8089800,
+      "sha256": "c57ea6fe030fabf0bb39a79b157097862dd12248c8630a6e7682ecfab63eed81"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0000/metadata.bs",
+      "bytes": 132,
+      "sha256": "066296d9c15536851bf83d1b5e1d88a1e3bc3cba9cc8b909461617d965931198"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0000/p.csv",
+      "bytes": 5366459,
+      "sha256": "cafa62aa9175e32ecc68c25d75d9948e6ae9def2fe368c3ea8b022897a0c4b24"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0001/U.csv",
+      "bytes": 8085086,
+      "sha256": "719a960d486d56a9fe9ddc70b4c1125a3bb37b1bc108e9b549986d29d808c460"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0001/metadata.bs",
+      "bytes": 132,
+      "sha256": "34db3a5af405616812331891adbda71f9126ad913cb8ebca8075a861e545c6a5"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0001/p.csv",
+      "bytes": 5337670,
+      "sha256": "95c6ca1c8b4f6a1805ebfb847d13d90b1b4f452cb93e54090d8bade89320db03"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0002/U.csv",
+      "bytes": 8235721,
+      "sha256": "73edd8febfefd08710eaded63b9d38b17b6882626a7c7a34168a98ae6f2871a9"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0002/metadata.bs",
+      "bytes": 132,
+      "sha256": "67f6690e1f30657bcfc7dc477b113e25ec7f407560ed089576413fb5f32f420c"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0002/p.csv",
+      "bytes": 5400050,
+      "sha256": "44153bf92dfa565573d41efc03d25db7c69c0e85709eba40b6424fd83bf105b6"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0003/U.csv",
+      "bytes": 8206776,
+      "sha256": "2750c53ce4ce85918885af055edd1c9c1819efd5ba9d8db9cee8536f7e3cada8"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0003/metadata.bs",
+      "bytes": 132,
+      "sha256": "6aad7d478c6429122645cfd71ae6e23eb4fb4bb1438072badcfdf703a7d2e56d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0003/p.csv",
+      "bytes": 5376732,
+      "sha256": "292875de85824cb2a0cff7a7082f885d31901f38faae523992a209dcd2bd2231"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0004/U.csv",
+      "bytes": 8140115,
+      "sha256": "f9c62ae1c1c75522f819a12a7cc8d3304b7e855a58caa88a5840cb3170636705"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0004/metadata.bs",
+      "bytes": 132,
+      "sha256": "3accdbad6c67ac39a985ce2145aad78afad97b36a609e4dd5d71a747ce2d6d4d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0004/p.csv",
+      "bytes": 5340985,
+      "sha256": "0a95ae0ae32f45c383435ef98c65518d1892323642c7804cd78927b8a05322ec"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0005/U.csv",
+      "bytes": 8131648,
+      "sha256": "289c7a85de84dc702e28ab3eba4bc4f64aa1c50a2b4d757e7cefa489131dcb36"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0005/metadata.bs",
+      "bytes": 132,
+      "sha256": "4b7f7f29da4a903a8e9c60698c3c9c649f419fd9bf68d55ae782af5af8258216"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0005/p.csv",
+      "bytes": 5339881,
+      "sha256": "758183ba6ad81f9c983267a22bd628b0fcf36a26d60b8190eb68213592d628f5"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0006/U.csv",
+      "bytes": 8177567,
+      "sha256": "ff4720e1921af82a6b2796211aa223665b0d2262d92ee3ca45328ff579f719ee"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0006/metadata.bs",
+      "bytes": 132,
+      "sha256": "65364f431a21354cea0437b4bf424f42e9487e14a7e214ac7fc7408daf7592f0"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0006/p.csv",
+      "bytes": 5329493,
+      "sha256": "8de13fb389f2e85292aeff963af27b38b16d2be0d803c5ef36af966e77ee756d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0007/U.csv",
+      "bytes": 8238659,
+      "sha256": "a471d3b4652285c6c71bc72daf6ce06cd7777ce0b9817bab0d88e5cb88fcb35e"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0007/metadata.bs",
+      "bytes": 132,
+      "sha256": "0d69bfc30e3a0512b0e932c5784c1bc6e9762c448e4b7a70bc52b28387f1167d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/0.2/rank-0007/p.csv",
+      "bytes": 5393744,
+      "sha256": "4af659c03ecee38350621ef9523ae16cc09cc67ee9426f4e146740ff4ecd9228"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0000/U.csv",
+      "bytes": 8089800,
+      "sha256": "c57ea6fe030fabf0bb39a79b157097862dd12248c8630a6e7682ecfab63eed81"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0000/metadata.bs",
+      "bytes": 132,
+      "sha256": "066296d9c15536851bf83d1b5e1d88a1e3bc3cba9cc8b909461617d965931198"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0000/p.csv",
+      "bytes": 5366459,
+      "sha256": "cafa62aa9175e32ecc68c25d75d9948e6ae9def2fe368c3ea8b022897a0c4b24"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0001/U.csv",
+      "bytes": 8085086,
+      "sha256": "719a960d486d56a9fe9ddc70b4c1125a3bb37b1bc108e9b549986d29d808c460"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0001/metadata.bs",
+      "bytes": 132,
+      "sha256": "34db3a5af405616812331891adbda71f9126ad913cb8ebca8075a861e545c6a5"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0001/p.csv",
+      "bytes": 5337670,
+      "sha256": "95c6ca1c8b4f6a1805ebfb847d13d90b1b4f452cb93e54090d8bade89320db03"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0002/U.csv",
+      "bytes": 8235721,
+      "sha256": "73edd8febfefd08710eaded63b9d38b17b6882626a7c7a34168a98ae6f2871a9"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0002/metadata.bs",
+      "bytes": 132,
+      "sha256": "67f6690e1f30657bcfc7dc477b113e25ec7f407560ed089576413fb5f32f420c"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0002/p.csv",
+      "bytes": 5400050,
+      "sha256": "44153bf92dfa565573d41efc03d25db7c69c0e85709eba40b6424fd83bf105b6"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0003/U.csv",
+      "bytes": 8206776,
+      "sha256": "2750c53ce4ce85918885af055edd1c9c1819efd5ba9d8db9cee8536f7e3cada8"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0003/metadata.bs",
+      "bytes": 132,
+      "sha256": "6aad7d478c6429122645cfd71ae6e23eb4fb4bb1438072badcfdf703a7d2e56d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0003/p.csv",
+      "bytes": 5376732,
+      "sha256": "292875de85824cb2a0cff7a7082f885d31901f38faae523992a209dcd2bd2231"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0004/U.csv",
+      "bytes": 8140115,
+      "sha256": "f9c62ae1c1c75522f819a12a7cc8d3304b7e855a58caa88a5840cb3170636705"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0004/metadata.bs",
+      "bytes": 132,
+      "sha256": "3accdbad6c67ac39a985ce2145aad78afad97b36a609e4dd5d71a747ce2d6d4d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0004/p.csv",
+      "bytes": 5340985,
+      "sha256": "0a95ae0ae32f45c383435ef98c65518d1892323642c7804cd78927b8a05322ec"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0005/U.csv",
+      "bytes": 8131648,
+      "sha256": "289c7a85de84dc702e28ab3eba4bc4f64aa1c50a2b4d757e7cefa489131dcb36"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0005/metadata.bs",
+      "bytes": 132,
+      "sha256": "4b7f7f29da4a903a8e9c60698c3c9c649f419fd9bf68d55ae782af5af8258216"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0005/p.csv",
+      "bytes": 5339881,
+      "sha256": "758183ba6ad81f9c983267a22bd628b0fcf36a26d60b8190eb68213592d628f5"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0006/U.csv",
+      "bytes": 8177567,
+      "sha256": "ff4720e1921af82a6b2796211aa223665b0d2262d92ee3ca45328ff579f719ee"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0006/metadata.bs",
+      "bytes": 132,
+      "sha256": "65364f431a21354cea0437b4bf424f42e9487e14a7e214ac7fc7408daf7592f0"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0006/p.csv",
+      "bytes": 5329493,
+      "sha256": "8de13fb389f2e85292aeff963af27b38b16d2be0d803c5ef36af966e77ee756d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0007/U.csv",
+      "bytes": 8238659,
+      "sha256": "a471d3b4652285c6c71bc72daf6ce06cd7777ce0b9817bab0d88e5cb88fcb35e"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0007/metadata.bs",
+      "bytes": 132,
+      "sha256": "0d69bfc30e3a0512b0e932c5784c1bc6e9762c448e4b7a70bc52b28387f1167d"
+    },
+    {
+      "path": "results/benchmark-r8-n01/rank-0007/p.csv",
+      "bytes": 5393744,
+      "sha256": "4af659c03ecee38350621ef9523ae16cc09cc67ee9426f4e146740ff4ecd9228"
+    }
+  ],
+  "status": "retained"
+}

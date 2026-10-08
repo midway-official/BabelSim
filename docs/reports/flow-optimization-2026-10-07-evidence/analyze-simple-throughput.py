@@ -25,7 +25,7 @@ def load(name):
         if run['warmup']:
             continue
         assert run['caseLabel']=='simple' and run['workUnits']==384
-        assert run['status']=='maxIterations' and run['validWork']
+        assert run['status']=='maxIterations' and run['returncode']==2 and run['validWork']
         assert run['measurementValid'] and run['sustainedSample']
         assert len(run['performance'])==run['ranks']
         assert all(p['reportedIterationIntervals']==383 and

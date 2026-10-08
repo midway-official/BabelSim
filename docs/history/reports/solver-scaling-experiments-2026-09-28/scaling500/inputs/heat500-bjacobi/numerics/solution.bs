@@ -1,0 +1,6 @@
+# temperature
+equation.temperature.kspType bcgs
+equation.temperature.pcType bjacobi
+equation.temperature.absoluteTolerance 1e-14
+equation.temperature.relativeTolerance 1e-10
+equation.temperature.maxIterations 1000

@@ -1,0 +1,36 @@
+{
+  "root": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/reference/voronoi/ranks-1/repeat-01",
+  "files": [
+    {
+      "path": "results/benchmark-r1-n01/0.2/rank-0000/U.csv",
+      "bytes": 65306724,
+      "sha256": "e5ee048a49fc4f67ac32956780fe89da91f63af951f42919613fbdf091fea1fb"
+    },
+    {
+      "path": "results/benchmark-r1-n01/0.2/rank-0000/metadata.bs",
+      "bytes": 133,
+      "sha256": "cc3f236d000ac27f4529b9f061a17495df075ea024b331705d653a199a1be237"
+    },
+    {
+      "path": "results/benchmark-r1-n01/0.2/rank-0000/p.csv",
+      "bytes": 42886216,
+      "sha256": "70189d89083ec18c175475e2debebedc243c4db5ef1724f842b508d0de15650e"
+    },
+    {
+      "path": "results/benchmark-r1-n01/rank-0000/U.csv",
+      "bytes": 65306724,
+      "sha256": "e5ee048a49fc4f67ac32956780fe89da91f63af951f42919613fbdf091fea1fb"
+    },
+    {
+      "path": "results/benchmark-r1-n01/rank-0000/metadata.bs",
+      "bytes": 133,
+      "sha256": "cc3f236d000ac27f4529b9f061a17495df075ea024b331705d653a199a1be237"
+    },
+    {
+      "path": "results/benchmark-r1-n01/rank-0000/p.csv",
+      "bytes": 42886216,
+      "sha256": "70189d89083ec18c175475e2debebedc243c4db5ef1724f842b508d0de15650e"
+    }
+  ],
+  "status": "retained"
+}

@@ -1,0 +1,16 @@
+RUN variant=optimized case=simple ranks=1 repeat=1
+DONE status=maxIterations compute=418.509s work=384 sustained=True
+RUN variant=reference case=simple ranks=1 repeat=1
+DONE status=maxIterations compute=1266.524s work=384 sustained=True
+RUN variant=optimized case=simple ranks=12 repeat=1
+DONE status=maxIterations compute=106.582s work=384 sustained=True
+RUN variant=reference case=simple ranks=12 repeat=1
+DONE status=maxIterations compute=353.050s work=384 sustained=True
+RUN variant=reference case=simple ranks=12 repeat=2
+DONE status=maxIterations compute=351.784s work=384 sustained=True
+RUN variant=reference case=simple ranks=1 repeat=2
+DONE status=maxIterations compute=1336.034s work=384 sustained=True
+RUN variant=optimized case=simple ranks=12 repeat=2
+DONE status=maxIterations compute=114.267s work=384 sustained=True
+RUN variant=optimized case=simple ranks=1 repeat=2
+DONE status=maxIterations compute=415.741s work=384 sustained=True

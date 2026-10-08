@@ -1,0 +1,17 @@
+[midway:23002] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+SIMPLE 1 mass=8.51291e-10 dU=1 rU=1 dP=3.33333 linP=3.5588e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 100 mass=1.96058e-12 dU=0.000782684 rU=0.00847831 dP=0.0117327 linP=4.93155e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 200 mass=7.29432e-13 dU=0.000400925 rU=0.00435994 dP=0.00344096 linP=4.86604e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 300 mass=3.44702e-13 dU=0.000247716 rU=0.002711 dP=0.00104207 linP=4.56598e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 384 mass=2.38229e-13 dU=0.000169012 rU=0.00185803 dP=0.000481848 linP=5.17667e-08 dTurb=0 rTurb=0 linear=ok converged=false
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[54152,1],0]
+  Exit code:    2
+--------------------------------------------------------------------------

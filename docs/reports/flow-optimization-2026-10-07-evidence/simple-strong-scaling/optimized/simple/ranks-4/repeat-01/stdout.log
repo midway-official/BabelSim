@@ -1,0 +1,20 @@
+[midway:23673] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+[midway:23673] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+[midway:23673] MCW rank 2 bound to socket 0[core 2[hwt 0-1]]: [../../BB/../../../../../../../../..]
+[midway:23673] MCW rank 3 bound to socket 0[core 3[hwt 0-1]]: [../../../BB/../../../../../../../..]
+SIMPLE 1 mass=1.75668e-09 dU=1 rU=1 dP=3.33333 linP=7.12845e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 100 mass=2.11475e-12 dU=0.000782684 rU=0.00847831 dP=0.0117327 linP=5.74893e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 200 mass=4.61205e-13 dU=0.000400925 rU=0.00435994 dP=0.00344096 linP=3.25488e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 300 mass=2.14327e-13 dU=0.000247716 rU=0.002711 dP=0.00104207 linP=2.98986e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 384 mass=4.462e-13 dU=0.000169012 rU=0.00185803 dP=0.000481849 linP=9.71097e-08 dTurb=0 rTurb=0 linear=ok converged=false
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[54827,1],1]
+  Exit code:    2
+--------------------------------------------------------------------------

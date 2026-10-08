@@ -1,0 +1,68 @@
+{
+  "status": "passed",
+  "commands": [
+    {
+      "command": [
+        "mpic++",
+        "-std=c++17",
+        "-O2",
+        "-fno-lto",
+        "-Iinclude",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/minimal-heat.cpp",
+        "build-petsc/libbabelsim.a",
+        "-L/home/midway/opt/petsc-3.25.5-openmpi-opt/lib",
+        "-lpetsc",
+        "-Wl,-rpath,/home/midway/opt/petsc-3.25.5-openmpi-opt/lib",
+        "-L/home/midway/opt/metis-5.1.0/lib",
+        "-lmetis",
+        "-Wl,-rpath,/home/midway/opt/metis-5.1.0/lib",
+        "-o",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/minimal-heat"
+      ],
+      "exitCode": 0,
+      "log": "minimal-heat-link.log"
+    },
+    {
+      "command": [
+        "mpirun",
+        "-np",
+        "1",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/minimal-heat",
+        "-case",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/case",
+        "-time",
+        "doc-np1"
+      ],
+      "exitCode": 0,
+      "log": "minimal-heat-np1.log"
+    },
+    {
+      "command": [
+        "mpirun",
+        "-np",
+        "2",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/minimal-heat",
+        "-case",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/case",
+        "-time",
+        "doc-np2"
+      ],
+      "exitCode": 0,
+      "log": "minimal-heat-np2.log"
+    },
+    {
+      "command": [
+        "python3",
+        "tools/compare_parallel_results.py",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/case/results/doc-np1",
+        "/home/midway/babelsim-flow-opt-20261007/doc-validation/case/results/doc-np2",
+        "--atol",
+        "1e-9",
+        "--rtol",
+        "1e-9"
+      ],
+      "exitCode": 0,
+      "log": "minimal-heat-comparison.log"
+    }
+  ]
+}
