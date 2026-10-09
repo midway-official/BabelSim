@@ -205,6 +205,18 @@ int main(int argc, char* argv[]) {
             RunTime time = RunTime::forMesh(local);
             Fields fields(local);
             exercise(fields, answers, false, options);
+            const double normP = math::normL2(fields.p), normK = math::normL2(fields.k);
+            const double normU = math::normL2(fields.U);
+            poison(fields.p); poison(fields.k); poison(fields.U);
+            const auto normBefore = detail::execution().performance();
+            const auto scalarNorms = math::normsL2({fields.p, fields.k});
+            const auto vectorNorms = math::normsL2({fields.U});
+            const auto normAfter = detail::execution().performance();
+            require(near(scalarNorms[0], normP, 1e-11) && near(scalarNorms[1], normK, 1e-11)
+                && near(vectorNorms[0], normU, 1e-11), "batched norm included poisoned ghosts");
+            require(normAfter.global_reductions - normBefore.global_reductions == 2
+                && normAfter.halo_exchanges == normBefore.halo_exchanges,
+                "each norm batch must use one reduction and no halo exchange");
             const PerformanceCounters before = detail::execution().performance();
             poison(fields.p);
             math::evaluate(math::grad(fields.p, options), fields.gradP);

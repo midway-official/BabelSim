@@ -1,0 +1,21 @@
+{
+  "status": "v3_verified_after_launch_retry",
+  "binary": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/bin/optimized-v3",
+  "binarySha256": "7f6e387c664d02394cbea3bfb45fc3a1457acfbac241ea9dbeef7550ceb0b08d",
+  "sourceMatches": {
+    "Makefile": true,
+    "tests/parallel_math_test.cpp": true,
+    "tests/math_runtime_test.cpp": true,
+    "src/physics/piso/main.cpp": true,
+    "src/backend/petsc_linear_system.cpp": true,
+    "src/discretization/procedural_equation.cpp": true,
+    "src/discretization/field_math.cpp": true,
+    "src/discretization/operators.cpp": true,
+    "include/babelsim/math.h": true,
+    "include/babelsim/operators.h": true,
+    "tests/residual_restart_test.cpp": true,
+    "tests/benchmark_work_test.py": true
+  },
+  "regressionRecord": "cases/cylinder_re3900_urans/validation/optimization_20261009/v3-build.json",
+  "utc": "2026-10-09T08:45:36.243783+00:00"
+}

@@ -25,6 +25,31 @@ double reduceField(const Field<T>& f, Function fn, bool maximum, bool weighted) 
     if (maximum) backend.maximum(&local, &global, 1); else backend.sum(&local, &global, 1);
     return global;
 }
+
+template<class T>
+std::vector<double> reduceNorms(
+    std::initializer_list<std::reference_wrapper<const Field<T>>> fields) {
+    std::vector<double> local(fields.size(), 0.0), global(fields.size(), 0.0);
+    std::size_t index = 0;
+    for (const auto& entry : fields) {
+        const auto& f = entry.get();
+        f.validateStorage();
+        if (&f.mesh() != &detail::execution().mesh() || f.location() == FieldLocation::Vertex)
+            throw std::invalid_argument("math norm batch requires run mesh cell/face fields");
+        const auto& ids = f.location() == FieldLocation::Cell
+            ? detail::meshData(f.mesh()).owned_cells : detail::meshData(f.mesh()).owned_faces;
+        const auto* values = detail::fieldData(f);
+        for (Index i : ids) {
+            if constexpr (std::is_same_v<T, double>) local[index] += values[i] * values[i];
+            else local[index] += squaredNorm(values[i]);
+        }
+        ++index;
+    }
+    if (!fields.size()) return global;
+    detail::execution().backend().sum(local.data(), global.data(), static_cast<int>(fields.size()));
+    for (double& value : global) value = std::sqrt(value);
+    return global;
+}
 }
 double sum(const ScalarField& f) { return reduceField(f, [](double v){return v;}, false, false); }
 double integral(const ScalarField& f) { return reduceField(f, [](double v){return v;}, false, true); }
@@ -34,6 +59,14 @@ double normL2(const ScalarField& f) {
 }
 double normL2(const VectorField& f) {
     return std::sqrt(reduceField(f, [](Vec3 v){return squaredNorm(v);}, false, false));
+}
+std::vector<double> normsL2(
+    std::initializer_list<std::reference_wrapper<const ScalarField>> fields) {
+    return reduceNorms(fields);
+}
+std::vector<double> normsL2(
+    std::initializer_list<std::reference_wrapper<const VectorField>> fields) {
+    return reduceNorms(fields);
 }
 
 void add(const ScalarField& increment, ScalarField& target, FaceRegion region) {

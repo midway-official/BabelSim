@@ -54,7 +54,7 @@ ScalarField temporalFluxCorrection(
 
 } // namespace
 
-// 瞬态 PISO。每个物理时间步只组装并求解一次动量预测方程，随后用 nCorrectors
+// 瞬态 PISO。每遍预测--修正外迭代组装并求解一次动量预测方程，随后用 nCorrectors
 // 次校正重新计算非对角动量作用 H(U)，再投影通量；不能重复投影已经守恒的 phi。
 // 修正步不做压力欠松弛。瞬态 SIMPLE 则相反：
 // 步内反复做带欠松弛的动量/压力迭代直到收敛，没有独立修正结构。
@@ -84,6 +84,10 @@ SolverResult runPiso(Case& problem) {
     const double couplingTolerance = settings.positive("couplingTolerance",
         std::numeric_limits<double>::max());
     const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections", 1, 0, 20);
+    // A settings comparison must be able to keep the projected initial state
+    // fixed while changing the pressure corrections inside physical steps.
+    const int initialNonOrthogonalCorrections = settings.integer(
+        "initialNonOrthogonalCorrections", nonOrthogonalCorrections, 0, 20);
     const double alphaU = settings.fraction("velocityRelaxation", 1.0);
     const double massTolerance = settings.positive("continuityTolerance", 1e-8);
     const double velocityTolerance = settings.positive("velocityTolerance", 1e-7);
@@ -106,8 +110,14 @@ SolverResult runPiso(Case& problem) {
     // at the SAME time level. Otherwise relaxation changes physical time rates.
     const int turbulenceLimit = settings.integer("turbulenceMaxIterations", 1000, 1,
         std::numeric_limits<int>::max());
-    const int turbulenceCorrections = turbulence && maxIterations == 1 && !segregatedTurbulence
-        ? turbulenceLimit : 1;
+    // Group model Picard solves before rebuilding the flow equations. History
+    // is still saved exactly once per physical step. The legacy multi-pass
+    // default remains one model correction per flow pass.
+    const int turbulenceCorrections = settings.integer("turbulenceCorrectors",
+        turbulence && maxIterations == 1 && !segregatedTurbulence ? turbulenceLimit : 1,
+        1, turbulenceLimit);
+    if (segregatedTurbulence && turbulenceCorrections != 1)
+        throw std::invalid_argument("segregated turbulence requires one transport correction");
     const auto& muEff = turbulence.effectiveViscosity();
     auto pPrime = field::homogeneousLike(p, "pPrime");
     auto momentumEquation = equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
@@ -117,12 +127,14 @@ SolverResult runPiso(Case& problem) {
     const auto pressureOptions = pressureEquation.options("diffusion");
     const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
         ? 1 : nonOrthogonalCorrections + 1;
+    const int initialPressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
+        ? 1 : initialNonOrthogonalCorrections + 1;
     phi = math::flux(U, pressureOptions);
     if (initializePotentialFlow) {
         // Establish a conservative initial face flux before it enters convection
         // and the first physical time history. The potential is not pressure.
         const auto initialImbalance = math::div(phi);
-        for (int correction = 0; correction < pressureSolves; ++correction) {
+        for (int correction = 0; correction < initialPressureSolves; ++correction) {
             potentialEquation.reset();
             equ::laplacian(potentialEquation, 1.0, -1, "diffusion");
             equ::source(potentialEquation, -initialImbalance);
@@ -135,7 +147,8 @@ SolverResult runPiso(Case& problem) {
         U.setBoundaryFlux(phi);
         pPrime.fill(0.0);
         reporter.record({{"initialMass", diagnostics::fluxBalance(phi).relative},
-            {"initialUmax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))}});
+            {"initialUmax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))},
+            {"initialPressureSolves", initialPressureSolves}});
     }
     if (methods.time == TimeMethod::Steady)
         throw std::invalid_argument("PISO requires a transient time scheme");
@@ -202,7 +215,7 @@ SolverResult runPiso(Case& problem) {
                 // leaves the corrected velocity and conservative phi inconsistent.
                 for (int correction = 0; correction < pressureSolves; ++correction) {
                     pressureEquation.reset();
-                    equ::laplacian(pressureEquation, rAU, -1, "diffusion");
+                    equ::laplacian(pressureEquation, rAUf, -1, "diffusion");
                     equ::source(pressureEquation, -imbalance);
                     pressureEquation.referenceIfUnanchored(0.0);
                     const auto pressureSolve = equ::solve(pressureEquation);
@@ -213,15 +226,17 @@ SolverResult runPiso(Case& problem) {
                 // Use the same frozen explicit correction as the assembled
                 // pressure equation, never a separately reconstructed flux.
                 phi = phiH + equ::faceFlux(pressureEquation, p);
-                U = HbyA - rAU * math::grad(p, pressureOptions);
+                const auto correctedGradP = math::grad(p, pressureOptions);
+                U = HbyA;
+                math::subtract(rAU, correctedGradP, U);
                 U.setBoundaryFlux(phi);
                 dP = std::max(dP, diagnostics::relativeMagnitude(p - previousPressure, p));
                 const auto action = equ::apply(momentumEquation, U);
-                const auto pressureSource = V * math::grad(p, pressureOptions);
-                const double scale = math::normL2(nonPressureRhs)
-                    + math::normL2(action) + math::normL2(pressureSource);
-                const double defect = math::normL2(nonPressureRhs - action - pressureSource);
-                couplingResidual = scale > 0.0 ? defect / scale : defect;
+                const auto pressureSource = V * correctedGradP;
+                const auto defect = nonPressureRhs - action - pressureSource;
+                const auto norms = math::normsL2({nonPressureRhs, action, pressureSource, defect});
+                const double scale = norms[0] + norms[1] + norms[2];
+                couplingResidual = scale > 0.0 ? norms[3] / scale : norms[3];
                 if (corrector == 0) firstCouplingResidual = couplingResidual;
                 correctionsUsed = corrector + 1;
                 const bool correctionDone = correctionsUsed >= correctors

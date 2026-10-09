@@ -94,6 +94,7 @@ TEST_SOURCES := tests/numerical_configuration_test.cpp \
                 tests/public_equation_test.cpp \
                 tests/backend_interface_test.cpp \
                 tests/petsc_backend_test.cpp \
+                tests/residual_restart_test.cpp \
                 tests/simple_solver_test.cpp \
                 tests/mesh_file_test.cpp \
                 tests/case_lifecycle_test.cpp \
@@ -166,6 +167,7 @@ $(BUILD)/case_programming_test: tests/case_programming_test.cpp tests/examples/c
 	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) $(LDLIBS) -o $@
 
 test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
+	python3 tests/benchmark_work_test.py
 	$(BUILD)/time_history_test
 	python3 tests/solver_workflow_test.py --solver $(BUILD)/babelsim-solve --post $(BUILD)/babelsim-post
 
@@ -194,7 +196,7 @@ test-full:
 	$(MAKE) test-mpi
 	$(MAKE) test-mpi-poiseuille
 
-test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
+test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/residual_restart_test $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 3 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_partition_test
@@ -208,6 +210,8 @@ test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/numerical_contract_t
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/petsc_backend_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/residual_restart_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/residual_restart_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_unstructured_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
 		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output

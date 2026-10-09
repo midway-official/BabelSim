@@ -263,5 +263,34 @@ text = run(fixture, 1, "invalid-relaxation", expected=1)
 assert "requires turbulenceRelaxation 1" in text
 summary["segregated_piso"] = "sequential BDF2 recurrence, viscosity bound, relaxation validation: passed"
 
+# Grouping the model's iterations must change work scheduling, not time history
+# or the converged discrete state. Cover all three closures and MPI partitions.
+grouped = []
+for model in ("SA", "kOmega", "kEpsilon"):
+    fixture = case("grouped-piso-" + model, model, method="bdf2", dt=0.01, end=0.03)
+    use_piso(fixture)
+    path = fixture / "numerics/solution.bs"
+    base_settings = path.read_text().replace("maxIterations 1", "maxIterations 200")
+    path.write_text(base_settings + "turbulenceCorrectors 1\n")
+    reference_log = run(fixture, 1, "reference")
+    names = {"SA": ["nuTilda", "mut"], "kOmega": ["k", "omega", "mut"],
+             "kEpsilon": ["k", "epsilon", "mut"]}[model]
+    reference = {name: values(fixture, "reference", name) for name in names}
+    reference_passes = sum(map(int, re.findall(r"^PISO (\d+) .*converged=true", reference_log, re.M)))
+    for ranks in (1, 2, 4):
+        path.write_text(base_settings + "turbulenceCorrectors 4\n")
+        text = run(fixture, ranks, f"grouped-np{ranks}")
+        completed = re.findall(r"^PISO (\d+) .*converged=true", text, re.M)
+        assert len(completed) == 3 and "linear=inexact" not in text
+        assert sum(map(int, completed)) < reference_passes, (model, ranks)
+        for name, expected in reference.items():
+            actual = values(fixture, f"grouped-np{ranks}", name)
+            assert max(abs(actual[i] - expected[i]) for i in actual) < 1e-8, (model, ranks, name)
+    path.write_text(base_settings + "turbulenceMaxIterations 2\nturbulenceCorrectors 3\n")
+    run(fixture, 1, "invalid-corrector-limit", expected=1)
+    grouped.append(model)
+summary["grouped_piso"] = dict(models=grouped, ranks=[1, 2, 4], steps=3,
+                               history_and_state="matched one-correction reference")
+
 (BASE / "summary.json").write_text(json.dumps(summary,indent=2))
 print("rans_validation_test: published terms, temporal order, SIMPLE/PISO 1/2/4 ranks and clipping/linear rejection passed",flush=True)

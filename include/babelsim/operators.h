@@ -137,6 +137,12 @@ void addDiffusion(
     const ScalarField& scalar,
     GradientMethod gradient_method = GradientMethod::GreenGauss,
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
+// Reuse an already reconstructed cell gradient for scalar assembly. The
+// caller owns synchronization; this low-level overload does not reconstruct it.
+void addDiffusion(ScalarDiscreteEquation&, double diffusivity, const ScalarField&,
+                  const VectorField& gradient, DiffusionMethod);
+void addDiffusion(ScalarDiscreteEquation&, const ScalarField& face_diffusivity,
+                  const ScalarField&, const VectorField& gradient, DiffusionMethod);
 void addDiffusion(
     VectorDiscreteEquation& equation,
     double diffusivity,

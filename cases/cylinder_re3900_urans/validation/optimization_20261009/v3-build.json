@@ -1,0 +1,29 @@
+{
+  "binary": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/bin/optimized-v3",
+  "binarySha256": "7f6e387c664d02394cbea3bfb45fc3a1457acfbac241ea9dbeef7550ceb0b08d",
+  "sourcePatchSha256": "fbbf9088b7252290fc3b1ca1861ef3ba141fce8d1bf2ce225f7a7e5d835698f4",
+  "sourceSha256": {
+    "Makefile": "ee2ca1c5d0c0b133fc2988da887c4a5d3086d7aeea8b1dd3a4c7a31d555f9c96",
+    "tests/parallel_math_test.cpp": "694b6f6f9b797d12d8a4c4306b109c16547198bcbe05427f9f6a2dc593c116f3",
+    "tests/math_runtime_test.cpp": "66e00d7188f611bae648813f65ed7aba17023622998440189b0ed3e152772a05",
+    "src/physics/piso/main.cpp": "ff0051bfbad0010d51bf44c0a44717c3e66ae693875d5f2e80b97a5e4eaabc28",
+    "src/backend/petsc_linear_system.cpp": "52f951a44f21aa32bb001a471e17aaf5ea5ea461d1e90e34f4fada10c6772394",
+    "src/discretization/procedural_equation.cpp": "841d21d2997c755e680980bf6e9e37b1a59743e4614a0f4fed7f626b30e165ba",
+    "src/discretization/field_math.cpp": "e0edb633b63398dfff2df3a1b66d23d510459b1ecdc96d15912d06d833ef5a5a",
+    "src/discretization/operators.cpp": "1584d65b72059246ddfd9caf758d662278126c524091097bdcaa28f2d368d153",
+    "include/babelsim/math.h": "db00a3324e4613081657e81551c6a60973c2af0ad9b10158f31a1a8bcece5ffb",
+    "include/babelsim/operators.h": "540c0bbffce4b4bba51ff4ea122b7a7f87f6f57509648b727bd76ae376a365a9",
+    "tests/residual_restart_test.cpp": "62fccea91715c8181272858c28a5f739d43fdf2404adcbadc011276548145e55",
+    "tests/benchmark_work_test.py": "55f061f9478ee257aaa970fe04d0ee706f7178ab82b5c3a5ccb47b8d19506cf7"
+  },
+  "regressionStatus": "passed_after_retry_of_launch_failure",
+  "initialAggregateExit": 2,
+  "failedTarget": "test-piso-coupling",
+  "failure": "Concurrent recursive make rebuilt physics_contract_test while mpirun launched it: ETXTBSY",
+  "fullTargetCompleted": true,
+  "pisoCouplingRetryExit": 0,
+  "regressionLogs": {
+    "full-regression-v3.log": "897069bb8ef9ac168958bb94c2ff4925eb6947cb6ef0b67dda881cd3e82d8b1e",
+    "piso-coupling-v3-retry.log": "ab50e00ac156abbcf7d3cf9bbffa50d144e09154247b0d293d50a672babf6157"
+  }
+}

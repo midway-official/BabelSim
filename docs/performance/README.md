@@ -5,6 +5,8 @@
 
 2026-10-07—08 的通用后端、网格分发、划分与 CPU AMG 优化，以及工程规模固定工作量的
 强扩展、数值一致性和 RSS/PSS 证据，见 [工程优化报告](../reports/flow-optimization-2026-10-07.md)。
+以 Re3900 圆柱为基准的范数合并、梯度复用、真实残差续算及 PISO 湍流内校正研究，
+见 [圆柱优化报告](../reports/cylinder-optimization-2026-10-09.md)。该报告标明本次验证状态。
 
 ## 获取计时和性能 JSON
 
@@ -36,6 +38,9 @@ python3 tools/benchmark_backend.py \
 它排除整个首次迭代及之前的网格读取/构造、场与方程创建、初次矩阵模式建立、初次预条件器准备。
 `reportedIterationIntervals` 给出窗口内的完整迭代间隔数；SIMPLE 的 N 次外迭代通常计量 N−1 次，
 单外迭代 PISO 的 N 个接受步通常计量后 N−1 步。没有至少两次迭代观测时，窗口为 0，不能用于持续运行结论。
+多外迭代 PISO 的计时单位是流动外迭代：各已完成物理时间步的最终迭代编号之和减一
+应等于 `reportedIterationIntervals`。计时只排除首次外迭代，不能说成排除了整个首物理步。
+驱动分别记录 `workUnits`（接受物理步）和 `outerIterations`（流动外迭代）。
 `solverComputeSeconds` 仍保留原定义，作为包含首次迭代的求解器回调计时。
 
 `tools/benchmark_solver_optimization.py` 顺序运行相同输入的不同二进制；每个 variant 拥有独立的
@@ -88,6 +93,8 @@ python3 tools/benchmark_solver_optimization.py \
 通用后端的 `preconditionerReuses` 计数使用旧矩阵版本预条件器的逻辑 RHS 求解，
 `preconditionerRetries` 计数其中需要重建后重试的次数。`linearSolves` 计数逻辑 RHS，
 `krylovIterations` 和 `trueResidualChecks` 计入两个尝试；重建时间计入 `preconditionerSeconds`。
+已通过真实残差检查的初值不进入 Krylov。递推范数达标但真实范数未达标时可在原迭代预算内
+继续至多两次；额外 Krylov 工作和真实残差检查仍计入原逻辑 RHS。最终验收目标保持不变。
 Block Jacobi/ASM 的局部因子准备现在在显式 setup 阶段计时，避免计入首个 RHS 的 solve 时间。
 
 ## 通用划分和内存存储
@@ -166,6 +173,11 @@ PISO 14 组全部 owned 字段对照通过，完整回归通过。工程 SIMPLE 
 `maxIterations` 且工作量完整。退出码 1、信号、超时或 `numericalFailure` 均无效，不能
 因已存在 JSON 或先前时间步文件而判成功。`--resume` 应使用相同研究配置和哈希，修改
 输入、二进制或分析口径用新的证据目录；旧短样本/失败样本仍保留并标出。
+
+求解设置 A/B 可显式使用 `--variant-case variant:case=/absolute/alternative-input`，
+驱动保存对应输入清单、哈希和 `settingsOverride` 标记。只对相同输入的二进制比较报告
+软件加速；不同迭代安排报告设置收益，并单独检查全部场及守恒。比较不同时间步时，
+每个案例应覆盖相同物理时间，但指定各自正确的 `--accepted-steps`，不能以相同步数代替。
 
 当前 Hypre/KSP 内部通信、PCApply 和归约热点需 PETSc profiling 另测，不能用框架
 计数器缺项证明它们没有发生。阶段计时有嵌套，不能简单加总成总时间。

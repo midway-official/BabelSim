@@ -1,0 +1,11 @@
+{
+  "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+  "frozenBinary": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/bin/production-v3",
+  "binarySha256": "7f6e387c664d02394cbea3bfb45fc3a1457acfbac241ea9dbeef7550ceb0b08d",
+  "baselineSha256": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c",
+  "matchesValidatedBinary": true,
+  "librarySha256": "7ff458343102b1eb07523fa1761da30d54abc584707f8875c8054bcb185f992d",
+  "selectedRank": 8,
+  "selectedCount": 0,
+  "buildExit": 0
+}

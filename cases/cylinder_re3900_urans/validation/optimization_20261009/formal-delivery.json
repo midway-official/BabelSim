@@ -1,0 +1,14 @@
+{
+  "utc": "2026-10-09T09:34:29.174687+00:00",
+  "selectedRanks": 8,
+  "selectedExtraNonorthogonal": 0,
+  "initialExtraNonorthogonal": 3,
+  "turbulenceCorrectors": 8,
+  "source": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/input-v3-fixed-init-n0-t1",
+  "productionBinary": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/bin/production-v3",
+  "productionSha256": "7f6e387c664d02394cbea3bfb45fc3a1457acfbac241ea9dbeef7550ceb0b08d",
+  "meshSha256": "c3098c1faf7ed340bdd02f29b21c05cf77c4e806b713658593057fa43417b2e1",
+  "deltaT": 0.01,
+  "endTime": 120,
+  "previousCanonicalInput": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/canonical-input-before-v3"
+}

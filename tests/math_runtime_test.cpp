@@ -47,6 +47,13 @@ int main() {
     }
 
     VectorField velocity_correction(mesh, FieldLocation::Cell, "Ucorrected", {1.0, 1.0, 1.0});
+    const auto scalar_norms = math::normsL2({scalar, cell_diffusivity});
+    require(near(scalar_norms[0], std::sqrt(10.0)) && near(scalar_norms[1], std::sqrt(8.0)),
+            "batched scalar norms differ from the independent exact norms");
+    const auto vector_norms = math::normsL2({velocity_correction, scalar_gradient});
+    require(near(vector_norms[0], std::sqrt(6.0)) &&
+            near(vector_norms[1], math::normL2(scalar_gradient)),
+            "batched vector norms differ from separate reductions");
     math::subtract(cell_diffusivity, math::grad(scalar, options), velocity_correction);
     for (Index cell : detail::meshData(mesh).owned_cells) {
         require(
@@ -103,6 +110,7 @@ int main() {
     const Mesh other_mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
     VectorField other_face(other_mesh, FieldLocation::Face);
     rejects([&] { math::evaluate(math::flux(other_face, options), projected); });
+    rejects([&] { math::normsL2({other_face}); });
 
     VectorField velocity(mesh, FieldLocation::Cell, "U");
     TensorField velocity_gradient(mesh, FieldLocation::Cell, "gradU");

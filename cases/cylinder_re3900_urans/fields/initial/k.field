@@ -1,0 +1,15 @@
+field k
+{
+    type scalar
+    location cell
+    internal file k.initial.dat
+    boundary
+    {
+        cylinder { type fixedValue value (0) }
+        inlet { type fixedValue value (0.00015) }
+        outlet { type zeroGradient }
+        farfield { type symmetry }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

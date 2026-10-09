@@ -167,6 +167,10 @@ auto diffusiveFlux = math::flux(k, T, options);
 auto divergence = math::div(diffusiveFlux);
 ```
 
+`math::normsL2({a, b, c})` 返回按输入顺序排列的独立 L2 范数，标量场和向量场分别提供
+重载。只累计 owned 实体，一次数组归约完成整批范数，不同步或读取 ghost；
+结果与分别调用 `normL2` 具有相同定义。独立范数同时用于一个诊断公式时可使用该接口。
+
 也可以通过 `problem.methods().operationOptions("pressureGradient")` 取得独立算子配置。
 `math::div(faceFlux)` 是面通量守恒求和，`math::reconstruct(field, gradient)` 使用调用者
 提供的梯度；这两个操作没有额外的格式选择。梯度、插值、对流、扩散、拉普拉斯和面通量

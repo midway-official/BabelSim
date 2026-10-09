@@ -393,26 +393,58 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(
 
     metrics.preconditioner_reused = hasPreconditioner(m_config.preconditioner) &&
         m_preconditioner_matrix_update < m_matrix_updates;
-    int total_iterations = 0;
-    for (int attempt = 0; attempt < 2; ++attempt) {
-        const Clock::time_point solve_start = Clock::now();
-        checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
-        metrics.solve_seconds += secondsSince(solve_start);
-        PetscInt iterations = 0;
-        KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
-        checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
-        checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
-        total_iterations += static_cast<int>(iterations);
-        const Clock::time_point residual_start = Clock::now();
-        double final_residual = 0.0;
-        computeTrueResidual(rhs, x, final_residual);
+    if (residualConverged(initial_residual, target)) {
+        // r0 is already the true residual (or exactly b for a zero guess).
+        // Avoid KSPSolve and its duplicate norm/matvec for an accepted x0.
+        metrics.result = SolveResult(SolveStatus::Converged, 0, initial_residual,
+                                    initial_residual, initial_residual / scale);
+        if (m_config.warm_start) solution = initial_guess;
+        else solution.assign(rhs_values.size(), 0.0);
         ++m_true_residual_checks;
         ++metrics.true_residual_checks;
-        metrics.residual_seconds += secondsSince(residual_start);
+        return metrics;
+    }
+    int total_iterations = 0;
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        int attempt_iterations = 0;
+        KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
+        double final_residual = 0.0;
+        for (int restart = 0; restart < 3; ++restart) {
+            checkPetsc(KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
+                static_cast<PetscInt>(m_config.max_iterations - attempt_iterations)),
+                "KSPSetTolerances(remaining iterations)");
+            const Clock::time_point solve_start = Clock::now();
+            checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
+            metrics.solve_seconds += secondsSince(solve_start);
+            PetscInt iterations = 0;
+            checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
+            checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
+            attempt_iterations += static_cast<int>(iterations);
+            total_iterations += static_cast<int>(iterations);
+            const Clock::time_point residual_start = Clock::now();
+            computeTrueResidual(rhs, x, final_residual);
+            ++m_true_residual_checks;
+            ++metrics.true_residual_checks;
+            metrics.residual_seconds += secondsSince(residual_start);
+            if (residualConverged(final_residual, target) || reason <= 0
+                || !std::isfinite(final_residual) || attempt_iterations >= m_config.max_iterations)
+                break;
+            // A converged recursive Krylov norm may lie just below the true
+            // norm. Continue from this x using a tighter internal target;
+            // keep the original scale/acceptance target and iteration budget.
+            // VecNorm and KSP reason are collective, including zero-owned ranks.
+            m_convergence.target *= 0.5;
+            checkPetsc(KSPSetInitialGuessNonzero(m_ksp, PETSC_TRUE),
+                       "KSPSetInitialGuessNonzero(true-residual restart)");
+        }
+        checkPetsc(KSPSetInitialGuessNonzero(m_ksp,
+            m_config.warm_start ? PETSC_TRUE : PETSC_FALSE), "KSPSetInitialGuessNonzero(restore)");
+        checkPetsc(KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
+            static_cast<PetscInt>(m_config.max_iterations)), "KSPSetTolerances(restore)");
 
         SolveStatus status = SolveStatus::NumericalFailure;
         if (residualConverged(final_residual, target)) status = SolveStatus::Converged;
-        else if (reason == KSP_DIVERGED_ITS || iterations >= m_config.max_iterations)
+        else if (reason == KSP_DIVERGED_ITS || attempt_iterations >= m_config.max_iterations)
             status = SolveStatus::MaxIterations;
         metrics.result = SolveResult(status, total_iterations, initial_residual,
                                      final_residual, final_residual / scale);
@@ -424,13 +456,14 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(
             metrics.recovery_setup = setup(false);
             ++metrics.retries;
             reset_guess();
+            m_convergence.target = static_cast<PetscReal>(target);
             continue;
         }
         if (status == SolveStatus::Converged) {
             int& fresh = m_fresh_iterations[right_hand_side];
             if (m_preconditioner_matrix_update == m_matrix_updates)
-                fresh = std::max(fresh, static_cast<int>(iterations));
-            else if (iterations > m_config.preconditioner_reuse_iteration_growth *
+                fresh = std::max(fresh, attempt_iterations);
+            else if (attempt_iterations > m_config.preconditioner_reuse_iteration_growth *
                                       static_cast<double>(std::max(fresh, 1)))
                 m_force_rebuild = true;
         }

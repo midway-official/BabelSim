@@ -164,6 +164,19 @@ auto faceK = math::interpolate(k, options.coefficientOptions());
 控制，再显式传给私有潜势方程。后端身份还含标量/向量和未知场名，不能仅按配置名推断系统。每个
 方程项必须在创建方程时声明；未声明的项名会立即报错。
 
+## PISO 湍流耦合工作量
+
+开启 `initializePotentialFlow=1` 时，`initialNonOrthogonalCorrections` 控制一次性潜势初始化
+的额外非正交修正，范围为 `0..20`；未指定时沿用 `nonOrthogonalCorrections`，保持原行为。
+它不改变物理时间步中的压力修正。比较不同步内修正次数时，应显式固定这个初始化参数，
+使各组从同一个投影初场开始；orthogonal 压力扩散只需要一次求解。
+
+PISO 的 `turbulenceCorrectors` 控制一次流动外迭代后的模型输运内校正上限，范围为
+`1..turbulenceMaxIterations`。`maxIterations>1` 时默认 1；标准单次 PISO 的 iterated
+模式默认 `turbulenceMaxIterations`，segregated 模式要求 1。增加该值可减少尚未收敛的
+湍流模型触发的整套动量/压力重算。内校正不推进物理时间，达到模型残差/变化门槛就提前退出；
+多外迭代仍检查动量、速度、压力、耦合和湍流收敛。应对具体工程问题验证工作量和场差异。
+
 ## 迁移规则
 
 1. 把 `methods.bs` 中的全局或按场离散行改成 `equation.<name>.<option>`；按项差异改成

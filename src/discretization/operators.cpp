@@ -1289,17 +1289,22 @@ void addScalarDiffusion(
     FaceDiffusivity diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method,
-    DiffusionMethod diffusion_method)
+    DiffusionMethod diffusion_method,
+    const VectorField* reconstructed_gradient = nullptr)
 {
     const Mesh& mesh = scalar.mesh();
     requireEquation(equation, mesh);
     requireField(scalar, mesh, FieldLocation::Cell, "scalar");
 
-    std::optional<VectorField> cell_gradient;
+    std::optional<VectorField> gradient_workspace;
+    const VectorField* cell_gradient = reconstructed_gradient;
+    if (cell_gradient) requireField(*cell_gradient, mesh, FieldLocation::Cell, "diffusion gradient");
     if (correctedDiffusion(diffusion_method)) {
-        cell_gradient.emplace(
-            mesh, FieldLocation::Cell, "grad(" + scalar.name() + ')');
-        gradient(scalar, *cell_gradient, gradient_method);
+        if (!cell_gradient) {
+            gradient_workspace.emplace(mesh, FieldLocation::Cell, "grad(" + scalar.name() + ')');
+            gradient(scalar, *gradient_workspace, gradient_method);
+            cell_gradient = &*gradient_workspace;
+        }
     } else if (diffusion_method != DiffusionMethod::Orthogonal) {
         throw std::invalid_argument("unsupported diffusion method");
     }
@@ -1481,6 +1486,23 @@ void addDiffusion(
             equation, {diffusivity, nullptr}, vector,
             gradient_method, diffusion_method);
     }
+}
+
+void addDiffusion(ScalarDiscreteEquation& equation, double diffusivity,
+                  const ScalarField& scalar, const VectorField& reconstructed_gradient,
+                  DiffusionMethod method) {
+    if (diffusivity < 0.0 || !std::isfinite(diffusivity))
+        throw std::invalid_argument("diffusivity must be non-negative and finite");
+    addScalarDiffusion(equation, {diffusivity, nullptr}, scalar,
+        GradientMethod::GreenGauss, method, &reconstructed_gradient);
+}
+
+void addDiffusion(ScalarDiscreteEquation& equation, const ScalarField& face_diffusivity,
+                  const ScalarField& scalar, const VectorField& reconstructed_gradient,
+                  DiffusionMethod method) {
+    requireField(face_diffusivity, scalar.mesh(), FieldLocation::Face, "face diffusivity");
+    addScalarDiffusion(equation, {0.0, &face_diffusivity}, scalar,
+        GradientMethod::GreenGauss, method, &reconstructed_gradient);
 }
 
 void addDiffusion(

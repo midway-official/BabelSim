@@ -1,0 +1,18 @@
+{
+  "utc": "2026-10-09T09:39:15.947311+00:00",
+  "status": "passed",
+  "time": 1.0,
+  "maxAbsolute": {
+    "U": 0.0,
+    "k": 0.0,
+    "mut": 0.0,
+    "omega": 0.0,
+    "p": 0.0
+  },
+  "formalStatus": "cases/cylinder_re3900_urans/results/formal_dt0p01_optimized_v3_status.json",
+  "reportedStepsAtAudit": 177,
+  "formalTimeAtAudit": 1.77,
+  "formalComplete": false,
+  "sourceUnchanged": true,
+  "productionMatchesValidatedBinary": true
+}

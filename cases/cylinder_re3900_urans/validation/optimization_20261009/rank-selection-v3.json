@@ -1,0 +1,42 @@
+{
+  "rows": [
+    {
+      "ranks": 1,
+      "valid": false,
+      "computeSeconds": 523.697136623,
+      "sustained": true,
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/rank-selection-v3-r1-validation.json"
+    },
+    {
+      "ranks": 2,
+      "valid": false,
+      "computeSeconds": 346.26181220300003,
+      "sustained": true,
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/rank-selection-v3-r2-validation.json"
+    },
+    {
+      "ranks": 4,
+      "valid": false,
+      "computeSeconds": 234.128661259,
+      "sustained": true,
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/rank-selection-v3-r4-validation.json"
+    },
+    {
+      "ranks": 8,
+      "valid": true,
+      "computeSeconds": 191.380029769,
+      "sustained": true,
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-t1-validation.json"
+    }
+  ],
+  "fastestMeasuredRank": 8,
+  "settings": {
+    "phase": "ready_for_rank_selection",
+    "utc": "2026-10-09T09:13:18.010905+00:00",
+    "selectedCount": 0,
+    "input": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/input-v3-fixed-init-n0-t1",
+    "study": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-t1",
+    "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-t1-validation.json"
+  },
+  "note": "One 100-step sample per rank; these timings guide process choice, not a statistical scaling guarantee."
+}

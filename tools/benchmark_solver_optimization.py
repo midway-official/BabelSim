@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Sequential binary A/B and strong-scaling measurements of production solvers.
 
-Use identical input dictionaries for every binary and rank count. Fixed SIMPLE
+Use identical input dictionaries for binary comparisons and every rank count.
+Explicit --variant-case overrides permit a separate settings study; their
+different input hashes are retained and must not be called a software speedup.
+Fixed SIMPLE
 iterations are throughput evidence; accepted PISO steps are transient evidence.
 Only max-rank iterationComputeSeconds determines speedup. This interval starts
 after the first completed iteration, excluding setup and its first solve. Output
@@ -34,6 +37,18 @@ def named(items: list[str]) -> dict[str, Path]:
             raise ValueError(f"invalid or duplicate label: {name}")
         result[name] = Path(path).resolve()
     return result
+
+
+def piso_work(log: str) -> tuple[int, int]:
+    """Return physical accepted steps and all completed nonlinear passes.
+
+    Reporter iteration timers observe every outer pass, even when only the
+    first/final log lines are printed. A multi-pass PISO step is one physical
+    work unit, but contributes its final iteration index to the timed count.
+    """
+    completed = re.findall(
+        r"^PISO ([0-9]+) .*accepted=true.*converged=true", log, re.MULTILINE)
+    return len(completed), sum(map(int, completed))
 
 
 def summarize(records: list[dict], output: Path) -> None:
@@ -100,6 +115,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--variant", action="append", required=True, help="label=/absolute/binary")
     parser.add_argument("--case", action="append", required=True, help="label=/absolute/case")
+    parser.add_argument("--variant-case", action="append", default=[],
+                        help="variant:case=/absolute/alternative-input (settings comparison)")
     parser.add_argument("--throughput", action="append", default=[], help="label=required-SIMPLE-outer-count")
     parser.add_argument("--accepted-steps", action="append", default=[], help="label=required-accepted-PISO-step-count")
     parser.add_argument("--ranks", type=bench.parse_ranks, default=[1, 2, 4, 8, 12])
@@ -118,6 +135,13 @@ def main() -> int:
     if args.repeat < 1 or args.minimum_compute < 0:
         parser.error("repeat must be positive and minimum-compute must be nonnegative")
     variants, cases = named(args.variant), named(args.case)
+    overrides = {}
+    for entry in args.variant_case:
+        key, path = entry.split("=", 1)
+        variant, name = key.split(":", 1)
+        if variant not in variants or name not in cases or (variant, name) in overrides:
+            parser.error("variant-case must name a provided variant and case exactly once")
+        overrides[variant, name] = Path(path).resolve()
     throughput = {name: int(count) for name, count in (value.split("=", 1) for value in args.throughput)}
     steps = {name: int(count) for name, count in (value.split("=", 1) for value in args.accepted_steps)}
     if any(name not in cases or count < 1 for name, count in throughput.items()):
@@ -144,6 +168,8 @@ def main() -> int:
         metadata = dict(host=bench.host_metadata(), build=bench.build_metadata(), git=bench.git_metadata(),
                         variants={n: {"binary": str(p), "sha256": bench.sha256(p)} for n, p in variants.items()},
                         cases={n: {"path": str(p), "manifest": bench.case_manifest(p)} for n, p in cases.items()},
+                        caseOverrides={f"{v}:{n}": {"path": str(p), "manifest": bench.case_manifest(p)}
+                                       for (v, n), p in overrides.items()},
                         ranks=args.ranks, repeat=args.repeat, warmup=args.warmup, throughput=throughput,
                         acceptedSteps=steps,
                         seed=args.seed, minimumCompute=args.minimum_compute,
@@ -154,13 +180,17 @@ def main() -> int:
             keys = ("variants", "cases", "ranks", "repeat", "warmup", "throughput", "acceptedSteps", "seed", "minimumCompute", "workRoot")
             if not args.resume or any(old[key] != metadata[key] for key in keys):
                 parser.error("evidence exists or inputs changed; choose a new output/work-root")
+            if old.get("caseOverrides", {}) != metadata["caseOverrides"]:
+                parser.error("case overrides changed; choose a new output/work-root")
         else:
             meta_path.write_text(json.dumps(metadata, indent=2) + "\n")
         copies = {}
         for variant in variants:
             for name, source in cases.items():
+                source = overrides.get((variant, name), source)
                 target = args.work_root / variant / name
-                manifest = metadata["cases"][name]["manifest"]
+                manifest = (metadata["caseOverrides"][f"{variant}:{name}"]["manifest"]
+                            if (variant, name) in overrides else metadata["cases"][name]["manifest"])
                 if not target.exists():
                     target.mkdir(parents=True)
                     for entry in manifest["files"]:
@@ -169,7 +199,8 @@ def main() -> int:
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source / relative, dest)
                         if relative.suffix in (".bs", ".field", ".json"):
-                            snapshot = args.output / "inputs" / name / relative
+                            input_root = args.output / "inputs" / (variant if overrides else "") / name
+                            snapshot = input_root / relative
                             snapshot.parent.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(source / relative, snapshot)
                 if bench.case_manifest(target)["sha256"] != manifest["sha256"]:
@@ -195,7 +226,7 @@ def main() -> int:
                                                          args.output / relative / "fields.json")
                 log = (run_output / f"ranks-{rank}" / (f"warmup-{rank:02d}" if repeat == 0 else f"repeat-{repeat:02d}") / "stdout.log").read_text()
                 outer = [int(n) for n in re.findall(r"^SIMPLE ([0-9]+) ", log, re.MULTILINE)]
-                accepted = len(re.findall(r"^PISO [0-9]+ .*accepted=true.*converged=true", log, re.MULTILINE))
+                accepted, piso_passes = piso_work(log)
                 iterations = re.findall(r"^(?:SIMPLE|PISO) [0-9]+ .*", log, re.MULTILINE)
                 work = max(outer, default=0) if name in throughput else accepted
                 valid = (len(run["performance"]) == rank and
@@ -206,8 +237,13 @@ def main() -> int:
                            run["returncode"] == 0 and
                            (name not in steps or accepted == steps[name]))))
                 if valid and work > 0:
-                    valid = all(p["reportedIterationIntervals"] == work - 1 for p in run["performance"])
+                    timed_passes = work if name in throughput else piso_passes
+                    valid = all(p["reportedIterationIntervals"] == timed_passes - 1
+                                for p in run["performance"])
                 run.update(variant=variant, caseLabel=name, workUnits=work, validWork=valid,
+                           inputSha256=bench.case_manifest(copies[variant, name])["sha256"],
+                           settingsOverride=(variant, name) in overrides,
+                           outerIterations=max(outer, default=0) if name in throughput else piso_passes,
                            measurementValid=True,
                            computeSeconds=max((p["iterationComputeSeconds"] for p in run["performance"]), default=0.0))
                 run["sustainedSample"] = valid and run["computeSeconds"] >= args.minimum_compute

@@ -1,0 +1,15 @@
+field p
+{
+    type scalar
+    location cell
+    internal file p.initial.dat
+    boundary
+    {
+        cylinder { type zeroGradient }
+        inlet { type zeroGradient }
+        outlet { type fixedValue value (0) }
+        farfield { type symmetry }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}
