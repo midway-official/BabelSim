@@ -1,0 +1,322 @@
+PISO corrector=1 Umax=2.91274 coupling=4.85608e-05
+PISO corrector=3 Umax=2.91273 coupling=9.17974e-06
+kOmega iteration=1 rK=0.00139082 rOmega=0.000854028 kMax=0.10581 omegaMax=123046 mutMax=0.000872495 productionMax=553.378 omegaBoundedCells=0
+PISO 1 mass=1.87548e-14 dU=0.00409714 rU=5.64168e-05 dP=0.227111 rCouplingFirst=4.85608e-05 rCoupling=9.17974e-06 linU=1 linP=6.21769e-10 dTurb=0.00810958 rTurb=0.00139082 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91255 coupling=3.1182e-05
+PISO corrector=3 Umax=2.91256 coupling=5.89497e-06
+kOmega iteration=1 rK=0.00122664 rOmega=0.00127589 kMax=0.104721 omegaMax=127114 mutMax=0.00087335 productionMax=549.376 omegaBoundedCells=0
+PISO 1 mass=2.88967e-15 dU=0.00340705 rU=5.35558e-05 dP=0.223496 rCouplingFirst=3.1182e-05 rCoupling=5.89497e-06 linU=1 linP=6.84054e-10 dTurb=0.00866167 rTurb=0.00127589 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91165 coupling=3.34318e-05
+PISO corrector=3 Umax=2.91164 coupling=6.33461e-06
+kOmega iteration=1 rK=0.00120872 rOmega=0.000557832 kMax=0.104293 omegaMax=125424 mutMax=0.00087441 productionMax=553.11 omegaBoundedCells=0
+PISO 1 mass=3.40039e-15 dU=0.00319559 rU=5.09124e-05 dP=0.240758 rCouplingFirst=3.34318e-05 rCoupling=6.33461e-06 linU=1 linP=8.2084e-10 dTurb=0.00495041 rTurb=0.00120872 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91163 coupling=3.62606e-05
+PISO corrector=3 Umax=2.91166 coupling=6.87877e-06
+kOmega iteration=1 rK=0.00120215 rOmega=0.000361209 kMax=0.103893 omegaMax=126469 mutMax=0.000875539 productionMax=552.629 omegaBoundedCells=0
+PISO 1 mass=2.98274e-15 dU=0.00334094 rU=4.63418e-05 dP=0.252732 rCouplingFirst=3.62606e-05 rCoupling=6.87877e-06 linU=1 linP=9.47509e-10 dTurb=0.00485222 rTurb=0.00120215 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91304 coupling=3.95269e-05
+PISO corrector=3 Umax=2.91302 coupling=7.512e-06
+kOmega iteration=1 rK=0.00121703 rOmega=0.000308222 kMax=0.103839 omegaMax=125519 mutMax=0.000876882 productionMax=551.043 omegaBoundedCells=0
+PISO 1 mass=1.64796e-14 dU=0.00348823 rU=4.55615e-05 dP=0.275591 rCouplingFirst=3.95269e-05 rCoupling=7.512e-06 linU=1 linP=8.8334e-10 dTurb=0.00515845 rTurb=0.00121703 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91294 coupling=4.31924e-05
+PISO corrector=3 Umax=2.91301 coupling=8.25749e-06
+kOmega iteration=1 rK=0.00123914 rOmega=0.000208035 kMax=0.103703 omegaMax=126148 mutMax=0.000878578 productionMax=550.902 omegaBoundedCells=0
+PISO 1 mass=1.66018e-14 dU=0.00367066 rU=4.51372e-05 dP=0.293482 rCouplingFirst=4.31924e-05 rCoupling=8.25749e-06 linU=1 linP=8.81542e-10 dTurb=0.00513415 rTurb=0.00123914 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91433 coupling=4.73849e-05
+PISO corrector=3 Umax=2.91429 coupling=9.07044e-06
+kOmega iteration=1 rK=0.00128398 rOmega=0.000169502 kMax=0.103735 omegaMax=125626 mutMax=0.000879684 productionMax=549.764 omegaBoundedCells=0
+PISO 1 mass=3.19693e-15 dU=0.00381088 rU=4.4777e-05 dP=0.323609 rCouplingFirst=4.73849e-05 rCoupling=9.07044e-06 linU=1 linP=8.57131e-10 dTurb=0.00560589 rTurb=0.00128398 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91353 coupling=5.19211e-05
+PISO corrector=3 Umax=2.91359 coupling=1.00153e-05
+kOmega iteration=1 rK=0.00133533 rOmega=0.00012195 kMax=0.10368 omegaMax=126006 mutMax=0.000906885 productionMax=549.935 omegaBoundedCells=0
+PISO 1 mass=2.47476e-15 dU=0.00429316 rU=4.46334e-05 dP=0.344639 rCouplingFirst=5.19211e-05 rCoupling=1.00153e-05 linU=1 linP=9.87301e-10 dTurb=0.0051872 rTurb=0.00133533 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91449 coupling=5.71948e-05
+PISO corrector=3 Umax=2.91443 coupling=1.10344e-05
+kOmega iteration=1 rK=0.00140204 rOmega=0.000104431 kMax=0.103722 omegaMax=125702 mutMax=0.00090638 productionMax=549.489 omegaBoundedCells=0
+PISO 1 mass=8.02209e-15 dU=0.0042598 rU=4.46211e-05 dP=0.385748 rCouplingFirst=5.71948e-05 rCoupling=1.10344e-05 linU=1 linP=6.66814e-10 dTurb=0.00607844 rTurb=0.00140204 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91293 coupling=6.28438e-05
+PISO corrector=3 Umax=2.91299 coupling=1.22226e-05
+kOmega iteration=1 rK=0.00149454 rOmega=7.23739e-05 kMax=0.103677 omegaMax=125881 mutMax=0.000947845 productionMax=549.232 omegaBoundedCells=0
+PISO 1 mass=2.64499e-15 dU=0.0047992 rU=4.47475e-05 dP=0.407169 rCouplingFirst=6.28438e-05 rCoupling=1.22226e-05 linU=1 linP=9.72588e-10 dTurb=0.00523584 rTurb=0.00149454 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91363 coupling=6.95494e-05
+PISO corrector=3 Umax=2.91354 coupling=1.35159e-05
+kOmega iteration=1 rK=0.00158235 rOmega=7.13379e-05 kMax=0.103689 omegaMax=125737 mutMax=0.000956654 productionMax=549.203 omegaBoundedCells=0
+PISO 1 mass=4.28845e-15 dU=0.004913 rU=4.51505e-05 dP=0.457456 rCouplingFirst=6.95494e-05 rCoupling=1.35159e-05 linU=1 linP=8.85323e-10 dTurb=0.00690864 rTurb=0.00158235 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91157 coupling=7.66913e-05
+PISO corrector=3 Umax=2.91164 coupling=1.50541e-05
+kOmega iteration=1 rK=0.00177178 rOmega=6.31342e-05 kMax=0.103631 omegaMax=125766 mutMax=0.00100999 productionMax=548.356 omegaBoundedCells=0
+PISO 1 mass=5.11326e-15 dU=0.005221 rU=4.57262e-05 dP=0.478865 rCouplingFirst=7.66913e-05 rCoupling=1.50541e-05 linU=1 linP=5.44393e-10 dTurb=0.00573662 rTurb=0.00177178 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91253 coupling=8.539e-05
+PISO corrector=3 Umax=2.91242 coupling=1.67726e-05
+kOmega iteration=1 rK=0.00189686 rOmega=6.69764e-05 kMax=0.103615 omegaMax=125765 mutMax=0.00103147 productionMax=548.789 omegaBoundedCells=0
+PISO 1 mass=6.36212e-15 dU=0.00571535 rU=4.66101e-05 dP=0.534132 rCouplingFirst=8.539e-05 rCoupling=1.67726e-05 linU=1 linP=7.7198e-10 dTurb=0.00878792 rTurb=0.00189686 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91041 coupling=9.47026e-05
+PISO corrector=3 Umax=2.91049 coupling=1.88692e-05
+kOmega iteration=1 rK=0.0023155 rOmega=8.15477e-05 kMax=0.103554 omegaMax=125679 mutMax=0.00110495 productionMax=547.482 omegaBoundedCells=0
+PISO 1 mass=1.61831e-14 dU=0.0059278 rU=4.78028e-05 dP=0.570599 rCouplingFirst=9.47026e-05 rCoupling=1.88692e-05 linU=1 linP=8.0139e-10 dTurb=0.0078649 rTurb=0.0023155 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91203 coupling=0.000106633
+PISO corrector=3 Umax=2.91191 coupling=2.13006e-05
+kOmega iteration=1 rK=0.00249754 rOmega=8.85619e-05 kMax=0.10353 omegaMax=125807 mutMax=0.00114539 productionMax=548.531 omegaBoundedCells=0
+PISO 1 mass=8.11819e-15 dU=0.00644356 rU=4.94659e-05 dP=0.645168 rCouplingFirst=0.000106633 rCoupling=2.13006e-05 linU=1 linP=5.49987e-10 dTurb=0.0130123 rTurb=0.00249754 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.90991 coupling=0.000119672
+PISO corrector=3 Umax=2.91003 coupling=2.43898e-05
+kOmega iteration=1 rK=0.00344846 rOmega=0.000103922 kMax=0.103486 omegaMax=125622 mutMax=0.00125739 productionMax=546.863 omegaBoundedCells=0
+PISO 1 mass=2.98918e-15 dU=0.00721235 rU=5.15719e-05 dP=0.703132 rCouplingFirst=0.000119672 rCoupling=2.43898e-05 linU=1 linP=9.33278e-10 dTurb=0.0120977 rTurb=0.00344846 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91219 coupling=0.00013761
+PISO corrector=3 Umax=2.91205 coupling=2.82374e-05
+kOmega iteration=1 rK=0.00376298 rOmega=0.000115494 kMax=0.103475 omegaMax=125863 mutMax=0.00132945 productionMax=548.591 omegaBoundedCells=0
+PISO 1 mass=1.75791e-14 dU=0.00768238 rU=5.47267e-05 dP=0.815102 rCouplingFirst=0.00013761 rCoupling=2.82374e-05 linU=1 linP=8.1526e-10 dTurb=0.0218818 rTurb=0.00376298 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.90964 coupling=0.000158278
+PISO corrector=3 Umax=2.90979 coupling=3.33767e-05
+kOmega iteration=1 rK=0.00610518 rOmega=0.000131353 kMax=0.103452 omegaMax=125572 mutMax=0.0015134 productionMax=546.456 omegaBoundedCells=0
+PISO 1 mass=5.7223e-15 dU=0.00900204 rU=5.85418e-05 dP=0.898322 rCouplingFirst=0.000158278 rCoupling=3.33767e-05 linU=1 linP=4.87738e-10 dTurb=0.0227268 rTurb=0.00610518 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.91237 coupling=0.000188854
+PISO corrector=3 Umax=2.9122 coupling=4.03265e-05
+kOmega iteration=1 rK=0.00678779 rOmega=0.000148741 kMax=0.118536 omegaMax=125918 mutMax=0.00166384 productionMax=548.843 omegaBoundedCells=0
+PISO 1 mass=4.28719e-15 dU=0.0100974 rU=6.46239e-05 dP=1.07493 rCouplingFirst=0.000188854 rCoupling=4.03265e-05 linU=1 linP=9.31379e-10 dTurb=0.0429588 rTurb=0.00678779 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=2.90883 coupling=0.000227018
+PISO corrector=3 Umax=2.90902 coupling=5.01133e-05
+kOmega iteration=1 rK=0.0129336 rOmega=0.000172187 kMax=0.170226 omegaMax=125503 mutMax=0.00195593 productionMax=545.97 omegaBoundedCells=0
+PISO 1 mass=8.99442e-15 dU=0.0115062 rU=7.21177e-05 dP=1.20483 rCouplingFirst=0.000227018 rCoupling=5.01133e-05 linU=1 linP=5.3851e-10 dTurb=0.0515115 rTurb=0.0129336 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.91214 coupling=0.000289212
+PISO corrector=3 Umax=2.9119 coupling=6.50032e-05
+kOmega iteration=1 rK=0.015331 rOmega=0.00019816 kMax=0.228776 omegaMax=125967 mutMax=0.00225587 productionMax=549.088 omegaBoundedCells=0
+PISO 1 mass=1.78313e-14 dU=0.0136275 rU=8.5013e-05 dP=1.51557 rCouplingFirst=0.000289212 rCoupling=6.50032e-05 linU=1 linP=7.72536e-10 dTurb=0.101027 rTurb=0.015331 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.90716 coupling=0.000372734
+PISO corrector=3 Umax=2.90742 coupling=8.65394e-05
+kOmega iteration=1 rK=0.033354 rOmega=0.000244471 kMax=0.354551 omegaMax=125400 mutMax=0.00273191 productionMax=545.114 omegaBoundedCells=0
+PISO 1 mass=1.53149e-14 dU=0.0160919 rU=0.000102116 dP=1.74671 rCouplingFirst=0.000372734 rCoupling=8.65394e-05 linU=1 linP=6.62921e-10 dTurb=0.131097 rTurb=0.033354 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.91201 coupling=0.000528652
+PISO corrector=3 Umax=2.91166 coupling=0.000123734
+kOmega iteration=1 rK=0.0431639 rOmega=0.000304211 kMax=0.545133 omegaMax=126040 mutMax=0.00328968 productionMax=549.428 omegaBoundedCells=0
+PISO 1 mass=2.4151e-14 dU=0.0196781 rU=0.000133124 dP=2.4215 rCouplingFirst=0.000528652 rCoupling=0.000123734 linU=1 linP=7.71834e-10 dTurb=0.255729 rTurb=0.0431639 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.90477 coupling=0.000749781
+PISO corrector=3 Umax=2.9052 coupling=0.000180963
+kOmega iteration=1 rK=0.105208 rOmega=0.000395068 kMax=0.910287 omegaMax=125256 mutMax=0.0040752 productionMax=617.443 omegaBoundedCells=0
+PISO 1 mass=4.44688e-15 dU=0.0267353 rU=0.000178479 dP=2.87104 rCouplingFirst=0.000749781 rCoupling=0.000180963 linU=1 linP=4.4877e-10 dTurb=0.302594 rTurb=0.105208 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.91352 coupling=0.00122971
+PISO corrector=3 Umax=2.91291 coupling=0.000292404
+kOmega iteration=1 rK=0.137159 rOmega=0.000622665 kMax=1.60516 omegaMax=126206 mutMax=0.00505084 productionMax=1062.47 omegaBoundedCells=0
+PISO 1 mass=1.92573e-14 dU=0.0355165 rU=0.000265079 dP=4.50252 rCouplingFirst=0.00122971 rCoupling=0.000292404 linU=1 linP=7.13278e-10 dTurb=0.464629 rTurb=0.137159 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.90077 coupling=0.00194204
+PISO corrector=3 Umax=2.90169 coupling=0.000472803
+kOmega iteration=1 rK=0.286092 rOmega=0.00093071 kMax=2.90348 omegaMax=125013 mutMax=0.00631055 productionMax=2565.27 omegaBoundedCells=0
+PISO 1 mass=5.75882e-14 dU=0.0554215 rU=0.000405963 dP=4.97198 rCouplingFirst=0.00194204 rCoupling=0.000472803 linU=1 linP=9.18861e-10 dTurb=0.435731 rTurb=0.286092 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=3.53635 coupling=0.00376033
+PISO corrector=3 Umax=2.91924 coupling=0.000882577
+kOmega iteration=1 rK=0.285033 rOmega=0.00337137 kMax=6.01049 omegaMax=135695 mutMax=0.0079207 productionMax=5271.82 omegaBoundedCells=0
+PISO 1 mass=2.86491e-14 dU=0.0825428 rU=0.000685462 dP=7.47652 rCouplingFirst=0.00376033 rCoupling=0.000882577 linU=1 linP=8.22315e-10 dTurb=0.577947 rTurb=0.285033 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=4.46528 coupling=0.00656298
+PISO corrector=3 Umax=3.51632 coupling=0.00157919
+kOmega iteration=1 rK=0.416335 rOmega=0.00792872 kMax=11.6404 omegaMax=133245 mutMax=0.0097036 productionMax=16340.4 omegaBoundedCells=0
+PISO 1 mass=2.52343e-14 dU=0.16012 rU=0.00121743 dP=6.35452 rCouplingFirst=0.00656298 rCoupling=0.00157919 linU=1 linP=5.0087e-10 dTurb=0.489287 rTurb=0.416335 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=14.5735 coupling=0.0143478
+PISO corrector=3 Umax=10.1238 coupling=0.00332021
+kOmega iteration=1 rK=0.365509 rOmega=0.10551 kMax=27.6315 omegaMax=2.64517e+06 mutMax=0.0116498 productionMax=46586 omegaBoundedCells=0
+PISO 1 mass=1.34063e-13 dU=0.317839 rU=0.00229474 dP=9.7862 rCouplingFirst=0.0143478 rCoupling=0.00332021 linU=1 linP=9.91834e-10 dTurb=0.916675 rTurb=0.365509 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=12.0985 coupling=0.025809
+PISO corrector=3 Umax=10.3045 coupling=0.00618633
+kOmega iteration=1 rK=0.459985 rOmega=0.72356 kMax=51.8828 omegaMax=912482 mutMax=0.0133386 productionMax=188706 omegaBoundedCells=0
+PISO 1 mass=7.45424e-14 dU=0.528831 rU=0.00439996 dP=8.14448 rCouplingFirst=0.025809 rCoupling=0.00618633 linU=1 linP=5.91669e-10 dTurb=2.14975 rTurb=0.72356 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=24.54 coupling=0.0534111
+PISO corrector=3 Umax=12.4632 coupling=0.0127052
+kOmega iteration=1 rK=0.361065 rOmega=0.225935 kMax=117.494 omegaMax=1.48422e+06 mutMax=0.0144725 productionMax=492779 omegaBoundedCells=0
+PISO 1 mass=3.65275e-13 dU=0.965519 rU=0.0086606 dP=13.806 rCouplingFirst=0.0534111 rCoupling=0.0127052 linU=1 linP=9.55455e-10 dTurb=0.756 rTurb=0.361065 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=49.3922 coupling=0.0860842
+PISO corrector=3 Umax=22.5721 coupling=0.0210618
+kOmega iteration=1 rK=0.404449 rOmega=0.57873 kMax=160.13 omegaMax=8.06009e+06 mutMax=0.0158425 productionMax=1.75532e+06 omegaBoundedCells=0
+PISO 1 mass=1.11971e-12 dU=1.08642 rU=0.0159357 dP=10.6141 rCouplingFirst=0.0860842 rCoupling=0.0210618 linU=1 linP=8.53057e-10 dTurb=0.992507 rTurb=0.57873 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=86.281 coupling=0.138515
+PISO corrector=3 Umax=32.5721 coupling=0.0417282
+kOmega iteration=1 rK=0.391065 rOmega=0.879239 kMax=279.454 omegaMax=1.53476e+07 mutMax=0.0181456 productionMax=2.06636e+07 omegaBoundedCells=0
+PISO 1 mass=7.94993e-13 dU=0.971873 rU=0.0295481 dP=14.0119 rCouplingFirst=0.138515 rCoupling=0.0417282 linU=1 linP=6.90394e-10 dTurb=1.01444 rTurb=0.879239 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=94.4579 coupling=0.148332
+PISO corrector=3 Umax=38.2732 coupling=0.0437681
+kOmega iteration=1 rK=0.433493 rOmega=0.952314 kMax=389.032 omegaMax=1.70529e+07 mutMax=0.0222139 productionMax=5.43632e+06 omegaBoundedCells=0
+PISO 1 mass=5.31649e-13 dU=1.29966 rU=0.0564202 dP=13.669 rCouplingFirst=0.148332 rCoupling=0.0437681 linU=1 linP=6.14646e-10 dTurb=2.4478 rTurb=0.952314 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=90.8989 coupling=0.267185
+PISO corrector=3 Umax=55.6927 coupling=0.0844563
+kOmega iteration=1 rK=0.531773 rOmega=0.972281 kMax=536.573 omegaMax=2.97518e+07 mutMax=0.0347624 productionMax=2.48811e+07 omegaBoundedCells=0
+PISO 1 mass=2.30934e-12 dU=0.826132 rU=0.0702961 dP=11.6415 rCouplingFirst=0.267185 rCoupling=0.0844563 linU=1 linP=9.53314e-10 dTurb=1.02385 rTurb=0.972281 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=114.064 coupling=0.258999
+PISO corrector=3 Umax=55.5991 coupling=0.0944894
+kOmega iteration=1 rK=0.537097 rOmega=0.971481 kMax=669.896 omegaMax=3.01983e+07 mutMax=0.0383355 productionMax=9.07408e+07 omegaBoundedCells=0
+PISO 1 mass=2.6882e-12 dU=1.2503 rU=0.143263 dP=17.3487 rCouplingFirst=0.258999 rCoupling=0.0944894 linU=1 linP=9.35764e-10 dTurb=1.43408 rTurb=0.971481 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=107.137 coupling=0.402904
+PISO corrector=3 Umax=90.3281 coupling=0.134729
+kOmega iteration=1 rK=0.58103 rOmega=0.981663 kMax=1050.24 omegaMax=3.12064e+07 mutMax=0.1 productionMax=3.7083e+07 omegaBoundedCells=1218
+PISO 1 mass=9.68383e-13 dU=1.1087 rU=0.103149 dP=13.2516 rCouplingFirst=0.402904 rCoupling=0.134729 linU=1 linP=7.74785e-10 dTurb=1.72077 rTurb=0.981663 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=154.597 coupling=0.355605
+PISO corrector=3 Umax=98.8348 coupling=0.141279
+kOmega iteration=1 rK=0.592807 rOmega=0.960782 kMax=707.87 omegaMax=1.04501e+08 mutMax=0.0776106 productionMax=4.42106e+08 omegaBoundedCells=34
+PISO 1 mass=1.20096e-12 dU=1.37359 rU=0.234635 dP=16.7992 rCouplingFirst=0.355605 rCoupling=0.141279 linU=1 linP=4.53701e-10 dTurb=1.01627 rTurb=0.960782 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=368.615 coupling=0.380729
+PISO corrector=3 Umax=234.743 coupling=0.144204
+kOmega iteration=1 rK=0.551524 rOmega=0.98607 kMax=1643.07 omegaMax=5.67452e+07 mutMax=0.0851541 productionMax=3.09204e+08 omegaBoundedCells=0
+PISO 1 mass=2.13634e-12 dU=1.05083 rU=0.176425 dP=20.5028 rCouplingFirst=0.380729 rCoupling=0.144204 linU=1 linP=6.42058e-10 dTurb=2.18544 rTurb=0.98607 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=355.744 coupling=0.463246
+PISO corrector=3 Umax=151.262 coupling=0.213051
+kOmega iteration=1 rK=0.452765 rOmega=0.985829 kMax=1179.01 omegaMax=1.02473e+08 mutMax=0.1 productionMax=5.41037e+08 omegaBoundedCells=370
+PISO 1 mass=2.19356e-12 dU=1.82272 rU=0.204711 dP=14.4875 rCouplingFirst=0.463246 rCoupling=0.213051 linU=1 linP=9.14881e-10 dTurb=1.2615 rTurb=0.985829 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=758.116 coupling=0.633418
+PISO corrector=3 Umax=444.51 coupling=0.373657
+kOmega iteration=1 rK=0.822312 rOmega=0.911135 kMax=7093.12 omegaMax=4.21411e+08 mutMax=0.0880109 productionMax=4.20116e+10 omegaBoundedCells=0
+PISO 1 mass=5.74254e-12 dU=1.21527 rU=0.259339 dP=10.1431 rCouplingFirst=0.633418 rCoupling=0.373657 linU=1 linP=8.05346e-10 dTurb=1.00779 rTurb=0.911135 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=31333.1 coupling=0.642728
+PISO corrector=3 Umax=2515.79 coupling=0.506062
+kOmega iteration=1 rK=0.48795 rOmega=0.951094 kMax=6651.77 omegaMax=1.61481e+09 mutMax=0.0377364 productionMax=3.84527e+10 omegaBoundedCells=1
+PISO 1 mass=9.81408e-12 dU=1.1296 rU=0.52239 dP=10.0616 rCouplingFirst=0.642728 rCoupling=0.506062 linU=1 linP=8.80711e-10 dTurb=1.04298 rTurb=0.951094 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2097.94 coupling=0.654767
+PISO corrector=3 Umax=1501.93 coupling=0.538138
+kOmega iteration=1 rK=0.649475 rOmega=0.998187 kMax=33664.5 omegaMax=1.28453e+09 mutMax=0.0657059 productionMax=8.58615e+10 omegaBoundedCells=4
+PISO 1 mass=1.44915e-11 dU=1.0598 rU=0.56737 dP=20.4786 rCouplingFirst=0.654767 rCoupling=0.538138 linU=1 linP=6.73501e-10 dTurb=1.93398 rTurb=0.998187 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2134.38 coupling=0.56053
+PISO corrector=3 Umax=1716.1 coupling=0.415952
+kOmega iteration=1 rK=0.631996 rOmega=0.994959 kMax=127481 omegaMax=2.16511e+09 mutMax=0.0933465 productionMax=2.76802e+12 omegaBoundedCells=38
+PISO 1 mass=4.5847e-11 dU=1.25896 rU=0.808234 dP=24.863 rCouplingFirst=0.56053 rCoupling=0.415952 linU=1 linP=9.51207e-10 dTurb=1.05117 rTurb=0.994959 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=10222 coupling=0.628614
+PISO corrector=3 Umax=2543.02 coupling=0.591176
+kOmega iteration=1 rK=0.590777 rOmega=0.988307 kMax=50602 omegaMax=8.90836e+09 mutMax=0.1 productionMax=1.44962e+12 omegaBoundedCells=159
+PISO 1 mass=5.18294e-11 dU=1.19391 rU=0.751039 dP=35.364 rCouplingFirst=0.628614 rCoupling=0.591176 linU=1 linP=7.44857e-10 dTurb=1.13943 rTurb=0.988307 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=19170.1 coupling=0.610992
+PISO corrector=3 Umax=10571.7 coupling=0.610867
+kOmega iteration=1 rK=0.801781 rOmega=0.999285 kMax=2.02699e+06 omegaMax=7.90615e+09 mutMax=0.1 productionMax=5.96654e+13 omegaBoundedCells=3180
+PISO 1 mass=7.0718e-12 dU=1.19279 rU=0.712586 dP=32.4345 rCouplingFirst=0.610992 rCoupling=0.610867 linU=0.00385381 linP=6.86191e-10 dTurb=1.51449 rTurb=0.999285 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=64027.5 coupling=0.62524
+PISO corrector=3 Umax=27354.6 coupling=0.668486
+kOmega iteration=1 rK=0.435779 rOmega=0.938072 kMax=1.94925e+06 omegaMax=4.53557e+10 mutMax=0.1 productionMax=4.3813e+13 omegaBoundedCells=75
+PISO 1 mass=7.58582e-12 dU=1.07741 rU=0.719614 dP=54.044 rCouplingFirst=0.62524 rCoupling=0.668486 linU=0.00594012 linP=6.60167e-10 dTurb=1.00211 rTurb=0.938072 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=30775.4 coupling=0.496232
+PISO corrector=3 Umax=18731.3 coupling=0.325896
+kOmega iteration=1 rK=0.845545 rOmega=0.999583 kMax=3.41882e+07 omegaMax=1.92402e+11 mutMax=0.1 productionMax=4.00271e+15 omegaBoundedCells=516
+PISO 1 mass=1.50702e-12 dU=1.29783 rU=0.781142 dP=46.676 rCouplingFirst=0.496232 rCoupling=0.325896 linU=0.00271111 linP=7.7626e-10 dTurb=1.07227 rTurb=0.999583 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=289187 coupling=0.617408
+PISO corrector=3 Umax=132487 coupling=0.582509
+kOmega iteration=1 rK=0.716323 rOmega=0.999499 kMax=7.76065e+06 omegaMax=3.39889e+11 mutMax=0.1 productionMax=1.58304e+15 omegaBoundedCells=6421
+PISO 1 mass=1.06041e-11 dU=1.08865 rU=0.736134 dP=52.5325 rCouplingFirst=0.617408 rCoupling=0.582509 linU=0.000124248 linP=9.79918e-10 dTurb=2.6954 rTurb=0.999499 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.28e+06 coupling=0.558254
+PISO corrector=3 Umax=599007 coupling=0.505228
+kOmega iteration=1 rK=0.903458 rOmega=0.995623 kMax=1.16897e+08 omegaMax=2.54485e+12 mutMax=0.1 productionMax=7.91688e+17 omegaBoundedCells=21928
+PISO 1 mass=2.83847e-12 dU=1.05678 rU=0.775333 dP=40.6248 rCouplingFirst=0.558254 rCoupling=0.505228 linU=2.52262e-05 linP=8.77523e-10 dTurb=1.06591 rTurb=0.995623 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=5.64149e+06 coupling=0.670879
+PISO corrector=3 Umax=1.20092e+06 coupling=0.585303
+kOmega iteration=1 rK=0.880869 rOmega=0.998281 kMax=4.35804e+07 omegaMax=4.72936e+12 mutMax=0.1 productionMax=8.60093e+17 omegaBoundedCells=1918
+PISO 1 mass=4.10875e-12 dU=1.21318 rU=0.737934 dP=45.1208 rCouplingFirst=0.670879 rCoupling=0.585303 linU=2.50168e-06 linP=7.9214e-10 dTurb=1.16478 rTurb=0.998281 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.05263e+07 coupling=0.737462
+PISO corrector=3 Umax=4.80526e+06 coupling=0.560929
+kOmega iteration=1 rK=0.906208 rOmega=0.999238 kMax=6.60023e+08 omegaMax=2.98101e+13 mutMax=0.1 productionMax=3.44807e+20 omegaBoundedCells=19597
+PISO 1 mass=1.03513e-12 dU=1.01463 rU=0.750714 dP=28.7535 rCouplingFirst=0.737462 rCoupling=0.560929 linU=2.62807e-08 linP=7.44861e-10 dTurb=1.02671 rTurb=0.999238 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=4.80113e+07 coupling=0.705284
+PISO corrector=3 Umax=2.2985e+07 coupling=0.167214
+kOmega iteration=1 rK=0.898591 rOmega=0.998851 kMax=7.09717e+08 omegaMax=1.45334e+14 mutMax=0.1 productionMax=2.47569e+21 omegaBoundedCells=3864
+PISO 1 mass=1.07365e-11 dU=1.14824 rU=0.160287 dP=48.3856 rCouplingFirst=0.705284 rCoupling=0.167214 linU=6.00346e-10 linP=8.70279e-10 dTurb=1.02938 rTurb=0.998851 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.55024e+08 coupling=0.835504
+PISO corrector=3 Umax=6.81899e+07 coupling=0.480225
+kOmega iteration=1 rK=0.793209 rOmega=0.999176 kMax=1.95476e+09 omegaMax=2.96512e+14 mutMax=0.1 productionMax=8.55575e+21 omegaBoundedCells=24600
+PISO 1 mass=4.53918e-12 dU=1.10561 rU=0.760951 dP=16.7972 rCouplingFirst=0.835504 rCoupling=0.480225 linU=2.62081e-10 linP=6.82754e-10 dTurb=1.06818 rTurb=0.999176 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.36406e+09 coupling=0.833732
+PISO corrector=3 Umax=9.02917e+08 coupling=0.565876
+kOmega iteration=1 rK=0.877036 rOmega=0.991224 kMax=3.80656e+10 omegaMax=1.51226e+15 mutMax=0.1 productionMax=2.97007e+23 omegaBoundedCells=4338
+PISO 1 mass=1.14936e-11 dU=1.08707 rU=0.656236 dP=20.049 rCouplingFirst=0.833732 rCoupling=0.565876 linU=5.49011e-10 linP=8.4488e-10 dTurb=1.01395 rTurb=0.991224 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=3.41075e+09 coupling=0.744387
+PISO corrector=3 Umax=1.67731e+09 coupling=0.23285
+kOmega iteration=1 rK=0.770284 rOmega=0.99969 kMax=5.24919e+09 omegaMax=7.31593e+14 mutMax=0.1 productionMax=1.99427e+22 omegaBoundedCells=34464
+PISO 1 mass=1.08965e-11 dU=0.917593 rU=0.521664 dP=24.2228 rCouplingFirst=0.744387 rCoupling=0.23285 linU=2.90276e-10 linP=9.07776e-10 dTurb=3.98658 rTurb=0.99969 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=8.53353e+10 coupling=0.877643
+PISO corrector=3 Umax=4.17431e+10 coupling=0.624284
+kOmega iteration=1 rK=0.965072 rOmega=0.899084 kMax=3.25094e+12 omegaMax=4.30505e+17 mutMax=0.1 productionMax=3.93035e+27 omegaBoundedCells=276
+PISO 1 mass=1.51846e-11 dU=1.01221 rU=0.641337 dP=25.1055 rCouplingFirst=0.877643 rCoupling=0.624284 linU=6.5494e-10 linP=8.84034e-10 dTurb=0.999989 rTurb=0.965072 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=7.78748e+10 coupling=0.785791
+PISO corrector=3 Umax=2.70582e+10 coupling=0.301276
+kOmega iteration=1 rK=0.891538 rOmega=0.999981 kMax=1.04721e+12 omegaMax=1.403e+16 mutMax=0.1 productionMax=2.69809e+25 omegaBoundedCells=66903
+PISO 1 mass=4.61703e-12 dU=1.65396 rU=0.742536 dP=43.9725 rCouplingFirst=0.785791 rCoupling=0.301276 linU=3.70493e-10 linP=8.51578e-10 dTurb=130.907 rTurb=0.999981 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.22984e+12 coupling=0.851068
+PISO corrector=3 Umax=4.3744e+11 coupling=0.504346
+kOmega iteration=1 rK=0.804202 rOmega=0.817512 kMax=1.74354e+14 omegaMax=4.75613e+18 mutMax=0.1 productionMax=1.44042e+29 omegaBoundedCells=53
+PISO 1 mass=3.91297e-12 dU=1.00547 rU=0.427371 dP=26.0092 rCouplingFirst=0.851068 rCoupling=0.504346 linU=2.92321e-10 linP=8.53046e-10 dTurb=0.999997 rTurb=0.817512 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=6.2121e+12 coupling=0.689113
+PISO corrector=3 Umax=3.35106e+12 coupling=0.21241
+kOmega iteration=1 rK=0.664549 rOmega=0.999934 kMax=6.2512e+13 omegaMax=2.35853e+17 mutMax=0.1 productionMax=2.45054e+28 omegaBoundedCells=16348
+PISO 1 mass=9.90277e-12 dU=1.09037 rU=0.336793 dP=28.9945 rCouplingFirst=0.689113 rCoupling=0.21241 linU=6.08768e-10 linP=7.77058e-10 dTurb=59.6965 rTurb=0.999934 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.14538e+13 coupling=0.807211
+PISO corrector=3 Umax=1.30395e+13 coupling=0.439751
+kOmega iteration=1 rK=0.973803 rOmega=0.698011 kMax=1.48389e+14 omegaMax=1.41478e+19 mutMax=0.1 productionMax=1.60407e+31 omegaBoundedCells=7
+PISO 1 mass=1.90794e-11 dU=1.05574 rU=0.560864 dP=15.1719 rCouplingFirst=0.807211 rCoupling=0.439751 linU=2.65038e-10 linP=8.35225e-10 dTurb=0.999965 rTurb=0.973803 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.7388e+14 coupling=0.830384
+PISO corrector=3 Umax=9.19536e+13 coupling=0.473415
+kOmega iteration=1 rK=0.672668 rOmega=0.989839 kMax=7.05842e+14 omegaMax=1.49887e+20 mutMax=0.1 productionMax=3.46594e+31 omegaBoundedCells=2905
+PISO 1 mass=1.02048e-11 dU=1.04565 rU=0.675382 dP=31.9065 rCouplingFirst=0.830384 rCoupling=0.473415 linU=5.66862e-10 linP=9.53502e-10 dTurb=1.06127 rTurb=0.989839 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=8.00288e+14 coupling=0.834388
+PISO corrector=3 Umax=3.36961e+14 coupling=0.528647
+kOmega iteration=1 rK=0.964636 rOmega=0.975596 kMax=3.20862e+14 omegaMax=2.43335e+21 mutMax=0.0854688 productionMax=8.41955e+32 omegaBoundedCells=0
+PISO 1 mass=7.95743e-12 dU=1.04538 rU=0.635778 dP=11.7977 rCouplingFirst=0.834388 rCoupling=0.528647 linU=7.78847e-10 linP=6.97857e-10 dTurb=1.0001 rTurb=0.975596 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=4.32244e+15 coupling=0.841099
+PISO corrector=3 Umax=2.81877e+15 coupling=0.560418
+kOmega iteration=1 rK=0.6356 rOmega=0.998272 kMax=6.03367e+14 omegaMax=5.52614e+21 mutMax=0.1 productionMax=2.82337e+34 omegaBoundedCells=212
+PISO 1 mass=3.06618e-12 dU=1.07707 rU=0.675096 dP=18.0589 rCouplingFirst=0.841099 rCoupling=0.560418 linU=2.80811e-11 linP=6.85019e-10 dTurb=1.63063 rTurb=0.998272 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=3.58003e+16 coupling=0.808593
+PISO corrector=3 Umax=1.18317e+16 coupling=0.331979
+kOmega iteration=1 rK=0.943155 rOmega=0.999182 kMax=1.20133e+16 omegaMax=5.08018e+21 mutMax=0.063478 productionMax=1.54841e+36 omegaBoundedCells=0
+PISO 1 mass=3.56161e-12 dU=0.990217 rU=0.513233 dP=30.1856 rCouplingFirst=0.808593 rCoupling=0.331979 linU=3.65386e-10 linP=7.33398e-10 dTurb=1.0476 rTurb=0.999182 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=8.36984e+17 coupling=0.865077
+PISO corrector=3 Umax=3.42658e+17 coupling=0.578416
+kOmega iteration=1 rK=0.683902 rOmega=0.703006 kMax=1.95812e+16 omegaMax=1.27101e+24 mutMax=0.1 productionMax=1.40868e+38 omegaBoundedCells=1090
+PISO 1 mass=7.13e-12 dU=1.00453 rU=0.478403 dP=35.6232 rCouplingFirst=0.865077 rCoupling=0.578416 linU=1.4651e-10 linP=8.7006e-10 dTurb=0.999811 rTurb=0.703006 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=5.71397e+17 coupling=0.816511
+PISO corrector=3 Umax=2.25881e+17 coupling=0.401954
+kOmega iteration=1 rK=0.764567 rOmega=0.999693 kMax=3.45099e+16 omegaMax=1.85681e+23 mutMax=0.1 productionMax=6.77727e+36 omegaBoundedCells=259
+PISO 1 mass=2.88916e-12 dU=1.17003 rU=0.736414 dP=38.0775 rCouplingFirst=0.816511 rCoupling=0.401954 linU=6.66156e-11 linP=5.14636e-10 dTurb=7.77687 rTurb=0.999693 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.61227e+19 coupling=0.855023
+PISO corrector=3 Umax=5.92846e+18 coupling=0.593618
+kOmega iteration=1 rK=0.790805 rOmega=0.743342 kMax=7.1222e+18 omegaMax=4.9197e+25 mutMax=0.00738521 productionMax=4.42495e+42 omegaBoundedCells=0
+PISO 1 mass=1.51217e-11 dU=1.01041 rU=0.58795 dP=32.9973 rCouplingFirst=0.855023 rCoupling=0.593618 linU=6.63699e-10 linP=9.63287e-10 dTurb=0.99997 rTurb=0.790805 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=6.031e+19 coupling=0.694611
+PISO corrector=3 Umax=2.28963e+19 coupling=0.201594
+kOmega iteration=1 rK=0.776147 rOmega=0.998797 kMax=3.97131e+18 omegaMax=3.75376e+25 mutMax=0.1 productionMax=4.60001e+40 omegaBoundedCells=1624
+PISO 1 mass=3.26309e-12 dU=1.06946 rU=0.206821 dP=42.7076 rCouplingFirst=0.694611 rCoupling=0.201594 linU=2.43507e-10 linP=5.64076e-10 dTurb=3.14905 rTurb=0.998797 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.95278e+20 coupling=0.856431
+PISO corrector=3 Umax=1.95195e+20 coupling=0.544794
+kOmega iteration=1 rK=0.95893 rOmega=0.94231 kMax=8.73061e+19 omegaMax=1.64123e+27 mutMax=0.00601519 productionMax=1.82133e+45 omegaBoundedCells=0
+PISO 1 mass=9.99219e-12 dU=1.08683 rU=0.754415 dP=20.5856 rCouplingFirst=0.856431 rCoupling=0.544794 linU=2.46477e-10 linP=9.57739e-10 dTurb=1.00002 rTurb=0.95893 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.76247e+21 coupling=0.837304
+PISO corrector=3 Umax=1.19221e+21 coupling=0.552481
+kOmega iteration=1 rK=0.560512 rOmega=0.999469 kMax=9.17533e+19 omegaMax=3.78074e+26 mutMax=0.1 productionMax=4.26715e+42 omegaBoundedCells=2013
+PISO 1 mass=6.63092e-12 dU=1.07329 rU=0.503821 dP=24.5447 rCouplingFirst=0.837304 rCoupling=0.552481 linU=2.90436e-10 linP=9.36845e-10 dTurb=7.90787 rTurb=0.999469 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=8.20659e+21 coupling=0.680749
+PISO corrector=3 Umax=4.15147e+21 coupling=0.182394
+kOmega iteration=1 rK=0.706285 rOmega=0.796802 kMax=5.471e+21 omegaMax=3.46547e+28 mutMax=0.0188458 productionMax=6.58086e+47 omegaBoundedCells=0
+PISO 1 mass=7.63703e-12 dU=1.06508 rU=0.314574 dP=27.6963 rCouplingFirst=0.680749 rCoupling=0.182394 linU=7.80266e-10 linP=9.23483e-10 dTurb=0.99999 rTurb=0.796802 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=3.92144e+22 coupling=0.82382
+PISO corrector=3 Umax=1.8204e+22 coupling=0.512677
+kOmega iteration=1 rK=0.754844 rOmega=0.999064 kMax=5.21226e+21 omegaMax=3.25095e+28 mutMax=0.1 productionMax=1.71515e+47 omegaBoundedCells=3726
+PISO 1 mass=4.45198e-12 dU=0.968552 rU=0.43139 dP=31.5482 rCouplingFirst=0.82382 rCoupling=0.512677 linU=9.22512e-10 linP=9.5452e-10 dTurb=2.32335 rTurb=0.999064 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.81427e+23 coupling=0.849751
+PISO corrector=3 Umax=1.48949e+23 coupling=0.524527
+kOmega iteration=1 rK=0.993703 rOmega=0.854344 kMax=4.98946e+23 omegaMax=7.35494e+29 mutMax=0.0430812 productionMax=7.84993e+50 omegaBoundedCells=0
+PISO 1 mass=8.18531e-12 dU=1.06367 rU=0.777781 dP=37.8118 rCouplingFirst=0.849751 rCoupling=0.524527 linU=4.8016e-10 linP=7.21409e-10 dTurb=0.999995 rTurb=0.993703 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.12745e+24 coupling=0.793709
+PISO corrector=3 Umax=5.53429e+23 coupling=0.185127
+kOmega iteration=1 rK=0.701039 rOmega=0.999912 kMax=5.70308e+23 omegaMax=3.77514e+28 mutMax=0.1 productionMax=5.69301e+50 omegaBoundedCells=4466
+PISO 1 mass=6.8081e-12 dU=0.77571 rU=0.361631 dP=72.4872 rCouplingFirst=0.793709 rCoupling=0.185127 linU=8.77115e-10 linP=8.77599e-10 dTurb=85.0615 rTurb=0.999912 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.24772e+25 coupling=0.893535
+PISO corrector=3 Umax=8.75878e+24 coupling=0.657986
+kOmega iteration=1 rK=0.836453 rOmega=0.997722 kMax=1.23351e+25 omegaMax=4.34625e+32 mutMax=0.0364921 productionMax=7.43668e+54 omegaBoundedCells=0
+PISO 1 mass=7.03028e-12 dU=1.01958 rU=0.663783 dP=16.1133 rCouplingFirst=0.893535 rCoupling=0.657986 linU=2.99485e-10 linP=7.86425e-10 dTurb=0.999999 rTurb=0.997722 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=3.5964e+25 coupling=0.857263
+PISO corrector=3 Umax=2.05953e+25 coupling=0.540133
+kOmega iteration=1 rK=0.610838 rOmega=0.999996 kMax=1.17868e+25 omegaMax=1.23617e+29 mutMax=0.1 productionMax=1.90646e+52 omegaBoundedCells=37929
+PISO 1 mass=7.14513e-12 dU=1.32826 rU=0.693946 dP=16.2922 rCouplingFirst=0.857263 rCoupling=0.540133 linU=1.73638e-10 linP=5.88423e-10 dTurb=16458.9 rTurb=0.999996 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.28663e+27 coupling=0.881562
+PISO corrector=3 Umax=4.78658e+26 coupling=0.619423
+kOmega iteration=1 rK=0.921539 rOmega=0.984384 kMax=2.78653e+27 omegaMax=1.2655e+33 mutMax=0.1 productionMax=1.13554e+57 omegaBoundedCells=513
+PISO 1 mass=4.84828e-12 dU=1.00131 rU=0.736668 dP=16.35 rCouplingFirst=0.881562 rCoupling=0.619423 linU=8.7837e-10 linP=7.85404e-10 dTurb=0.999999 rTurb=0.984384 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=1.49877e+29 coupling=0.856612
+PISO corrector=3 Umax=2.53162e+28 coupling=0.548844
+kOmega iteration=1 rK=0.70098 rOmega=0.905884 kMax=2.59732e+27 omegaMax=4.88404e+33 mutMax=0.1 productionMax=1.59039e+58 omegaBoundedCells=5224
+PISO 1 mass=6.85745e-12 dU=1.00344 rU=0.725652 dP=13.7152 rCouplingFirst=0.856612 rCoupling=0.548844 linU=9.96368e-10 linP=8.42626e-10 dTurb=1.17846 rTurb=0.905884 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=3.06382e+28 coupling=0.853263
+PISO corrector=3 Umax=2.09957e+28 coupling=0.600846
+kOmega iteration=1 rK=0.968632 rOmega=0.993941 kMax=4.55348e+28 omegaMax=6.16458e+34 mutMax=0.1 productionMax=1.51003e+60 omegaBoundedCells=157
+PISO 1 mass=3.52323e-12 dU=0.995184 rU=0.706101 dP=14.5066 rCouplingFirst=0.853263 rCoupling=0.600846 linU=2.4011e-10 linP=5.73879e-10 dTurb=1.00201 rTurb=0.993941 turbulenceSettled=false linear=ok converged=true
+PISO corrector=1 Umax=2.36159e+29 coupling=0.8373
+PISO corrector=3 Umax=1.16932e+29 coupling=0.398241

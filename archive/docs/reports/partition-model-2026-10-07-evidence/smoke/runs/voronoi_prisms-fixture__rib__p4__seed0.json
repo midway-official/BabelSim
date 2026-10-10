@@ -1,0 +1,104 @@
+{
+  "algorithm": "rib",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.000930473004700616,
+  "initialPartitionSeconds": 0.0008887570002116263,
+  "exactBalanceSeconds": 4.171600448898971e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 257114112,
+    "peakRSSBytes": 257114112,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 50,
+  "cutFacesPerPart": [
+    28,
+    28,
+    22,
+    22
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "ghostCellsPerPart": [
+    46,
+    46,
+    40,
+    46
+  ],
+  "firstLayerGhostsPerPart": [
+    23,
+    23,
+    14,
+    12
+  ],
+  "localCellsPerPart": [
+    62,
+    62,
+    56,
+    62
+  ],
+  "localFacesPerPart": [
+    285,
+    285,
+    260,
+    283
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    118,
+    118,
+    116,
+    112
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0172413793103448,
+  "localFaceImbalance": 1.0242587601078168,
+  "localCellImbalance": 1.024793388429752,
+  "totalGhostCells": 178,
+  "maxGhostCells": 46,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 72,
+  "threeLayerCommunicationVolume": 178,
+  "cellStorageDuplication": 3.78125,
+  "faceStorageDuplication": 3.8379310344827586,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "a8016820b4d3e75a0c6240183c0d09483c7646235b278bec759f1c05958a7eb5",
+  "status": "ok",
+  "graph": "voronoi_prisms-fixture",
+  "graphSHA256": "960ec09e0527f6770add78a181a10fedbe714c1a51b84f55d877c36736a04eea",
+  "graphMetadata": {
+    "cells": 64,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "voronoi_prisms",
+    "graded": false,
+    "internalFaces": 174,
+    "layers": 2,
+    "maxCellFaces": 10,
+    "minCellFaces": 5,
+    "physicalFaces": 116,
+    "scale": "fixture",
+    "seed": 20261007,
+    "sites": 32
+  },
+  "unixStarted": 1791371878.5096939,
+  "unixEnded": 1791371878.5381832
+}

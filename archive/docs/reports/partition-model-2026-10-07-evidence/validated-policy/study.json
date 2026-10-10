@@ -1,0 +1,16 @@
+{
+  "mode": "consolidated validated graph study",
+  "sourceStudies": [
+    {
+      "study": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+      "studySHA256": "517257d64f84dd43988ded70acb8c979440a9f712a705b6563e28612dcffc6b1"
+    },
+    {
+      "study": "docs/reports/partition-model-2026-10-07-evidence/graded-voronoi-validation",
+      "studySHA256": "88dfe9f40c0088d1f446c75a6d3b844ae1d7339c2c3f52bee3bc54dd4160c836"
+    }
+  ],
+  "note": "Reuse unchanged valid graphs and identical partition algorithm; replace both graded Voronoi scales after full base-mesh verification. No solver tests overlap.",
+  "graphs": "/tmp/babelsim-partition-model-20261007/graphs-v2",
+  "excludedData": "docs/reports/partition-model-2026-10-07-evidence/excluded-graphs.json"
+}

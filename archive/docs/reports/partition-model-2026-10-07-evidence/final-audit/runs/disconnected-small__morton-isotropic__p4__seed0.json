@@ -1,0 +1,101 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0016874699940672144,
+  "initialPartitionSeconds": 0.0016328600031556562,
+  "exactBalanceSeconds": 5.460999091155827e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 274329600,
+    "peakRSSBytes": 274329600,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 1412,
+  "cutFacesPerPart": [
+    606,
+    1072,
+    930,
+    216
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2160,
+    2160,
+    2160,
+    2160
+  ],
+  "ghostCellsPerPart": [
+    1768,
+    2869,
+    2334,
+    720
+  ],
+  "firstLayerGhostsPerPart": [
+    569,
+    1006,
+    870,
+    216
+  ],
+  "localCellsPerPart": [
+    3928,
+    5029,
+    4494,
+    2880
+  ],
+  "localFacesPerPart": [
+    12657,
+    16160,
+    14527,
+    9480
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    3,
+    3,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    12960,
+    12960,
+    12960,
+    12960
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.223686203240951,
+  "localCellImbalance": 1.2317678035637745,
+  "totalGhostCells": 7691,
+  "maxGhostCells": 2869,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2661,
+  "threeLayerCommunicationVolume": 7691,
+  "cellStorageDuplication": 1.8901620370370371,
+  "faceStorageDuplication": 1.9205933682373473,
+  "componentsPerPart": [
+    1,
+    2,
+    2,
+    2
+  ],
+  "ownershipSHA256": "9a8e524d1cb21edf3ea5d3eddbff8f579eec4a45a14c312d98756c56e4f1342f",
+  "status": "ok",
+  "graph": "disconnected-small",
+  "graphSHA256": "66988a7145a3777575ec023c044f9645db37b44192c47bafa3667a13abdbf2bb",
+  "graphMetadata": {
+    "cells": 8640,
+    "components": 2,
+    "construction": "two disconnected conforming hex domains",
+    "family": "disconnected",
+    "internalFaces": 24336,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 3168,
+    "scale": "small"
+  },
+  "unixStarted": 1791373821.1981266,
+  "unixEnded": 1791373821.2590895
+}

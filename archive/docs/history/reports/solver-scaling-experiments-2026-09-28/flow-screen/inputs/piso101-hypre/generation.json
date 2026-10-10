@@ -1,0 +1,11 @@
+{
+  "gridN": 37,
+  "cells": 101306,
+  "vertices": 54872,
+  "faces": 258741,
+  "warpFraction": 0.15,
+  "case": "/tmp/babelsim-solver-scaling-20260928/piso101-hypre",
+  "meshBytes": 13363247,
+  "solver": "piso",
+  "simpleOuterCap": null
+}

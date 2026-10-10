@@ -1,0 +1,11 @@
+density 1
+dynamicViscosity 0.0002564102564102564
+turbulenceModel kOmega
+kOmegaBetaStar 0.09
+kOmegaBeta 0.075
+kOmegaGamma 0.5555555555555556
+kOmegaSigmaK 0.5
+kOmegaSigmaOmega 0.5
+kMin 1e-12
+omegaMin 1e-10
+maxTurbulentViscosityRatio 1e5

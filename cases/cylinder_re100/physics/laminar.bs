@@ -1,0 +1,3 @@
+density 1.0
+dynamicViscosity 0.01
+turbulenceModel none

@@ -1,0 +1,113 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.023250029000337236,
+  "initialPartitionSeconds": 0.023183316996437497,
+  "exactBalanceSeconds": 6.671200389973819e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 583,
+  "memory": {
+    "beforeRSSBytes": 195985408,
+    "peakRSSBytes": 195985408,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 583,
+  "cutFacesPerPart": [
+    313,
+    252,
+    303,
+    298
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    512,
+    512,
+    512,
+    512
+  ],
+  "ghostCellsPerPart": [
+    581,
+    561,
+    624,
+    634
+  ],
+  "firstLayerGhostsPerPart": [
+    157,
+    124,
+    154,
+    169
+  ],
+  "localCellsPerPart": [
+    1093,
+    1073,
+    1136,
+    1146
+  ],
+  "localFacesPerPart": [
+    4811,
+    4697,
+    4955,
+    5034
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    4004,
+    3961,
+    3977,
+    4026
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0085170340681362,
+  "localFaceImbalance": 1.0327742729650715,
+  "localCellImbalance": 1.0305755395683454,
+  "totalGhostCells": 2400,
+  "maxGhostCells": 634,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 604,
+  "threeLayerCommunicationVolume": 2400,
+  "cellStorageDuplication": 2.171875,
+  "faceStorageDuplication": 2.3057000946073796,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "3361c5648212904b169b1c66c30d43da0d243e03815baca0696f20ef08534c29",
+  "status": "ok",
+  "graph": "voronoi_prisms-small",
+  "graphSHA256": "9e1736ca33cbc0b9b26c1f94fe5a3707b60eb63e3fde172f17e1652159b6c50d",
+  "graphMetadata": {
+    "cells": 2048,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "voronoi_prisms",
+    "graded": false,
+    "internalFaces": 7512,
+    "layers": 8,
+    "maxCellFaces": 12,
+    "minCellFaces": 5,
+    "physicalFaces": 944,
+    "scale": "small",
+    "seed": 20261007,
+    "sites": 256
+  },
+  "unixStarted": 1791377820.705698,
+  "unixEnded": 1791377820.7490847,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/voronoi_prisms-small__metis-cut-work__p4__seed0.json"
+}

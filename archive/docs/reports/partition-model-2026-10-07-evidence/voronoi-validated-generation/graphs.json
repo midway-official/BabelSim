@@ -1,0 +1,36 @@
+[
+  {
+    "path": "/tmp/babelsim-partition-model-20261007/graphs-v2/graded_voronoi-small.npz",
+    "sha256": "61e89e03865cdc20909d653e6e11a0fad7304ad60e330ca7ff5e0f24b3c496bf",
+    "cells": 2048,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 7224,
+    "layers": 8,
+    "maxCellFaces": 13,
+    "minCellFaces": 5,
+    "physicalFaces": 1232,
+    "scale": "small",
+    "seed": 20261007,
+    "sites": 256
+  },
+  {
+    "path": "/tmp/babelsim-partition-model-20261007/graphs-v2/graded_voronoi-engineering.npz",
+    "sha256": "22628d51906fe8dabedb51d08dded9498c0bcb6b4c8df2b79e7781abeecf3512",
+    "cells": 512000,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 1995520,
+    "layers": 32,
+    "maxCellFaces": 14,
+    "minCellFaces": 5,
+    "physicalFaces": 68512,
+    "scale": "engineering",
+    "seed": 20261007,
+    "sites": 16000
+  }
+]

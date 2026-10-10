@@ -1,0 +1,2573 @@
+diff --git a/Makefile b/Makefile
+index 92cbf6a..4b22dc4 100644
+--- a/Makefile
++++ b/Makefile
+@@ -21,6 +21,23 @@ CPPFLAGS += $(PETSC_CFLAGS)
+ LDLIBS += $(PETSC_LIBS)
+ LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
+ 
++# Optional multilevel graph partitioner. Set USE_METIS=0 for the dependency-free
++# graph-growth fallback, or supply METIS_CFLAGS/METIS_LIBS for a custom install.
++USE_METIS ?= auto
++METIS_DIR ?= $(HOME)/opt/metis-5.1.0
++METIS_CFLAGS ?= $(shell test ! -f $(METIS_DIR)/include/metis.h || printf '%s' '-I$(METIS_DIR)/include')
++METIS_LIBS ?= $(shell if test -f $(METIS_DIR)/include/metis.h -a -f $(METIS_DIR)/lib/libmetis.so; then printf '%s' '-L$(METIS_DIR)/lib -lmetis'; elif test -f /usr/include/metis.h; then printf '%s' '-lmetis'; fi)
++PARTITION_LIBS :=
++ifneq ($(USE_METIS),0)
++ifneq ($(strip $(METIS_LIBS)),)
++CPPFLAGS += $(METIS_CFLAGS) -DBABELSIM_USE_METIS=1
++LDLIBS += $(METIS_LIBS)
++PARTITION_LIBS := $(METIS_LIBS)
++else ifeq ($(USE_METIS),1)
++$(error USE_METIS=1 requires METIS headers and library)
++endif
++endif
++
+ BUILD ?= build-petsc
+ DEBUG_BUILD ?= build-debug
+ DEBUG_OPTFLAGS ?= -O1 -g3 -fno-omit-frame-pointer \
+@@ -52,6 +69,7 @@ SOURCES := src/core/mesh.cpp \
+            src/discretization/field_math.cpp \
+            $(COMPUTE_BACKEND_SOURCES) \
+            src/parallel/parallel_context.cpp \
++           src/parallel/mesh_partition.cpp \
+            src/parallel/parallel_writer.cpp \
+            src/runtime/runtime.cpp \
+            src/runtime/solver_api.cpp \
+@@ -139,7 +157,7 @@ test-architecture:
+ 	python3 tests/architecture_test.py
+ 
+ test-external: $(LIB)
+-	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR)
++	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR) --partition-libs='$(PARTITION_LIBS)'
+ 
+ test: test-architecture $(TESTS)
+ 	@set -e; for test in $(TESTS); do $$test; done
+diff --git a/README.md b/README.md
+index e3e321d..e87d6ef 100644
+--- a/README.md
++++ b/README.md
+@@ -77,6 +77,12 @@ SIMPLE 状态只归算法，线性控制只归运行配置。`make test-architec
+ 分布式稀疏线性系统由 PETSc 求解。默认配置面向 GCC 工具链：
+ `mpic++` 调用 GCC，`gcc-ar` 归档 LTO 对象，正式程序与显式构建的测试使用相同 ABI。
+ 
++可选 METIS 5.1 提供多约束网格图划分。`USE_METIS=auto` 在找到公开头文件和库时启用，
++否则使用已有图生长算法；`USE_METIS=1` 要求依赖可用，`USE_METIS=0` 显式禁用。
++可用 `METIS_DIR` 或 `METIS_CFLAGS`/`METIS_LIBS` 指定安装位置。
++切换这些构建选项时使用新的 `BUILD` 目录或先清理。启用 METIS 的静态库在外部 Solver
++链接时也需要其 `METIS_LIBS`，通常为 `-lmetis`；公开 Solver 头和物理代码不需要包含 METIS。
++
+ 默认 `make` 只构建 `build-petsc/libbabelsim.a`、`build-petsc/babelsim-solve` 和 `build-petsc/babelsim-post`，
+ 不编译或运行任何测试。测试与验证必须另行显式调用 `make test*` / `make validate*` 的具体目标。
+ 
+diff --git a/docs/dsl-runtime-manual.md b/docs/dsl-runtime-manual.md
+index 9fc16dc..f6216f0 100644
+--- a/docs/dsl-runtime-manual.md
++++ b/docs/dsl-runtime-manual.md
+@@ -130,6 +130,12 @@ equation.momentum.maxIterations 1000
+ `pcType`、`absoluteTolerance`、`relativeTolerance`、`maxIterations` 五个核心键。`icc` 只用于
+ 串行求解；MPI 可选择 `hypre`、`gamg` 或 `bjacobi`。GAMG 层级选项和 warm-start 键也使用
+ 相同的 `equation.<name>.*` 前缀。
++通用后端默认以 8 个矩阵版本为上限复用预条件器；累积 RHS 工作量达到同一上限后，
++在下一次矩阵变化时提前重建，矩阵未变化的 RHS-only 调用仍复用原预条件器。
++迭代增长也会提前触发重建；失败的旧
++预条件器会重建后重试一次。矩阵更新和真实残差标准保持独立。
++`preconditionerRebuildInterval 1` 可恢复逐矩阵重建，
++`preconditionerReuseIterationGrowth` 设置提前重建的增长倍数（默认 2）。
+ 
+ 完整的配置示例、内置方程名称和迁移规则见
+ [方程、项与算子的数值配置](numerical-configuration.md)。
+diff --git a/docs/numerical-configuration.md b/docs/numerical-configuration.md
+index ecded93..fa2d420 100644
+--- a/docs/numerical-configuration.md
++++ b/docs/numerical-configuration.md
+@@ -79,6 +79,37 @@ equation.pressureCorrection.maxIterations 800
+ 每个实际创建的方程都必须有五个核心线性参数，缺少任意一个都会报错。算法控制键和方程线性键
+ 必须使用各自的完整名字；框架不再提供标量/矢量类型默认值或按场覆盖。
+ 
++每个方程还支持通用的预条件器复用控制，不依赖 SIMPLE/PISO 或算例名称：
++
++```text
++equation.momentum.preconditionerRebuildInterval 8
++equation.momentum.preconditionerReuseIterationGrowth 2
++```
++
++默认在至多 8 个不同矩阵版本间复用预条件器；当前矩阵 A 仍在每次系数改变时更新。
++相同矩阵只更新 RHS，不触发周期重建。每次有实际 Krylov 迭代的逻辑 RHS 求解还累积
++工作预算；达到同一间隔上限后，在下一次矩阵变化时提前重建。这使一版矩阵承载很多
++RHS 时及时重新准备预条件器，避免旧层级的少量迭代增长在整批求解中累积。
++计数在各 rank 上一致，不依赖计时或额外归约。某个 RHS 的迭代数超过新预条件器参考次数的
++2 倍时，下次求解提前重建；矢量方程按分量保存参考次数。配置改变也重新准备预条件器。
++旧预条件器的求解未满足当前矩阵的真实残差要求时，重建并从原初猜重试一次；第二次失败
++仍按原收敛/失败合同返回。重试使用相同容差，并计入实际迭代数和耗时。
++`preconditionerRebuildInterval 1` 恢复每次矩阵数值更新都准备预条件器的策略。
++间隔必须为正整数，增长倍数必须有限且不小于 1。`pcType none` 不使用这项复用策略。
++复用会改变 Krylov 路径和迭代次数；用同一精度要求的总计算时间和结果验证评价收益。
++
++`pcType hypre` 的 CPU 后端统一使用 HMIS 粗化、ext+i 插值、每行最多 4 个插值项，
++CG、GMRES、FGMRES 使用 1 层 aggressive coarsening；BiCGStab 使用常规粗化和 CF 松弛顺序，
++避免在已验证的非奇异扩散算子上发生 shadow-residual breakdown。
++其他 Krylov 方法在串行保留 CF 松弛顺序，分布式 MPI 使用自然顺序；
++两者均保留对称 SOR/Jacobi 平滑、一次 V-cycle 和零预条件器内部容差。该设置在后端
++按 Krylov 类型和执行方式选择，适用于所有选择 Hypre 的方程，不读取算例名称或几何类别。
++它遵循 [Hypre 的 CPU BoomerAMG 配置建议](https://hypre.readthedocs.io/en/stable/solvers-boomeramg.html)，
++并以本机持续运行和真实残差验证选择松弛顺序。
++配置改变 Krylov 路径，但不改变方程线性容差、失败判断或最终的 `b-A*x` 检查。
++后端通过临时私有 PETSc options 数据库解析高级选项，不修改全局 options；
++`amgMaxLevels`、`amgCoarseSize`、`amgSmoothingSteps` 继续仅用于 GAMG。
++
+ ## C++ 使用方式
+ 
+ 内置 Solver 或外部 Solver 通过稳定的方程名字取得已经解析的配置：
+diff --git a/docs/performance/README.md b/docs/performance/README.md
+index 15d0bca..1fb072f 100644
+--- a/docs/performance/README.md
++++ b/docs/performance/README.md
+@@ -3,6 +3,9 @@
+ 性能数据必须同时说明网格、输入配置、MPI rank、硬件/绑定、构建方式和求解状态。配置 A/B 用相同算例和停止条件；
+ 不能把更换预条件器带来的迭代下降称为代码优化，也不能以短程稳定性结果替代物理精度验证。
+ 
++2026-10-07—08 的通用后端、网格分发、划分与 CPU AMG 优化，以及工程规模固定工作量的
++强扩展、数值一致性和 RSS/PSS 证据，见 [工程优化报告](../reports/flow-optimization-2026-10-07.md)。
++
+ ## 获取计时和性能 JSON
+ 
+ 默认构建目录是 `build-petsc/`，可通过 `BUILD=<目录>` 改变。使用 `-performance` 后，应用为每个 MPI rank
+@@ -26,6 +29,72 @@ python3 tools/benchmark_backend.py \
+ 
+ 正式比较应检查所有样本成功且数值结果满足同一精度条件，再比较关键路径时间。MPI 时间取最慢 rank；不要把各 rank 的阶段时间直接相加。
+ 
++## 排除初始化的持续运行与二进制 A/B
++
++`iterationComputeSeconds` 是逐 rank 的循环计时窗口：首次调用通用
++`monitor::Reporter::iteration` 时启动，之后每个完整迭代更新结束时间，扣除窗口内结果写出。
++它排除整个首次迭代及之前的网格读取/构造、场与方程创建、初次矩阵模式建立、初次预条件器准备。
++`reportedIterationIntervals` 给出窗口内的完整迭代间隔数；SIMPLE 的 N 次外迭代通常计量 N−1 次，
++单外迭代 PISO 的 N 个接受步通常计量后 N−1 步。没有至少两次迭代观测时，窗口为 0，不能用于持续运行结论。
++`solverComputeSeconds` 仍保留原定义，作为包含首次迭代的求解器回调计时。
++
++`tools/benchmark_solver_optimization.py` 顺序运行相同输入的不同二进制；每个 variant 拥有独立的
++案例结果目录，所有 rank 单线程并绑定物理核。驱动使用互斥锁，避免多个该驱动同时运行。
++重复样本按固定随机种子交错，一次只启动一个 mpirun；预热独立保存且不进入中位数。
++SIMPLE 固定工作量要求真实达到给定外迭代数，PISO 可要求给定接受步数；失败会停止后续任务。
++默认把循环计算不足 60 秒的样本标为短样本，保留原始证据，不称为持续运行。
++
++```bash
++python3 tools/benchmark_solver_optimization.py \
++  --variant baseline=/tmp/babelsim-baseline/babelsim-solve \
++  --variant optimized=/tmp/babelsim-optimized/babelsim-solve \
++  --case simple=/tmp/flow-study/simple --throughput simple=384 \
++  --case piso=/tmp/flow-study/piso --accepted-steps piso=100 \
++  --ranks 1,2,4,8,12 --repeat 3 --warmup 1 \
++  --output /tmp/flow-study/evidence --work-root /tmp/flow-study/runs
++```
++
++以上命令假定 SIMPLE 输入确实固定执行 384 次外迭代，PISO 输入确实执行 100 个接受步。
++两种二进制都必须有相同的循环计时观测代码，且每个案例的离散、容差和停止条件一致。
++不同 rank 使用相同输入，才能计算强扩展；最快时间、加速比和并行效率同时报告。
++阶段计数和阶段时间仍覆盖完整回调，包括首次迭代，因此不要求与此循环窗口闭合。
++
++强扩展加速比定义为 `S(P) = T(1)/T(P)`，效率定义为 `E(P) = S(P)/P`，
++其中分子必须是同一版本、同一网格、同一工作量的单进程时间。
++同时优化串行和并行时，要分别报告同进程数的版本加速以及每个版本自身的强扩展效率。
++不能借用旧版本较慢的串行时间，或降低串行预条件器效率，使新版本的并行效率显得更高。
++工程算例应让最快的并行点也有至少 60 秒有效计算；固定工作量下串行测试通常更长。
++当前研究使用 1,024,000 单元畸变三棱柱网格和 512,000 单元非结构 Voronoi 棱柱网格，
++同样执行 10 个接受的 PISO 步，计量后 9 步；小网格用于正确性回归。
++
++该驱动按 0.1 秒采样 `mpirun` 及其子进程的累计 RSS，并每秒记录 PSS、进程交换页、
++系统换入/换出及日志中已报告的工作量。`peakTreeRssKiB` 是同时累计的 RSS，包含共享页重复计数；
++`peakTreePssKiB` 按比例分摊共享映射，未能读取时为 null。两者的峰值均覆盖完整进程生命周期，
++包括初始化与输出，不能称为循环计算窗口内的内存峰值。日志可能缓冲，trace 的 `reportedWork`
++只能帮助近似识别计算阶段。内存采样不参与求解状态或停止判断。
++
++通用后端的 `preconditionerReuses` 计数使用旧矩阵版本预条件器的逻辑 RHS 求解，
++`preconditionerRetries` 计数其中需要重建后重试的次数。`linearSolves` 计数逻辑 RHS，
++`krylovIterations` 和 `trueResidualChecks` 计入两个尝试；重建时间计入 `preconditionerSeconds`。
++Block Jacobi/ASM 的局部因子准备现在在显式 setup 阶段计时，避免计入首个 RHS 的 solve 时间。
++
++## 通用划分和内存存储
++
++MPI 读取网格时，rank 0 读入完整网格并计算一次全局所有权，然后逐 rank 分发 owned 单元及
++stencil 所需 halo 的几何与拓扑。工作 rank 构造自己的局部 Mesh；构造前释放传输缓冲，
++root 同时释放完整网格。读取与构造阶段的错误在进入下一阶段前传递给所有 rank。
++这个路径保持全局 ID、物理 patch、face 方向和至少三层 ghost 的契约。
++
++可选 METIS 以通信量为目标，同时约束单元数与单元面关联数；连通图请求连续分区，
++随后恢复精确 owned 单元配额。选择依据及适用范围见
++[Python 网格图模型](partition-model.md)和[实验报告](../reports/partition-model-2026-10-07.md)。
++没有 METIS 时继续使用确定性的图生长实现。依赖和静态库链接说明见[构建说明](../../README.md)。
++
++PETSc 装配计划只长期保存 upper/lower face 索引；COO 行列是建立矩阵模式时的临时数据。
++owned 单元顺序直接使用 Mesh 中的计划。矩阵值缓存通过缓冲交换更新，避免重复整段复制。
++三个向量分量仍顺序求解，共用一对 RHS/解 Vec 和工作数组，保留各分量的收敛记录。
++这些存储优化适用于现有标量/向量方程，物理离散与真实残差目标保持原要求。
++
+ ## PETSc 后端生命周期
+ 
+ 每个方程保留长期存在的 PETSc Mat、Vec、KSP 和 PC。稀疏模式建立后，矩阵数值更新、RHS 更新和求解分开执行；
+@@ -38,6 +107,13 @@ PETSc 线性设置由 `numerics/solution.bs` 的 `equation.<name>.kspType`、`pc
+ `amgMaxLevels`、`amgCoarseSize`、`amgSmoothingSteps` 可调 GAMG。CG 用于对称正定系统，必须与保持对称正定性质的
+ 预条件配置搭配。最终应以真实残差和守恒检查确认求解质量。
+ 
++Hypre 的 CPU 层级默认使用 HMIS、ext+i、每行最多 4 个插值项。
++CG、GMRES、FGMRES 使用 1 层 aggressive coarsening；BiCGStab 保留常规粗化和 CF 顺序，
++避免在已验证的扩散算子上发生 shadow-residual breakdown。
++其他 Krylov 方法串行用 CF 松弛顺序，MPI 用自然顺序，保留对称 SOR/Jacobi 平滑和一次 V-cycle。
++高级选项通过 PC 私有的临时 options 数据库应用，不修改全局 PETSc 配置。
++该选择覆盖框架中所有 Hypre 方程；具体性能取决于矩阵和分区，需要用固定精度的实际运行验证。
++
+ 以下计数器存在边界，解释性能时要特别小心：
+ 
+ - `globalReductions` 只统计 BabelSim 显式归约，不包括 PETSc KSP 或 Hypre 内部 MPI 归约。
+diff --git a/include/babelsim/field.h b/include/babelsim/field.h
+index 3e00d53..6f28e39 100644
+--- a/include/babelsim/field.h
++++ b/include/babelsim/field.h
+@@ -314,8 +314,9 @@ private:
+     template <typename Function> void updateBoundaryTrace(Function function) {
+         if (!m_calculated_boundary) return;
+         // 每个面的计算先于单元值更新，因此支持 f.assignProduct(a,f) 等原位代数。
+-        for (Index face = 0; face < m_mesh->faceCount(); ++face)
+-            if (m_mesh->boundaryFace(face)) m_boundary_trace[face] = function(face);
++        for (Index patch = 0; patch < m_mesh->patchCount(); ++patch)
++            for (Index face : m_mesh->patchFaces(patch))
++                m_boundary_trace[face] = function(face);
+     }
+ public:
+ 
+diff --git a/include/babelsim/mesh.h b/include/babelsim/mesh.h
+index 69a9b1b..10f5273 100644
+--- a/include/babelsim/mesh.h
++++ b/include/babelsim/mesh.h
+@@ -258,6 +258,11 @@ public:
+     Index patchCount() const { return static_cast<Index>(m_storage.patches.size()); }
+     const std::string& patchName(Index patch) const { return m_storage.patches.at(patch).name; }
+     PatchKind patchKind(Index patch) const { return m_storage.patches.at(patch).kind; }
++    IndexRange patchFaces(Index patch) const {
++        const auto& faces = m_storage.patches.at(patch).faces;
++        const Index* first = faces.data();
++        return {first, faces.size() == 0 ? first : first + faces.size()};
++    }
+     double cellVolume(Index cell) const { return m_storage.cell_volumes.at(cell); }
+     const Vec3& vertex(Index index) const { return m_storage.vertices.at(index); }
+     void validate() const;
+diff --git a/include/babelsim/runtime.h b/include/babelsim/runtime.h
+index 45588ab..945f54f 100644
+--- a/include/babelsim/runtime.h
++++ b/include/babelsim/runtime.h
+@@ -7,6 +7,7 @@
+ #include <memory>
+ 
+ namespace babelsim {
++namespace monitor { class Reporter; }
+ struct RuntimeControl {
+     Methods methods;
+     TimeControl time;
+@@ -50,6 +51,10 @@ private:
+     // Case records result-writing as an I/O phase; it is not part of the
+     // numerical solver counters or convergence decision.
+     void recordOutput(double seconds);
++    // Observation only: time between completed generic reporter iterations,
++    // excluding output. The first iteration and all preceding setup are omitted.
++    void recordIteration();
++    friend class monitor::Reporter;
+     // 性能快照属于 Case/Application 生命周期观测，不是 Physics Solver API。
+     friend class Case;
+     PerformanceCounters performance() const;
+diff --git a/include/babelsim/solver_control.h b/include/babelsim/solver_control.h
+index ea63191..dafde43 100644
+--- a/include/babelsim/solver_control.h
++++ b/include/babelsim/solver_control.h
+@@ -46,6 +46,8 @@ struct EquationPerformanceCounters {
+     std::uint64_t linear_solves = 0;
+     std::uint64_t krylov_iterations = 0;
+     std::uint64_t preconditioner_setups = 0;
++    std::uint64_t preconditioner_reuses = 0;
++    std::uint64_t preconditioner_retries = 0;
+     std::uint64_t true_residual_checks = 0;
+     double last_initial_residual = 0.0;
+     double last_final_residual = 0.0;
+@@ -73,10 +75,14 @@ struct PerformanceCounters {
+     std::uint64_t rhs_only_solves = 0;
+     std::uint64_t true_residual_checks = 0;
+     std::uint64_t preconditioner_setups = 0;
++    std::uint64_t preconditioner_reuses = 0;
++    std::uint64_t preconditioner_retries = 0;
+     std::uint64_t preconditioner_applications = 0;
+     // Result I/O is recorded separately from numerical work so one-time and
+     // per-write costs are not mistaken for Krylov or assembly hotspots.
+     std::uint64_t output_writes = 0;
++    std::uint64_t reported_iteration_intervals = 0;
++    double iteration_compute_seconds = 0.0;
+     double elapsed_seconds = 0.0;
+     double assembly_seconds = 0.0;
+     double pattern_build_seconds = 0.0;
+@@ -105,8 +111,12 @@ struct PerformanceCounters {
+         rhs_only_solves += other.rhs_only_solves;
+         true_residual_checks += other.true_residual_checks;
+         preconditioner_setups += other.preconditioner_setups;
++        preconditioner_reuses += other.preconditioner_reuses;
++        preconditioner_retries += other.preconditioner_retries;
+         preconditioner_applications += other.preconditioner_applications;
+         output_writes += other.output_writes;
++        reported_iteration_intervals += other.reported_iteration_intervals;
++        iteration_compute_seconds += other.iteration_compute_seconds;
+         elapsed_seconds += other.elapsed_seconds;
+         assembly_seconds += other.assembly_seconds;
+         pattern_build_seconds += other.pattern_build_seconds;
+@@ -134,6 +144,8 @@ struct PerformanceCounters {
+                 target->linear_solves += source.linear_solves;
+                 target->krylov_iterations += source.krylov_iterations;
+                 target->preconditioner_setups += source.preconditioner_setups;
++                target->preconditioner_reuses += source.preconditioner_reuses;
++                target->preconditioner_retries += source.preconditioner_retries;
+                 target->true_residual_checks += source.true_residual_checks;
+                 target->last_initial_residual = source.last_initial_residual;
+                 target->last_final_residual = source.last_final_residual;
+@@ -157,8 +169,13 @@ struct LinearSolverConfig {
+     double relative_tolerance = 1e-8;
+     int max_iterations = 1000;
+     bool warm_start = false;
+-    // GAMG hierarchy controls; Hypre uses its native defaults unless PETSc
+-    // options are explicitly added to the case-level typed configuration.
++    // Always update A. Bound PC matrix age and nontrivial RHS work; unchanged
++    // matrix RHS-only calls do not trigger period rebuilds. Rebuild sooner
++    // after iteration growth, and retry a failed lagged solve once.
++    int preconditioner_rebuild_interval = 8;
++    double preconditioner_reuse_iteration_growth = 2.0;
++    // GAMG hierarchy controls. Hypre's CPU hierarchy uses HMIS, bounded
++    // extended interpolation and symmetric smoothing in the backend.
+     int amg_max_levels = 12;
+     int amg_coarse_size = 48;
+     int amg_smoothing_steps = 2;
+@@ -170,6 +187,8 @@ inline bool operator==(const LinearSolverConfig& a, const LinearSolverConfig& b)
+     return a.solver==b.solver && a.preconditioner==b.preconditioner &&
+         a.absolute_tolerance==b.absolute_tolerance && a.relative_tolerance==b.relative_tolerance &&
+         a.max_iterations==b.max_iterations && a.warm_start==b.warm_start &&
++        a.preconditioner_rebuild_interval==b.preconditioner_rebuild_interval &&
++        a.preconditioner_reuse_iteration_growth==b.preconditioner_reuse_iteration_growth &&
+         a.amg_max_levels==b.amg_max_levels && a.amg_coarse_size==b.amg_coarse_size &&
+         a.amg_smoothing_steps==b.amg_smoothing_steps;
+ }
+diff --git a/src/backend/petsc_assembly_plan.cpp b/src/backend/petsc_assembly_plan.cpp
+index 07d0238..6b80575 100644
+--- a/src/backend/petsc_assembly_plan.cpp
++++ b/src/backend/petsc_assembly_plan.cpp
+@@ -7,40 +7,47 @@
+ namespace babelsim::detail {
+ 
+ PetscAssemblyPlan::PetscAssemblyPlan(const Mesh& mesh, const PetscIndexMap& index_map)
+-    : m_mesh(&mesh), m_index_map(&index_map), m_owned_cell_order(meshData(mesh).owned_cells.begin(),
+-                                                                  meshData(mesh).owned_cells.end()) {
++    : m_mesh(&mesh), m_index_map(&index_map) {
+     mesh.validate();
+     const auto& data = meshData(mesh);
+-    m_rows.reserve(m_owned_cell_order.size() + 2U * data.owned_faces.size());
+-    m_columns.reserve(m_rows.capacity());
+-    m_matrix_contributions.reserve(m_rows.capacity());
+-    for (Index cell : m_owned_cell_order) {
+-        const PetscInt row = index_map.row(cell);
+-        m_rows.push_back(row);
+-        m_columns.push_back(row);
+-        m_matrix_contributions.push_back({ContributionKind::Diagonal, cell});
++    std::size_t upper_count = 0, lower_count = 0;
++    for (Index face : data.owned_faces) {
++        if (mesh.neighbour(face) == invalid_index) continue;
++        upper_count += isOwned(mesh, mesh.owner(face));
++        lower_count += isOwned(mesh, mesh.neighbour(face));
+     }
+-    // Each rank contributes every coefficient whose row it owns. Partitioned
+-    // internal faces are present on both endpoint ranks with local orientation
+-    // adjusted, so each off-process column is inserted exactly by its row owner.
+-    for (Index face = 0; face < mesh.faceCount(); ++face) {
+-        const auto f = static_cast<std::size_t>(face);
+-        const Index owner = data.face_owner[f];
+-        const Index neighbour = data.face_neighbour[f];
+-        if (neighbour == invalid_index) continue;
+-        if (isOwned(mesh, owner)) {
+-            m_rows.push_back(index_map.row(owner));
+-            m_columns.push_back(index_map.globalCell(neighbour));
+-            m_matrix_contributions.push_back({ContributionKind::Upper, face});
+-        }
+-        if (isOwned(mesh, neighbour)) {
+-            m_rows.push_back(index_map.row(neighbour));
+-            m_columns.push_back(index_map.globalCell(owner));
+-            m_matrix_contributions.push_back({ContributionKind::Lower, face});
+-        }
++    m_upper_faces.reserve(upper_count);
++    m_lower_faces.reserve(lower_count);
++    for (Index face : data.owned_faces) {
++        if (mesh.neighbour(face) == invalid_index) continue;
++        if (isOwned(mesh, mesh.owner(face))) m_upper_faces.push_back(face);
++        if (isOwned(mesh, mesh.neighbour(face))) m_lower_faces.push_back(face);
++    }
++}
++
++PetscCount PetscAssemblyPlan::nonzeroContributions() const {
++    return static_cast<PetscCount>(meshData(*m_mesh).owned_cells.size() +
++                                   m_upper_faces.size() + m_lower_faces.size());
++}
++
++void PetscAssemblyPlan::cooPattern(std::vector<PetscInt>& rows,
++                                   std::vector<PetscInt>& columns) const {
++    const auto count = static_cast<std::size_t>(nonzeroContributions());
++    rows.resize(count);
++    columns.resize(count);
++    std::size_t i = 0;
++    for (Index cell : meshData(*m_mesh).owned_cells) {
++        rows[i] = columns[i] = m_index_map->row(cell);
++        ++i;
++    }
++    for (Index face : m_upper_faces) {
++        rows[i] = m_index_map->row(m_mesh->owner(face));
++        columns[i++] = m_index_map->globalCell(m_mesh->neighbour(face));
++    }
++    for (Index face : m_lower_faces) {
++        rows[i] = m_index_map->row(m_mesh->neighbour(face));
++        columns[i++] = m_index_map->globalCell(m_mesh->owner(face));
+     }
+-    if (m_rows.size() != m_columns.size() || m_rows.size() != m_matrix_contributions.size())
+-        throw std::logic_error("PETSc COO assembly plan buffers disagree");
+ }
+ 
+ void PetscAssemblyPlan::validateEquation(
+@@ -55,21 +62,14 @@ void PetscAssemblyPlan::validateEquation(
+ void PetscAssemblyPlan::matrixValues(
+     const std::vector<double>& diagonal, const std::vector<double>& upper,
+     const std::vector<double>& lower, std::vector<PetscScalar>& values) const {
+-    values.resize(m_matrix_contributions.size());
+-    for (std::size_t i = 0; i < m_matrix_contributions.size(); ++i) {
+-        const Contribution contribution = m_matrix_contributions[i];
+-        switch (contribution.kind) {
+-        case ContributionKind::Diagonal:
+-            values[i] = static_cast<PetscScalar>(diagonal[static_cast<std::size_t>(contribution.index)]);
+-            break;
+-        case ContributionKind::Upper:
+-            values[i] = static_cast<PetscScalar>(upper[static_cast<std::size_t>(contribution.index)]);
+-            break;
+-        case ContributionKind::Lower:
+-            values[i] = static_cast<PetscScalar>(lower[static_cast<std::size_t>(contribution.index)]);
+-            break;
+-        }
+-    }
++    values.resize(static_cast<std::size_t>(nonzeroContributions()));
++    std::size_t i = 0;
++    for (Index cell : meshData(*m_mesh).owned_cells)
++        values[i++] = static_cast<PetscScalar>(diagonal[static_cast<std::size_t>(cell)]);
++    for (Index face : m_upper_faces)
++        values[i++] = static_cast<PetscScalar>(upper[static_cast<std::size_t>(face)]);
++    for (Index face : m_lower_faces)
++        values[i++] = static_cast<PetscScalar>(lower[static_cast<std::size_t>(face)]);
+ }
+ 
+ void PetscAssemblyPlan::matrixValues(
+@@ -90,9 +90,9 @@ void PetscAssemblyPlan::rhsValues(const ScalarDiscreteEquation& equation,
+                                   std::vector<PetscScalar>& values) const {
+     equation.validateStorage();
+     if (equation.mesh != m_mesh) throw std::invalid_argument("scalar RHS mesh mismatch");
+-    values.resize(m_owned_cell_order.size());
+-    for (std::size_t i = 0; i < m_owned_cell_order.size(); ++i)
+-        values[i] = static_cast<PetscScalar>(equation.source[static_cast<std::size_t>(m_owned_cell_order[i])]);
++    values.resize(meshData(*m_mesh).owned_cells.size());
++    for (std::size_t i = 0; i < meshData(*m_mesh).owned_cells.size(); ++i)
++        values[i] = static_cast<PetscScalar>(equation.source[static_cast<std::size_t>(meshData(*m_mesh).owned_cells[i])]);
+ }
+ 
+ void PetscAssemblyPlan::rhsValues(const VectorDiscreteEquation& equation,
+@@ -101,9 +101,9 @@ void PetscAssemblyPlan::rhsValues(const VectorDiscreteEquation& equation,
+     equation.validateStorage();
+     if (equation.mesh != m_mesh || component >= 3)
+         throw std::invalid_argument("vector RHS mesh or component is invalid");
+-    values.resize(m_owned_cell_order.size());
+-    for (std::size_t i = 0; i < m_owned_cell_order.size(); ++i) {
+-        const Vec3& source = equation.source[static_cast<std::size_t>(m_owned_cell_order[i])];
++    values.resize(meshData(*m_mesh).owned_cells.size());
++    for (std::size_t i = 0; i < meshData(*m_mesh).owned_cells.size(); ++i) {
++        const Vec3& source = equation.source[static_cast<std::size_t>(meshData(*m_mesh).owned_cells[i])];
+         values[i] = static_cast<PetscScalar>(component == 0 ? source.x : component == 1 ? source.y : source.z);
+     }
+ }
+diff --git a/src/backend/petsc_backend.cpp b/src/backend/petsc_backend.cpp
+index 8afde89..2f1a52e 100644
+--- a/src/backend/petsc_backend.cpp
++++ b/src/backend/petsc_backend.cpp
+@@ -127,29 +127,28 @@ public:
+         const std::string identity = equationIdentity(equation.numerical_identity, unknown.name(), false);
+         PetscLinearSystem& system = getSystem(identity, 1);
+         recordEquationConfig(identity, config);
+-        std::vector<PetscScalar> matrix_values;
+-        std::vector<PetscScalar> rhs_values;
+         const Clock::time_point assembly_start = Clock::now();
+-        m_assembly_plan->matrixValues(equation, matrix_values);
+-        m_assembly_plan->rhsValues(equation, rhs_values);
++        m_assembly_plan->matrixValues(equation, m_matrix_values);
++        m_assembly_plan->rhsValues(equation, m_rhs_values);
+         ++m_performance.equation_assemblies;
+         m_performance.assembly_seconds += secondsSince(assembly_start);
+ 
+-        const PetscMatrixUpdateMetrics update = system.updateMatrix(matrix_values);
++        const PetscMatrixUpdateMetrics update = system.updateMatrix(m_matrix_values);
+         recordMatrixUpdate(identity, update);
+         const PetscSetupMetrics setup = system.prepare(config);
+         recordPreconditionerSetup(identity, setup);
+ 
+-        std::vector<double> initial(static_cast<std::size_t>(m_index_map->localSize()));
+-        const double* field = fieldData(unknown);
+-        for (Index cell : meshData(*m_mesh).owned_cells)
+-            initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = field[cell];
+-        std::vector<double> solution;
+-        const PetscSolveMetrics metrics = system.solveRhs(rhs_values, initial, solution);
++        if (config.warm_start) {
++            m_initial.resize(static_cast<std::size_t>(m_index_map->localSize()));
++            const double* field = fieldData(unknown);
++            for (Index cell : meshData(*m_mesh).owned_cells)
++                m_initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = field[cell];
++        }
++        const PetscSolveMetrics metrics = system.solveRhs(m_rhs_values, m_initial, m_solution);
+         recordSolve(identity, metrics);
+         double* target = fieldData(unknown);
+         for (Index cell : meshData(*m_mesh).owned_cells)
+-            target[cell] = solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
++            target[cell] = m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
+         synchronize(unknown);
+         return metrics.result;
+     }
+@@ -162,12 +161,11 @@ public:
+         const std::string identity = equationIdentity(equation.numerical_identity, unknown.name(), true);
+         PetscLinearSystem& system = getSystem(identity, 3);
+         recordEquationConfig(identity, config);
+-        std::vector<PetscScalar> matrix_values;
+         const Clock::time_point assembly_start = Clock::now();
+-        m_assembly_plan->matrixValues(equation, matrix_values);
++        m_assembly_plan->matrixValues(equation, m_matrix_values);
+         ++m_performance.equation_assemblies;
+         m_performance.assembly_seconds += secondsSince(assembly_start);
+-        const PetscMatrixUpdateMetrics update = system.updateMatrix(matrix_values);
++        const PetscMatrixUpdateMetrics update = system.updateMatrix(m_matrix_values);
+         recordMatrixUpdate(identity, update);
+         const PetscSetupMetrics setup = system.prepare(config);
+         recordPreconditionerSetup(identity, setup);
+@@ -175,21 +173,21 @@ public:
+         std::array<SolveResult, 3> results;
+         Vec3* values = fieldData(unknown);
+         for (std::size_t component = 0; component < 3; ++component) {
+-            std::vector<PetscScalar> rhs_values;
+-            m_assembly_plan->rhsValues(equation, component, rhs_values);
+-            std::vector<double> initial(static_cast<std::size_t>(m_index_map->localSize()));
+-            for (Index cell : meshData(*m_mesh).owned_cells) {
++            m_assembly_plan->rhsValues(equation, component, m_rhs_values);
++            if (config.warm_start) {
++              m_initial.resize(static_cast<std::size_t>(m_index_map->localSize()));
++              for (Index cell : meshData(*m_mesh).owned_cells) {
+                 const Vec3& value = values[cell];
+                 const double component_value = component == 0 ? value.x : component == 1 ? value.y : value.z;
+-                initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = component_value;
++                m_initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = component_value;
++              }
+             }
+-            std::vector<double> solution;
+-            const PetscSolveMetrics metrics = system.solveRhs(rhs_values, initial, solution, component);
++            const PetscSolveMetrics metrics = system.solveRhs(m_rhs_values, m_initial, m_solution, component);
+             results[component] = metrics.result;
+             recordSolve(identity, metrics);
+             for (Index cell : meshData(*m_mesh).owned_cells) {
+                 Vec3& value = values[cell];
+-                const double solved = solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
++                const double solved = m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
+                 if (component == 0) value.x = solved;
+                 else if (component == 1) value.y = solved;
+                 else value.z = solved;
+@@ -262,15 +260,22 @@ private:
+ 
+     void recordSolve(const std::string& identity, const PetscSolveMetrics& metrics) {
+         EquationPerformanceCounters& equation = equationMetrics(identity);
++        if (metrics.preconditioner_reused) {
++            ++m_performance.preconditioner_reuses;
++            ++equation.preconditioner_reuses;
++        }
++        m_performance.preconditioner_retries += metrics.retries;
++        equation.preconditioner_retries += metrics.retries;
++        recordPreconditionerSetup(identity, metrics.recovery_setup);
+         ++m_performance.linear_solves;
+         m_performance.krylov_iterations += static_cast<std::uint64_t>(metrics.result.iterations);
+         m_performance.linear_solve_seconds += metrics.solve_seconds;
+         m_performance.rhs_seconds += metrics.rhs_seconds;
+         m_performance.residual_check_seconds += metrics.residual_seconds;
+-        ++m_performance.true_residual_checks;
++        m_performance.true_residual_checks += metrics.true_residual_checks;
+         ++equation.linear_solves;
+         equation.krylov_iterations += static_cast<std::uint64_t>(metrics.result.iterations);
+-        ++equation.true_residual_checks;
++        equation.true_residual_checks += metrics.true_residual_checks;
+         equation.last_status = solveStatusName(metrics.result.status);
+         equation.last_initial_residual = metrics.result.initial_residual;
+         equation.last_final_residual = metrics.result.final_residual;
+@@ -311,6 +316,12 @@ private:
+     std::unique_ptr<HaloExchange> m_halo;
+     std::unordered_map<std::string, std::unique_ptr<PetscLinearSystem>> m_systems;
+     std::unordered_map<std::string, EquationPerformanceCounters> m_equation_performance;
++    // One numerical workspace per backend. Calls are sequential and every
++    // equation uses the same owned-cell layout; capacity survives RHS/steps.
++    std::vector<PetscScalar> m_matrix_values;
++    std::vector<PetscScalar> m_rhs_values;
++    std::vector<double> m_initial;
++    std::vector<double> m_solution;
+     mutable PerformanceCounters m_performance;
+ };
+ 
+diff --git a/src/backend/petsc_linear_system.cpp b/src/backend/petsc_linear_system.cpp
+index 210ba18..1b8916c 100644
+--- a/src/backend/petsc_linear_system.cpp
++++ b/src/backend/petsc_linear_system.cpp
+@@ -3,6 +3,7 @@
+ #include "internal/petsc_session.h"
+ 
+ #include <petscpc.h>
++#include <petscoptions.h>
+ 
+ #include <algorithm>
+ #include <chrono>
+@@ -33,7 +34,7 @@ bool sameValues(const std::vector<PetscScalar>& left,
+     if (left.size() != right.size()) return false;
+     for (std::size_t i = 0; i < left.size(); ++i) {
+         // Exact equality is intentional: only an unchanged effective matrix may
+-        // reuse a setup PC. NaN coefficients conservatively force an update.
++        // skip its numerical update. NaN coefficients conservatively force it.
+         if (left[i] != right[i]) return false;
+     }
+     return true;
+@@ -53,6 +54,66 @@ bool hasPreconditioner(PreconditionerType type) {
+     return type != PreconditionerType::None;
+ }
+ 
++// Hypre's advanced controls have no public PETSc setters. Attach a private
++// options database only while parsing them, then restore the original database
++// before destroying ours (PetscObjectSetOptions does not retain a reference).
++class ScopedPcOptions {
++public:
++    explicit ScopedPcOptions(PC pc) : m_pc(pc) {
++        checkPetsc(PetscObjectGetOptions(reinterpret_cast<PetscObject>(pc), &m_previous),
++                   "PetscObjectGetOptions(PC)");
++        checkPetsc(PetscOptionsCreate(&m_options), "PetscOptionsCreate(PC)");
++    }
++    ~ScopedPcOptions() {
++        if (m_attached)
++            PetscObjectSetOptions(reinterpret_cast<PetscObject>(m_pc), m_previous);
++        PetscOptionsDestroy(&m_options);
++    }
++    ScopedPcOptions(const ScopedPcOptions&) = delete;
++    ScopedPcOptions& operator=(const ScopedPcOptions&) = delete;
++
++    void set(const char* key, const char* value) {
++        checkPetsc(PetscOptionsSetValue(m_options, key, value), "PetscOptionsSetValue(PC)");
++    }
++    void apply() {
++        checkPetsc(PetscObjectSetOptions(reinterpret_cast<PetscObject>(m_pc), m_options),
++                   "PetscObjectSetOptions(PC)");
++        m_attached = true;
++        checkPetsc(PCSetFromOptions(m_pc), "PCSetFromOptions(Hypre)");
++    }
++
++private:
++    PC m_pc;
++    PetscOptions m_previous = nullptr;
++    PetscOptions m_options = nullptr;
++    bool m_attached = false;
++};
++
++void configureHypreForCpu(PC pc, LinearSolverType solver, bool distributed) {
++    ScopedPcOptions options(pc);
++    // Parallel coarsening and bounded distance-two interpolation reduce the
++    // work and communication of the hierarchy on general sparse operators.
++    // Keep the symmetric smoother, one V cycle, and zero PC tolerance used
++    // by the CG-compatible PETSc defaults. BabelSim still checks b-A*x.
++    options.set("-pc_hypre_boomeramg_coarsen_type", "HMIS");
++    options.set("-pc_hypre_boomeramg_interp_type", "ext+i");
++    options.set("-pc_hypre_boomeramg_P_max", "4");
++    // BiCGStab's fixed shadow residual can break down with the aggressively
++    // coarsened hierarchy even on a nonsingular diffusion operator. Keep the
++    // ordinary hierarchy for that Krylov method; CG and the GMRES variants
++    // retain the cheaper aggressive level. This is a solver policy, independent
++    // of geometry, equation identity, matrix size, and physical model.
++    options.set("-pc_hypre_boomeramg_agg_nl",
++                solver == LinearSolverType::BiCGSTAB ? "0" : "1");
++    // MPI benefits from natural ordering for CG/GMRES. BiCGStab also needs
++    // the ordinary CF ordering to avoid the observed shadow breakdown.
++    // Set both values explicitly so a Krylov configuration change on the
++    // same PC cannot retain the previous method's relaxation order.
++    options.set("-pc_hypre_boomeramg_no_CF",
++                distributed && solver != LinearSolverType::BiCGSTAB ? "true" : "false");
++    options.apply();
++}
++
+ }  // namespace
+ 
+ PetscLinearSystem::PetscLinearSystem(
+@@ -62,7 +123,7 @@ PetscLinearSystem::PetscLinearSystem(
+     : m_identity(std::move(identity)), m_index_map(&index_map), m_plan(&plan),
+       m_parallel(parallel), m_right_hand_sides(right_hand_sides) {
+     if (m_identity.empty()) throw std::invalid_argument("PETSc equation identity is empty");
+-    if (right_hand_sides == 0 || right_hand_sides > m_rhs.size())
++    if (right_hand_sides == 0 || right_hand_sides > m_fresh_iterations.size())
+         throw std::invalid_argument("PETSc linear system supports one or three right-hand sides");
+     ensurePetscSession();
+     const MPI_Comm communicator = parallel.communicator == MPI_COMM_NULL
+@@ -71,10 +132,8 @@ PetscLinearSystem::PetscLinearSystem(
+     checkPetsc(MatSetSizes(m_matrix, index_map.localSize(), index_map.localSize(),
+                            index_map.globalSize(), index_map.globalSize()), "MatSetSizes");
+     checkPetsc(MatSetType(m_matrix, MATAIJ), "MatSetType(MATAIJ)");
+-    const auto& rows = plan.rows();
+-    const auto& columns = plan.columns();
+-    std::vector<PetscInt> coo_rows = rows;
+-    std::vector<PetscInt> coo_columns = columns;
++    std::vector<PetscInt> coo_rows, coo_columns;
++    plan.cooPattern(coo_rows, coo_columns);
+     checkPetsc(MatSetPreallocationCOO(m_matrix, plan.nonzeroContributions(),
+                                       coo_rows.data(), coo_columns.data()),
+                "MatSetPreallocationCOO");
+@@ -86,23 +145,18 @@ PetscLinearSystem::PetscLinearSystem(
+     checkPetsc(KSPSetOperators(m_ksp, m_matrix, m_matrix), "KSPSetOperators");
+     checkPetsc(KSPSetConvergenceTest(m_ksp, &PetscLinearSystem::convergenceTest,
+                                      &m_convergence, nullptr), "KSPSetConvergenceTest");
+-    for (std::size_t i = 0; i < m_right_hand_sides; ++i) {
+-        checkPetsc(VecCreateMPI(communicator, index_map.localSize(), index_map.globalSize(),
+-                               &m_rhs[i]), "VecCreateMPI(rhs)");
+-        checkPetsc(VecDuplicate(m_rhs[i], &m_solution[i]), "VecDuplicate(solution)");
+-    }
+-    checkPetsc(VecDuplicate(m_rhs[0], &m_residual), "VecDuplicate(residual)");
+-    m_work_solution.resize(static_cast<std::size_t>(index_map.localSize()));
++    checkPetsc(VecCreateMPI(communicator, index_map.localSize(), index_map.globalSize(),
++                           &m_rhs), "VecCreateMPI(rhs)");
++    checkPetsc(VecDuplicate(m_rhs, &m_solution), "VecDuplicate(solution)");
++    checkPetsc(VecDuplicate(m_rhs, &m_residual), "VecDuplicate(residual)");
+ }
+ 
+ PetscLinearSystem::~PetscLinearSystem() { release(); }
+ 
+ void PetscLinearSystem::release() noexcept {
+     if (m_residual) VecDestroy(&m_residual);
+-    for (std::size_t i = 0; i < m_right_hand_sides; ++i) {
+-        if (m_solution[i]) VecDestroy(&m_solution[i]);
+-        if (m_rhs[i]) VecDestroy(&m_rhs[i]);
+-    }
++    if (m_solution) VecDestroy(&m_solution);
++    if (m_rhs) VecDestroy(&m_rhs);
+     if (m_ksp) KSPDestroy(&m_ksp);
+     if (m_matrix) MatDestroy(&m_matrix);
+ }
+@@ -137,6 +191,7 @@ void PetscLinearSystem::configure(const LinearSolverConfig& config) {
+     m_config = config;
+     m_configured = true;
+     m_setup_pending = true;
++    m_force_rebuild = true;
+ }
+ 
+ void PetscLinearSystem::setupPreconditioner(const LinearSolverConfig& config) {
+@@ -155,6 +210,7 @@ void PetscLinearSystem::setupPreconditioner(const LinearSolverConfig& config) {
+     case PreconditionerType::Hypre:
+         checkPetsc(PCSetType(pc, PCHYPRE), "PCSetType(PCHYPRE)");
+         checkPetsc(PCHYPRESetType(pc, "boomeramg"), "PCHYPRESetType(boomeramg)");
++        configureHypreForCpu(pc, config.solver, m_parallel.distributed());
+         break;
+     case PreconditionerType::GAMG:
+         checkPetsc(PCSetType(pc, PCGAMG), "PCSetType(PCGAMG)");
+@@ -199,8 +255,8 @@ void PetscLinearSystem::computeTrueResidual(Vec rhs, Vec solution, double& norm)
+ }
+ 
+ PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(
+-    const std::vector<PetscScalar>& matrix_values) {
+-    if (matrix_values.size() != m_plan->rows().size())
++    std::vector<PetscScalar>& matrix_values) {
++    if (matrix_values.size() != static_cast<std::size_t>(m_plan->nonzeroContributions()))
+         throw std::invalid_argument("PETSc matrix values do not match fixed COO pattern");
+     PetscMatrixUpdateMetrics metrics;
+     const Clock::time_point update_start = Clock::now();
+@@ -211,7 +267,9 @@ PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(
+         checkPetsc(MatSetValuesCOO(m_matrix, matrix_values.data(), INSERT_VALUES),
+                    "MatSetValuesCOO(matrix update)");
+         checkPetsc(KSPSetOperators(m_ksp, m_matrix, m_matrix), "KSPSetOperators(matrix update)");
+-        m_previous_matrix_values = matrix_values;
++        // PETSc has consumed the COO values. Exchange scratch storage instead
++        // of copying every coefficient into the retained equality snapshot.
++        m_previous_matrix_values.swap(matrix_values);
+         m_matrix_ready = true;
+         m_setup_pending = true;
+         ++m_matrix_updates;
+@@ -225,16 +283,43 @@ PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(
+ 
+ PetscSetupMetrics PetscLinearSystem::prepare(const LinearSolverConfig& config) {
+     configure(config);
++    if (!m_setup_pending && !m_force_rebuild) return {};
++    const bool reuse = hasPreconditioner(config.preconditioner) &&
++        m_preconditioner_setups != 0 && !m_force_rebuild &&
++        m_matrix_updates - m_preconditioner_matrix_update <
++            static_cast<std::uint64_t>(config.preconditioner_rebuild_interval) &&
++        m_preconditioner_rhs_solves <
++            static_cast<std::uint64_t>(config.preconditioner_rebuild_interval);
++    // Many RHS solves amortize a fresh factorization/hierarchy. Limit lagged
++    // work as well as matrix age, without aging unchanged-matrix RHS-only
++    // calls into rebuilds. Counts are collective, so no extra reduction or
++    // timing-dependent branch is needed.
++    return setup(reuse);
++}
++
++PetscSetupMetrics PetscLinearSystem::setup(bool reuse) {
+     PetscSetupMetrics metrics;
+-    if (m_setup_pending) {
+-        const Clock::time_point setup_start = Clock::now();
+-        checkPetsc(KSPSetUp(m_ksp), "KSPSetUp");
+-        configureBlockJacobiSubsolvers(config);
+-        metrics.seconds = secondsSince(setup_start);
+-        metrics.preconditioner_was_setup = hasPreconditioner(config.preconditioner);
++    const Clock::time_point setup_start = Clock::now();
++    checkPetsc(KSPSetReusePreconditioner(m_ksp, reuse ? PETSC_TRUE : PETSC_FALSE),
++               "KSPSetReusePreconditioner");
++    // Also leave PETSc's RHS-only stage when a failed/growing lagged solve
++    // requests a rebuild without another matrix value update.
++    checkPetsc(KSPSetOperators(m_ksp, m_matrix, m_matrix), "KSPSetOperators(setup)");
++    checkPetsc(KSPSetUp(m_ksp), "KSPSetUp");
++    if (!reuse) {
++        configureBlockJacobiSubsolvers(m_config);
++        // Factor local blocks here rather than charging their lazy setup to
++        // the first velocity component's KSPSolve time.
++        checkPetsc(KSPSetUpOnBlocks(m_ksp), "KSPSetUpOnBlocks");
++        metrics.preconditioner_was_setup = hasPreconditioner(m_config.preconditioner);
+         if (metrics.preconditioner_was_setup) ++m_preconditioner_setups;
+-        m_setup_pending = false;
++        m_preconditioner_matrix_update = m_matrix_updates;
++        m_preconditioner_rhs_solves = 0;
++        m_fresh_iterations.fill(0);
+     }
++    metrics.seconds = secondsSince(setup_start);
++    m_setup_pending = false;
++    m_force_rebuild = false;
+     return metrics;
+ }
+ 
+@@ -276,52 +361,82 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(
+         throw std::logic_error("PETSc linear system must update and prepare before solving RHS");
+     if (right_hand_side >= m_right_hand_sides)
+         throw std::out_of_range("PETSc RHS index is outside this equation system");
+-    if (initial_guess.size() != static_cast<std::size_t>(m_index_map->localSize()))
++    if (m_config.warm_start &&
++        initial_guess.size() != static_cast<std::size_t>(m_index_map->localSize()))
+         throw std::invalid_argument("PETSc initial guess does not match local ownership");
+     PetscSolveMetrics metrics;
+     const Clock::time_point rhs_start = Clock::now();
+-    Vec rhs = m_rhs[right_hand_side];
+-    Vec x = m_solution[right_hand_side];
++    Vec rhs = m_rhs;
++    Vec x = m_solution;
+     setVectorValues(rhs, rhs_values);
+-    if (m_config.warm_start) {
+-        PetscScalar* x_array = nullptr;
+-        checkPetsc(VecGetArray(x, &x_array), "VecGetArray(initial guess)");
+-        for (std::size_t i = 0; i < initial_guess.size(); ++i)
+-            x_array[i] = static_cast<PetscScalar>(initial_guess[i]);
+-        checkPetsc(VecRestoreArray(x, &x_array), "VecRestoreArray(initial guess)");
+-    } else {
+-        checkPetsc(VecSet(x, 0.0), "VecSet(zero initial guess)");
+-    }
++    const auto reset_guess = [&]() {
++        if (m_config.warm_start) {
++            PetscScalar* x_array = nullptr;
++            checkPetsc(VecGetArray(x, &x_array), "VecGetArray(initial guess)");
++            for (std::size_t i = 0; i < initial_guess.size(); ++i)
++                x_array[i] = static_cast<PetscScalar>(initial_guess[i]);
++            checkPetsc(VecRestoreArray(x, &x_array), "VecRestoreArray(initial guess)");
++        } else {
++            checkPetsc(VecSet(x, 0.0), "VecSet(zero initial guess)");
++        }
++    };
++    reset_guess();
+     metrics.rhs_seconds = secondsSince(rhs_start);
+ 
+     const double rhs_norm = vectorNorm(rhs);
+-    double initial_residual = 0.0;
+-    computeTrueResidual(rhs, x, initial_residual);
++    // For x0=0, r0=b exactly; avoid an SpMV and a second global norm per RHS.
++    double initial_residual = rhs_norm;
++    if (m_config.warm_start) computeTrueResidual(rhs, x, initial_residual);
+     const double scale = residualScale(initial_residual, rhs_norm);
+     const double target = residualTarget(m_config, scale);
+     m_convergence.target = static_cast<PetscReal>(target);
+ 
+-    const Clock::time_point solve_start = Clock::now();
+-    checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
+-    metrics.solve_seconds = secondsSince(solve_start);
+-    PetscInt iterations = 0;
+-    PetscInt max_iterations = 0;
+-    KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
+-    checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
+-    checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
+-    max_iterations = static_cast<PetscInt>(m_config.max_iterations);
+-    const Clock::time_point residual_start = Clock::now();
+-    double final_residual = 0.0;
+-    computeTrueResidual(rhs, x, final_residual);
+-    ++m_true_residual_checks;
+-    metrics.residual_seconds = secondsSince(residual_start);
+-
+-    SolveStatus status = SolveStatus::NumericalFailure;
+-    if (residualConverged(final_residual, target)) status = SolveStatus::Converged;
+-    else if (reason == KSP_DIVERGED_ITS || iterations >= max_iterations)
+-        status = SolveStatus::MaxIterations;
+-    metrics.result = SolveResult(status, static_cast<int>(iterations), initial_residual,
+-                                 final_residual, final_residual / scale);
++    metrics.preconditioner_reused = hasPreconditioner(m_config.preconditioner) &&
++        m_preconditioner_matrix_update < m_matrix_updates;
++    int total_iterations = 0;
++    for (int attempt = 0; attempt < 2; ++attempt) {
++        const Clock::time_point solve_start = Clock::now();
++        checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
++        metrics.solve_seconds += secondsSince(solve_start);
++        PetscInt iterations = 0;
++        KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
++        checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
++        checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
++        total_iterations += static_cast<int>(iterations);
++        const Clock::time_point residual_start = Clock::now();
++        double final_residual = 0.0;
++        computeTrueResidual(rhs, x, final_residual);
++        ++m_true_residual_checks;
++        ++metrics.true_residual_checks;
++        metrics.residual_seconds += secondsSince(residual_start);
++
++        SolveStatus status = SolveStatus::NumericalFailure;
++        if (residualConverged(final_residual, target)) status = SolveStatus::Converged;
++        else if (reason == KSP_DIVERGED_ITS || iterations >= m_config.max_iterations)
++            status = SolveStatus::MaxIterations;
++        metrics.result = SolveResult(status, total_iterations, initial_residual,
++                                     final_residual, final_residual / scale);
++        if (status != SolveStatus::Converged && attempt == 0 &&
++            metrics.preconditioner_reused) {
++            // Vec norms and iteration counts are collective, so all ranks
++            // take this branch together. Restore the original x0 and target;
++            // a failed stale PC never weakens BabelSim's residual contract.
++            metrics.recovery_setup = setup(false);
++            ++metrics.retries;
++            reset_guess();
++            continue;
++        }
++        if (status == SolveStatus::Converged) {
++            int& fresh = m_fresh_iterations[right_hand_side];
++            if (m_preconditioner_matrix_update == m_matrix_updates)
++                fresh = std::max(fresh, static_cast<int>(iterations));
++            else if (iterations > m_config.preconditioner_reuse_iteration_growth *
++                                      static_cast<double>(std::max(fresh, 1)))
++                m_force_rebuild = true;
++        }
++        break;
++    }
++    if (total_iterations > 0) ++m_preconditioner_rhs_solves;
+ 
+     PetscScalar* x_array = nullptr;
+     checkPetsc(VecGetArray(x, &x_array), "VecGetArray(solution)");
+diff --git a/src/backend/solver_control.cpp b/src/backend/solver_control.cpp
+index 57bab3a..dbcc8c4 100644
+--- a/src/backend/solver_control.cpp
++++ b/src/backend/solver_control.cpp
+@@ -36,6 +36,11 @@ void LinearSolverConfig::validate() const {
+         (amg_max_levels <= 0 || amg_coarse_size <= 0 || amg_smoothing_steps <= 0)) {
+         throw std::invalid_argument("GAMG hierarchy controls must be positive");
+     }
++    if (preconditioner_rebuild_interval < 1 ||
++        !std::isfinite(preconditioner_reuse_iteration_growth) ||
++        preconditioner_reuse_iteration_growth < 1.0) {
++        throw std::invalid_argument("preconditioner rebuild interval must be positive and iteration growth must be finite and >= 1");
++    }
+ }
+ 
+ }  // namespace babelsim
+diff --git a/src/discretization/fvm_execution.cpp b/src/discretization/fvm_execution.cpp
+index ad2e883..c2a8050 100644
+--- a/src/discretization/fvm_execution.cpp
++++ b/src/discretization/fvm_execution.cpp
+@@ -219,8 +219,8 @@ void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result)
+     gradient(operation.field, result, operation.options.gradient.value());
+     state.synchronize(result);
+     if (result.calculatedBoundary()) {
+-        for (Index face = 0; face < state.mesh->faceCount(); ++face) {
+-            if (!state.mesh->boundaryFace(face)) continue;
++        for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
++          for (Index face : state.mesh->patchFaces(patch)) {
+             const Index owner = state.mesh->owner(face);
+             const Vec3 n = state.mesh->faceNormal(face);
+             const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
+@@ -245,8 +245,8 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
+     gradient(operation.field, result, operation.options.gradient.value());
+     state.synchronize(result);
+     if (result.calculatedBoundary()) {
+-        for (Index face = 0; face < state.mesh->faceCount(); ++face) {
+-            if (!state.mesh->boundaryFace(face)) continue;
++        for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
++          for (Index face : state.mesh->patchFaces(patch)) {
+             const Index owner = state.mesh->owner(face);
+             const Vec3 n = state.mesh->faceNormal(face);
+             const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
+diff --git a/src/discretization/operators.cpp b/src/discretization/operators.cpp
+index 9d5b461..1341d63 100644
+--- a/src/discretization/operators.cpp
++++ b/src/discretization/operators.cpp
+@@ -44,7 +44,7 @@ T internalFaceValue(const Field<T>& field, Index face) {
+ 
+ double correctedInternalFaceValue(
+     const ScalarField& field,
+-    const VectorField& field_gradient,
++    const Vec3* field_gradient,
+     Index face)
+ {
+     const Mesh& mesh = field.mesh();
+@@ -53,15 +53,15 @@ double correctedInternalFaceValue(
+     const Index neighbour = detail::meshData(mesh).face_neighbour[f];
+     const double weight = ownerWeight(mesh, face);
+     const Vec3 face_gradient =
+-        weight * detail::fieldData(field_gradient)[owner] +
+-        (1.0 - weight) * detail::fieldData(field_gradient)[neighbour];
++        weight * field_gradient[owner] +
++        (1.0 - weight) * field_gradient[neighbour];
+     return internalFaceValue(field, face) +
+         dot(detail::meshData(mesh).face_skewness[f], face_gradient);
+ }
+ 
+ Vec3 correctedInternalFaceValue(
+     const VectorField& field,
+-    const TensorField& field_gradient,
++    const Tensor3* field_gradient,
+     Index face)
+ {
+     const Mesh& mesh = field.mesh();
+@@ -72,8 +72,8 @@ Vec3 correctedInternalFaceValue(
+     Vec3 value = internalFaceValue(field, face);
+     for (std::size_t component = 0; component < 3; ++component) {
+         const Vec3 face_gradient =
+-            weight * detail::fieldData(field_gradient)[owner][component] +
+-            (1.0 - weight) * detail::fieldData(field_gradient)[neighbour][component];
++            weight * field_gradient[owner][component] +
++            (1.0 - weight) * field_gradient[neighbour][component];
+         value[component] += dot(detail::meshData(mesh).face_skewness[f], face_gradient);
+     }
+     return value;
+@@ -110,7 +110,7 @@ Vec3 linearUpwindCorrection(
+ 
+ double reconstructedBoundaryValue(
+     const ScalarField& field,
+-    const VectorField& field_gradient,
++    const Vec3* field_gradient,
+     Index face,
+     double outward_flux = std::numeric_limits<double>::quiet_NaN())
+ {
+@@ -125,8 +125,8 @@ double reconstructedBoundaryValue(
+     const Vec3 normal = mesh.faceNormal(face);
+     const double prescribed_normal_gradient =
+         condition.type == BoundaryType::FixedGradient ? condition.value : 0.0;
+-    const Vec3 constrained_gradient = detail::fieldData(field_gradient)[owner] +
+-        (prescribed_normal_gradient - dot(detail::fieldData(field_gradient)[owner], normal)) * normal;
++    const Vec3 constrained_gradient = field_gradient[owner] +
++        (prescribed_normal_gradient - dot(field_gradient[owner], normal)) * normal;
+     return detail::fieldData(field)[owner] + dot(
+         constrained_gradient,
+         detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[static_cast<std::size_t>(owner)]);
+@@ -134,7 +134,7 @@ double reconstructedBoundaryValue(
+ 
+ Vec3 reconstructedBoundaryValue(
+     const VectorField& field,
+-    const TensorField& field_gradient,
++    const Tensor3* field_gradient,
+     Index face,
+     double outward_flux = std::numeric_limits<double>::quiet_NaN())
+ {
+@@ -154,9 +154,9 @@ Vec3 reconstructedBoundaryValue(
+         const double prescribed_normal_gradient =
+             condition.type == BoundaryType::FixedGradient
+             ? condition.value[component] : 0.0;
+-        const Vec3 constrained_gradient = detail::fieldData(field_gradient)[owner][component] +
++        const Vec3 constrained_gradient = field_gradient[owner][component] +
+             (prescribed_normal_gradient -
+-             dot(detail::fieldData(field_gradient)[owner][component], normal)) * normal;
++             dot(field_gradient[owner][component], normal)) * normal;
+         value[component] += dot(constrained_gradient, offset);
+     }
+     if (condition.type == BoundaryType::Symmetry) {
+@@ -167,7 +167,7 @@ Vec3 reconstructedBoundaryValue(
+ 
+ double correctedFaceValue(
+     const ScalarField& field,
+-    const VectorField& field_gradient,
++    const Vec3* field_gradient,
+     Index face,
+     double outward_flux = std::numeric_limits<double>::quiet_NaN())
+ {
+@@ -178,7 +178,7 @@ double correctedFaceValue(
+ 
+ Vec3 correctedFaceValue(
+     const VectorField& field,
+-    const TensorField& field_gradient,
++    const Tensor3* field_gradient,
+     Index face,
+     double outward_flux = std::numeric_limits<double>::quiet_NaN())
+ {
+@@ -187,6 +187,58 @@ Vec3 correctedFaceValue(
+         : correctedInternalFaceValue(field, field_gradient, face);
+ }
+ 
++double correctedInternalFaceValue(
++    const ScalarField& field,
++    const VectorField& field_gradient,
++    Index face)
++{
++    return correctedInternalFaceValue(field, detail::fieldData(field_gradient), face);
++}
++
++Vec3 correctedInternalFaceValue(
++    const VectorField& field,
++    const TensorField& field_gradient,
++    Index face)
++{
++    return correctedInternalFaceValue(field, detail::fieldData(field_gradient), face);
++}
++
++double reconstructedBoundaryValue(
++    const ScalarField& field,
++    const VectorField& field_gradient,
++    Index face,
++    double outward_flux = std::numeric_limits<double>::quiet_NaN())
++{
++    return reconstructedBoundaryValue(field, detail::fieldData(field_gradient), face, outward_flux);
++}
++
++Vec3 reconstructedBoundaryValue(
++    const VectorField& field,
++    const TensorField& field_gradient,
++    Index face,
++    double outward_flux = std::numeric_limits<double>::quiet_NaN())
++{
++    return reconstructedBoundaryValue(field, detail::fieldData(field_gradient), face, outward_flux);
++}
++
++double correctedFaceValue(
++    const ScalarField& field,
++    const VectorField& field_gradient,
++    Index face,
++    double outward_flux = std::numeric_limits<double>::quiet_NaN())
++{
++    return correctedFaceValue(field, detail::fieldData(field_gradient), face, outward_flux);
++}
++
++Vec3 correctedFaceValue(
++    const VectorField& field,
++    const TensorField& field_gradient,
++    Index face,
++    double outward_flux = std::numeric_limits<double>::quiet_NaN())
++{
++    return correctedFaceValue(field, detail::fieldData(field_gradient), face, outward_flux);
++}
++
+ template <typename T>
+ T interpolatedFaceValue(const Field<T>& field, Index face, double flux_value = std::numeric_limits<double>::quiet_NaN()) {
+     const Mesh& mesh = field.mesh();
+@@ -223,16 +275,17 @@ Eigen::Vector3d toEigen(const Vec3& value) {
+ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
+     const Mesh& mesh = scalar.mesh();
+     result.fill({});
++    Vec3* result_values = detail::fieldData(result);
+     for (Index face = 0; face < mesh.faceCount(); ++face) {
+         const auto f = static_cast<std::size_t>(face);
+         const Index owner = detail::meshData(mesh).face_owner[f];
+         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
+         const double value = interpolatedFaceValue(scalar, face);
+         const Vec3 contribution = value * detail::meshData(mesh).face_area_vectors[f];
+-        detail::fieldData(result)[owner] += contribution *
++        result_values[owner] += contribution *
+             detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
+         if (neighbour != invalid_index) {
+-            detail::fieldData(result)[neighbour] -= contribution *
++            result_values[neighbour] -= contribution *
+                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+         }
+     }
+@@ -242,18 +295,21 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
+     if (mesh.orthogonalGeometry()) {
+         return;
+     }
+-    const VectorField initial_gradient = result;
++    // Reconstruction only reads cell gradients; avoid copying boundary
++    // traces and flux metadata of a complete calculated Field.
++    const std::vector<Vec3> initial_gradient = detail::fieldValues(result);
+     result.fill({});
++    result_values = detail::fieldData(result);
+     for (Index face = 0; face < mesh.faceCount(); ++face) {
+         const auto f = static_cast<std::size_t>(face);
+         const Index owner = detail::meshData(mesh).face_owner[f];
+         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
+-        const double value = correctedFaceValue(scalar, initial_gradient, face);
++        const double value = correctedFaceValue(scalar, initial_gradient.data(), face);
+         const Vec3 contribution = value * detail::meshData(mesh).face_area_vectors[f];
+-        detail::fieldData(result)[owner] += contribution *
++        result_values[owner] += contribution *
+             detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
+         if (neighbour != invalid_index) {
+-            detail::fieldData(result)[neighbour] -= contribution *
++            result_values[neighbour] -= contribution *
+                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+         }
+     }
+@@ -309,6 +365,7 @@ void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
+ void greenGaussGradient(const VectorField& vector, TensorField& result) {
+     const Mesh& mesh = vector.mesh();
+     result.fill({});
++    Tensor3* result_values = detail::fieldData(result);
+     for (Index face = 0; face < mesh.faceCount(); ++face) {
+         const auto f = static_cast<std::size_t>(face);
+         const Index owner = detail::meshData(mesh).face_owner[f];
+@@ -316,10 +373,10 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
+         const Vec3 value = interpolatedFaceValue(vector, face);
+         for (std::size_t component = 0; component < 3; ++component) {
+             const Vec3 contribution = value[component] * detail::meshData(mesh).face_area_vectors[f];
+-            detail::fieldData(result)[owner][component] += contribution *
++            result_values[owner][component] += contribution *
+                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
+             if (neighbour != invalid_index) {
+-                detail::fieldData(result)[neighbour][component] -= contribution *
++                result_values[neighbour][component] -= contribution *
+                     detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+             }
+         }
+@@ -327,19 +384,20 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
+     if (mesh.orthogonalGeometry()) {
+         return;
+     }
+-    const TensorField initial_gradient = result;
++    const std::vector<Tensor3> initial_gradient = detail::fieldValues(result);
+     result.fill({});
++    result_values = detail::fieldData(result);
+     for (Index face = 0; face < mesh.faceCount(); ++face) {
+         const auto f = static_cast<std::size_t>(face);
+         const Index owner = detail::meshData(mesh).face_owner[f];
+         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
+-        const Vec3 value = correctedFaceValue(vector, initial_gradient, face);
++        const Vec3 value = correctedFaceValue(vector, initial_gradient.data(), face);
+         for (std::size_t component = 0; component < 3; ++component) {
+             const Vec3 contribution = value[component] * detail::meshData(mesh).face_area_vectors[f];
+-            detail::fieldData(result)[owner][component] += contribution *
++            result_values[owner][component] += contribution *
+                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
+             if (neighbour != invalid_index) {
+-                detail::fieldData(result)[neighbour][component] -= contribution *
++                result_values[neighbour][component] -= contribution *
+                     detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
+             }
+         }
+diff --git a/src/internal/field_access.h b/src/internal/field_access.h
+index ac84054..4e70fce 100644
+--- a/src/internal/field_access.h
++++ b/src/internal/field_access.h
+@@ -18,8 +18,8 @@ struct FieldAccess {
+     // 无输入边界微分约束的单元结果使用相邻单元常值外推；调用前同步单元值。
+     template <typename T> static void extrapolateTrace(Field<T>& field) {
+         if (!field.m_calculated_boundary) return;
+-        for (Index face = 0; face < field.m_mesh->faceCount(); ++face)
+-            if (field.m_mesh->boundaryFace(face))
++        for (Index patch = 0; patch < field.m_mesh->patchCount(); ++patch)
++            for (Index face : field.m_mesh->patchFaces(patch))
+                 field.m_boundary_trace[face] = field.m_values[field.m_mesh->owner(face)];
+     }
+     template <typename T> static T* data(Field<T>& field) {
+diff --git a/src/internal/petsc_assembly_plan.h b/src/internal/petsc_assembly_plan.h
+index 8056fe3..fc5ba16 100644
+--- a/src/internal/petsc_assembly_plan.h
++++ b/src/internal/petsc_assembly_plan.h
+@@ -13,9 +13,8 @@ class PetscAssemblyPlan {
+ public:
+     PetscAssemblyPlan(const Mesh& mesh, const PetscIndexMap& index_map);
+ 
+-    const std::vector<PetscInt>& rows() const { return m_rows; }
+-    const std::vector<PetscInt>& columns() const { return m_columns; }
+-    PetscCount nonzeroContributions() const { return static_cast<PetscCount>(m_rows.size()); }
++    void cooPattern(std::vector<PetscInt>& rows, std::vector<PetscInt>& columns) const;
++    PetscCount nonzeroContributions() const;
+ 
+     void matrixValues(const ScalarDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
+     void matrixValues(const VectorDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
+@@ -24,12 +23,6 @@ public:
+                   std::vector<PetscScalar>& values) const;
+ 
+ private:
+-    enum class ContributionKind : unsigned char { Diagonal, Upper, Lower };
+-    struct Contribution {
+-        ContributionKind kind;
+-        Index index;
+-    };
+-
+     void validateEquation(const Mesh* equation_mesh, const std::vector<double>& diagonal,
+                           const std::vector<double>& upper, const std::vector<double>& lower) const;
+     void matrixValues(const std::vector<double>& diagonal, const std::vector<double>& upper,
+@@ -37,10 +30,10 @@ private:
+ 
+     const Mesh* m_mesh;
+     const PetscIndexMap* m_index_map;
+-    std::vector<PetscInt> m_rows;
+-    std::vector<PetscInt> m_columns;
+-    std::vector<Contribution> m_matrix_contributions;
+-    std::vector<Index> m_owned_cell_order;
++    // COO coordinates are needed only when a PETSc Mat is created. Keep the
++    // compact coefficient sources; derive coordinates into temporary buffers.
++    std::vector<Index> m_upper_faces;
++    std::vector<Index> m_lower_faces;
+ };
+ 
+ }  // namespace babelsim::detail
+diff --git a/src/internal/petsc_linear_system.h b/src/internal/petsc_linear_system.h
+index b42a1d6..bf66cf1 100644
+--- a/src/internal/petsc_linear_system.h
++++ b/src/internal/petsc_linear_system.h
+@@ -12,15 +12,20 @@
+ 
+ namespace babelsim::detail {
+ 
++struct PetscSetupMetrics { bool preconditioner_was_setup = false; double seconds = 0.0; };
++
+ struct PetscSolveMetrics {
+     SolveResult result;
+     double rhs_seconds = 0.0;
+     double solve_seconds = 0.0;
+     double residual_seconds = 0.0;
++    PetscSetupMetrics recovery_setup;
++    bool preconditioner_reused = false;
++    std::uint64_t retries = 0;
++    std::uint64_t true_residual_checks = 0;
+ };
+ 
+ struct PetscMatrixUpdateMetrics { bool changed = false; double seconds = 0.0; };
+-struct PetscSetupMetrics { bool preconditioner_was_setup = false; double seconds = 0.0; };
+ 
+ // A long-lived PETSc matrix/vector/KSP set for one logical BabelSim equation.
+ class PetscLinearSystem {
+@@ -32,7 +37,7 @@ public:
+     PetscLinearSystem(const PetscLinearSystem&) = delete;
+     PetscLinearSystem& operator=(const PetscLinearSystem&) = delete;
+ 
+-    PetscMatrixUpdateMetrics updateMatrix(const std::vector<PetscScalar>& matrix_values);
++    PetscMatrixUpdateMetrics updateMatrix(std::vector<PetscScalar>& matrix_values);
+     PetscSetupMetrics prepare(const LinearSolverConfig& config);
+     PetscSolveMetrics solveRhs(const std::vector<PetscScalar>& rhs_values,
+                                const std::vector<double>& initial_guess,
+@@ -53,6 +58,7 @@ private:
+     void configure(const LinearSolverConfig& config);
+     void setupPreconditioner(const LinearSolverConfig& config);
+     void configureBlockJacobiSubsolvers(const LinearSolverConfig& config);
++    PetscSetupMetrics setup(bool reuse);
+     void setVectorValues(Vec vector, const std::vector<PetscScalar>& values);
+     double vectorNorm(Vec vector) const;
+     void computeTrueResidual(Vec rhs, Vec solution, double& norm);
+@@ -64,20 +70,25 @@ private:
+     ParallelContext m_parallel;
+     Mat m_matrix = nullptr;
+     KSP m_ksp = nullptr;
+-    std::array<Vec, 3> m_rhs{{nullptr, nullptr, nullptr}};
+-    std::array<Vec, 3> m_solution{{nullptr, nullptr, nullptr}};
++    // Components are solved sequentially and copied out immediately. One
++    // work pair serves every RHS; iteration history remains component-specific.
++    Vec m_rhs = nullptr;
++    Vec m_solution = nullptr;
+     Vec m_residual = nullptr;
+     std::vector<PetscScalar> m_previous_matrix_values;
+-    std::vector<double> m_work_solution;
+     std::size_t m_right_hand_sides = 0;
+     bool m_matrix_ready = false;
+     bool m_setup_pending = true;
+     bool m_configured = false;
++    bool m_force_rebuild = true;
+     LinearSolverConfig m_config;
+     ConvergenceContext m_convergence;
+     std::uint64_t m_matrix_updates = 0;
+     std::uint64_t m_rhs_only_solves = 0;
+     std::uint64_t m_preconditioner_setups = 0;
++    std::uint64_t m_preconditioner_matrix_update = 0;
++    std::uint64_t m_preconditioner_rhs_solves = 0;
++    std::array<int, 3> m_fresh_iterations{{0, 0, 0}};
+     std::uint64_t m_true_residual_checks = 0;
+ };
+ 
+diff --git a/src/io/case.cpp b/src/io/case.cpp
+index 17e12fa..3af9852 100644
+--- a/src/io/case.cpp
++++ b/src/io/case.cpp
+@@ -69,7 +69,7 @@ PerformanceCounters maximumPerformance(
+     const PerformanceCounters& local,
+     const ParallelContext& parallel)
+ {
+-    const std::array<double, 27> local_values{
++    const std::array<double, 31> local_values{
+         static_cast<double>(local.linear_solves),
+         static_cast<double>(local.krylov_iterations),
+         static_cast<double>(local.sparse_matvecs),
+@@ -97,6 +97,10 @@ PerformanceCounters maximumPerformance(
+         local.rhs_seconds,
+         local.residual_check_seconds,
+         local.pattern_build_seconds,
++        static_cast<double>(local.preconditioner_reuses),
++        static_cast<double>(local.preconditioner_retries),
++        static_cast<double>(local.reported_iteration_intervals),
++        local.iteration_compute_seconds,
+     };
+     std::array<double, local_values.size()> global_values{};
+     parallel.maximum(
+@@ -130,6 +134,10 @@ PerformanceCounters maximumPerformance(
+     global.rhs_seconds = global_values[24];
+     global.residual_check_seconds = global_values[25];
+     global.pattern_build_seconds = global_values[26];
++    global.preconditioner_reuses = static_cast<std::uint64_t>(global_values[27]);
++    global.preconditioner_retries = static_cast<std::uint64_t>(global_values[28]);
++    global.reported_iteration_intervals = static_cast<std::uint64_t>(global_values[29]);
++    global.iteration_compute_seconds = global_values[30];
+     global.equation_systems = local.equation_systems;
+     return global;
+ }
+@@ -444,6 +452,8 @@ EquationControl equationControl(const Case& problem, const std::string& name,
+     c.relative_tolerance = p.number(prefix + "relativeTolerance");
+     c.max_iterations = p.integer(prefix + "maxIterations");
+     c.warm_start = p.boolean(prefix + "warmStart", c.warm_start);
++    c.preconditioner_rebuild_interval = p.integer(prefix + "preconditionerRebuildInterval", c.preconditioner_rebuild_interval);
++    c.preconditioner_reuse_iteration_growth = p.number(prefix + "preconditionerReuseIterationGrowth", c.preconditioner_reuse_iteration_growth);
+     c.amg_max_levels = p.integer(prefix + "amgMaxLevels", c.amg_max_levels);
+     c.amg_coarse_size = p.integer(prefix + "amgCoarseSize", c.amg_coarse_size);
+     c.amg_smoothing_steps = p.integer(prefix + "amgSmoothingSteps", c.amg_smoothing_steps);
+diff --git a/src/io/monitor.cpp b/src/io/monitor.cpp
+index a5322ca..1170530 100644
+--- a/src/io/monitor.cpp
++++ b/src/io/monitor.cpp
+@@ -1,5 +1,6 @@
+ #include "babelsim/monitor.h"
+ #include "babelsim/solver.h"
++#include "babelsim/runtime.h"
+ #include <iostream>
+ #include <stdexcept>
+ #include <type_traits>
+@@ -27,6 +28,7 @@ void Reporter::record(std::initializer_list<Metric> metrics) const {
+     printMetrics(metrics);
+ }
+ void Reporter::iteration(int index, int limit, bool urgent, std::initializer_list<Metric> metrics) const {
++    RunTime::current().recordIteration();
+     if (!primaryProcess() || !(index == 1 || index % interval_ == 0 || urgent || index == limit)) return;
+     std::cout << name_ << ' ' << index;
+     printMetrics(metrics);
+diff --git a/src/parallel/parallel_context.cpp b/src/parallel/parallel_context.cpp
+index e16f098..ecc6994 100644
+--- a/src/parallel/parallel_context.cpp
++++ b/src/parallel/parallel_context.cpp
+@@ -1,4 +1,5 @@
+ #include "internal/mesh_access.h"
++#include "internal/mesh_partition.h"
+ #include "internal/field_access.h"
+ #include "babelsim/parallel.h"
+ 
+@@ -64,222 +65,123 @@ void broadcastPatch(std::vector<PatchSpec>& patches, const ParallelContext& para
+     }
+ }
+ 
+-void broadcastMesh(Mesh& mesh, const ParallelContext& parallel) {
+-    Index counts[4]{};
+-    std::vector<PatchSpec> patches;
++// Each rank receives only its owned cells and the stencil-required halo.
++// The complete mesh and the global graph partition exist on rank zero only.
++struct PartitionInput {
++    std::vector<Vec3> vertices;
+     std::vector<PolyhedralFaceSpec> faces;
+-    if (parallel.rank == 0) {
+-        counts[0] = mesh.vertexCount();
+-        counts[1] = mesh.faceCount();
+-        for (Index patch = 0; patch < mesh.patchCount(); ++patch) {
+-            patches.push_back({mesh.patchName(patch), mesh.patchKind(patch)});
+-        }
+-        for (Index face = 0; face < mesh.faceCount(); ++face) {
+-            PolyhedralFaceSpec specification;
+-            specification.owner = mesh.owner(face);
+-            specification.neighbour = mesh.neighbour(face);
+-            specification.patch = mesh.boundaryPatch(face);
+-            for (Index vertex : mesh.facePoints(face)) specification.vertices.push_back(vertex);
+-            counts[2] += static_cast<Index>(specification.vertices.size());
+-            faces.push_back(std::move(specification));
+-        }
+-        counts[3] = static_cast<Index>(patches.size());
+-    }
+-    detail::checkMpi(MPI_Bcast(counts, 4, MPI_INT, 0, parallel.communicator),
+-                     "MPI_Bcast(mesh counts)");
+-    if (counts[0] <= 0 || counts[1] <= 0 || counts[2] < 3 || counts[3] <= 0) {
+-        throw std::runtime_error("distributed mesh counts are invalid");
+-    }
+-    broadcastPatch(patches, parallel);
++    std::vector<PatchSpec> patches;
++    std::vector<Index> cell_ids, cell_owners, cell_depths, face_ids, face_owners;
++
++    Mesh finalize(Index global_cells, Index layers, Index rank) {
++        Mesh local = Mesh::polyhedral(std::move(vertices), std::move(faces), std::move(patches));
++        detail::MeshAccess::setPartition(local, global_cells, layers, std::move(cell_ids),
++            std::move(cell_owners), std::move(cell_depths), std::move(face_ids),
++            std::move(face_owners), rank);
++        local.validate();
++        return local;
++    }
++};
++
++void collectiveMeshError(const std::string& local_error, const ParallelContext& parallel) {
++    int candidate = local_error.empty() ? parallel.size : parallel.rank;
++    int source = parallel.size;
++    detail::checkMpi(MPI_Allreduce(&candidate, &source, 1, MPI_INT, MPI_MIN, parallel.communicator),
++                     "MPI_Allreduce(mesh failure rank)");
++    if (source == parallel.size) return;
++    std::string message = parallel.rank == source ? local_error.substr(0, 16384) : std::string{};
++    int length = static_cast<int>(message.size());
++    detail::checkMpi(MPI_Bcast(&length, 1, MPI_INT, source, parallel.communicator),
++                     "MPI_Bcast(mesh failure length)");
++    message.resize(static_cast<std::size_t>(length));
++    detail::checkMpi(MPI_Bcast(message.data(), length, MPI_CHAR, source, parallel.communicator),
++                     "MPI_Bcast(mesh failure message)");
++    throw std::runtime_error("distributed mesh setup failed on rank " + std::to_string(source) + ": " + message);
++}
++
++struct PackedPartition {
++    Index counts[5]{};  // vertices, faces, face points, cells, global cells
++    std::vector<double> coordinates;
++    std::vector<Index> topology;
++    std::vector<PatchSpec> patches;
+ 
+-    std::vector<double> coordinates(static_cast<std::size_t>(counts[0]) * 3U);
+-    std::vector<Index> face_offsets(static_cast<std::size_t>(counts[1]) + 1U);
+-    std::vector<Index> face_vertices(static_cast<std::size_t>(counts[2]));
+-    std::vector<Index> face_owners(static_cast<std::size_t>(counts[1]));
+-    std::vector<Index> face_neighbours(static_cast<std::size_t>(counts[1]));
+-    std::vector<Index> face_patches(static_cast<std::size_t>(counts[1]));
+-    if (parallel.rank == 0) {
+-        for (Index vertex = 0; vertex < mesh.vertexCount(); ++vertex) {
+-            const Vec3& point = mesh.vertex(vertex);
+-            coordinates[3U * static_cast<std::size_t>(vertex)] = point.x;
+-            coordinates[3U * static_cast<std::size_t>(vertex) + 1U] = point.y;
+-            coordinates[3U * static_cast<std::size_t>(vertex) + 2U] = point.z;
+-        }
+-        face_offsets[0] = 0;
+-        Index vertex_cursor = 0;
+-        for (Index face = 0; face < mesh.faceCount(); ++face) {
+-            const auto f = static_cast<std::size_t>(face);
+-            face_owners[f] = mesh.owner(face);
+-            face_neighbours[f] = mesh.neighbour(face);
+-            face_patches[f] = mesh.boundaryPatch(face);
+-            for (Index vertex : mesh.facePoints(face)) face_vertices[static_cast<std::size_t>(vertex_cursor++)] = vertex;
+-            face_offsets[f + 1U] = vertex_cursor;
+-        }
+-    }
+-    detail::checkMpi(MPI_Bcast(coordinates.data(), detail::mpiCount(coordinates.size(), "mesh coordinates"),
+-                               MPI_DOUBLE, 0, parallel.communicator), "MPI_Bcast(mesh coordinates)");
+-    detail::checkMpi(MPI_Bcast(face_offsets.data(), detail::mpiCount(face_offsets.size(), "mesh face offsets"),
+-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face offsets)");
+-    detail::checkMpi(MPI_Bcast(face_vertices.data(),
+-                               detail::mpiCount(face_vertices.size(), "mesh face vertices"),
+-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh boundary vertices)");
+-    detail::checkMpi(MPI_Bcast(face_owners.data(), detail::mpiCount(face_owners.size(), "mesh face owners"),
+-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face owners)");
+-    detail::checkMpi(MPI_Bcast(face_neighbours.data(), detail::mpiCount(face_neighbours.size(), "mesh face neighbours"),
+-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face neighbours)");
+-    detail::checkMpi(MPI_Bcast(face_patches.data(), detail::mpiCount(face_patches.size(), "mesh face patches"),
+-                               MPI_INT, 0, parallel.communicator), "MPI_Bcast(mesh face patches)");
+-    if (parallel.rank != 0) {
+-        std::vector<Vec3> vertices(static_cast<std::size_t>(counts[0]));
+-        for (Index vertex = 0; vertex < counts[0]; ++vertex) {
+-            vertices[static_cast<std::size_t>(vertex)] = {
+-                coordinates[3U * static_cast<std::size_t>(vertex)],
+-                coordinates[3U * static_cast<std::size_t>(vertex) + 1U],
+-                coordinates[3U * static_cast<std::size_t>(vertex) + 2U]};
+-        }
+-        faces.resize(static_cast<std::size_t>(counts[1]));
+-        for (Index face = 0; face < counts[1]; ++face) {
+-            const std::size_t f = static_cast<std::size_t>(face);
+-            faces[f].owner = face_owners[f];
+-            faces[f].neighbour = face_neighbours[f];
+-            faces[f].patch = face_patches[f];
+-            faces[f].vertices.assign(
+-                face_vertices.begin() + face_offsets[f], face_vertices.begin() + face_offsets[f + 1U]);
+-        }
+-        detail::MeshAccess::replace(mesh, Mesh::polyhedral(std::move(vertices), std::move(faces),
+-                                                           std::move(patches)));
+-    }
+-}
+-
+-std::vector<Index> graphPartitionOwners(const Mesh& mesh, int partitions) {
+-    const Index cells = mesh.cellCount();
+-    if (partitions <= 0 || cells < partitions) {
+-        throw std::invalid_argument("graph partition has an invalid number of parts");
+-    }
+-    std::vector<Index> capacities(static_cast<std::size_t>(partitions));
+-    std::vector<Index> filled(static_cast<std::size_t>(partitions), 0);
+-    for (int part = 0; part < partitions; ++part) {
+-        capacities[static_cast<std::size_t>(part)] = cells / partitions +
+-            (part < cells % partitions ? 1 : 0);
+-    }
+-
+-    // Select dispersed deterministic seeds using only graph distance.  The cell ID
+-    // decides ties, but never defines the partition boundary.
+-    const Index unreachable = std::numeric_limits<Index>::max();
+-    std::vector<Index> nearest(static_cast<std::size_t>(cells), unreachable);
+-    std::vector<unsigned char> seeded(static_cast<std::size_t>(cells), 0);
+-    std::vector<Index> seeds;
+-    seeds.reserve(static_cast<std::size_t>(partitions));
+-    for (int part = 0; part < partitions; ++part) {
+-        Index seed = invalid_index;
+-        for (Index cell = 0; cell < cells; ++cell) {
+-            if (seeded[static_cast<std::size_t>(cell)]) continue;
+-            if (seed == invalid_index ||
+-                nearest[static_cast<std::size_t>(cell)] > nearest[static_cast<std::size_t>(seed)] ||
+-                (nearest[static_cast<std::size_t>(cell)] == nearest[static_cast<std::size_t>(seed)] &&
+-                 detail::globalCellId(mesh, cell) < detail::globalCellId(mesh, seed))) {
+-                seed = cell;
+-            }
++    void allocate() {
++        if (counts[0] <= 0 || counts[1] <= 0 || counts[2] < 3 || counts[3] <= 0 ||
++            counts[4] < counts[3]) throw std::runtime_error("local partition counts are invalid");
++        const std::size_t coordinate_count = static_cast<std::size_t>(counts[0]) * 3U;
++        const std::size_t topology_count = static_cast<std::size_t>(counts[1]) * 6U + 1U +
++            static_cast<std::size_t>(counts[2]) + static_cast<std::size_t>(counts[3]) * 3U;
++        detail::mpiCount(coordinate_count, "local coordinates");
++        detail::mpiCount(topology_count, "local topology");
++        coordinates.resize(coordinate_count);
++        topology.resize(topology_count);
++    }
++
++    PackedPartition() = default;
++    PackedPartition(const PartitionInput& input, Index global_cells) {
++        counts[0] = detail::mpiCount(input.vertices.size(), "local vertices");
++        counts[1] = detail::mpiCount(input.faces.size(), "local faces");
++        std::size_t points = 0;
++        for (const auto& face : input.faces) points += face.vertices.size();
++        counts[2] = detail::mpiCount(points, "local face points");
++        counts[3] = detail::mpiCount(input.cell_ids.size(), "local cells");
++        counts[4] = global_cells;
++        allocate();
++        patches = input.patches;
++        std::size_t i = 0;
++        for (const Vec3& point : input.vertices) {
++            coordinates[i++] = point.x; coordinates[i++] = point.y; coordinates[i++] = point.z;
+         }
+-        if (seed == invalid_index) throw std::logic_error("graph partition seed selection failed");
+-        seeds.push_back(seed);
+-        seeded[static_cast<std::size_t>(seed)] = 1;
+-
+-        // Relax only cells whose distance to the nearest seed improves.
+-        // An existing shorter path also bounds all downstream paths, so a
+-        // full graph traversal and a fresh N-cell distance array are needless.
+-        std::deque<Index> frontier{seed};
+-        nearest[static_cast<std::size_t>(seed)] = 0;
+-        while (!frontier.empty()) {
+-            const Index cell = frontier.front();
+-            frontier.pop_front();
+-            const Index next = nearest[static_cast<std::size_t>(cell)] + 1;
+-            for (Index neighbour : mesh.cellNeighbours(cell)) {
+-                if (neighbour == invalid_index ||
+-                    nearest[static_cast<std::size_t>(neighbour)] <= next) continue;
+-                nearest[static_cast<std::size_t>(neighbour)] = next;
+-                frontier.push_back(neighbour);
+-            }
++        i = 0;
++        Index offset = 0;
++        topology[i++] = offset;
++        for (const auto& face : input.faces) { offset += static_cast<Index>(face.vertices.size()); topology[i++] = offset; }
++        for (const auto& face : input.faces) for (Index vertex : face.vertices) topology[i++] = vertex;
++        for (const auto& face : input.faces) topology[i++] = face.owner;
++        for (const auto& face : input.faces) topology[i++] = face.neighbour;
++        for (const auto& face : input.faces) topology[i++] = face.patch;
++        for (const auto* values : {&input.face_ids, &input.face_owners, &input.cell_ids,
++                                   &input.cell_owners, &input.cell_depths})
++            for (Index value : *values) topology[i++] = value;
++        if (i != topology.size()) throw std::logic_error("packed partition layout disagrees");
++    }
++
++    PartitionInput unpack() {
++        PartitionInput input;
++        input.vertices.resize(static_cast<std::size_t>(counts[0]));
++        for (std::size_t i = 0; i < input.vertices.size(); ++i)
++            input.vertices[i] = {coordinates[3U*i], coordinates[3U*i+1U], coordinates[3U*i+2U]};
++        input.faces.resize(static_cast<std::size_t>(counts[1]));
++        std::size_t i = static_cast<std::size_t>(counts[1]) + 1U;
++        for (std::size_t f = 0; f < input.faces.size(); ++f)
++            input.faces[f].vertices.assign(topology.begin()+i+topology[f], topology.begin()+i+topology[f+1U]);
++        i += static_cast<std::size_t>(counts[2]);
++        for (auto& face : input.faces) face.owner = topology[i++];
++        for (auto& face : input.faces) face.neighbour = topology[i++];
++        for (auto& face : input.faces) face.patch = topology[i++];
++        for (auto* values : {&input.face_ids, &input.face_owners, &input.cell_ids,
++                             &input.cell_owners, &input.cell_depths}) {
++            const std::size_t count = (values == &input.face_ids || values == &input.face_owners)
++                ? static_cast<std::size_t>(counts[1]) : static_cast<std::size_t>(counts[3]);
++            values->assign(topology.begin()+i, topology.begin()+i+count);
++            i += count;
+         }
++        input.patches = std::move(patches);
++        return input;
+     }
++};
+ 
+-    std::vector<Index> owners(static_cast<std::size_t>(cells), invalid_index);
+-    std::vector<std::deque<Index>> frontiers(static_cast<std::size_t>(partitions));
+-    for (int part = 0; part < partitions; ++part) {
+-        const Index seed = seeds[static_cast<std::size_t>(part)];
+-        owners[static_cast<std::size_t>(seed)] = part;
+-        ++filled[static_cast<std::size_t>(part)];
+-        frontiers[static_cast<std::size_t>(part)].push_back(seed);
+-    }
+-
+-    Index remaining = cells - partitions;
+-    while (remaining > 0) {
+-        bool grew = false;
+-        for (int part = 0; part < partitions; ++part) {
+-            if (filled[static_cast<std::size_t>(part)] >= capacities[static_cast<std::size_t>(part)]) continue;
+-            bool assigned = false;
+-            std::deque<Index>& frontier = frontiers[static_cast<std::size_t>(part)];
+-            while (!frontier.empty() && !assigned) {
+-                const Index cell = frontier.front();
+-                frontier.pop_front();
+-                for (Index neighbour : mesh.cellNeighbours(cell)) {
+-                    if (neighbour == invalid_index ||
+-                        owners[static_cast<std::size_t>(neighbour)] != invalid_index) continue;
+-                    owners[static_cast<std::size_t>(neighbour)] = part;
+-                    ++filled[static_cast<std::size_t>(part)];
+-                    --remaining;
+-                    // The round-robin quota assigns one neighbour at a time.
+-                    // Keep this parent at the head until all its unassigned
+-                    // neighbours have been visited; otherwise growth discards
+-                    // branches and degenerates into thin paths and reseeding.
+-                    frontier.push_front(cell);
+-                    frontier.push_back(neighbour);
+-                    assigned = true;
+-                    grew = true;
+-                    break;
+-                }
+-            }
+-        }
+-        if (grew) continue;
+-
+-        // Disconnected components have no frontier edge; seed the next component
+-        // in a non-full part, still without referring to any geometric axes.
+-        int part = 0;
+-        while (part < partitions &&
+-               filled[static_cast<std::size_t>(part)] >= capacities[static_cast<std::size_t>(part)]) {
+-            ++part;
+-        }
+-        Index seed = invalid_index;
+-        for (Index cell = 0; cell < cells; ++cell) {
+-            if (owners[static_cast<std::size_t>(cell)] == invalid_index &&
+-                (seed == invalid_index || detail::globalCellId(mesh, cell) < detail::globalCellId(mesh, seed))) {
+-                seed = cell;
+-            }
+-        }
+-        if (part == partitions || seed == invalid_index) {
+-            throw std::logic_error("graph partition growth failed");
+-        }
+-        owners[static_cast<std::size_t>(seed)] = part;
+-        ++filled[static_cast<std::size_t>(part)];
+-        --remaining;
+-        frontiers[static_cast<std::size_t>(part)].push_back(seed);
+-    }
+-    return owners;
+-}
+ 
+-Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
++PartitionInput partitionInput(const Mesh& global, const std::vector<Index>& owners,
++                              int rank, int size, Index ghost_layers) {
+     if (size <= 0 || rank < 0 || rank >= size || ghost_layers < 3) {
+         throw std::invalid_argument("mesh partition rank, size, or halo width is invalid");
+     }
+-    global.validate();
+     if (detail::ownedCellCount(global) != global.cellCount()) {
+         throw std::invalid_argument("domain decomposition requires a complete mesh");
+     }
+-    if (size == 1) return global;
+-    const Index global_cells = global.globalCellCount();
+-    if (global_cells < size) throw std::invalid_argument("MPI has more ranks than mesh cells");
++    if (global.globalCellCount() < size) throw std::invalid_argument("MPI has more ranks than mesh cells");
+ 
+-    const std::vector<Index> owners = graphPartitionOwners(global, size);
+     std::vector<Index> depth(static_cast<std::size_t>(global.cellCount()), invalid_index);
+     std::deque<Index> frontier;
+     for (Index cell = 0; cell < global.cellCount(); ++cell) {
+@@ -397,18 +299,9 @@ Mesh partitionMesh(const Mesh& global, int rank, int size, Index ghost_layers) {
+         // owner cell so every copy shares one authoritative face record.
+         local_face_owner_ranks.push_back(owners[static_cast<std::size_t>(owner)]);
+     }
+-    Mesh local = Mesh::polyhedral(std::move(vertices), std::move(local_faces), std::move(patches));
+-    std::vector<Index> face_ids(static_cast<std::size_t>(local.faceCount()));
+-    std::vector<Index> face_owners(static_cast<std::size_t>(local.faceCount()));
+-    for (Index face = 0; face < local.faceCount(); ++face) {
+-        face_ids[static_cast<std::size_t>(face)] = local_global_face_ids[static_cast<std::size_t>(face)];
+-        face_owners[static_cast<std::size_t>(face)] = local_face_owner_ranks[static_cast<std::size_t>(face)];
+-    }
+-    detail::MeshAccess::setPartition(local, global_cells, ghost_layers, std::move(cell_ids),
+-                                     std::move(cell_owners), std::move(cell_depths),
+-                                     std::move(face_ids), std::move(face_owners), rank);
+-    local.validate();
+-    return local;
++    return {std::move(vertices), std::move(local_faces), std::move(patches),
++            std::move(cell_ids), std::move(cell_owners), std::move(cell_depths),
++            std::move(local_global_face_ids), std::move(local_face_owner_ranks)};
+ }
+ 
+ }  // namespace
+@@ -507,7 +400,14 @@ void ParallelContext::barrier() const {
+ 
+ Mesh decompose(const Mesh& global, const ParallelContext& parallel, Index ghost_layers) {
+     parallel.validate();
+-    return partitionMesh(global, parallel.rank, parallel.size, ghost_layers);
++    global.validate();
++    if (detail::ownedCellCount(global) != global.cellCount())
++        throw std::invalid_argument("domain decomposition requires a complete mesh");
++    if (ghost_layers < 3) throw std::invalid_argument("ghostLayers must be >= 3");
++    if (parallel.size == 1) return global;
++    const auto owners = detail::partitionOwners(global, parallel.size);
++    return partitionInput(global, owners, parallel.rank, parallel.size, ghost_layers)
++        .finalize(global.globalCellCount(), ghost_layers, parallel.rank);
+ }
+ 
+ Mesh readDistributedMesh(
+@@ -520,33 +420,68 @@ Mesh readDistributedMesh(
+     if (!parallel.distributed()) return readMeshFile(path);
+     Mesh global;
+     std::string error;
+-    int ok = 1;
++    std::vector<Index> owners;
+     if (parallel.rank == 0) {
+         try {
+             detail::MeshAccess::replace(global, readMeshFile(path));
+             global.validate();
+-        } catch (const std::exception& exception) {
+-            ok = 0;
+-            error = exception.what();
++            owners = detail::partitionOwners(global, parallel.size);
++        } catch (const std::exception& exception) { error = exception.what(); }
++    }
++    collectiveMeshError(error, parallel);
++    PackedPartition received;
++    for (int peer = 1; peer < parallel.size; ++peer) {
++        PackedPartition outgoing;
++        error.clear();
++        if (parallel.rank == 0) {
++            try {
++                outgoing = PackedPartition(partitionInput(global, owners, peer, parallel.size, ghost_layers),
++                                           global.globalCellCount());
++            } catch (const std::exception& exception) { error = exception.what(); }
++        }
++        collectiveMeshError(error, parallel);
++        Index counts[5]{};
++        if (parallel.rank == 0) std::copy(std::begin(outgoing.counts), std::end(outgoing.counts), counts);
++        detail::checkMpi(MPI_Bcast(counts, 5, MPI_INT, 0, parallel.communicator),
++                         "MPI_Bcast(local partition counts)");
++        std::vector<PatchSpec> patches = parallel.rank == 0 ? outgoing.patches : std::vector<PatchSpec>{};
++        broadcastPatch(patches, parallel);
++        error.clear();
++        if (parallel.rank == peer) {
++            try {
++                std::copy(std::begin(counts), std::end(counts), received.counts);
++                received.patches = std::move(patches);
++                received.allocate();
++            } catch (const std::exception& exception) { error = exception.what(); }
++        }
++        collectiveMeshError(error, parallel);
++        if (parallel.rank == 0) {
++            detail::checkMpi(MPI_Send(outgoing.coordinates.data(), detail::mpiCount(outgoing.coordinates.size(),
++                "local coordinates"), MPI_DOUBLE, peer, 170, parallel.communicator), "MPI_Send(local coordinates)");
++            detail::checkMpi(MPI_Send(outgoing.topology.data(), detail::mpiCount(outgoing.topology.size(),
++                "local topology"), MPI_INT, peer, 171, parallel.communicator), "MPI_Send(local topology)");
++        } else if (parallel.rank == peer) {
++            detail::checkMpi(MPI_Recv(received.coordinates.data(), detail::mpiCount(received.coordinates.size(),
++                "local coordinates"), MPI_DOUBLE, 0, 170, parallel.communicator, MPI_STATUS_IGNORE),
++                "MPI_Recv(local coordinates)");
++            detail::checkMpi(MPI_Recv(received.topology.data(), detail::mpiCount(received.topology.size(),
++                "local topology"), MPI_INT, 0, 171, parallel.communicator, MPI_STATUS_IGNORE),
++                "MPI_Recv(local topology)");
+         }
+     }
+-    detail::checkMpi(MPI_Bcast(&ok, 1, MPI_INT, 0, parallel.communicator),
+-                     "MPI_Bcast(mesh read status)");
+-    int error_length = parallel.rank == 0 ? static_cast<int>(error.size()) : 0;
+-    detail::checkMpi(MPI_Bcast(&error_length, 1, MPI_INT, 0, parallel.communicator),
+-                     "MPI_Bcast(mesh read error length)");
+-    if (error_length < 0 || error_length > 16384) {
+-        throw std::runtime_error("distributed mesh read error message is invalid");
+-    }
+-    if (parallel.rank != 0) error.resize(static_cast<std::size_t>(error_length));
+-    if (error_length > 0) {
+-        detail::checkMpi(MPI_Bcast(error.data(), error_length, MPI_CHAR, 0, parallel.communicator),
+-                         "MPI_Bcast(mesh read error)");
+-    }
+-    if (ok == 0) throw std::runtime_error("distributed mesh read failed: " + error);
+-    broadcastMesh(global, parallel);
+-    Mesh local = partitionMesh(global, parallel.rank, parallel.size, ghost_layers);
+-    local.validate();
++    Mesh local;
++    error.clear();
++    try {
++        const Index global_cells = parallel.rank == 0 ? global.globalCellCount() : received.counts[4];
++        PartitionInput input = parallel.rank == 0
++            ? partitionInput(global, owners, 0, parallel.size, ghost_layers) : received.unpack();
++        // Release the full root mesh and receive buffers before constructing
++        // local geometry. No global-size allocation survives on worker ranks.
++        detail::MeshAccess::replace(global, Mesh{});
++        received = PackedPartition{};
++        detail::MeshAccess::replace(local, input.finalize(global_cells, ghost_layers, parallel.rank));
++    } catch (const std::exception& exception) { error = exception.what(); }
++    collectiveMeshError(error, parallel);
+     return local;
+ }
+ 
+diff --git a/src/runtime/application.cpp b/src/runtime/application.cpp
+index 15aeb93..d994a90 100644
+--- a/src/runtime/application.cpp
++++ b/src/runtime/application.cpp
+@@ -102,6 +102,8 @@ void writePerformance(
+            << ",\n  \"caseSetupSeconds\": " << case_setup_seconds
+            << ",\n  \"solverSeconds\": " << solver_seconds
+            << ",\n  \"solverComputeSeconds\": " << solver_compute_seconds
++           << ",\n  \"iterationComputeSeconds\": " << local.iteration_compute_seconds
++           << ",\n  \"reportedIterationIntervals\": " << local.reported_iteration_intervals
+            << ",\n  \"applicationSeconds\": " << application_seconds
+            << ",\n  \"partition\": {"
+            << "\n    \"globalCells\": " << partition.global_cells
+@@ -125,6 +127,8 @@ void writePerformance(
+            << ",\n  \"rhsOnlySolves\": " << counters.rhs_only_solves
+            << ",\n  \"trueResidualChecks\": " << counters.true_residual_checks
+            << ",\n  \"preconditionerSetups\": " << counters.preconditioner_setups
++           << ",\n  \"preconditionerReuses\": " << counters.preconditioner_reuses
++           << ",\n  \"preconditionerRetries\": " << counters.preconditioner_retries
+            << ",\n  \"preconditionerApplications\": " << counters.preconditioner_applications
+            << ",\n  \"outputWrites\": " << counters.output_writes
+            << ",\n  \"elapsedSeconds\": " << counters.elapsed_seconds
+@@ -153,6 +157,8 @@ void writePerformance(
+            << ",\n    \"rhsOnlySolves\": " << local.rhs_only_solves
+            << ",\n    \"trueResidualChecks\": " << local.true_residual_checks
+            << ",\n    \"preconditionerSetups\": " << local.preconditioner_setups
++           << ",\n    \"preconditionerReuses\": " << local.preconditioner_reuses
++           << ",\n    \"preconditionerRetries\": " << local.preconditioner_retries
+            << ",\n    \"preconditionerApplications\": " << local.preconditioner_applications
+            << ",\n    \"outputWrites\": " << local.output_writes
+            << ",\n    \"elapsedSeconds\": " << local.elapsed_seconds
+@@ -182,6 +188,8 @@ void writePerformance(
+                << ", \"linearSolves\": " << equation.linear_solves
+                << ", \"krylovIterations\": " << equation.krylov_iterations
+                << ", \"preconditionerSetups\": " << equation.preconditioner_setups
++               << ", \"preconditionerReuses\": " << equation.preconditioner_reuses
++               << ", \"preconditionerRetries\": " << equation.preconditioner_retries
+                << ", \"trueResidualChecks\": " << equation.true_residual_checks
+                << ", \"lastInitialResidual\": " << equation.last_initial_residual
+                << ", \"lastFinalResidual\": " << equation.last_final_residual
+diff --git a/src/runtime/runtime.cpp b/src/runtime/runtime.cpp
+index 54b9828..90e1cfe 100644
+--- a/src/runtime/runtime.cpp
++++ b/src/runtime/runtime.cpp
+@@ -30,6 +30,9 @@ struct RunTime::Implementation {
+     int current_step = 0;
+     std::chrono::steady_clock::time_point started;
+     PerformanceCounters lifecycle_performance;
++    bool iteration_window_started = false;
++    std::chrono::steady_clock::time_point first_iteration_end;
++    double first_iteration_output_seconds = 0.0;
+ };
+ 
+ void RuntimeControl::validate() const {
+@@ -97,6 +100,8 @@ PerformanceCounters RunTime::performance() const {
+     PerformanceCounters result = m_implementation->fvm.performance();
+     result.output_writes = m_implementation->lifecycle_performance.output_writes;
+     result.output_seconds = m_implementation->lifecycle_performance.output_seconds;
++    result.reported_iteration_intervals = m_implementation->lifecycle_performance.reported_iteration_intervals;
++    result.iteration_compute_seconds = m_implementation->lifecycle_performance.iteration_compute_seconds;
+     result.elapsed_seconds = std::chrono::duration<double>(
+         std::chrono::steady_clock::now() - m_implementation->started).count();
+     return result;
+@@ -109,6 +114,21 @@ void RunTime::recordOutput(double seconds) {
+     m_implementation->lifecycle_performance.output_seconds += seconds;
+ }
+ 
++void RunTime::recordIteration() {
++    auto& state = *m_implementation;
++    const auto now = std::chrono::steady_clock::now();
++    if (!state.iteration_window_started) {
++        state.first_iteration_end = now;
++        state.first_iteration_output_seconds = state.lifecycle_performance.output_seconds;
++        state.iteration_window_started = true;
++        return;
++    }
++    ++state.lifecycle_performance.reported_iteration_intervals;
++    const double elapsed = std::chrono::duration<double>(now - state.first_iteration_end).count();
++    state.lifecycle_performance.iteration_compute_seconds = std::max(0.0, elapsed -
++        (state.lifecycle_performance.output_seconds - state.first_iteration_output_seconds));
++}
++
+ 
+ bool RunTime::loop() {
+     Implementation& state = *m_implementation;
+diff --git a/tests/external_solver_test.py b/tests/external_solver_test.py
+index d145d81..5510af2 100644
+--- a/tests/external_solver_test.py
++++ b/tests/external_solver_test.py
+@@ -14,6 +14,7 @@ ENV = dict(os.environ, TMPDIR="/tmp", OMPI_ALLOW_RUN_AS_ROOT="1",
+ parser = argparse.ArgumentParser()
+ parser.add_argument("--library", type=Path, required=True)
+ parser.add_argument("--petsc-dir", type=Path, required=True)
++parser.add_argument("--partition-libs", default="", help="link flags for the static library's optional partitioner")
+ args = parser.parse_args()
+ LIBRARY = args.library.resolve()
+ PETSC_DIR = args.petsc_dir.resolve()
+@@ -21,6 +22,7 @@ PETSC_ENV = dict(ENV, PKG_CONFIG_PATH=str(PETSC_DIR / "lib/pkgconfig"))
+ PETSC_LINK = shlex.split(subprocess.check_output(
+     ["pkg-config", "--libs", "PETSc"], cwd=ROOT, env=PETSC_ENV, text=True))
+ PETSC_LINK.append(f"-Wl,-rpath,{PETSC_DIR / 'lib'}")
++PETSC_LINK.extend(shlex.split(args.partition_libs))
+ 
+ 
+ def run(*args, cwd, success=True):
+diff --git a/tests/numerical_configuration_test.cpp b/tests/numerical_configuration_test.cpp
+index c7c89c3..bed4a95 100644
+--- a/tests/numerical_configuration_test.cpp
++++ b/tests/numerical_configuration_test.cpp
+@@ -9,6 +9,7 @@
+ #include <filesystem>
+ #include <fstream>
+ #include <iostream>
++#include <limits>
+ 
+ using namespace babelsim;
+ namespace {
+@@ -57,6 +58,8 @@ int main() {
+         "equation.first.absoluteTolerance 1e-13\n"
+         "equation.first.relativeTolerance 1e-7\n"
+         "equation.first.maxIterations 300\n"
++        "equation.first.preconditionerRebuildInterval 5\n"
++        "equation.first.preconditionerReuseIterationGrowth 1.8\n"
+         "equation.second.kspType cg\n"
+         "equation.second.pcType icc\n"
+         "equation.second.absoluteTolerance 1e-14\n"
+@@ -73,6 +76,9 @@ int main() {
+         require(first.linear.max_iterations==300 && first.linear.preconditioner==PreconditionerType::BlockJacobi &&
+             first.linear.absolute_tolerance==1e-13 && first.linear.relative_tolerance==1e-7,
+             "partial solver inheritance lost a parent member");
++        require(first.linear.preconditioner_rebuild_interval==5 &&
++            first.linear.preconditioner_reuse_iteration_growth==1.8,
++            "equation preconditioner reuse controls were not read");
+         require(first.spatial.coefficientGradient==GradientMethod::LeastSquares &&
+             first.spatial.gradient==GradientMethod::GreenGauss,"coefficient and unknown gradients were coupled");
+         auto a=equ::createEquation(x,first), b=equ::createEquation(x,second);
+@@ -120,6 +126,16 @@ int main() {
+         problem.solution().requireAllUsed();
+     }
+     std::filesystem::remove_all(root);
++    {
++        LinearSolverConfig invalid;
++        invalid.preconditioner_rebuild_interval=0;
++        rejects([&]{invalid.validate();},"zero preconditioner rebuild interval accepted");
++        invalid.preconditioner_rebuild_interval=1;
++        invalid.preconditioner_reuse_iteration_growth=0.5;
++        rejects([&]{invalid.validate();},"iteration growth below one accepted");
++        invalid.preconditioner_reuse_iteration_growth=std::numeric_limits<double>::infinity();
++        rejects([&]{invalid.validate();},"infinite iteration growth accepted");
++    }
+     {
+         auto mesh=warpedMesh(); auto runtime=RunTime::forMesh(mesh);
+         ScalarField x(mesh,FieldLocation::Cell,"x"), k(mesh,FieldLocation::Cell,"k");
+diff --git a/tests/parallel_partition_test.cpp b/tests/parallel_partition_test.cpp
+index bc71751..53a38c0 100644
+--- a/tests/parallel_partition_test.cpp
++++ b/tests/parallel_partition_test.cpp
+@@ -1,23 +1,104 @@
+ #include "babelsim/parallel.h"
++#include "babelsim/mesh_io.h"
+ #include "internal/mesh_access.h"
+ #include "internal/petsc_session.h"
+ #include "test_util.h"
+ #include <mpi.h>
+ #include <iostream>
++#include <fstream>
++#include <unistd.h>
+ 
+ using namespace babelsim;
+ 
++namespace {
++void verifyDistributedRead(const ParallelContext& parallel) {
++    const auto global = readMeshFile("tests/data/babelsim_channel.mesh");
++    const auto local = readDistributedMesh(parallel.rank == 0
++        ? "tests/data/babelsim_channel.mesh" : "/not-a-worker-mesh-file", parallel);
++    require(parallel.sum(detail::ownedCellCount(local)) == global.cellCount(),
++            "distributed read lost owned cells");
++    for (Index cell = 0; cell < local.cellCount(); ++cell) {
++        const Index id = detail::globalCellId(local, cell);
++        require(near(local.cellCentre(cell), global.cellCentre(id), 1e-13) &&
++                near(local.cellVolume(cell), global.cellVolume(id), 1e-13),
++                "distributed local geometry differs from the full mesh");
++    }
++    for (Index face = 0; face < local.faceCount(); ++face) {
++        const Index id = detail::globalFaceId(local, face);
++        const double orientation = detail::globalCellId(local, local.owner(face)) == global.owner(id) ? 1 : -1;
++        require(near(local.faceCentre(face), global.faceCentre(id), 1e-13) &&
++                near(local.faceAreaVector(face), orientation * global.faceAreaVector(id), 1e-13) &&
++                local.facePoints(face).size() == global.facePoints(id).size(),
++                "distributed local face lost its geometry or global orientation");
++        if (global.neighbour(id) == invalid_index)
++            require(local.patchName(local.boundaryPatch(face)) == global.patchName(global.boundaryPatch(id)),
++                    "distributed read changed a physical patch");
++    }
++    HaloExchange halo(local, parallel);
++    std::vector<double> values(static_cast<std::size_t>(local.cellCount()), -1.0);
++    for (Index cell : detail::meshData(local).owned_cells) values[cell] = detail::globalCellId(local, cell) + 0.5;
++    halo.exchange(values);
++    for (Index cell = 0; cell < local.cellCount(); ++cell)
++        require(values[cell] == detail::globalCellId(local, cell) + 0.5,
++                "distributed read lost the authoritative halo mapping");
++
++    bool caught = false;
++    try { const auto missing = readDistributedMesh("/not-a-root-mesh-file", parallel); (void)missing; }
++    catch (const std::runtime_error&) { caught = true; }
++    require(parallel.sum(caught ? 1 : 0) == parallel.size,
++            "distributed read did not report a root failure to every rank");
++
++    // Independent concave geometry, disconnected components, and six-vertex
++    // rings exercise payload lengths and quota balancing beyond hex meshes.
++    const auto path = std::filesystem::path("/tmp") /
++        ("babelsim-distribution-" + std::to_string(getpid()) + ".mesh");
++    if (parallel.rank == 0) {
++        const auto cell = readMeshFile("tests/data/babelsim_concave.mesh");
++        std::ofstream out(path);
++        out << "BABELSIM_MESH 3\nvertices\n" << 9 * cell.vertexCount() << '\n';
++        for (Index copy = 0; copy < 9; ++copy)
++            for (Index vertex = 0; vertex < cell.vertexCount(); ++vertex) {
++                const auto point = cell.vertex(vertex);
++                out << point.x + 4 * copy << ' ' << point.y << ' ' << point.z << '\n';
++            }
++        out << "faces\n" << 9 * cell.faceCount() << '\n';
++        for (Index copy = 0; copy < 9; ++copy)
++            for (Index face = 0; face < cell.faceCount(); ++face) {
++                out << "face " << cell.facePoints(face).size() << ' ' << copy << " -1 0";
++                for (Index vertex : cell.facePoints(face)) out << ' ' << vertex + copy * cell.vertexCount();
++                out << '\n';
++            }
++        out << "patches\n1\npatch\nboundary\ngeneric\nend\n";
++        require(out.good(), "cannot write distributed polygon fixture");
++    }
++    const auto polygons = readDistributedMesh(path, parallel);
++    require(parallel.sum(detail::ownedCellCount(polygons)) == 9, "disconnected partition lost cells");
++    for (Index cell = 0; cell < polygons.cellCount(); ++cell) {
++        const Index id = detail::globalCellId(polygons, cell);
++        require(near(polygons.cellVolume(cell), 3.0) &&
++                near(polygons.cellCentre(cell), Vec3{4.0 * id + 5.0 / 6.0, 5.0 / 6.0, 0.5}),
++                "distributed polygon reconstruction changed the independent geometry");
++    }
++    if (parallel.rank == 0) std::filesystem::remove(path);
++}
++}
++
+ int main(int argc, char** argv) {
+     MPI_Init(&argc, &argv);
+     const auto parallel = ParallelContext::world();
+     try {
+         require(parallel.size >= 2 && parallel.size <= 8,
+                 "partition test requires two to eight ranks");
++        verifyDistributedRead(parallel);
+         for (const auto shape : {std::array<Index, 3>{64, 64, 1},
+                                  std::array<Index, 3>{17, 11, 3},
+                                  std::array<Index, 3>{128, 2, 1}}) {
+             const auto global = makeHexBox({shape[0], shape[1], shape[2]}, {0, 0, 0}, {1, 1, 0.01});
+             const auto local = decompose(global, parallel);
++            bool rejected_local = false;
++            try { (void)decompose(local, ParallelContext{}); }
++            catch (const std::invalid_argument&) { rejected_local = true; }
++            require(rejected_local, "serial decomposition accepted an incomplete mesh");
+             const auto owned = detail::ownedCellCount(local);
+             require(parallel.sum(owned) == global.cellCount(), "partition lost cells");
+             require(owned == global.cellCount() / parallel.size +
+diff --git a/tests/petsc_backend_test.cpp b/tests/petsc_backend_test.cpp
+index dc0d075..fd7aeab 100644
+--- a/tests/petsc_backend_test.cpp
++++ b/tests/petsc_backend_test.cpp
+@@ -9,6 +9,8 @@
+ #include "test_util.h"
+ 
+ #include <mpi.h>
++#include <petscsys.h>
++#include <petscoptions.h>
+ 
+ #include <cmath>
+ #include <iostream>
+@@ -50,6 +52,188 @@ void verifyField(const ScalarField& field, double scale, double tolerance) {
+                 "PETSc field differs from manufactured solution");
+ }
+ 
++void verifyHypreOptionsIsolation(const Mesh& mesh, const ParallelContext& parallel) {
++    detail::ensurePetscSession();
++    const char* key = "-pc_hypre_boomeramg_coarsen_type";
++    char previous[256] = {};
++    PetscBool existed = PETSC_FALSE;
++    require(PetscOptionsGetString(nullptr, nullptr, key, previous, sizeof(previous), &existed) == 0,
++            "cannot save global Hypre option");
++    require(PetscOptionsSetValue(nullptr, key, "invalid-global-coarsening") == 0,
++            "cannot set global Hypre option probe");
++
++    auto backend = detail::makeComputeBackend(mesh, parallel);
++    ScalarField field(mesh, FieldLocation::Cell, "isolatedOptions");
++    ScalarDiscreteEquation equation(mesh);
++    equation.numerical_identity = "isolatedOptions";
++    assembleManufactured(equation);
++    LinearSolverConfig config;
++    config.solver = LinearSolverType::ConjugateGradient;
++    config.absolute_tolerance = 1e-13;
++    config.relative_tolerance = 1e-12;
++    config.max_iterations = 200;
++    // Switching away and back also exercises destruction of the Hypre PC
++    // after its temporary options database has already gone out of scope.
++    for (auto solver : {LinearSolverType::ConjugateGradient,
++                        LinearSolverType::BiCGSTAB, LinearSolverType::GMRES,
++                        LinearSolverType::FGMRES}) {
++        config.solver = solver;
++        for (auto pc : {PreconditionerType::Hypre, PreconditionerType::Jacobi,
++                        PreconditionerType::Hypre}) {
++            config.preconditioner = pc;
++            require(backend->solve(equation, field, config).converged(),
++                    "typed PC configuration read unrelated global options");
++            verifyField(field, 1.0, 5e-11);
++        }
++    }
++    char current[256] = {};
++    PetscBool present = PETSC_FALSE;
++    require(PetscOptionsGetString(nullptr, nullptr, key, current, sizeof(current), &present) == 0 &&
++                present && std::string(current) == "invalid-global-coarsening",
++            "equation PC configuration changed the global options database");
++    require((existed ? PetscOptionsSetValue(nullptr, key, previous)
++                     : PetscOptionsClearValue(nullptr, key)) == 0,
++            "cannot restore global Hypre option");
++}
++
++void verifyPreconditionerReuse(const Mesh& mesh, const ParallelContext& parallel) {
++    // Independently known solutions for changed operators, including a change
++    // confined to one rank. PC reuse must never suppress an update of A.
++    for (const auto pc : {PreconditionerType::BlockJacobi, PreconditionerType::Hypre,
++                          PreconditionerType::GAMG}) {
++        auto backend = detail::makeComputeBackend(mesh, parallel);
++        ScalarField field(mesh, FieldLocation::Cell, "lagged");
++        ScalarDiscreteEquation equation(mesh);
++        equation.numerical_identity = "lagged";
++        LinearSolverConfig config;
++        config.solver = LinearSolverType::ConjugateGradient;
++        config.preconditioner = pc;
++        config.absolute_tolerance = 1e-13;
++        config.relative_tolerance = 1e-12;
++        config.max_iterations = 200;
++        config.preconditioner_rebuild_interval = 3;
++        for (int version = 0; version < 7; ++version) {
++            assembleManufactured(equation);
++            const double factor = 1.0 + 0.01 * version;
++            for (auto* values : {&equation.diagonal, &equation.upper,
++                                 &equation.lower, &equation.source})
++                for (double& value : *values) value *= factor;
++            const auto result = backend->solve(equation, field, config);
++            require(result.converged(), "lagged PC did not solve the current operator");
++            verifyField(field, 1.0, 5e-11);
++        }
++        auto counters = backend->performance();
++        require(counters.matrix_value_updates == 7 && counters.preconditioner_setups == 3,
++                "PC rebuild interval did not retain the current matrix updates");
++        require(counters.preconditioner_reuses == 4 && counters.preconditioner_retries == 0,
++                "ordinary PC reuse accounting is incorrect");
++        // Warm-start from an exact solution; configuration changes must invalidate
++        // the old setup even though matrix values and the RHS are unchanged.
++        config.warm_start = true;
++        const auto warm = backend->solve(equation, field, config);
++        require(warm.converged() && warm.iterations == 0,
++                "warm-start true initial residual was replaced by the RHS norm");
++        require(warm.initial_residual < 1e-10, "warm start did not measure b-A*x0");
++        if (parallel.rank == 0) {
++            for (Index cell : detail::meshData(mesh).owned_cells) {
++                equation.diagonal[cell] += 0.1;
++                equation.source[cell] += 0.1 * exactValue(mesh, cell);
++            }
++        }
++        require(backend->solve(equation, field, config).converged(),
++                "rank-local matrix change was not handled collectively");
++        verifyField(field, 1.0, 5e-11);
++
++        // Multiple RHS on an unchanged A keep its PC. Once A changes, their
++        // accumulated work requests a fresh PC before another RHS batch.
++        backend = detail::makeComputeBackend(mesh, parallel);
++        config.warm_start = false;
++        for (int rhs = 1; rhs <= 5; ++rhs) {
++            assembleManufactured(equation, static_cast<double>(rhs));
++            require(backend->solve(equation, field, config).converged(),
++                    "unchanged-matrix RHS batch failed");
++            verifyField(field, static_cast<double>(rhs), 3e-10);
++        }
++        require(backend->performance().preconditioner_setups == 1 &&
++                backend->performance().matrix_value_updates == 1,
++                "RHS work budget rebuilt an unchanged matrix's PC");
++        assembleManufactured(equation, 6.0);
++        if (parallel.rank == 0) {
++            for (Index cell : detail::meshData(mesh).owned_cells) {
++                equation.diagonal[cell] += 0.1;
++                equation.source[cell] += 0.6 * exactValue(mesh, cell);
++            }
++        }
++        require(backend->solve(equation, field, config).converged(),
++                "changed matrix after RHS batch failed");
++        verifyField(field, 6.0, 4e-10);
++        require(backend->performance().preconditioner_setups == 2 &&
++                backend->performance().matrix_value_updates == 2 &&
++                backend->performance().preconditioner_reuses == 0,
++                "RHS work budget did not refresh collectively after A changed");
++
++    }
++
++    auto backend = detail::makeComputeBackend(mesh, parallel);
++    ScalarField field(mesh, FieldLocation::Cell, "retry");
++    ScalarDiscreteEquation equation(mesh);
++    equation.numerical_identity = "retry";
++    LinearSolverConfig config;
++    config.solver = LinearSolverType::ConjugateGradient;
++    config.preconditioner = PreconditionerType::Jacobi;
++    config.absolute_tolerance = 1e-13;
++    config.relative_tolerance = 1e-12;
++    config.max_iterations = 2;
++    config.preconditioner_rebuild_interval = 8;
++    for (Index cell : detail::meshData(mesh).owned_cells) {
++        equation.diagonal[cell] = 2.0;
++        equation.source[cell] = 2.0 * exactValue(mesh, cell);
++    }
++    require(backend->solve(equation, field, config).converged(), "fresh Jacobi solve failed");
++    if (parallel.rank == 0) {
++        for (Index cell : detail::meshData(mesh).owned_cells) {
++            equation.diagonal[cell] = 3.0 + detail::globalCellId(mesh, cell);
++            equation.source[cell] = equation.diagonal[cell] * exactValue(mesh, cell);
++        }
++    }
++    const auto recovered = backend->solve(equation, field, config);
++    require(recovered.converged(), "failed stale PC was not rebuilt and retried");
++    verifyField(field, 1.0, 5e-11);
++    const auto counters = backend->performance();
++    require(counters.preconditioner_retries == 1 && counters.preconditioner_setups == 2 &&
++            counters.true_residual_checks == 3,
++            "PC retry did not retain both attempts and the rebuild in metrics");
++    require(recovered.iterations == 3, "PC retry lost the failed attempt's iterations");
++
++    // A successful but more expensive lagged solve must request a new PC on
++    // the next RHS, even without another matrix update.
++    backend = detail::makeComputeBackend(mesh, parallel);
++    config.max_iterations = 200;
++    for (Index cell : detail::meshData(mesh).owned_cells) {
++        equation.diagonal[cell] = 2.0;
++        equation.source[cell] = 2.0 * exactValue(mesh, cell);
++    }
++    require(backend->solve(equation, field, config).iterations == 1,
++            "fresh diagonal solve should require one CG iteration");
++    if (parallel.rank == 0) {
++        for (Index cell : detail::meshData(mesh).owned_cells) {
++            equation.diagonal[cell] = 3.0 + detail::globalCellId(mesh, cell);
++            equation.source[cell] = equation.diagonal[cell] * exactValue(mesh, cell);
++        }
++    }
++    const auto growing = backend->solve(equation, field, config);
++    require(growing.converged() && growing.iterations > 2,
++            "iteration growth probe did not exercise a deteriorated PC");
++    const auto refreshed = backend->solve(equation, field, config);
++    require(refreshed.converged() && refreshed.iterations == 1,
++            "iteration growth failed to rebuild before the next unchanged-matrix RHS");
++    require(backend->performance().preconditioner_setups == 2 &&
++            backend->performance().preconditioner_retries == 0 &&
++            backend->performance().matrix_value_updates == 2,
++            "adaptive rebuild accounting is incorrect");
++    verifyField(field, 1.0, 5e-11);
++}
++
+ }  // namespace
+ 
+ int main(int argc, char** argv) {
+@@ -61,6 +245,8 @@ int main(int argc, char** argv) {
+         const ParallelContext parallel = ParallelContext::world();
+         const Mesh global = makeHexBox({4, 2, 2}, {0, 0, 0}, {1, 1, 1});
+         const Mesh mesh = parallel.size == 1 ? global : decompose(global, parallel, 3);
++        verifyHypreOptionsIsolation(mesh, parallel);
++        verifyPreconditionerReuse(mesh, parallel);
+         auto backend = detail::makeComputeBackend(mesh, parallel);
+ 
+         // Only one owner changes its values after all ranks cache a valid halo.
+diff --git a/tools/benchmark_backend.py b/tools/benchmark_backend.py
+index 2e4b157..1243767 100644
+--- a/tools/benchmark_backend.py
++++ b/tools/benchmark_backend.py
+@@ -15,6 +15,7 @@ import json
+ import os
+ from pathlib import Path
+ import platform
++import re
+ import signal
+ import statistics
+ import subprocess
+@@ -236,7 +237,8 @@ class ProcessTreeSampler:
+     while MPI ranks exit.  It never participates in solver decisions.
+     """
+ 
+-    def __init__(self, root_pid: int, solver_name: str, interval: float = 0.1) -> None:
++    def __init__(self, root_pid: int, solver_name: str, interval: float = 0.1,
++                 trace_path: Path | None = None, log_path: Path | None = None) -> None:
+         self.root_pid = root_pid
+         self.solver_name = solver_name
+         self.interval = interval
+@@ -245,6 +247,16 @@ class ProcessTreeSampler:
+         self._lock = threading.Lock()
+         self.peak_tree_kib = 0
+         self.peak_solver_kib = 0
++        self.peak_swap_kib = 0
++        self.peak_tree_pss_kib: int | None = None
++        self.trace_path = trace_path
++        self.log_path = log_path
++        self._trace = []
++        self._last_trace = 0.0
++        self._log_offset = 0
++        self._work_reported = 0
++        self._log_fragment = ""
++        self._start = time.monotonic()
+ 
+     @staticmethod
+     def _children(pid: int) -> list[int]:
+@@ -261,14 +273,62 @@ class ProcessTreeSampler:
+         return values
+ 
+     @staticmethod
+-    def _rss_kib(pid: int) -> int:
++    def _memory_kib(pid: int) -> tuple[int, int]:
++        rss = swap = 0
+         try:
+             for line in Path(f"/proc/{pid}/status").read_text().splitlines():
+                 if line.startswith("VmRSS:"):
++                    rss = int(line.split()[1])
++                elif line.startswith("VmSwap:"):
++                    swap = int(line.split()[1])
++        except (OSError, ValueError, IndexError):
++            pass
++        return rss, swap
++
++    @staticmethod
++    def _pss_kib(pid: int) -> int | None:
++        try:
++            for line in Path(f"/proc/{pid}/smaps_rollup").read_text().splitlines():
++                if line.startswith("Pss:"):
+                     return int(line.split()[1])
+         except (OSError, ValueError, IndexError):
+             pass
+-        return 0
++        return None
++
++    def _trace_once(self, tree_rss: int, solver_rss: int, tree_swap: int, pids: set[int]) -> None:
++        now = time.monotonic()
++        if self.trace_path is None or now - self._last_trace < 1.0:
++            return
++        self._last_trace = now
++        # Read proportional set size only at the one-second trace rate. It
++        # apportions shared mappings rather than counting them once per rank.
++        proportional = [self._pss_kib(pid) for pid in pids]
++        tree_pss = sum(proportional) if proportional and all(value is not None for value in proportional) else None
++        if tree_pss is not None:
++            self.peak_tree_pss_kib = max(self.peak_tree_pss_kib or 0, tree_pss)
++        paging = {}
++        try:
++            for line in Path("/proc/vmstat").read_text().splitlines():
++                key, value = line.split()
++                if key in ("pswpin", "pswpout"):
++                    paging[key] = int(value)
++        except (OSError, ValueError):
++            pass
++        if self.log_path is not None:
++            try:
++                with self.log_path.open() as stream:
++                    stream.seek(self._log_offset)
++                    self._log_fragment += stream.read()
++                    self._log_offset = stream.tell()
++                lines = self._log_fragment.split("\n")
++                self._log_fragment = lines.pop()
++                self._work_reported += sum(bool(re.match(r"^(SIMPLE|PISO) \d+ ", line)) for line in lines)
++            except OSError:
++                pass
++        self._trace.append(dict(elapsedSeconds=now-self._start, unixSeconds=time.time(),
++            treeRssKiB=tree_rss, maxSolverRssKiB=solver_rss, treeSwapKiB=tree_swap,
++            treePssKiB=tree_pss,
++            reportedWork=self._work_reported, logBytes=self._log_offset, **paging))
+ 
+     @staticmethod
+     def _command_line(pid: int) -> str:
+@@ -283,19 +343,23 @@ class ProcessTreeSampler:
+         seen: set[int] = set()
+         tree_rss = 0
+         solver_rss = 0
++        tree_swap = 0
+         while pending:
+             pid = pending.pop()
+             if pid in seen:
+                 continue
+             seen.add(pid)
+-            rss = self._rss_kib(pid)
++            rss, swap = self._memory_kib(pid)
+             tree_rss += rss
++            tree_swap += swap
+             if self.solver_name in self._command_line(pid):
+                 solver_rss = max(solver_rss, rss)
+             pending.extend(self._children(pid))
+         with self._lock:
+             self.peak_tree_kib = max(self.peak_tree_kib, tree_rss)
+             self.peak_solver_kib = max(self.peak_solver_kib, solver_rss)
++            self.peak_swap_kib = max(self.peak_swap_kib, tree_swap)
++            self._trace_once(tree_rss, solver_rss, tree_swap, seen)
+ 
+     def _run(self) -> None:
+         while not self._stop.is_set():
+@@ -306,13 +370,17 @@ class ProcessTreeSampler:
+     def start(self) -> None:
+         self._thread.start()
+ 
+-    def stop(self) -> dict[str, int]:
++    def stop(self) -> dict[str, int | None]:
+         self._stop.set()
+         self._thread.join(timeout=2.0)
+         with self._lock:
++            if self.trace_path is not None:
++                self.trace_path.write_text("".join(json.dumps(row)+"\n" for row in self._trace))
+             return {
+                 "peakTreeRssKiB": self.peak_tree_kib,
+                 "peakSolverRssKiB": self.peak_solver_kib,
++                "peakTreeSwapKiB": self.peak_swap_kib,
++                "peakTreePssKiB": self.peak_tree_pss_kib,
+             }
+ 
+ 
+@@ -398,12 +466,19 @@ def run_one(
+     start = time.monotonic()
+     timed_out = False
+     sampler: ProcessTreeSampler | None = None
++    live_log = None
++    process = None
+     try:
++        if getattr(args, "live_log", False):
++            live_log = (run_dir / "stdout.log").open("w")
+         process = subprocess.Popen(
+             command, cwd=ROOT, env=environment, text=True,
+-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
++            stdout=live_log if live_log is not None else subprocess.PIPE,
++            stderr=subprocess.STDOUT,
+             start_new_session=True)
+-        sampler = ProcessTreeSampler(process.pid, args.binary.name)
++        sampler = ProcessTreeSampler(process.pid, args.binary.name,
++            trace_path=run_dir / "memory-trace.jsonl" if getattr(args, "memory_trace", False) else None,
++            log_path=run_dir / "stdout.log" if live_log is not None else None)
+         sampler.start()
+         try:
+             stdout, _ = process.communicate(timeout=args.timeout)
+@@ -414,6 +489,11 @@ def run_one(
+     except OSError as error:
+         process = None
+         stdout = f"cannot start benchmark process: {error}\n"
++    finally:
++        if live_log is not None:
++            live_log.close()
++            if process is not None:
++                stdout = (run_dir / "stdout.log").read_text()
+     memory = sampler.stop() if sampler is not None else {
+         "peakTreeRssKiB": 0,
+         "peakSolverRssKiB": 0,

@@ -1,0 +1,3 @@
+petsc_backend_test: ranks=1 owned=16 iterations=40
+petsc_backend_test: ranks=3 owned=6 iterations=70
+petsc_backend_test: ranks=8 owned=2 iterations=75

@@ -1,0 +1,15 @@
+{
+  "graphs": [
+    "graded_voronoi-engineering in studies before validated-policy"
+  ],
+  "reason": "Cubic sites could approach reflection boundary within Qhull tolerance. Actual 16000-polygon face rings did not reproduce the graph adjacency. Excluded from final selection.",
+  "replacement": "0.002 + 0.996*x^3, with full 16000-polygon native topology and Mesh validation before selection",
+  "retainedExploration": [
+    "broad-screen",
+    "connected-repeat",
+    "bounded-repeat",
+    "final-audit",
+    "heap-screen",
+    "selected-policy"
+  ]
+}

@@ -1,0 +1,294 @@
+/*
+   Support for the parallel AIJ matrix vector multiply
+*/
+#include <../src/mat/impls/aij/mpi/mpiaij.h>
+#include <petsc/private/vecimpl.h>
+#include <petsc/private/isimpl.h> /* needed because accesses data structure of ISLocalToGlobalMapping directly */
+
+PetscErrorCode MatSetUpMultiply_MPIAIJ(Mat mat)
+{
+  Mat_MPIAIJ *aij = (Mat_MPIAIJ *)mat->data;
+  Mat_SeqAIJ *B   = (Mat_SeqAIJ *)aij->B->data;
+  PetscInt    i, j, *aj = B->j, *garray;
+  PetscInt    ec = 0; /* Number of nonzero external columns */
+  IS          from, to;
+  Vec         gvec;
+#if defined(PETSC_USE_CTABLE)
+  PetscHMapI    gid1_lid1 = NULL;
+  PetscHashIter tpos;
+  PetscInt      gid, lid;
+#else
+  PetscInt N = mat->cmap->N, *indices;
+#endif
+
+  PetscFunctionBegin;
+  if (!aij->garray) {
+    PetscCheck(aij->B, PETSC_COMM_SELF, PETSC_ERR_PLIB, "Missing B mat");
+#if defined(PETSC_USE_CTABLE)
+    /* use a table */
+    PetscCall(PetscHMapICreateWithSize(aij->B->rmap->n, &gid1_lid1));
+    for (i = 0; i < aij->B->rmap->n; i++) {
+      for (j = 0; j < B->ilen[i]; j++) {
+        PetscInt data, gid1 = aj[B->i[i] + j] + 1;
+        PetscCall(PetscHMapIGetWithDefault(gid1_lid1, gid1, 0, &data));
+        if (!data) {
+          /* one based table */
+          PetscCall(PetscHMapISet(gid1_lid1, gid1, ++ec));
+        }
+      }
+    }
+    /* form array of columns we need */
+    PetscCall(PetscMalloc1(ec, &garray));
+    PetscHashIterBegin(gid1_lid1, tpos);
+    while (!PetscHashIterAtEnd(gid1_lid1, tpos)) {
+      PetscHashIterGetKey(gid1_lid1, tpos, gid);
+      PetscHashIterGetVal(gid1_lid1, tpos, lid);
+      PetscHashIterNext(gid1_lid1, tpos);
+      gid--;
+      lid--;
+      garray[lid] = gid;
+    }
+    PetscCall(PetscSortInt(ec, garray)); /* sort, and rebuild */
+    PetscCall(PetscHMapIClear(gid1_lid1));
+    for (i = 0; i < ec; i++) PetscCall(PetscHMapISet(gid1_lid1, garray[i] + 1, i + 1));
+    /* compact out the extra columns in B */
+    for (i = 0; i < aij->B->rmap->n; i++) {
+      for (j = 0; j < B->ilen[i]; j++) {
+        PetscInt gid1 = aj[B->i[i] + j] + 1;
+        PetscCall(PetscHMapIGetWithDefault(gid1_lid1, gid1, 0, &lid));
+        lid--;
+        aj[B->i[i] + j] = lid;
+      }
+    }
+    PetscCall(PetscLayoutDestroy(&aij->B->cmap));
+    PetscCall(PetscLayoutCreateFromSizes(PetscObjectComm((PetscObject)aij->B), ec, ec, 1, &aij->B->cmap));
+    PetscCall(PetscHMapIDestroy(&gid1_lid1));
+#else
+    /* Make an array as long as the number of columns */
+    /* mark those columns that are in aij->B */
+    PetscCall(PetscCalloc1(N, &indices));
+    for (i = 0; i < aij->B->rmap->n; i++) {
+      for (j = 0; j < B->ilen[i]; j++) {
+        if (!indices[aj[B->i[i] + j]]) ec++;
+        indices[aj[B->i[i] + j]] = 1;
+      }
+    }
+
+    /* form array of columns we need */
+    PetscCall(PetscMalloc1(ec, &garray));
+    ec = 0;
+    for (i = 0; i < N; i++) {
+      if (indices[i]) garray[ec++] = i;
+    }
+
+    /* make indices now point into garray */
+    for (i = 0; i < ec; i++) indices[garray[i]] = i;
+
+    /* compact out the extra columns in B */
+    for (i = 0; i < aij->B->rmap->n; i++) {
+      for (j = 0; j < B->ilen[i]; j++) aj[B->i[i] + j] = indices[aj[B->i[i] + j]];
+    }
+    PetscCall(PetscLayoutDestroy(&aij->B->cmap));
+    PetscCall(PetscLayoutCreateFromSizes(PetscObjectComm((PetscObject)aij->B), ec, ec, 1, &aij->B->cmap));
+    PetscCall(PetscFree(indices));
+#endif
+    // If we did rewrite B->j[] and B->cmap, increase the state. Device matrices detect this state change to sync the device copy.
+    if (ec) aij->B->nonzerostate++;
+  } else {
+    garray = aij->garray;
+  }
+
+  if (!aij->lvec) {
+    PetscCheck(aij->B, PETSC_COMM_SELF, PETSC_ERR_PLIB, "Missing B mat");
+    PetscCall(MatCreateVecs(aij->B, &aij->lvec, NULL));
+  }
+  PetscCall(VecGetSize(aij->lvec, &ec));
+
+  /* create two temporary Index sets for build scatter gather */
+  PetscCall(ISCreateGeneral(PETSC_COMM_SELF, ec, garray, PETSC_COPY_VALUES, &from));
+  PetscCall(ISCreateStride(PETSC_COMM_SELF, ec, 0, 1, &to));
+
+  /* create temporary global vector to generate scatter context */
+  /* This does not allocate the array's memory so is efficient */
+  PetscCall(VecCreateMPIWithArray(PetscObjectComm((PetscObject)mat), 1, mat->cmap->n, mat->cmap->N, NULL, &gvec));
+
+  /* generate the scatter context */
+  PetscCall(VecScatterDestroy(&aij->Mvctx));
+  PetscCall(VecScatterCreate(gvec, from, aij->lvec, to, &aij->Mvctx));
+  PetscCall(VecScatterViewFromOptions(aij->Mvctx, (PetscObject)mat, "-matmult_vecscatter_view"));
+  aij->garray = garray;
+
+  PetscCall(ISDestroy(&from));
+  PetscCall(ISDestroy(&to));
+  PetscCall(VecDestroy(&gvec));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/* Disassemble the off-diag portion of the MPIAIJXxx matrix.
+   In other words, change the B from reduced format using local col ids
+   to expanded format using global col ids, which will make it easier to
+   insert new nonzeros (with global col ids) into the matrix.
+   The off-diag B determines communication in the matrix vector multiply.
+   use_preallocation determines whether the use the preallocation or
+   existing non-zero structure when creating the global form of B
+*/
+PetscErrorCode MatDisAssemble_MPIAIJ(Mat A, PetscBool use_preallocation)
+{
+  Mat_MPIAIJ *aij = (Mat_MPIAIJ *)A->data;
+  Mat         B = aij->B, Bnew = NULL;
+
+  PetscFunctionBegin;
+  /* free stuff related to matrix-vec multiply */
+  PetscCall(VecDestroy(&aij->lvec));
+  if (aij->colmap) {
+#if defined(PETSC_USE_CTABLE)
+    PetscCall(PetscHMapIDestroy(&aij->colmap));
+#else
+    PetscCall(PetscFree(aij->colmap));
+#endif
+  }
+
+  if (B) {
+    Mat_SeqAIJ        *Baij = (Mat_SeqAIJ *)B->data;
+    PetscInt           i, j, m = B->rmap->n, n = A->cmap->N, col, ct = 0, *garray = aij->garray, *nz;
+    PetscScalar        v;
+    const PetscScalar *ba;
+
+    /* make sure that B is assembled so we can access its values */
+    PetscCall(MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY));
+    PetscCall(MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY));
+
+    /* invent new B and copy stuff over */
+    PetscCall(PetscMalloc1(m + 1, &nz));
+    if (use_preallocation)
+      for (i = 0; i < m; i++) nz[i] = Baij->ipre[i];
+    else
+      for (i = 0; i < m; i++) nz[i] = Baij->i[i + 1] - Baij->i[i];
+    PetscCall(MatCreate(PETSC_COMM_SELF, &Bnew));
+    PetscCall(MatSetSizes(Bnew, m, n, m, n)); /* Bnew now uses A->cmap->N as its col size */
+    PetscCall(MatSetBlockSizesFromMats(Bnew, A, A));
+    PetscCall(MatSetType(Bnew, ((PetscObject)B)->type_name));
+    PetscCall(MatSeqAIJSetPreallocation(Bnew, 0, nz));
+
+    if (Baij->nonew >= 0) { /* Inherit insertion error options (if positive). */
+      ((Mat_SeqAIJ *)Bnew->data)->nonew = Baij->nonew;
+    }
+
+    /*
+     Ensure that B's nonzerostate is monotonically increasing.
+     Or should this follow the MatSetValues() loop to preserve B's nonzerstate across a MatDisAssemble() call?
+     */
+    Bnew->nonzerostate = B->nonzerostate;
+
+    PetscCall(PetscFree(nz));
+    PetscCall(MatSeqAIJGetArrayRead(B, &ba));
+    for (i = 0; i < m; i++) {
+      for (j = Baij->i[i]; j < Baij->i[i + 1]; j++) {
+        col = garray[Baij->j[ct]];
+        v   = ba[ct++];
+        PetscCall(MatSetValues(Bnew, 1, &i, 1, &col, &v, B->insertmode));
+      }
+    }
+    PetscCall(MatSeqAIJRestoreArrayRead(B, &ba));
+    PetscCall(MatDestroy(&B));
+  }
+  PetscCall(PetscFree(aij->garray));
+
+  aij->B           = Bnew;
+  A->was_assembled = PETSC_FALSE;
+  A->assembled     = PETSC_FALSE;
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/*      ugly stuff added for Glenn someday we should fix this up */
+
+static PetscInt *auglyrmapd = NULL, *auglyrmapo = NULL; /* mapping from the local ordering to the "diagonal" and "off-diagonal" parts of the local matrix */
+static Vec       auglydd = NULL, auglyoo = NULL;        /* work vectors used to scale the two parts of the local matrix */
+
+static PetscErrorCode MatMPIAIJDiagonalScaleLocalSetUp(Mat inA, Vec scale)
+{
+  Mat_MPIAIJ *ina = (Mat_MPIAIJ *)inA->data; /*access private part of matrix */
+  PetscInt    i, j, n, nt, cstart, cend, no, *garray = ina->garray, *lindices, bs = inA->rmap->bs;
+  PetscInt   *r_rmapd, *r_rmapo;
+
+  PetscFunctionBegin;
+  PetscCall(MatGetOwnershipRange(inA, &cstart, &cend));
+  PetscCall(MatGetSize(ina->A, NULL, &n));
+  PetscCall(PetscCalloc1(inA->rmap->mapping->n, &r_rmapd));
+  nt = 0;
+  for (i = 0; i < inA->rmap->mapping->n; i++) {
+    if (inA->rmap->mapping->indices[i] * bs >= cstart && inA->rmap->mapping->indices[i] * bs < cend) {
+      nt++;
+      r_rmapd[i] = inA->rmap->mapping->indices[i] + 1;
+    }
+  }
+  PetscCheck(nt * bs == n, PETSC_COMM_SELF, PETSC_ERR_PLIB, "Hmm nt*bs %" PetscInt_FMT " n %" PetscInt_FMT, nt * bs, n);
+  PetscCall(PetscMalloc1(n, &auglyrmapd));
+  for (i = 0; i < inA->rmap->mapping->n; i++) {
+    if (r_rmapd[i]) {
+      for (j = 0; j < bs; j++) auglyrmapd[(r_rmapd[i] - 1) * bs + j - cstart] = i * bs + j;
+    }
+  }
+  PetscCall(PetscFree(r_rmapd));
+  PetscCall(VecCreateSeq(PETSC_COMM_SELF, n, &auglydd));
+
+  /* This loop handling the setup for the off-diagonal local portion of the matrix is extremely similar to
+     its counterpart in the MPIBAIJ version of this code.
+     The tricky difference is that lindices[] uses block-based indexing (just as in the BAIJ code),
+     but garray[] uses element-based indexing; hence the multiplications / divisions involving bs. */
+  PetscCall(PetscCalloc1(inA->cmap->N / bs, &lindices));
+  for (i = 0; i < ina->B->cmap->n / bs; i++) lindices[garray[i * bs] / bs] = i + 1;
+  no = inA->rmap->mapping->n - nt;
+  PetscCall(PetscCalloc1(inA->rmap->mapping->n, &r_rmapo));
+  nt = 0;
+  for (i = 0; i < inA->rmap->mapping->n; i++) {
+    if (lindices[inA->rmap->mapping->indices[i]]) {
+      nt++;
+      r_rmapo[i] = lindices[inA->rmap->mapping->indices[i]];
+    }
+  }
+  PetscCheck(nt <= no, PETSC_COMM_SELF, PETSC_ERR_PLIB, "Hmm nt %" PetscInt_FMT " no %" PetscInt_FMT, nt, n);
+  PetscCall(PetscFree(lindices));
+  PetscCall(PetscMalloc1(nt * bs, &auglyrmapo));
+  for (i = 0; i < inA->rmap->mapping->n; i++) {
+    if (r_rmapo[i]) {
+      for (j = 0; j < bs; j++) auglyrmapo[(r_rmapo[i] - 1) * bs + j] = i * bs + j;
+    }
+  }
+  PetscCall(PetscFree(r_rmapo));
+  PetscCall(VecCreateSeq(PETSC_COMM_SELF, nt * bs, &auglyoo));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+PetscErrorCode MatDiagonalScaleLocal_MPIAIJ(Mat A, Vec scale)
+{
+  Mat_MPIAIJ        *a = (Mat_MPIAIJ *)A->data; /*access private part of matrix */
+  PetscInt           n, i;
+  PetscScalar       *d, *o;
+  const PetscScalar *s;
+
+  PetscFunctionBegin;
+  if (!auglyrmapd) PetscCall(MatMPIAIJDiagonalScaleLocalSetUp(A, scale));
+
+  PetscCall(VecGetArrayRead(scale, &s));
+
+  PetscCall(VecGetLocalSize(auglydd, &n));
+  PetscCall(VecGetArray(auglydd, &d));
+  for (i = 0; i < n; i++) d[i] = s[auglyrmapd[i]]; /* copy "diagonal" (true local) portion of scale into dd vector */
+  PetscCall(VecRestoreArray(auglydd, &d));
+  /* column scale "diagonal" portion of local matrix */
+  PetscCall(MatDiagonalScale(a->A, NULL, auglydd));
+
+  PetscCall(VecGetLocalSize(auglyoo, &n));
+  PetscCall(VecGetArray(auglyoo, &o));
+  for (i = 0; i < n; i++) o[i] = s[auglyrmapo[i]]; /* copy "off-diagonal" portion of scale into oo vector */
+  PetscCall(VecRestoreArrayRead(scale, &s));
+  PetscCall(VecRestoreArray(auglyoo, &o));
+  /* column scale "off-diagonal" portion of local matrix */
+  PetscCall(MatDiagonalScale(a->B, NULL, auglyoo));
+  PetscCall(PetscFree(auglyrmapd));
+  PetscCall(PetscFree(auglyrmapo));
+  PetscCall(VecDestroy(&auglydd));
+  PetscCall(VecDestroy(&auglyoo));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}

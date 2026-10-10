@@ -314,8 +314,9 @@ private:
     template <typename Function> void updateBoundaryTrace(Function function) {
         if (!m_calculated_boundary) return;
         // 每个面的计算先于单元值更新，因此支持 f.assignProduct(a,f) 等原位代数。
-        for (Index face = 0; face < m_mesh->faceCount(); ++face)
-            if (m_mesh->boundaryFace(face)) m_boundary_trace[face] = function(face);
+        for (Index patch = 0; patch < m_mesh->patchCount(); ++patch)
+            for (Index face : m_mesh->patchFaces(patch))
+                m_boundary_trace[face] = function(face);
     }
 public:
 

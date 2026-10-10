@@ -1,0 +1,31 @@
+{
+  "prism": {
+    "case": "/tmp/babelsim-flow-opt-20261007/strong-inputs/prism-piso10",
+    "cells": 1024000,
+    "faces": 2585600,
+    "gridN": 80,
+    "minCellFaces": 5,
+    "maxCellFaces": 5,
+    "template": "/tmp/babelsim-flow-opt-20261007/formal-inputs/piso6",
+    "templateInputSha256": "aba8474cb902462fa5997d7b86074653e18eb1415cfe74709041fed6bea6c4e2",
+    "acceptedSteps": 10,
+    "measuredIntervals": 9,
+    "deltaT": 0.01,
+    "unchangedSolutionControls": true,
+    "meshSha256": "17c7481096dcbdf23440b8ed7c8619238a2f83ae9b62292a70bf244abc5d4b2f"
+  },
+  "voronoi": {
+    "case": "/tmp/babelsim-flow-opt-20261007/strong-inputs/voronoi-piso10",
+    "cells": 512000,
+    "faces": 2064032,
+    "minCellFaces": 5,
+    "maxCellFaces": 15,
+    "template": "/tmp/babelsim-flow-opt-20261007/formal-inputs/voronoi-piso6",
+    "templateInputSha256": "58f010b291a8865679b902fc3431163bc1ea03faf1b880a4e8f0c3a37874e3f6",
+    "acceptedSteps": 10,
+    "measuredIntervals": 9,
+    "deltaT": 0.01,
+    "unchangedSolutionControls": true,
+    "meshSha256": "793487be7ffa3dbd9d2df0bbc8244c1df2fc68d5aa0b90f905b444c39940761a"
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.17819640001107473,
+  "initialPartitionSeconds": 0.17150172300171107,
+  "exactBalanceSeconds": 0.006694677009363659,
+  "quotaTransfers": 124,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.00103759765625,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 861,
+  "memory": {
+    "beforeRSSBytes": 268423168,
+    "peakRSSBytes": 268423168,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 829,
+  "cutFacesPerPart": [
+    317,
+    573,
+    512,
+    256
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    65536,
+    65536,
+    65536,
+    65536
+  ],
+  "ghostCellsPerPart": [
+    768,
+    1536,
+    1536,
+    768
+  ],
+  "firstLayerGhostsPerPart": [
+    256,
+    512,
+    512,
+    256
+  ],
+  "localCellsPerPart": [
+    66304,
+    67072,
+    67072,
+    66304
+  ],
+  "localFacesPerPart": [
+    207495,
+    209878,
+    209856,
+    207456
+  ],
+  "neighbourRanksPerPart": [
+    1,
+    2,
+    2,
+    1
+  ],
+  "ownedFaceIncidencesPerPart": [
+    393216,
+    393216,
+    393216,
+    393216
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0057830199416546,
+  "localCellImbalance": 1.0057581573896353,
+  "totalGhostCells": 4608,
+  "maxGhostCells": 1536,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 1536,
+  "threeLayerCommunicationVolume": 4608,
+  "cellStorageDuplication": 1.017578125,
+  "faceStorageDuplication": 1.0185842803030303,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "c207780d81b3adc786bb4945503fe8d2d1c299eac18f8cff108c23e322ebc2d5",
+  "status": "ok",
+  "graph": "graded_channel-engineering",
+  "graphSHA256": "d3f7ce688520fba9b9c8150e784b9526afd4ecbc280ef2724c03967ce8aa7438",
+  "graphMetadata": {
+    "cells": 262144,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "graded_channel",
+    "graded": true,
+    "internalFaces": 753408,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 66048,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      1024,
+      16,
+      16
+    ]
+  },
+  "unixStarted": 1791377895.477554,
+  "unixEnded": 1791377895.7186737
+}

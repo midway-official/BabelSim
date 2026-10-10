@@ -1,5 +1,6 @@
 #include "babelsim/monitor.h"
 #include "babelsim/solver.h"
+#include "babelsim/runtime.h"
 #include <iostream>
 #include <stdexcept>
 #include <type_traits>
@@ -27,6 +28,7 @@ void Reporter::record(std::initializer_list<Metric> metrics) const {
     printMetrics(metrics);
 }
 void Reporter::iteration(int index, int limit, bool urgent, std::initializer_list<Metric> metrics) const {
+    RunTime::current().recordIteration();
     if (!primaryProcess() || !(index == 1 || index % interval_ == 0 || urgent || index == limit)) return;
     std::cout << name_ << ' ' << index;
     printMetrics(metrics);

@@ -1,0 +1,3 @@
+{
+  "note": "This exploratory version reports failure to establish a 256-node connectivity witness as unsafeQuotaTransfers. Actual connected components are independently measured. The final audit uses a full check for final fallback moves to distinguish uncertified from actually disconnecting transfers."
+}

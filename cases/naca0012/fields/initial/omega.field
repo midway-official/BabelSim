@@ -2,7 +2,7 @@ field omega
 {
     type scalar
     location cell
-    internal uniform (1.5)
+    internal file omega.dat
     boundary
     {
         # Wilcox smooth-wall asymptotic evaluated at first-cell centre: 6 nu / (beta * d1^2).

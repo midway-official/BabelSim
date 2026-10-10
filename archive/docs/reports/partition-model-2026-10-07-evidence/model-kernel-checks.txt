@@ -1,0 +1,14 @@
+branching_duct-fixture.npz independent BFS halo and ownership checks passed
+disconnected-fixture.npz independent BFS halo and ownership checks passed
+graded_channel-fixture.npz independent BFS halo and ownership checks passed
+graded_voronoi-fixture.npz independent BFS halo and ownership checks passed
+hex_cube-fixture.npz independent BFS halo and ownership checks passed
+long_duct-fixture.npz independent BFS halo and ownership checks passed
+obstructed_cube-fixture.npz independent BFS halo and ownership checks passed
+renumbered_cube-fixture.npz independent BFS halo and ownership checks passed
+rotated_duct-fixture.npz independent BFS halo and ownership checks passed
+tet_cube-fixture.npz independent BFS halo and ownership checks passed
+thin_plate-fixture.npz independent BFS halo and ownership checks passed
+voronoi_prisms-fixture.npz independent BFS halo and ownership checks passed
+warped_prisms-fixture.npz independent BFS halo and ownership checks passed
+surplus-to-deficit transfer through a balanced intermediate partition passed

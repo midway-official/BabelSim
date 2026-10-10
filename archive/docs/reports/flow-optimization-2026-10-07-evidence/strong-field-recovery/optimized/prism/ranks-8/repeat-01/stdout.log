@@ -1,0 +1,38 @@
+[midway:10406] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+[midway:10406] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+[midway:10406] MCW rank 2 bound to socket 0[core 2[hwt 0-1]]: [../../BB/../../../../../../../../..]
+[midway:10406] MCW rank 3 bound to socket 0[core 3[hwt 0-1]]: [../../../BB/../../../../../../../..]
+[midway:10406] MCW rank 4 bound to socket 0[core 4[hwt 0-1]]: [../../../../BB/../../../../../../..]
+[midway:10406] MCW rank 5 bound to socket 0[core 5[hwt 0-1]]: [../../../../../BB/../../../../../..]
+[midway:10406] MCW rank 6 bound to socket 0[core 6[hwt 0-1]]: [../../../../../../BB/../../../../..]
+[midway:10406] MCW rank 7 bound to socket 0[core 7[hwt 0-1]]: [../../../../../../../BB/../../../..]
+PISO corrector=1 Umax=1.21364 coupling=0.773294
+PISO corrector=62 Umax=1.15373 coupling=9.08813e-06
+PISO 1 time=0.01 correctors=62 CoMax=2.17322 CoMean=1.61028 accepted=true mass=3.54918e-11 dU=1 rU=1 dP=8.48078 rCouplingFirst=0.773294 rCoupling=9.08813e-06 linU=6.46088e-09 linP=7.57533e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.29713 coupling=0.813873
+PISO corrector=72 Umax=1.16338 coupling=9.83352e-06
+PISO 1 time=0.02 correctors=72 CoMax=2.20032 CoMean=1.61265 accepted=true mass=1.46502e-11 dU=0.0406771 rU=0.313319 dP=601.153 rCouplingFirst=0.813873 rCoupling=9.83352e-06 linU=6.74033e-09 linP=9.77972e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.17096 coupling=0.0156586
+PISO corrector=31 Umax=1.1683 coupling=9.82344e-06
+PISO 1 time=0.03 correctors=31 CoMax=2.21224 CoMean=1.61432 accepted=true mass=1.35876e-11 dU=0.0257624 rU=0.0207403 dP=3.05897 rCouplingFirst=0.0156586 rCoupling=9.82344e-06 linU=4.78705e-09 linP=8.83709e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.17533 coupling=0.00817528
+PISO corrector=28 Umax=1.1743 coupling=9.34937e-06
+PISO 1 time=0.04 correctors=28 CoMax=2.21967 CoMean=1.61564 accepted=true mass=1.13337e-11 dU=0.0191606 rU=0.0134792 dP=2.19024 rCouplingFirst=0.00817528 rCoupling=9.34937e-06 linU=5.24679e-09 linP=4.79186e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.17843 coupling=0.00493375
+PISO corrector=25 Umax=1.17781 coupling=9.61877e-06
+PISO 1 time=0.05 correctors=25 CoMax=2.21689 CoMean=1.61674 accepted=true mass=1.05532e-11 dU=0.0154154 rU=0.010051 dP=3.57704 rCouplingFirst=0.00493375 rCoupling=9.61877e-06 linU=5.03253e-09 linP=4.34452e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.18082 coupling=0.00330188
+PISO corrector=23 Umax=1.18045 coupling=9.21022e-06
+PISO 1 time=0.06 correctors=23 CoMax=2.21638 CoMean=1.6177 accepted=true mass=9.97993e-12 dU=0.0129763 rU=0.00805048 dP=5.8302 rCouplingFirst=0.00330188 rCoupling=9.21022e-06 linU=4.96896e-09 linP=8.10765e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.18162 coupling=0.00237627
+PISO corrector=21 Umax=1.18139 coupling=9.11903e-06
+PISO 1 time=0.07 correctors=21 CoMax=2.21335 CoMean=1.61855 accepted=true mass=9.63608e-12 dU=0.0112482 rU=0.00673574 dP=3.28221 rCouplingFirst=0.00237627 rCoupling=9.11903e-06 linU=8.88904e-09 linP=8.71161e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.18307 coupling=0.00180054
+PISO corrector=19 Umax=1.18286 coupling=9.24847e-06
+PISO 1 time=0.08 correctors=19 CoMax=2.2138 CoMean=1.61933 accepted=true mass=9.67015e-12 dU=0.00995221 rU=0.00580314 dP=1.8425 rCouplingFirst=0.00180054 rCoupling=9.24847e-06 linU=7.67499e-09 linP=9.19835e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.18378 coupling=0.00141704
+PISO corrector=17 Umax=1.18364 coupling=9.55438e-06
+PISO 1 time=0.09 correctors=17 CoMax=2.21662 CoMean=1.62004 accepted=true mass=7.11687e-12 dU=0.0089398 rU=0.00510553 dP=1.22882 rCouplingFirst=0.00141704 rCoupling=9.55438e-06 linU=4.77835e-09 linP=8.70546e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true
+PISO corrector=1 Umax=1.18346 coupling=0.00114759
+PISO corrector=16 Umax=1.18336 coupling=8.91424e-06
+PISO 1 time=0.1 correctors=16 CoMax=2.21643 CoMean=1.6207 accepted=true mass=8.69929e-12 dU=0.00812286 rU=0.0045629 dP=0.90259 rCouplingFirst=0.00114759 rCoupling=8.91424e-06 linU=8.76222e-09 linP=9.94155e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=true

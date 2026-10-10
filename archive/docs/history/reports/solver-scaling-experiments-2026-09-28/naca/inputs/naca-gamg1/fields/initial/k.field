@@ -1,0 +1,15 @@
+field k
+{
+    type scalar
+    location cell
+    internal file k.dat
+    boundary
+    {
+        airfoil { type fixedValue value (1.0e-12) }
+        inlet { type fixedValue value (1.5e-6) }
+        outlet { type zeroGradient }
+        farfield { type fixedValue value (1.5e-6) }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

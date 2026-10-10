@@ -1,0 +1,72 @@
+[
+  {
+    "label": "prism-versions-1",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/reference/prism/ranks-1/repeat-01/results/benchmark-r1-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-1/repeat-01/results/benchmark-r1-n01/0.1"
+  },
+  {
+    "label": "prism-versions-4",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-strong-scaling/reference/prism/ranks-4/repeat-01/results/benchmark-r4-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-strong-scaling/optimized/prism/ranks-4/repeat-01/results/benchmark-r4-n01/0.1"
+  },
+  {
+    "label": "prism-versions-8",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/reference/prism/ranks-8/repeat-01/results/benchmark-r8-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-8/repeat-01/results/benchmark-r8-n01/0.1"
+  },
+  {
+    "label": "prism-versions-12",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/reference/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1"
+  },
+  {
+    "label": "prism-optimized-1-4",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-1/repeat-01/results/benchmark-r1-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-strong-scaling/optimized/prism/ranks-4/repeat-01/results/benchmark-r4-n01/0.1"
+  },
+  {
+    "label": "prism-optimized-1-8",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-1/repeat-01/results/benchmark-r1-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-8/repeat-01/results/benchmark-r8-n01/0.1"
+  },
+  {
+    "label": "prism-optimized-1-12",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-1/repeat-01/results/benchmark-r1-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/strong-field-recovery/optimized/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1"
+  },
+  {
+    "label": "voronoi-versions-1",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/reference/voronoi/ranks-1/repeat-01/results/benchmark-r1-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-1/repeat-01/results/benchmark-r1-n01/0.2"
+  },
+  {
+    "label": "voronoi-versions-4",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/reference/voronoi/ranks-4/repeat-01/results/benchmark-r4-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-4/repeat-01/results/benchmark-r4-n01/0.2"
+  },
+  {
+    "label": "voronoi-versions-8",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/reference/voronoi/ranks-8/repeat-01/results/benchmark-r8-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-8/repeat-01/results/benchmark-r8-n01/0.2"
+  },
+  {
+    "label": "voronoi-versions-12",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/reference/voronoi/ranks-12/repeat-01/results/benchmark-r12-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-12/repeat-01/results/benchmark-r12-n01/0.2"
+  },
+  {
+    "label": "voronoi-optimized-1-4",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-1/repeat-01/results/benchmark-r1-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-4/repeat-01/results/benchmark-r4-n01/0.2"
+  },
+  {
+    "label": "voronoi-optimized-1-8",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-1/repeat-01/results/benchmark-r1-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-8/repeat-01/results/benchmark-r8-n01/0.2"
+  },
+  {
+    "label": "voronoi-optimized-1-12",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-1/repeat-01/results/benchmark-r1-n01/0.2",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/amg-voronoi20-strong-scaling/optimized/voronoi/ranks-12/repeat-01/results/benchmark-r12-n01/0.2"
+  }
+]

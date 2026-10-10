@@ -1,0 +1,4 @@
+directory results
+timeName run
+writeInterval 250
+writeFields U p

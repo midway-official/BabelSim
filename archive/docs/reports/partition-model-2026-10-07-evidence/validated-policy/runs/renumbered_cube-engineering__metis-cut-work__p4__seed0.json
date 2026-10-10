@@ -1,0 +1,110 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.6086895810003625,
+  "initialPartitionSeconds": 0.5976455159980105,
+  "exactBalanceSeconds": 0.011044065002352,
+  "quotaTransfers": 401,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.001046875,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 15286,
+  "memory": {
+    "beforeRSSBytes": 290381824,
+    "peakRSSBytes": 337960960,
+    "sampledRSSIncrementBytes": 47579136
+  },
+  "cutFaces": 15233,
+  "cutFacesPerPart": [
+    7874,
+    7404,
+    7640,
+    7548
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128000,
+    128000,
+    128000,
+    128000
+  ],
+  "ghostCellsPerPart": [
+    19257,
+    18994,
+    19024,
+    19248
+  ],
+  "firstLayerGhostsPerPart": [
+    6430,
+    6299,
+    6334,
+    6374
+  ],
+  "localCellsPerPart": [
+    147257,
+    146994,
+    147024,
+    147248
+  ],
+  "localFacesPerPart": [
+    451271,
+    450237,
+    450355,
+    451118
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    768000,
+    768000,
+    768000,
+    768000
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.001166401642613,
+  "localCellImbalance": 1.000858080312919,
+  "totalGhostCells": 76523,
+  "maxGhostCells": 19257,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 25437,
+  "threeLayerCommunicationVolume": 76523,
+  "cellStorageDuplication": 1.149458984375,
+  "faceStorageDuplication": 1.159324202674897,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "e976db9b44ef1fa232e8a06ab032e60ec19725a4f05aa2a2eec43b4214a3219c",
+  "status": "ok",
+  "graph": "renumbered_cube-engineering",
+  "graphSHA256": "a6b01e4fd28a59f3c6de19573af1fe089b52078371301722993f6dc0ddb68427",
+  "graphMetadata": {
+    "cells": 512000,
+    "components": 1,
+    "construction": "hex cube with scrambled cell IDs",
+    "family": "renumbered_cube",
+    "internalFaces": 1516800,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 38400,
+    "scale": "engineering",
+    "seed": 73021
+  },
+  "unixStarted": 1791378035.3030853,
+  "unixEnded": 1791378036.067855,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/renumbered_cube-engineering__metis-cut-work__p4__seed0.json"
+}

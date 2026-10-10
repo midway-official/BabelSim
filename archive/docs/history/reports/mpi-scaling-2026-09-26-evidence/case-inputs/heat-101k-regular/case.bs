@@ -1,0 +1,9 @@
+solver heat
+mesh mesh.mesh
+fields fields/initial
+physics physics/thermal.bs
+methods numerics/methods.bs
+solution numerics/solution.bs
+control control.bs
+output output.bs
+ghostLayers 3

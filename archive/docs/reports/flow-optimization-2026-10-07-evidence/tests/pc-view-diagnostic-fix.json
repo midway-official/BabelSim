@@ -1,0 +1,14 @@
+{
+  "scope": "diagnostic LD_PRELOAD observer only; never loaded by formal timing runs",
+  "supersededLog": "amg-policy-backend.log",
+  "failure": "rank-local KSP pointer reuse made participation in collective PCView differ across ranks",
+  "repair": "record the first collective Hypre setup once, without using local object addresses",
+  "productionCheck": "amg-policy-backend-plain-np4.log",
+  "observerChecks": [
+    "amg-policy-backend-fixed-observer-np1.log",
+    "amg-policy-backend-fixed-observer-np2.log",
+    "amg-policy-backend-fixed-observer-np4.log"
+  ],
+  "actualConfiguration": "policy-fixed-pc-view-{1,2,4}.txt in ../amg-strong-profiles",
+  "result": "all production and corrected observer checks passed; sequential CF and distributed natural ordering confirmed"
+}

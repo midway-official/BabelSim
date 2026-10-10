@@ -14,7 +14,7 @@
 ## 重建与运行
 
 1. 执行 python3 cases/planar_jet/generate_mesh.py
-2. 执行 mpirun -n 2 build-petsc/babelsim-solve -case cases/planar_jet
+2. 执行 mpirun -n 2 build/babelsim-solve -case cases/planar_jet
 3. 执行 python3 cases/planar_jet/plot_flow.py
 4. 执行 python3 cases/planar_jet/make_vorticity_gif.py，生成 60 帧、固定色标的涡量动画。
 

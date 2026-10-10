@@ -1,0 +1,116 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.04586771200411022,
+  "initialPartitionSeconds": 0.04543736300547607,
+  "exactBalanceSeconds": 0.00043034899863414466,
+  "quotaTransfers": 7,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0008680555555556,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 1309,
+  "memory": {
+    "beforeRSSBytes": 192643072,
+    "peakRSSBytes": 192643072,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 1310,
+  "cutFacesPerPart": [
+    653,
+    639,
+    651,
+    677
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    3456,
+    3456,
+    3456,
+    3456
+  ],
+  "ghostCellsPerPart": [
+    1767,
+    1812,
+    1765,
+    1818
+  ],
+  "firstLayerGhostsPerPart": [
+    565,
+    580,
+    566,
+    582
+  ],
+  "localCellsPerPart": [
+    5223,
+    5268,
+    5221,
+    5274
+  ],
+  "localFacesPerPart": [
+    16644,
+    16788,
+    16651,
+    16812
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    20736,
+    20736,
+    20736,
+    20736
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0052769265266461,
+  "localCellImbalance": 1.0052415896311826,
+  "totalGhostCells": 7162,
+  "maxGhostCells": 1818,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 2293,
+  "threeLayerCommunicationVolume": 7162,
+  "cellStorageDuplication": 1.5180844907407407,
+  "faceStorageDuplication": 1.5484953703703703,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "d28be962ee8e30ca1690b138da143d0e5ecf45e1d07e6b849994723691cfe9b6",
+  "status": "ok",
+  "graph": "hex_cube-small",
+  "graphSHA256": "a1c81a9c90e0a7ebd54c61e2c888a84f451400c1e08956a91c09e107950a4061",
+  "graphMetadata": {
+    "cells": 13824,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "hex_cube",
+    "graded": false,
+    "internalFaces": 39744,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 3456,
+    "rotated": false,
+    "scale": "small",
+    "shape": [
+      24,
+      24,
+      24
+    ]
+  },
+  "unixStarted": 1791377804.5814037,
+  "unixEnded": 1791377804.6583939,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/hex_cube-small__metis-cut-work__p4__seed0.json"
+}

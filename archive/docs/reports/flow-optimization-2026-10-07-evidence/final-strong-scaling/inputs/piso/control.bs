@@ -1,0 +1,3 @@
+startTime 0
+endTime 0.06
+deltaT 0.01

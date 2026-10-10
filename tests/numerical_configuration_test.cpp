@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 using namespace babelsim;
 namespace {
@@ -57,6 +58,8 @@ int main() {
         "equation.first.absoluteTolerance 1e-13\n"
         "equation.first.relativeTolerance 1e-7\n"
         "equation.first.maxIterations 300\n"
+        "equation.first.preconditionerRebuildInterval 5\n"
+        "equation.first.preconditionerReuseIterationGrowth 1.8\n"
         "equation.second.kspType cg\n"
         "equation.second.pcType icc\n"
         "equation.second.absoluteTolerance 1e-14\n"
@@ -73,6 +76,9 @@ int main() {
         require(first.linear.max_iterations==300 && first.linear.preconditioner==PreconditionerType::BlockJacobi &&
             first.linear.absolute_tolerance==1e-13 && first.linear.relative_tolerance==1e-7,
             "partial solver inheritance lost a parent member");
+        require(first.linear.preconditioner_rebuild_interval==5 &&
+            first.linear.preconditioner_reuse_iteration_growth==1.8,
+            "equation preconditioner reuse controls were not read");
         require(first.spatial.coefficientGradient==GradientMethod::LeastSquares &&
             first.spatial.gradient==GradientMethod::GreenGauss,"coefficient and unknown gradients were coupled");
         auto a=equ::createEquation(x,first), b=equ::createEquation(x,second);
@@ -120,6 +126,16 @@ int main() {
         problem.solution().requireAllUsed();
     }
     std::filesystem::remove_all(root);
+    {
+        LinearSolverConfig invalid;
+        invalid.preconditioner_rebuild_interval=0;
+        rejects([&]{invalid.validate();},"zero preconditioner rebuild interval accepted");
+        invalid.preconditioner_rebuild_interval=1;
+        invalid.preconditioner_reuse_iteration_growth=0.5;
+        rejects([&]{invalid.validate();},"iteration growth below one accepted");
+        invalid.preconditioner_reuse_iteration_growth=std::numeric_limits<double>::infinity();
+        rejects([&]{invalid.validate();},"infinite iteration growth accepted");
+    }
     {
         auto mesh=warpedMesh(); auto runtime=RunTime::forMesh(mesh);
         ScalarField x(mesh,FieldLocation::Cell,"x"), k(mesh,FieldLocation::Cell,"k");

@@ -1,0 +1,65 @@
+[
+  {
+    "variant": "optimized",
+    "case": "prism",
+    "ranks": 1,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/optimized/prism/ranks-1/repeat-01/run.json",
+    "inputSha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159"
+  },
+  {
+    "variant": "optimized",
+    "case": "prism",
+    "ranks": 12,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/optimized/prism/ranks-12/repeat-01/run.json",
+    "inputSha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159"
+  },
+  {
+    "variant": "optimized",
+    "case": "prism",
+    "ranks": 8,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/optimized/prism/ranks-8/repeat-01/run.json",
+    "inputSha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159"
+  },
+  {
+    "variant": "optimized",
+    "case": "voronoi",
+    "ranks": 1,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/optimized/voronoi/ranks-1/repeat-01/run.json",
+    "inputSha256": "362fa6b0bf3a0dbbd668e8ab537036d3ccc0689746bb3d746da6510ccec65ffe"
+  },
+  {
+    "variant": "optimized",
+    "case": "voronoi",
+    "ranks": 12,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/optimized/voronoi/ranks-12/repeat-01/run.json",
+    "inputSha256": "362fa6b0bf3a0dbbd668e8ab537036d3ccc0689746bb3d746da6510ccec65ffe"
+  },
+  {
+    "variant": "reference",
+    "case": "prism",
+    "ranks": 1,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/reference/prism/ranks-1/repeat-01/run.json",
+    "inputSha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159"
+  },
+  {
+    "variant": "reference",
+    "case": "prism",
+    "ranks": 12,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/reference/prism/ranks-12/repeat-01/run.json",
+    "inputSha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159"
+  },
+  {
+    "variant": "reference",
+    "case": "prism",
+    "ranks": 8,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/reference/prism/ranks-8/repeat-01/run.json",
+    "inputSha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159"
+  },
+  {
+    "variant": "reference",
+    "case": "voronoi",
+    "ranks": 8,
+    "originalRun": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-scaling/reference/voronoi/ranks-8/repeat-01/run.json",
+    "inputSha256": "362fa6b0bf3a0dbbd668e8ab537036d3ccc0689746bb3d746da6510ccec65ffe"
+  }
+]

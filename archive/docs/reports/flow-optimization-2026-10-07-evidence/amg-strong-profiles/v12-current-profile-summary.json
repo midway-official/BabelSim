@@ -1,0 +1,174 @@
+{
+  "status": "completed with successful PETSc finalization",
+  "scope": "full-program inclusive PETSc events, including first step; excluded from formal compute intervals",
+  "eventTimesCannotBeAdded": "nested events and independently maximal ranks",
+  "events": {
+    "BuildTwoSided": {
+      "count": 6,
+      "maxRankSeconds": 0.011106
+    },
+    "MatMult": {
+      "count": 5920,
+      "maxRankSeconds": 18.811
+    },
+    "MatSolve": {
+      "count": 766,
+      "maxRankSeconds": 0.82162
+    },
+    "MatLUFactorNum": {
+      "count": 4,
+      "maxRankSeconds": 0.02048
+    },
+    "MatILUFactorSym": {
+      "count": 1,
+      "maxRankSeconds": 0.005583
+    },
+    "MatConvert": {
+      "count": 10,
+      "maxRankSeconds": 0.10111
+    },
+    "MatAssemblyBegin": {
+      "count": 45,
+      "maxRankSeconds": 5.9617e-05
+    },
+    "MatAssemblyEnd": {
+      "count": 45,
+      "maxRankSeconds": 0.06201
+    },
+    "MatGetRowIJ": {
+      "count": 5,
+      "maxRankSeconds": 4.317e-06
+    },
+    "MatGetOrdering": {
+      "count": 1,
+      "maxRankSeconds": 0.00019491
+    },
+    "MatSetPreallCOO": {
+      "count": 4,
+      "maxRankSeconds": 0.20213
+    },
+    "MatSetValuesCOO": {
+      "count": 40,
+      "maxRankSeconds": 0.084649
+    },
+    "SFSetGraph": {
+      "count": 6,
+      "maxRankSeconds": 0.00058799
+    },
+    "SFSetUp": {
+      "count": 6,
+      "maxRankSeconds": 0.012498
+    },
+    "SFReduceBegin": {
+      "count": 24,
+      "maxRankSeconds": 0.00048408
+    },
+    "SFReduceEnd": {
+      "count": 24,
+      "maxRankSeconds": 0.00032224
+    },
+    "SFFetchOpBegin": {
+      "count": 2,
+      "maxRankSeconds": 2.482e-05
+    },
+    "SFFetchOpEnd": {
+      "count": 2,
+      "maxRankSeconds": 3.554e-06
+    },
+    "SFPack": {
+      "count": 5946,
+      "maxRankSeconds": 0.096739
+    },
+    "SFUnpack": {
+      "count": 5948,
+      "maxRankSeconds": 0.0022131
+    },
+    "VecDot": {
+      "count": 738,
+      "maxRankSeconds": 0.63007
+    },
+    "VecDotNorm2": {
+      "count": 369,
+      "maxRankSeconds": 0.64199
+    },
+    "VecTDot": {
+      "count": 10304,
+      "maxRankSeconds": 13.761
+    },
+    "VecNorm": {
+      "count": 6239,
+      "maxRankSeconds": 3.8703
+    },
+    "VecCopy": {
+      "count": 744,
+      "maxRankSeconds": 0.06353
+    },
+    "VecSet": {
+      "count": 5238,
+      "maxRankSeconds": 0.12151
+    },
+    "VecAXPY": {
+      "count": 9676,
+      "maxRankSeconds": 0.97126
+    },
+    "VecAYPX": {
+      "count": 4868,
+      "maxRankSeconds": 0.46596
+    },
+    "VecAXPBYCZ": {
+      "count": 738,
+      "maxRankSeconds": 0.13098
+    },
+    "VecWAXPY": {
+      "count": 738,
+      "maxRankSeconds": 0.10688
+    },
+    "VecScatterBegin": {
+      "count": 5920,
+      "maxRankSeconds": 0.28193
+    },
+    "VecScatterEnd": {
+      "count": 5920,
+      "maxRankSeconds": 5.6529
+    },
+    "KSPSetUp": {
+      "count": 20,
+      "maxRankSeconds": 0.009717
+    },
+    "KSPSolve": {
+      "count": 344,
+      "maxRankSeconds": 128.22
+    },
+    "PCSetUp": {
+      "count": 17,
+      "maxRankSeconds": 3.5616
+    },
+    "PCSetUpOnBlocks": {
+      "count": 34,
+      "maxRankSeconds": 0.010656
+    },
+    "PCApply": {
+      "count": 5604,
+      "maxRankSeconds": 95.54
+    },
+    "PCApplyOnBlocks": {
+      "count": 766,
+      "maxRankSeconds": 0.85158
+    }
+  },
+  "pcApplyShareOfKsp": 0.7451255654344097,
+  "tdotShareOfKsp": 0.107323350491343,
+  "priorDiagnosticFailure": "missing colon in -log_view filename caused PETSc finalization error 56; prior failed profiling run excluded",
+  "correctedOption": "-log_view :/absolute/path",
+  "files": [
+    {
+      "path": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/v12-prism12-petsc-log-fixed.txt",
+      "sha256": "e2ff26354c85a830a99649852c60710b0171af7b1306747a8de0c3edf8aa43eb"
+    },
+    {
+      "path": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/v12-prism12-fixed-stdout.log",
+      "sha256": "26a4073d10a5f696490f1cc11e1b93b0657a0495ebb79c9916414b9e24fa5cd2"
+    }
+  ],
+  "primarySource": "https://petsc.org/release/manual/profiling/"
+}

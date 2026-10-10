@@ -1,0 +1,114 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.2899976080079796,
+  "initialPartitionSeconds": 0.24368086700269487,
+  "exactBalanceSeconds": 0.04631674100528471,
+  "quotaTransfers": 285,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.001019647399351,
+  "rawComponentsPerPart": [
+    1,
+    2,
+    1,
+    1
+  ],
+  "nativeObjective": 2866,
+  "memory": {
+    "beforeRSSBytes": 318332928,
+    "peakRSSBytes": 318332928,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 2826,
+  "cutFacesPerPart": [
+    981,
+    1658,
+    2284,
+    729
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    91208,
+    91208,
+    91208,
+    91208
+  ],
+  "ghostCellsPerPart": [
+    2357,
+    4162,
+    5636,
+    1832
+  ],
+  "firstLayerGhostsPerPart": [
+    811,
+    1404,
+    1918,
+    616
+  ],
+  "localCellsPerPart": [
+    93565,
+    95370,
+    96844,
+    93040
+  ],
+  "localFacesPerPart": [
+    294354,
+    300488,
+    304721,
+    292665
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    2,
+    3,
+    1
+  ],
+  "ownedFaceIncidencesPerPart": [
+    547248,
+    547248,
+    547248,
+    547248
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0223581395504886,
+  "localCellImbalance": 1.0225886241186424,
+  "totalGhostCells": 13987,
+  "maxGhostCells": 5636,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 4749,
+  "threeLayerCommunicationVolume": 13987,
+  "cellStorageDuplication": 1.0383381940180685,
+  "faceStorageDuplication": 1.0408144736336684,
+  "componentsPerPart": [
+    1,
+    2,
+    1,
+    1
+  ],
+  "ownershipSHA256": "3f63c3544aff6b00108eb74b7e3e3d539692787ee71dd9396a63f2628e4831ff",
+  "status": "ok",
+  "graph": "branching_duct-engineering",
+  "graphSHA256": "30c03bb9bab24b1a93f9e7ea910e5ae4edebdf8fbdd28eba5c675c5908ab00e9",
+  "graphMetadata": {
+    "cells": 364832,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "branching_duct",
+    "graded": false,
+    "internalFaces": 1043516,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 101960,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      384,
+      384,
+      8
+    ]
+  },
+  "unixStarted": 1791377890.1627266,
+  "unixEnded": 1791377890.5322633
+}

@@ -1,0 +1,24 @@
+[midway:26700] MCW rank 2 bound to socket 0[core 2[hwt 0-1]]: [../../BB/../../../../../../../../..]
+[midway:26700] MCW rank 3 bound to socket 0[core 3[hwt 0-1]]: [../../../BB/../../../../../../../..]
+[midway:26700] MCW rank 4 bound to socket 0[core 4[hwt 0-1]]: [../../../../BB/../../../../../../..]
+[midway:26700] MCW rank 5 bound to socket 0[core 5[hwt 0-1]]: [../../../../../BB/../../../../../..]
+[midway:26700] MCW rank 6 bound to socket 0[core 6[hwt 0-1]]: [../../../../../../BB/../../../../..]
+[midway:26700] MCW rank 7 bound to socket 0[core 7[hwt 0-1]]: [../../../../../../../BB/../../../..]
+[midway:26700] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+[midway:26700] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+SIMPLE 1 mass=8.32281e-10 dU=1 rU=1 dP=3.33333 linP=3.43307e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 100 mass=2.8225e-12 dU=0.000782684 rU=0.00847831 dP=0.0117327 linP=7.64749e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 200 mass=1.07576e-12 dU=0.000400925 rU=0.00435994 dP=0.00344096 linP=7.5766e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 300 mass=4.34183e-13 dU=0.000247716 rU=0.002711 dP=0.00104207 linP=6.00908e-08 dTurb=0 rTurb=0 linear=ok converged=false
+SIMPLE 384 mass=2.64918e-13 dU=0.000169012 rU=0.00185803 dP=0.000481849 linP=5.95388e-08 dTurb=0 rTurb=0 linear=ok converged=false
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[57886,1],2]
+  Exit code:    2
+--------------------------------------------------------------------------

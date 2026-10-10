@@ -1,0 +1,16 @@
+PISO initialMass=5.42108e-13 initialUmax=6.67196
+PISO corrector=1 Umax=2.4529 coupling=0.000234114
+PISO corrector=20 Umax=4.0615 coupling=5.80356e-06
+kOmega iteration=1 rK=0.00150468 rOmega=0.0446096 kMinRaw=9.63548e-11 omegaMinRaw=1.49831 kMax=8.66012e-05 omegaMax=600300 mutMax=1.74341e-06 productionMax=0.0286092 omegaBoundedCells=0
+PISO 1 time=0.01 correctors=20 CoMax=220.654 CoMean=0.311689 accepted=false mass=3.49401e-14 dU=0.17985 rU=0.000154715 dP=7.11577 rCouplingFirst=0.000234114 rCoupling=5.80356e-06 linU=1 linP=9.90335e-10 dTurb=0.92518 rTurb=0.0446096 turbulenceSettled=false linear=ok converged=false
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[58097,1],1]
+  Exit code:    2
+--------------------------------------------------------------------------

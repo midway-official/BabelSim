@@ -1,0 +1,102 @@
+{
+  "algorithm": "rcb",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0015211699937935919,
+  "initialPartitionSeconds": 0.0014349389966810122,
+  "exactBalanceSeconds": 8.623099711257964e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 215060480,
+    "peakRSSBytes": 215060480,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 512,
+  "cutFacesPerPart": [
+    256,
+    256,
+    256,
+    256
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    800,
+    800,
+    800,
+    800
+  ],
+  "firstLayerGhostsPerPart": [
+    256,
+    256,
+    256,
+    256
+  ],
+  "localCellsPerPart": [
+    2848,
+    2848,
+    2848,
+    2848
+  ],
+  "localFacesPerPart": [
+    7618,
+    7618,
+    7618,
+    7618
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    10240,
+    10240,
+    10240,
+    10240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 3200,
+  "maxGhostCells": 800,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1024,
+  "threeLayerCommunicationVolume": 3200,
+  "cellStorageDuplication": 1.390625,
+  "faceStorageDuplication": 1.4170386904761905,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "1bd6ba07d0ca2f8625aff7bc3d3662b7a80486a579442d4dfd9bd1c576cf2b74",
+  "status": "ok",
+  "graph": "warped_prisms-small",
+  "graphSHA256": "766cb0295beda7a64f3a89c1182b6d2ed4d96459bbeddf19f66250fb581a9a58",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 19456,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 16,
+    "physicalFaces": 2048,
+    "scale": "small",
+    "warp": 0.15
+  },
+  "unixStarted": 1791372011.7777958,
+  "unixEnded": 1791372011.808175
+}

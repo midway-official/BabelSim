@@ -7,6 +7,7 @@
 #include <memory>
 
 namespace babelsim {
+namespace monitor { class Reporter; }
 struct RuntimeControl {
     Methods methods;
     TimeControl time;
@@ -50,6 +51,10 @@ private:
     // Case records result-writing as an I/O phase; it is not part of the
     // numerical solver counters or convergence decision.
     void recordOutput(double seconds);
+    // Observation only: time between completed generic reporter iterations,
+    // excluding output. The first iteration and all preceding setup are omitted.
+    void recordIteration();
+    friend class monitor::Reporter;
     // 性能快照属于 Case/Application 生命周期观测，不是 Physics Solver API。
     friend class Case;
     PerformanceCounters performance() const;

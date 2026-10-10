@@ -1,0 +1,108 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 0.39456771899131127,
+  "initialPartitionSeconds": 0.3038043739943532,
+  "exactBalanceSeconds": 0.09076334499695804,
+  "quotaTransfers": 284,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0010415753004123,
+  "nativeObjective": 3680,
+  "memory": {
+    "beforeRSSBytes": 351322112,
+    "peakRSSBytes": 369213440,
+    "sampledRSSIncrementBytes": 17891328
+  },
+  "cutFaces": 2219,
+  "cutFacesPerPart": [
+    2219,
+    754,
+    748,
+    717
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    91208,
+    91208,
+    91208,
+    91208
+  ],
+  "ghostCellsPerPart": [
+    5520,
+    1848,
+    1848,
+    1824
+  ],
+  "firstLayerGhostsPerPart": [
+    1840,
+    616,
+    616,
+    608
+  ],
+  "localCellsPerPart": [
+    96728,
+    93056,
+    93056,
+    93032
+  ],
+  "localFacesPerPart": [
+    304414,
+    292667,
+    292654,
+    292604
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    1,
+    1,
+    1
+  ],
+  "ownedFaceIncidencesPerPart": [
+    547248,
+    547248,
+    547248,
+    547248
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.029870451706321,
+  "localCellImbalance": 1.0293717010045973,
+  "totalGhostCells": 11040,
+  "maxGhostCells": 5520,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 3680,
+  "threeLayerCommunicationVolume": 11040,
+  "cellStorageDuplication": 1.0302605034646084,
+  "faceStorageDuplication": 1.032181381364603,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "2a27a1350c2b3cebe06616e84bc5e6d704ba47ef80e5af32b39b6a659c757129",
+  "status": "ok",
+  "graph": "branching_duct-engineering",
+  "graphSHA256": "30c03bb9bab24b1a93f9e7ea910e5ae4edebdf8fbdd28eba5c675c5908ab00e9",
+  "graphMetadata": {
+    "cells": 364832,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "branching_duct",
+    "graded": false,
+    "internalFaces": 1043516,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 101960,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      384,
+      384,
+      8
+    ]
+  },
+  "unixStarted": 1791373908.245386,
+  "unixEnded": 1791373908.7441416
+}

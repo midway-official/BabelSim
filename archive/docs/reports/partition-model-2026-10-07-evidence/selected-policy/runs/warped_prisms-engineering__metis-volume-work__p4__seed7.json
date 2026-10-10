@@ -1,0 +1,109 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.43260536700836383,
+  "initialPartitionSeconds": 0.4271063689957373,
+  "exactBalanceSeconds": 0.005498998012626544,
+  "quotaTransfers": 318,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.001043803764892,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 15610,
+  "memory": {
+    "beforeRSSBytes": 274468864,
+    "peakRSSBytes": 319688704,
+    "sampledRSSIncrementBytes": 45219840
+  },
+  "cutFaces": 8971,
+  "cutFacesPerPart": [
+    4477,
+    4684,
+    4329,
+    4452
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    125024,
+    125024,
+    125023,
+    125023
+  ],
+  "ghostCellsPerPart": [
+    12257,
+    12661,
+    11823,
+    12010
+  ],
+  "firstLayerGhostsPerPart": [
+    3959,
+    4060,
+    3802,
+    3837
+  ],
+  "localCellsPerPart": [
+    137281,
+    137685,
+    136846,
+    137033
+  ],
+  "localFacesPerPart": [
+    350067,
+    351087,
+    348911,
+    349449
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    625120,
+    625120,
+    625115,
+    625115
+  ],
+  "ownedCellImbalance": 1.0000039992481413,
+  "ownedFaceWorkImbalance": 1.0000039992481413,
+  "localFaceImbalance": 1.003454056193793,
+  "localCellImbalance": 1.0034527052264302,
+  "totalGhostCells": 48751,
+  "maxGhostCells": 12661,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 15658,
+  "threeLayerCommunicationVolume": 48751,
+  "cellStorageDuplication": 1.097483673069463,
+  "faceStorageDuplication": 1.1053643795844124,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "25c3b34424a52b5bbeab0086c4088fedddbebb24ee0f5e1fd97c38bfb07bd437",
+  "status": "ok",
+  "graph": "warped_prisms-engineering",
+  "graphSHA256": "2cf5cffce6f4f16e506e09b92d9600976f2f892ef693373c6b4157dd8a6ae4ab",
+  "graphMetadata": {
+    "cells": 500094,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 1234359,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 63,
+    "physicalFaces": 31752,
+    "scale": "engineering",
+    "warp": 0.15
+  },
+  "unixStarted": 1791377916.7595444,
+  "unixEnded": 1791377917.2945802
+}

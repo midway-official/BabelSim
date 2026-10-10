@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "files": 55,
+  "artifacts": 41,
+  "manifest": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/delivery-source/manifest.json",
+  "binarySha256": {
+    "reference": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2",
+    "optimized": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c"
+  }
+}

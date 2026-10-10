@@ -1,0 +1,14 @@
+{
+  "cells": 500094,
+  "parts": 12,
+  "csrMatches": true,
+  "weightsMatch": true,
+  "targetsMatch": true,
+  "rawOwnershipMismatch": 0,
+  "ownershipMismatch": 0,
+  "ownershipSha256": "c989dd364e0462a806dbaf31eb7342acf47ec09b00ff90cc988e30b2010362fc",
+  "quotaTransfers": 715,
+  "unsafeTransfers": 0,
+  "doubleNormalizationMatchesAllModelProblems": 52,
+  "solverSha256": "7a29412a574f912f6d67c7b3514b7aa15c60b854c222a455392ed977cb61a6b2"
+}

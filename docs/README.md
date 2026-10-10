@@ -1,184 +1,58 @@
-# BabelSim 文档中心
+# BabelSim 产品文档
 
-> 面向 CFD、PDE 与多物理场的紧凑 C++17 有限体积框架：显式组装方程，整场数学，构建期可替换计算后端。
+[项目首页](../README.md) · [用户手册](user-guide/README.md) · [配置参考](reference/README.md) · [开发指南](developer-guide/README.md) · [可运行示例](examples/README.md)
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
-[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](../README.md#构建与运行)
-[![MPI](https://img.shields.io/badge/MPI-3.x-orange.svg)](../README.md#构建与运行)
-[![PETSc](https://img.shields.io/badge/PETSc-3.x-1f6e8c.svg)](../README.md#构建与运行)
-[![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](../README.md#构建与运行)
-[![tests](https://img.shields.io/badge/tests-make%20test-brightgreen.svg)](validation.md)
+本目录是随 BabelSim 源码交付的现行产品文档，按使用、查询和开发任务组织。内容与当前源码一起维护；本轮接口核对日期为 2026-10-10。终端命令默认在项目根目录执行。
 
-BabelSim 用显式 face-based 的三维非结构 polyhedral 网格求解不可压流动、对流扩散与多物理场问题。框架把
-网格、场、离散算子、方程、运行时和计算后端切成可独立替换的层：Physics 只用公开的
-Case / Field / `math` / `equ` 接口写方程和算法循环，不接触 MPI、halo、CSR/LDU、Eigen 或
-Field 底层存储；这一边界由 `make test-architecture` 与 `make test-external` 自动守门。
+## 选择阅读路线
 
-本目录是文档总入口；项目简介、构建细节与完整命令见 [根 README](../README.md)。
-
-**目录**：[特性](#特性) · [快速开始](#快速开始) · [内置求解器](#内置求解器) ·
-[文档地图](#文档地图) · [目录结构](#目录结构) · [测试与验证](#测试与验证) ·
-[参与贡献](#参与贡献) · [文档约定](#文档约定) · [许可证](#许可证)
-
-## 特性
-
-- **网格与几何**：通用三维 polyhedral 网格、边界 patch 与 cell/face/vertex 拓扑；face 顶点数和
-  cell 面数可变，体积、逆体积、中心、面积向量、单位法向、正交系数、非正交修正向量、偏斜量与
-  插值权重在建网格时预计算。
-- **场与边界**：连续存储的 scalar/vector/tensor Field（cell/face），通用边界条件
-  （`fixedValue`、`fixedGradient`、`zeroGradient`、`inletOutlet`、`symmetry`、计算边界迹）。
-- **离散算子**：gradient、interpolation、flux、divergence、convection、diffusion、laplacian、
-  time derivative；支持 Least-Squares 梯度、修正 Green–Gauss、修正面插值、非正交扩散与偏斜重构。
-- **方程层**：`equ::` 显式组装——离散项立即写入绑定未知量的方程，`equ::solve` 只求解已组装
-  系统；时间历史由 `time::History` 显式推进，没有延迟表达式或第二套生命周期。
-- **线性代数**：PETSc Mat/Vec/KSP/PC 分布式稀疏求解；每个方程长期持有系统对象，矩阵模式、
-  矩阵更新、右端更新与重复求解分离。可配置 CG / BiCGSTAB / GMRES / FGMRES，以及
-  Block Jacobi、Hypre BoomerAMG 和 PETSc GAMG。
-- **并行**：`readDistributedMesh` 由 rank 0 解析原生 `.mesh`，并行层按单元邻接图构造每个 rank
-  的 owned+ghost 局部网格与 processor patch；每个 rank 只写出 owned cell 的结果。
-- **求解器**：稳态/瞬态不可压 SIMPLE、瞬态 PISO，Rhie–Chow 与压力修正留在各自求解器内部；
-  RANS 湍流（Wilcox 1988 k-ω、标准 k-ε、Spalart–Allmaras）经模型接口与动量方程耦合。
-- **输入输出**：原生 case / mesh / field 文件，通用并行结果写出，独立后处理生成
-  ParaView VTK XML（含 `series.pvd` 时间序列）与 Tecplot FEBRICK。
-- **可替换后端**：整组替换 `makeComputeBackend()` 工厂即可换掉默认 PETSc 装配与求解实现，
-  Physics 与离散源码不变；不承诺动态插件或稳定后端 ABI。
-
-## 快速开始
-
-依赖：C++17 编译器、PETSc MPI 构建、Eigen 3 与 GNU Make（默认面向 GCC 工具链：`mpic++` + `gcc-ar`）。
-
-```bash
-git clone git@github.com:midway-official/BabelSim.git
-cd BabelSim
-make -j4                                   # 构建 build-petsc/libbabelsim.a 与两个可执行程序
-
-build-petsc/babelsim-solve -case cases/cavity                      # 串行稳态方腔
-mpirun -np 4 build-petsc/babelsim-solve -case cases/poiseuille     # MPI 通道流
-mpirun -np 2 build-petsc/babelsim-solve -case cases/heat           # 瞬态热传导（同一份 Solver 源码）
-build-petsc/babelsim-post -case cases/heat -time all -format vtk   # 后处理：每个时刻的 VTK + series.pvd
-```
-
-默认 `make` 只构建、不跑测试；测试与验证必须显式调用 `make test*` / `make validate*`。
-`-time <名称>` 为每次运行命名，结果落在 `cases/<name>/results/<名称>/`，可直接用
-[`tools/compare_parallel_results.py`](../tools/compare_parallel_results.py) 比较不同进程数。
-
-## 内置求解器
-
-| 注册名 | 组织方式 | 说明 |
-|---|---|---|
-| `heat` | Equation-driven | 瞬态热传导；系数可以是常数或 cell 场 |
-| `transport` | Equation-driven | 标量对流-扩散 |
-| `simple` | Algorithm-driven | 稳态不可压 SIMPLE（`cases/cavity`、`cases/poiseuille`） |
-| `transientSimple` | Algorithm-driven | 瞬态 SIMPLE（`cases/naca0012`，配合 k-ω RANS） |
-| `piso` | Algorithm-driven | 瞬态 PISO（层流二维平面射流：[`cases/planar_jet`](../cases/planar_jet/README.md)） |
-
-每个求解器的控制方程、全部配置键（含默认值）、场与边界要求、收敛与失败语义，以及验证到
-什么程度、证据在哪，见 [内置求解器手册](solvers.md)。RANS 不做成独立求解器：由动量方程
-求解器读取 `physics` 字典里的 `turbulenceModel` 启用，线性配置统一为 `solution.bs` 中的
-`equation.<name>.*`，每个实际使用的方程都必须提供完整的线性参数。
-配置层级与迁移示例见 [按方程与算子配置](numerical-configuration.md)。
-
-## 文档地图
-
-| 想做什么 | 读哪份 |
-|---|---|
-| 写一个新求解器 / 查 DSL 算子、配置键、文件格式 | [DSL 与运行时用户手册](dsl-runtime-manual.md) |
-| 用内置求解器算题 / 查它的配置键与验证状态 | [内置求解器手册](solvers.md) |
-| 改框架分层、公开接口、离散或后端（维护者） | [架构与维护边界](architecture.md) |
-| 改动后跑哪些验证、验收标准是什么 | [验证与维护检查](validation.md) |
-| 性能测量工具、构建开关与 JSON 字段 | [性能工具说明](performance/README.md) |
-| 历史验证/性能证据（按时间归档，不代表当前接口） | [reports/](reports/) |
-
-- **[dsl-runtime-manual.md](dsl-runtime-manual.md)** — 唯一的使用者手册。含最小可运行 Solver、
-  Case 与全部配置键（`case.bs`、`physics`/`methods`/`solution`/`control`/`output`）、场文件与
-  网格文件格式、Field/geometry/math/equ 全部算子与语义、时间与历史、线性求解契约、诊断与监视、
-  结果与后处理、并行边界、内置求解器与 RANS、开发检查清单和当前格式迁移规则。
-- **[solvers.md](solvers.md)** — 内置求解器手册：`heat`/`transport`/`simple`/`transientSimple`/
-  `piso` 与 RANS 模块的方程、算法、配置键、场与边界、从构建到看图（`babelsim-post`）的完整
-  运行流程、验证证据与验证边界。
-- **[architecture.md](architecture.md)** — 面向框架维护者：层次与依赖禁令、所有权与生命周期、
-  DSL 契约、Solver 独立性、配置/报告边界、维护流程与验收命令。
-- **[validation.md](validation.md)** — 验证入口与最低验收线：串行/并行测试目标、工作流与外部
-  Solver 验证、MPI 一致性、架构门禁、新 Solver 的验证最低线。
-- **[performance/README.md](performance/README.md)** — `-performance` 输出、PETSc 后端计数器、
-  NACA0012 AMG 短程计时与计数器适用范围。
-
-历史证据存放在 `reports/`：案例验证（Ghia 方腔、Poiseuille）、框架审查（F1–F7）与实现映射、
-RANS 方程核对、MPI 一致性、后端性能优化，以及已移除的 GMRES 后端基准。它们保留原始数字与
-结论用于追溯；接口、配置键和性能数字**不保证**与当前版本一致，实现细节以用户手册和源码为准。
+| 你的任务 | 建议路线 |
+| --- | --- |
+| 第一次安装与使用 | [安装](user-guide/installation.md) → [首次运行](user-guide/quick-start.md) → [结果处理](user-guide/results-and-restart.md) |
+| 建立自己的计算 | [算例管理](user-guide/case-management.md) → [网格/边界](user-guide/mesh-and-boundaries.md) → [模型](user-guide/models.md) → [数值](user-guide/numerics.md) → [运行](user-guide/running-and-parallel.md) |
+| 编写或接入新求解器 | [架构](developer-guide/architecture.md) → [公开 API](developer-guide/public-api.md) → [完整开发示例](developer-guide/extending-solvers.md) → [验证](developer-guide/verification.md) |
+| 准备软件交付 | [安装](user-guide/installation.md) → [交付与验收](user-guide/delivery.md) → [文档维护](developer-guide/documentation.md) |
 
 ## 目录结构
 
 ```text
-include/babelsim/   公开头：mesh / field / geometry / math / equ / case / runtime / solver
-src/core            Mesh 存储、拓扑与几何缓存
-src/io              case / mesh / field 读取，结果写出与后处理，监视器
-src/discretization  离散算子、FVM 执行层、显式组装方程、Field 数学
-src/backend         PETSc 会话、索引映射、稀疏装配计划与长期线性系统
-src/parallel        MPI 上下文、halo 计划、并行结果写出
-src/runtime         RunTime、Solver API 桥接、Application 分派
-src/physics         内置求解器：heat / transport / simple / transient_simple / piso / RANS
-cases/              自包含算例：cavity、poiseuille、heat、transport、naca0012
-tests/              串行、并行、工作流、外部与架构门禁
-tools/              网格生成、并行结果比较、性能汇总、解析解验证脚本
-docs/               本目录：手册、架构、验证与归档报告
+docs/
+  README.md                  产品文档入口
+  user-guide/                完整用户手册，按 01—12 连续阅读
+  reference/                 命令行、字典、模型、数值与文件格式
+  developer-guide/           架构、API、扩展、验证和性能维护
+  examples/                  完整源码、输入生成器与自动验证
 ```
 
-## 测试与验证
+历史计划、审计、研究报告和冻结证据已单独归档到 `archive/docs/`（可选归档），交付手册不依赖这些旧记录。
 
-```bash
-make test                 # 几何、算子、case/field IO、Heat/标量输运/SIMPLE、通用输出
-make test-architecture    # 头依赖与分层门禁（Physics 不得越界依赖）
-make test-workflow        # 新 Solver 单函数开发、双场耦合、时间序列、ParaView 读取
-make test-external        # 仓库外 Solver 构建、1/2/4 进程、负向 API 编译、无 MPI 结果读取器
-make test-mpi             # MPI 网格、halo、算子、线性求解、SIMPLE 与标量输运
-make validate-cavity      # Re=100、二阶迎风的 Ghia 方腔快速回归
-make validate-poiseuille  # 收敛的 Poiseuille 解析解比较
-```
+## 用户手册
 
-方腔验证覆盖 Re=100…10000、网格与格式灵敏度，结果与 Ghia 等基准数据逐点对照：
+| 章节 | 主题 |
+| --- | --- |
+| 01 | [产品与工作流程](user-guide/overview.md) |
+| 02 | [安装与一键构建](user-guide/installation.md) |
+| 03 | [首次运行：热传导](user-guide/quick-start.md) |
+| 04 | [算例管理](user-guide/case-management.md) |
+| 05 | [网格与边界条件](user-guide/mesh-and-boundaries.md) |
+| 06 | [物理模型](user-guide/models.md) |
+| 07 | [数值设置与收敛](user-guide/numerics.md) |
+| 08 | [运行与并行计算](user-guide/running-and-parallel.md) |
+| 09 | [结果与继续计算](user-guide/results-and-restart.md) |
+| 10 | [详细操作示例](user-guide/tutorials.md) |
+| 11 | [故障排查](user-guide/troubleshooting.md) |
+| 12 | [交付、维护与验收](user-guide/delivery.md) |
 
-![Ghia 方腔中心线对比](reports/images/cavity/cavity-ghia-centrelines.png)
+## 查询与开发
 
-完整数据、算例与复现步骤见 [Ghia 方腔验证报告](reports/cavity-ghia-validation.md)。
+参数查询集中在[参考目录](reference/README.md)：[命令行](reference/command-line.md)、[算例字典](reference/dictionaries.md)、[物理参数](reference/physical-models.md)、[数值配置](reference/numerical-controls.md)、[文件格式](reference/file-formats.md)。
 
-## 参与贡献
+开发内容集中在[开发指南](developer-guide/README.md)：[架构](developer-guide/architecture.md)、[公开 API](developer-guide/public-api.md)、[新增求解器](developer-guide/extending-solvers.md)、[验证](developer-guide/verification.md)、[性能测量](developer-guide/performance.md)、[分区模型](developer-guide/partitioning.md)、[文档维护](developer-guide/documentation.md)。
 
-新增求解器不需要改框架：自己的一个 C++ 源文件、一行注册、通用 main 调用 `runApplication`。
-源码只需公开头；最终使用 MPI 编译器链接预编译库，并通过 PETSc `pkg-config --libs PETSc` 带上
-PETSc/MPI 链接依赖。
+[示例目录](examples/README.md)提供完整可执行文件：小型热/输运/流动算例生成、公开接口热求解器、双场耦合、独立 SDK 工程、单单元原生网格与自动验收。
 
-```cpp
-#include "babelsim/application.h"   // SolverRegistration / runApplication / SolverResult
-#include "babelsim/case.h"          // Case
-#include "babelsim/equ.h"           // equ::Equation 与离散项
-using namespace babelsim;
+## 文档使用约定
 
-SolverResult solveMyCase(Case& problem) {
-    ScalarField& U = problem.scalarField("U");
-    auto equation = equ::createEquation(problem, "momentum", U, {"diffusion"});
-    equ::laplacian(equation, 1.0, -1.0, "diffusion");     // 左端 -div(grad U)
-    equ::source(equation, 1.0);                           // 右端体源
-    if (!equ::solve(equation).converged()) return SolverResult::notConverged();
-    problem.output(U);
-    return SolverResult::completed();
-}
+操作教程提供直接可复制命令与预期产物；参考表给出准确参数与约束；开发指南解释数学和生命周期。示例通过表示其软件执行范围通过，物理精度仍需对应研究。模型与重启限制分别在相关章节明确说明。
 
-const SolverRegistration registration("mySolver", solveMyCase);
-int main(int argc, char** argv) { return runApplication(argc, argv); }
-```
-
-想成为内置命令，把同一份 `main.cpp` 放进 `src/physics/<name>/`，Makefile 自动收集，无需修改
-启动器名单、注册宏或 Solver 基类。提交前请至少跑通 `make test-architecture` 与 `make test`，
-改动框架分层或公开接口时按 [validation.md](validation.md) 补对应验证；改动离散或后端时请对照
-[architecture.md](architecture.md) 的分层约束。
-
-## 文档约定
-
-- 文档里的语义以 `include/babelsim/*.h` 为准；文档与头文件冲突时以头文件为准。
-- 每份验证/性能报告的格式：结论 → 算例与命令 → 数据表 → 复现步骤；数值结论必须可复现。
-- 归档报告只增不改：反映提交当时的接口与数字，是历史证据，不是当前契约。
-
-## 许可证
-
-MIT License，见 [LICENSE](../LICENSE)。
+接口以当前[公开头](../include/babelsim/)和实现为依据，文档检查覆盖链接、章节入口与 Make 目标，执行检查覆盖真实教程。依赖来源与安装脚本见[dependencies](../dependencies/README.md)，项目许可见[LICENSE](../LICENSE)。

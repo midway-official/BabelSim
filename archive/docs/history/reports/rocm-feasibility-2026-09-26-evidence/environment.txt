@@ -1,0 +1,105 @@
+Read-only inspection 2026-09-26. Missing probes can intentionally exit nonzero.
+
+$ ['uname', '-a']
+Linux midway 6.6.87.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+
+exit=0
+
+$ ['cat', '/etc/os-release']
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.5 LTS (Jammy Jellyfish)"
+VERSION_CODENAME=jammy
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+
+exit=0
+
+$ ['bash', '-c', 'command -v hipcc rocminfo rocm-smi; ls -ld /opt/rocm* /dev/dxg /dev/kfd /dev/dri 2>/dev/null']
+crw-rw-rw- 1 root root 10, 125 Sep 26 09:07 /dev/dxg
+
+exit=2
+
+$ ['bash', '-c', "dpkg -l | rg -i 'rocm|rocdxg|hip-runtime|hsa-rocr'"]
+
+exit=1
+
+$ ['powershell.exe', '-NoProfile', '-Command', 'Get-CimInstance Win32_Processor | Select-Object Name | Format-List; Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,PNPDeviceID | Format-List; Get-CimInstance Win32_OperatingSystem | Select-Object Version,BuildNumber | Format-List']
+
+
+Name : AMD RYZEN AI MAX+ 392 w/ Radeon 8060S          
+
+
+
+
+
+Name          : AMD Radeon(TM) 8060S Graphics
+DriverVersion : 32.0.22032.16001
+PNPDeviceID   : PCI\VEN_1002&DEV_1586&SUBSYS_17241043&REV_C3\4&35FE04F8&0&0041
+
+
+
+
+
+Version     : 10.0.26200
+BuildNumber : 26200
+
+
+
+
+exit=0
+
+$ ['free', '-h']
+               total        used        free      shared  buff/cache   available
+Mem:            11Gi       657Mi       9.2Gi       4.0Mi       1.7Gi        10Gi
+Swap:          3.0Gi          0B       3.0Gi
+
+exit=0
+
+$ ['bash', '-c', "rg 'PETSC_HAVE_(HIP|CUDA|HYPRE)|PETSC_USE_REAL' /home/midway/opt/petsc-3.25.5-openmpi-opt/include/petscconf.h; rg '^CONFIGURE_OPTIONS' /home/midway/opt/petsc-3.25.5-openmpi-opt/lib/petsc/conf/petscvariables"]
+#define PETSC_HAVE_HYPRE 1
+#define PETSC_USE_REAL_DOUBLE 1
+CONFIGURE_OPTIONS = --prefix=/home/midway/opt/petsc-3.25.5-openmpi-opt --with-debugging=0 --with-cc=mpicc --with-cxx=mpicxx --with-fc=mpifort --with-clanguage=c --with-blaslapack-lib=\"-L/usr/lib/x86_64-linux-gnu/openblas-pthread -lopenblas\" --download-hypre COPTFLAGS=\"-O3 -march=native -mtune=native\" CXXOPTFLAGS=\"-O3 -march=native -mtune=native\" FOPTFLAGS=\"-O3 -march=native -mtune=native\"
+
+exit=0
+
+$ ['ldd', 'build-petsc/babelsim-solve']
+	linux-vdso.so.1 (0x00007ffca1c80000)
+	libpetsc.so.3.25 => /home/midway/opt/petsc-3.25.5-openmpi-opt/lib/libpetsc.so.3.25 (0x0000723d82a00000)
+	libmpi.so.40 => /lib/x86_64-linux-gnu/libmpi.so.40 (0x0000723d828c9000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x0000723d82600000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x0000723d82519000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x0000723d846a1000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0000723d82200000)
+	libHYPRE-3.1.0.so => /home/midway/opt/petsc-3.25.5-openmpi-opt/lib/libHYPRE-3.1.0.so (0x0000723d81a00000)
+	libopenblas.so.0 => /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so.0 (0x0000723d7f5b0000)
+	libX11.so.6 => /lib/x86_64-linux-gnu/libX11.so.6 (0x0000723d7f470000)
+	libmpi_mpifh.so.40 => /lib/x86_64-linux-gnu/libmpi_mpifh.so.40 (0x0000723d84639000)
+	libgfortran.so.5 => /lib/x86_64-linux-gnu/libgfortran.so.5 (0x0000723d7f000000)
+	/lib64/ld-linux-x86-64.so.2 (0x0000723d84799000)
+	libopen-rte.so.40 => /lib/x86_64-linux-gnu/libopen-rte.so.40 (0x0000723d8245c000)
+	libopen-pal.so.40 => /lib/x86_64-linux-gnu/libopen-pal.so.40 (0x0000723d7f3bd000)
+	libhwloc.so.15 => /lib/x86_64-linux-gnu/libhwloc.so.15 (0x0000723d8286d000)
+	libxcb.so.1 => /lib/x86_64-linux-gnu/libxcb.so.1 (0x0000723d8460d000)
+	libquadmath.so.0 => /lib/x86_64-linux-gnu/libquadmath.so.0 (0x0000723d821b8000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x0000723d845ef000)
+	libevent_core-2.1.so.7 => /lib/x86_64-linux-gnu/libevent_core-2.1.so.7 (0x0000723d82838000)
+	libevent_pthreads-2.1.so.7 => /lib/x86_64-linux-gnu/libevent_pthreads-2.1.so.7 (0x0000723d845ea000)
+	libudev.so.1 => /lib/x86_64-linux-gnu/libudev.so.1 (0x0000723d82432000)
+	libXau.so.6 => /lib/x86_64-linux-gnu/libXau.so.6 (0x0000723d845e2000)
+	libXdmcp.so.6 => /lib/x86_64-linux-gnu/libXdmcp.so.6 (0x0000723d82830000)
+	libbsd.so.0 => /lib/x86_64-linux-gnu/libbsd.so.0 (0x0000723d821a0000)
+	libmd.so.0 => /lib/x86_64-linux-gnu/libmd.so.0 (0x0000723d82193000)
+
+exit=0
+
+$ ['git', 'rev-parse', 'HEAD']
+fa7d7c3d31f578f452182aa946344a06d249239c
+
+exit=0

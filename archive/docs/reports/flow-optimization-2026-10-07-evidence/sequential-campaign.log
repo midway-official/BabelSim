@@ -1,0 +1,9 @@
+WAITING FOR CURRENT PISO STUDY
+START strong-field-recovery
+FINISHED strong-field-recovery
+Traceback (most recent call last):
+  File "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/finish-sequential-studies.py", line 120, in <module>
+    main()
+  File "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/finish-sequential-studies.py", line 73, in main
+    assert len(fresh)==16 and all(r['sustainedSample'] for r in fresh)
+AssertionError

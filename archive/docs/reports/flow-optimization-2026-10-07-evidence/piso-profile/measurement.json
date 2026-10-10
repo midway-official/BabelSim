@@ -1,0 +1,9 @@
+{
+  "purpose": "bottleneck profiling, excluded from sustained timing comparison",
+  "cells": 500094,
+  "ranks": 4,
+  "acceptedSteps": 1,
+  "binary": "initial optimization, before RHS budget guard",
+  "petscOptions": "-log_view",
+  "finding": "PCApply 44.485s of KSPSolve 45.569s; CG scalar product and norm time are small. Do not enable a different CG recurrence without evidence of material savings."
+}

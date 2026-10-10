@@ -1,0 +1,40 @@
+[
+  {
+    "case": "piso",
+    "variant": "agg1",
+    "ranks": 1,
+    "samples": 1,
+    "sustainedSamples": 1,
+    "computeMedian": 127.13583965800001,
+    "computeMin": 127.13583965800001,
+    "computeMax": 127.13583965800001,
+    "speedup": 1.0,
+    "efficiency": 1.0,
+    "workMedian": 6,
+    "setups": 9,
+    "iterations": 2309,
+    "setupSeconds": 2.722267752,
+    "solveSeconds": 117.49288661300001,
+    "haloSeconds": 0,
+    "reductionSeconds": 0.005037046999999995
+  },
+  {
+    "case": "simple",
+    "variant": "agg1",
+    "ranks": 1,
+    "samples": 1,
+    "sustainedSamples": 1,
+    "computeMedian": 148.12217380500002,
+    "computeMin": 148.12217380500002,
+    "computeMax": 148.12217380500002,
+    "speedup": 1.0,
+    "efficiency": 1.0,
+    "workMedian": 128,
+    "setups": 59,
+    "iterations": 2631,
+    "setupSeconds": 6.649629900999997,
+    "solveSeconds": 104.38549763000012,
+    "haloSeconds": 0,
+    "reductionSeconds": 0.004649439999999995
+  }
+]

@@ -1,0 +1,113 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.00071906199445948,
+  "initialPartitionSeconds": 0.000681866004015319,
+  "exactBalanceSeconds": 3.7195990444161e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 195985408,
+    "peakRSSBytes": 195985408,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 546,
+  "cutFacesPerPart": [
+    272,
+    274,
+    276,
+    270
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    512,
+    512,
+    512,
+    512
+  ],
+  "ghostCellsPerPart": [
+    660,
+    703,
+    672,
+    693
+  ],
+  "firstLayerGhostsPerPart": [
+    195,
+    207,
+    199,
+    203
+  ],
+  "localCellsPerPart": [
+    1172,
+    1215,
+    1184,
+    1205
+  ],
+  "localFacesPerPart": [
+    5038,
+    5220,
+    5091,
+    5177
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    3980,
+    4004,
+    3980,
+    4004
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.003006012024048,
+  "localFaceImbalance": 1.0172464191756796,
+  "localCellImbalance": 1.0175879396984924,
+  "totalGhostCells": 2728,
+  "maxGhostCells": 703,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 804,
+  "threeLayerCommunicationVolume": 2728,
+  "cellStorageDuplication": 2.33203125,
+  "faceStorageDuplication": 2.4273888363292335,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "808bb2ddc8a209f0ed0add3e9ba38e94b809d7638c82d4b86cc1dd5122b9d62d",
+  "status": "ok",
+  "graph": "voronoi_prisms-small",
+  "graphSHA256": "9e1736ca33cbc0b9b26c1f94fe5a3707b60eb63e3fde172f17e1652159b6c50d",
+  "graphMetadata": {
+    "cells": 2048,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "voronoi_prisms",
+    "graded": false,
+    "internalFaces": 7512,
+    "layers": 8,
+    "maxCellFaces": 12,
+    "minCellFaces": 5,
+    "physicalFaces": 944,
+    "scale": "small",
+    "seed": 20261007,
+    "sites": 256
+  },
+  "unixStarted": 1791377820.970674,
+  "unixEnded": 1791377821.0018792,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/voronoi_prisms-small__morton-isotropic__p4__seed0.json"
+}

@@ -1,0 +1,68 @@
+{
+  "utc": "2026-10-09T09:39:15.947311+00:00",
+  "goalComplete": true,
+  "requirements": [
+    {
+      "requirement": "Research official solver and CFD algorithm sources before implementation",
+      "status": "verified",
+      "evidence": "docs/reports/cylinder-optimization-2026-10-09.md"
+    },
+    {
+      "requirement": "Preserve Case/IO, public math/equ and backend boundaries; retain original time-history and true-residual contracts",
+      "status": "verified",
+      "evidence": [
+        "v3-build.json",
+        "compiled-source-audit.json",
+        "full-regression-v3.log",
+        "piso-coupling-v3-retry.log"
+      ],
+      "note": "New optional initialization control added; no production delivery until its checks finish."
+    },
+    {
+      "requirement": "Same-input cylinder software A/B; three repeated 100-step measurements and complete final fields at t=1",
+      "status": "verified",
+      "evidence": [
+        "formal-ab/records.json",
+        "formal-ab/field-validation.json"
+      ]
+    },
+    {
+      "requirement": "Separate settings gains from software gains; validate grouping and correction candidates with the original numerical budget",
+      "status": "verified",
+      "evidence": [
+        "group8-t1-validation-01.json",
+        "group8-t1-validation-02.json",
+        "group8-t1-validation-03.json",
+        "v3-fixed-init-n0-t1-validation.json"
+      ]
+    },
+    {
+      "requirement": "Engineering-scale PISO speed and field equivalence on both frozen mesh families with sustained samples",
+      "status": "verified",
+      "evidence": [
+        "engineering-ab/field-validation.json",
+        "engineering-v3/records.json",
+        "engineering-v3/field-validation.json"
+      ]
+    },
+    {
+      "requirement": "Choose efficient validated cylinder settings and process count for the formal dt=0.01 calculation",
+      "status": "verified",
+      "evidence": [
+        "rank-selection-v3.json",
+        "v3-fixed-init-n0-t1-validation.json"
+      ],
+      "note": "8 ranks selected; 1/2/4 slower and outside the stated field budget, excluded."
+    },
+    {
+      "requirement": "Deliver production build, complete immutable input, report measured gains and limits, and restart the authorized formal calculation",
+      "status": "verified",
+      "evidence": [
+        "production-v3-build.json",
+        "formal-delivery.json",
+        "formal-t1-equivalence.json"
+      ],
+      "note": "Optimization delivered and authorized formal simulation restarted; t=120 completion and physical validation remain separate."
+    }
+  ]
+}

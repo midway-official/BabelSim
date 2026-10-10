@@ -1,0 +1,66 @@
+[
+  {
+    "algorithm": "metis-cut",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 0.9317334788103766,
+    "worstGhostRatio": 1.0562347188264058,
+    "maxOwnedFaceWorkImbalance": 1.2672413793103448,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "metis-volume-contig",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 0.9446564311742105,
+    "worstGhostRatio": 1.0733496332518337,
+    "maxOwnedFaceWorkImbalance": 1.1896551724137931,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "metis-cut-work",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 0.9473965357056531,
+    "worstGhostRatio": 1.0415647921760391,
+    "maxOwnedFaceWorkImbalance": 1.1896551724137931,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "metis-volume-work",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 0.9519124627070443,
+    "worstGhostRatio": 1.1858190709046454,
+    "maxOwnedFaceWorkImbalance": 1.1896551724137931,
+    "maxComponentsPerPart": 7
+  },
+  {
+    "algorithm": "rcb",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 0.9587444877925649,
+    "worstGhostRatio": 1.0562347188264058,
+    "maxOwnedFaceWorkImbalance": 1.1637931034482758,
+    "maxComponentsPerPart": 3
+  },
+  {
+    "algorithm": "rib",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 0.9963909425378262,
+    "worstGhostRatio": 1.1382113821138211,
+    "maxOwnedFaceWorkImbalance": 1.1896551724137931,
+    "maxComponentsPerPart": 4
+  },
+  {
+    "algorithm": "graph-growth",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 1.0,
+    "worstGhostRatio": 1.0,
+    "maxOwnedFaceWorkImbalance": 1.1896551724137931,
+    "maxComponentsPerPart": 4
+  },
+  {
+    "algorithm": "morton",
+    "comparisons": 8,
+    "geometricMeanGhostRatio": 1.1478089948461454,
+    "worstGhostRatio": 1.5254237288135593,
+    "maxOwnedFaceWorkImbalance": 1.1379310344827587,
+    "maxComponentsPerPart": 3
+  }
+]

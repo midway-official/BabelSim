@@ -1,0 +1,8 @@
+{
+  "makefileSha256": "01a0e544294e4af7b565af6c92171a7a7b0723fc9d1f8c97f3b367dda84d1f4f",
+  "optimizationFlags": "-O3 -march=native -mtune=native -flto=auto -ffat-lto-objects -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG",
+  "compilerFlags": "-std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1",
+  "compiler": "mpic++",
+  "archiveTool": "gcc-ar",
+  "backendDefaults": {}
+}

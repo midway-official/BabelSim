@@ -1,0 +1,11 @@
+DIAGNOSTIC KSP reason=2 iterations=5 recurrence=3.10399e-11 true=3.104e-11
+heat time=0.01 residual=4.84999e-12
+DIAGNOSTIC KSP reason=2 iterations=5 recurrence=7.82604e-11 true=7.82604e-11
+heat time=0.02 residual=9.57524e-12
+DIAGNOSTIC KSP reason=2 iterations=5 recurrence=2.71671e-10 true=2.71671e-10
+heat time=0.03 residual=3.08685e-11
+DIAGNOSTIC KSP reason=2 iterations=5 recurrence=4.6187e-10 true=4.6187e-10
+heat time=0.04 residual=5.07489e-11
+DIAGNOSTIC KSP reason=2 iterations=5 recurrence=5.00816e-10 true=5.00816e-10
+heat time=0.05 residual=5.3925e-11
+

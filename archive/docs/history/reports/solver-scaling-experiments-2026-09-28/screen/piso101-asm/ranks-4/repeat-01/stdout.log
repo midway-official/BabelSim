@@ -1,0 +1,27 @@
+[midway:329505] MCW rank 0 bound to socket 0[core 0[hwt 0-1]]: [BB/../../../../../../../../../../..]
+[midway:329505] MCW rank 1 bound to socket 0[core 1[hwt 0-1]]: [../BB/../../../../../../../../../..]
+[midway:329505] MCW rank 2 bound to socket 0[core 2[hwt 0-1]]: [../../BB/../../../../../../../../..]
+[midway:329505] MCW rank 3 bound to socket 0[core 3[hwt 0-1]]: [../../../BB/../../../../../../../..]
+PISO corrector=1 Umax=1.20865 coupling=0.456642
+PISO corrector=2 Umax=1.10019 coupling=0.0212228
+PISO 1 time=0.01 correctors=2 CoMax=0.828808 CoMean=0.744758 accepted=true mass=4.79191e-12 dU=1 rU=1 dP=1.84887 rCouplingFirst=0.456642 rCoupling=0.0212228 linU=7.89018e-10 linP=7.59136e-10 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=false
+PISO corrector=1 Umax=1.09295 coupling=0.0263451
+PISO corrector=2 Umax=1.08704 coupling=0.00269246
+PISO corrector=1 Umax=1.08723 coupling=0.00256661
+PISO corrector=2 Umax=1.08528 coupling=0.000347596
+PISO corrector=1 Umax=1.0847 coupling=0.000437297
+PISO corrector=2 Umax=1.08485 coupling=4.73469e-05
+PISO corrector=1 Umax=1.0849 coupling=6.51655e-05
+PISO corrector=2 Umax=1.08486 coupling=6.51294e-06
+PISO 5 time=0.01 correctors=2 CoMax=0.827926 CoMean=0.744278 accepted=true mass=8.54496e-11 dU=0.00014202 rU=0.000107639 dP=0.000134935 rCouplingFirst=6.51655e-05 rCoupling=6.51294e-06 linU=3.03576e-09 linP=9.10386e-09 dTurb=0 rTurb=0 turbulenceSettled=true linear=ok converged=false
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[36214,1],1]
+  Exit code:    2
+--------------------------------------------------------------------------

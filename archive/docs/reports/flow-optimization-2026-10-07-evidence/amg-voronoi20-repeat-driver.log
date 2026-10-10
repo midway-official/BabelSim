@@ -1,0 +1,16 @@
+RUN variant=optimized case=voronoi ranks=1 repeat=1
+DONE status=converged compute=460.538s work=20 sustained=True
+RUN variant=reference case=voronoi ranks=1 repeat=1
+DONE status=converged compute=912.372s work=20 sustained=True
+RUN variant=optimized case=voronoi ranks=12 repeat=1
+DONE status=converged compute=83.695s work=20 sustained=True
+RUN variant=reference case=voronoi ranks=12 repeat=1
+DONE status=converged compute=185.438s work=20 sustained=True
+RUN variant=reference case=voronoi ranks=12 repeat=2
+DONE status=converged compute=184.684s work=20 sustained=True
+RUN variant=reference case=voronoi ranks=1 repeat=2
+DONE status=converged compute=923.242s work=20 sustained=True
+RUN variant=optimized case=voronoi ranks=12 repeat=2
+DONE status=converged compute=86.410s work=20 sustained=True
+RUN variant=optimized case=voronoi ranks=1 repeat=2
+DONE status=converged compute=472.664s work=20 sustained=True

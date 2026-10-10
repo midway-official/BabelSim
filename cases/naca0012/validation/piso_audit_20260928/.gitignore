@@ -1,0 +1,5 @@
+# Keep full CFD fields locally; commit compact logs/configuration and the audit.
+*/results/
+/solver-before
+/solver-absolute
+/solver-no-stress

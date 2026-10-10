@@ -1,0 +1,104 @@
+{
+  "algorithm": "rcb",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0006255459884414449,
+  "initialPartitionSeconds": 0.0005703079950762913,
+  "exactBalanceSeconds": 5.523799336515367e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 257114112,
+    "peakRSSBytes": 257114112,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 40,
+  "cutFacesPerPart": [
+    18,
+    22,
+    14,
+    26
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "ghostCellsPerPart": [
+    48,
+    46,
+    36,
+    46
+  ],
+  "firstLayerGhostsPerPart": [
+    12,
+    14,
+    8,
+    16
+  ],
+  "localCellsPerPart": [
+    64,
+    62,
+    52,
+    62
+  ],
+  "localFacesPerPart": [
+    290,
+    283,
+    244,
+    283
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    116,
+    116,
+    114,
+    118
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0172413793103448,
+  "localFaceImbalance": 1.0545454545454545,
+  "localCellImbalance": 1.0666666666666667,
+  "totalGhostCells": 176,
+  "maxGhostCells": 48,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 50,
+  "threeLayerCommunicationVolume": 176,
+  "cellStorageDuplication": 3.75,
+  "faceStorageDuplication": 3.793103448275862,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "8f3fb7e04ec6023b3593da66fce234cdee10ee4c72e053a4d875c907c4cc63b2",
+  "status": "ok",
+  "graph": "voronoi_prisms-fixture",
+  "graphSHA256": "960ec09e0527f6770add78a181a10fedbe714c1a51b84f55d877c36736a04eea",
+  "graphMetadata": {
+    "cells": 64,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "voronoi_prisms",
+    "graded": false,
+    "internalFaces": 174,
+    "layers": 2,
+    "maxCellFaces": 10,
+    "minCellFaces": 5,
+    "physicalFaces": 116,
+    "scale": "fixture",
+    "seed": 20261007,
+    "sites": 32
+  },
+  "unixStarted": 1791371878.1221552,
+  "unixEnded": 1791371878.1573281
+}

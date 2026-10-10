@@ -8,3 +8,4 @@ kOmegaSigmaK 0.5
 kOmegaSigmaOmega 0.5
 kMin 1.0e-12
 omegaMin 1.0e-10
+maxTurbulentViscosityRatio 1.0e5

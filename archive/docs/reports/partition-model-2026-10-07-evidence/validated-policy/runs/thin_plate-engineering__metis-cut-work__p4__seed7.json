@@ -1,0 +1,116 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.08415848000731785,
+  "initialPartitionSeconds": 0.08271634401171468,
+  "exactBalanceSeconds": 0.0014421359956031665,
+  "quotaTransfers": 114,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0010308159722223,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 899,
+  "memory": {
+    "beforeRSSBytes": 306085888,
+    "peakRSSBytes": 306085888,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 894,
+  "cutFacesPerPart": [
+    424,
+    424,
+    421,
+    519
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    36864,
+    36864,
+    36864,
+    36864
+  ],
+  "ghostCellsPerPart": [
+    1183,
+    1148,
+    1169,
+    1407
+  ],
+  "firstLayerGhostsPerPart": [
+    401,
+    396,
+    396,
+    482
+  ],
+  "localCellsPerPart": [
+    38047,
+    38012,
+    38033,
+    38271
+  ],
+  "localFacesPerPart": [
+    152594,
+    152469,
+    152549,
+    153526
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    2,
+    2,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    221184,
+    221184,
+    221184,
+    221184
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0048532410028503,
+  "localCellImbalance": 1.0047321200028878,
+  "totalGhostCells": 4907,
+  "maxGhostCells": 1407,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1675,
+  "threeLayerCommunicationVolume": 4907,
+  "cellStorageDuplication": 1.0332777235243056,
+  "faceStorageDuplication": 1.0347888220632857,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "deee5bad8d75fdb7bed3e52c881d33c8ed3d767c19ea66c4de2051a4163b846a",
+  "status": "ok",
+  "graph": "thin_plate-engineering",
+  "graphSHA256": "70f70f79d07bf8f21bdb516a5e10625c5b135d8d61865e5467856f9f78004a6a",
+  "graphMetadata": {
+    "cells": 147456,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "thin_plate",
+    "graded": false,
+    "internalFaces": 294144,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 296448,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      384,
+      384,
+      1
+    ]
+  },
+  "unixStarted": 1791377849.6683547,
+  "unixEnded": 1791377849.7948813,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/thin_plate-engineering__metis-cut-work__p4__seed7.json"
+}

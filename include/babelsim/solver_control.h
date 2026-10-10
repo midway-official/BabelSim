@@ -46,6 +46,8 @@ struct EquationPerformanceCounters {
     std::uint64_t linear_solves = 0;
     std::uint64_t krylov_iterations = 0;
     std::uint64_t preconditioner_setups = 0;
+    std::uint64_t preconditioner_reuses = 0;
+    std::uint64_t preconditioner_retries = 0;
     std::uint64_t true_residual_checks = 0;
     double last_initial_residual = 0.0;
     double last_final_residual = 0.0;
@@ -73,10 +75,14 @@ struct PerformanceCounters {
     std::uint64_t rhs_only_solves = 0;
     std::uint64_t true_residual_checks = 0;
     std::uint64_t preconditioner_setups = 0;
+    std::uint64_t preconditioner_reuses = 0;
+    std::uint64_t preconditioner_retries = 0;
     std::uint64_t preconditioner_applications = 0;
     // Result I/O is recorded separately from numerical work so one-time and
     // per-write costs are not mistaken for Krylov or assembly hotspots.
     std::uint64_t output_writes = 0;
+    std::uint64_t reported_iteration_intervals = 0;
+    double iteration_compute_seconds = 0.0;
     double elapsed_seconds = 0.0;
     double assembly_seconds = 0.0;
     double pattern_build_seconds = 0.0;
@@ -105,8 +111,12 @@ struct PerformanceCounters {
         rhs_only_solves += other.rhs_only_solves;
         true_residual_checks += other.true_residual_checks;
         preconditioner_setups += other.preconditioner_setups;
+        preconditioner_reuses += other.preconditioner_reuses;
+        preconditioner_retries += other.preconditioner_retries;
         preconditioner_applications += other.preconditioner_applications;
         output_writes += other.output_writes;
+        reported_iteration_intervals += other.reported_iteration_intervals;
+        iteration_compute_seconds += other.iteration_compute_seconds;
         elapsed_seconds += other.elapsed_seconds;
         assembly_seconds += other.assembly_seconds;
         pattern_build_seconds += other.pattern_build_seconds;
@@ -134,6 +144,8 @@ struct PerformanceCounters {
                 target->linear_solves += source.linear_solves;
                 target->krylov_iterations += source.krylov_iterations;
                 target->preconditioner_setups += source.preconditioner_setups;
+                target->preconditioner_reuses += source.preconditioner_reuses;
+                target->preconditioner_retries += source.preconditioner_retries;
                 target->true_residual_checks += source.true_residual_checks;
                 target->last_initial_residual = source.last_initial_residual;
                 target->last_final_residual = source.last_final_residual;
@@ -157,8 +169,13 @@ struct LinearSolverConfig {
     double relative_tolerance = 1e-8;
     int max_iterations = 1000;
     bool warm_start = false;
-    // GAMG hierarchy controls; Hypre uses its native defaults unless PETSc
-    // options are explicitly added to the case-level typed configuration.
+    // Always update A. Bound PC matrix age and nontrivial RHS work; unchanged
+    // matrix RHS-only calls do not trigger period rebuilds. Rebuild sooner
+    // after iteration growth, and retry a failed lagged solve once.
+    int preconditioner_rebuild_interval = 8;
+    double preconditioner_reuse_iteration_growth = 2.0;
+    // GAMG hierarchy controls. Hypre's CPU hierarchy uses HMIS, bounded
+    // extended interpolation and symmetric smoothing in the backend.
     int amg_max_levels = 12;
     int amg_coarse_size = 48;
     int amg_smoothing_steps = 2;
@@ -170,6 +187,8 @@ inline bool operator==(const LinearSolverConfig& a, const LinearSolverConfig& b)
     return a.solver==b.solver && a.preconditioner==b.preconditioner &&
         a.absolute_tolerance==b.absolute_tolerance && a.relative_tolerance==b.relative_tolerance &&
         a.max_iterations==b.max_iterations && a.warm_start==b.warm_start &&
+        a.preconditioner_rebuild_interval==b.preconditioner_rebuild_interval &&
+        a.preconditioner_reuse_iteration_growth==b.preconditioner_reuse_iteration_growth &&
         a.amg_max_levels==b.amg_max_levels && a.amg_coarse_size==b.amg_coarse_size &&
         a.amg_smoothing_steps==b.amg_smoothing_steps;
 }

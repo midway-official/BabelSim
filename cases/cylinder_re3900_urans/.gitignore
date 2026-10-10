@@ -1,0 +1,4 @@
+/validation/
+/mesh/gmsh.log
+/mesh/outer.geo
+/mesh/outer.msh

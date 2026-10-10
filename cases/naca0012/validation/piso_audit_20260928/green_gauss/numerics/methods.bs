@@ -1,0 +1,21 @@
+time bdf2
+
+equation.momentum.interpolation linear
+equation.momentum.gradient greenGauss
+equation.momentum.convection linearUpwind
+equation.momentum.diffusion limitedCorrected
+
+equation.pressureCorrection.interpolation linear
+equation.pressureCorrection.gradient greenGauss
+equation.pressureCorrection.convection upwind
+equation.pressureCorrection.diffusion limitedCorrected
+
+equation.kTransport.interpolation linear
+equation.kTransport.gradient greenGauss
+equation.kTransport.convection upwind
+equation.kTransport.diffusion limitedCorrected
+
+equation.omegaTransport.interpolation linear
+equation.omegaTransport.gradient greenGauss
+equation.omegaTransport.convection upwind
+equation.omegaTransport.diffusion limitedCorrected

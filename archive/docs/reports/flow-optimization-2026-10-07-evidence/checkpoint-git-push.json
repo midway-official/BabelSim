@@ -1,0 +1,24 @@
+{
+  "verifiedUtc": "2026-10-08T07:14:31.192445+00:00",
+  "commit": "78b712ef24704d14fc64cbcba3b4f9f7cbd2c438",
+  "parent": "83d7b72757f7f9af2db1a01a097389f86c296117",
+  "branch": "codex/polyhedral-fvm",
+  "remote": "git@github.com:midway-official/BabelSim.git",
+  "remoteRef": "refs/heads/codex/polyhedral-fvm",
+  "remoteCommit": "78b712ef24704d14fc64cbcba3b4f9f7cbd2c438",
+  "remoteVerification": "git ls-remote --heads origin refs/heads/codex/polyhedral-fvm",
+  "pushExitCode": 0,
+  "productionBinarySha256": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c",
+  "stagedFiles": 4924,
+  "numericalTestContinued": true,
+  "overlappingStudy": "amg-voronoi20-strong-scaling",
+  "overlappingJob": {
+    "variant": "reference",
+    "caseLabel": "voronoi",
+    "ranks": 1,
+    "repeat": 1
+  },
+  "gitCpuAffinity": "logical CPU 2; pack.threads=1",
+  "hostActivityNote": "User-requested checkpoint preparation, commit and push overlapped a sequential reference serial measurement. The measured solver binary and inputs were unchanged. Do not treat this sample as an isolated idle-host result; retain it and use preplanned serial and 12-rank repetitions.",
+  "scope": "Framework optimizations and completed evidence; live study files and unrelated work excluded."
+}

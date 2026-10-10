@@ -1,0 +1,80 @@
+[
+  {
+    "label": "cg-single-reduction-1",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/reference/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/optimized/prism/ranks-12/repeat-01/results/benchmark-r12-n01/0.1",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.1,
+    "cells": 1024000,
+    "referenceFieldsSha256": "97bd9dda6995ef83f1eed599207dc6ef1c986d1b4094f32eeb4c89b62c582ef4",
+    "candidateFieldsSha256": "af585284e076702b500e90cce3e5859e456f9410d018c263050296b92a84875d",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 1.1102230246251565e-15,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.3322676295501878e-14,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "cg-single-reduction-2",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/reference/prism/ranks-12/repeat-02/results/benchmark-r12-n02/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/optimized/prism/ranks-12/repeat-02/results/benchmark-r12-n02/0.1",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.1,
+    "cells": 1024000,
+    "referenceFieldsSha256": "97bd9dda6995ef83f1eed599207dc6ef1c986d1b4094f32eeb4c89b62c582ef4",
+    "candidateFieldsSha256": "af585284e076702b500e90cce3e5859e456f9410d018c263050296b92a84875d",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 1.1102230246251565e-15,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.3322676295501878e-14,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "cg-single-reduction-3",
+    "reference": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/reference/prism/ranks-12/repeat-03/results/benchmark-r12-n03/0.1",
+    "candidate": "/home/midway/babelsim-flow-opt-20261007/field-archive/cg-single-reduction-screen/optimized/prism/ranks-12/repeat-03/results/benchmark-r12-n03/0.1",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.1,
+    "cells": 1024000,
+    "referenceFieldsSha256": "97bd9dda6995ef83f1eed599207dc6ef1c986d1b4094f32eeb4c89b62c582ef4",
+    "candidateFieldsSha256": "af585284e076702b500e90cce3e5859e456f9410d018c263050296b92a84875d",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 1.1102230246251565e-15,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.3322676295501878e-14,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "gridN": 80,
+  "cells": 1024000,
+  "vertices": 531441,
+  "faces": 2585600,
+  "warpFraction": 0.15,
+  "case": "/tmp/babelsim-mpi-study/prism-n80-warped",
+  "meshBytes": 143132662
+}

@@ -1,0 +1,17 @@
+RUN case=naca-hypre ranks=4 repeat=0
+DONE status=converged compute=9.792145953
+RUN case=naca-gamg1 ranks=4 repeat=0
+DONE status=converged compute=19.321368879
+RUN case=naca-gamg1 ranks=4 repeat=1
+DONE status=converged compute=17.422381292
+RUN case=naca-hypre ranks=4 repeat=1
+DONE status=converged compute=9.557863288000002
+RUN case=naca-gamg1 ranks=4 repeat=2
+DONE status=converged compute=17.355713287
+RUN case=naca-hypre ranks=4 repeat=2
+DONE status=converged compute=9.388365487000002
+RUN case=naca-gamg1 ranks=4 repeat=3
+DONE status=converged compute=16.94559787
+RUN case=naca-hypre ranks=4 repeat=3
+DONE status=converged compute=9.499420852000002
+Completed 8 runs; 0 did not converge. Evidence: /home/midway/BabelSim/docs/reports/solver-scaling-experiments-2026-09-28/naca

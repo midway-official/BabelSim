@@ -1,0 +1,104 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.02358223299961537,
+  "initialPartitionSeconds": 0.02350037801079452,
+  "exactBalanceSeconds": 8.185498882085085e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": 566,
+  "memory": {
+    "beforeRSSBytes": 215650304,
+    "peakRSSBytes": 215650304,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 566,
+  "cutFacesPerPart": [
+    252,
+    288,
+    306,
+    286
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    512,
+    512,
+    512,
+    512
+  ],
+  "ghostCellsPerPart": [
+    483,
+    595,
+    703,
+    543
+  ],
+  "firstLayerGhostsPerPart": [
+    132,
+    153,
+    147,
+    134
+  ],
+  "localCellsPerPart": [
+    995,
+    1107,
+    1215,
+    1055
+  ],
+  "localFacesPerPart": [
+    4330,
+    4853,
+    5342,
+    4645
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    3971,
+    4031,
+    3984,
+    3982
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0097695390781563,
+  "localFaceImbalance": 1.1146583202921232,
+  "localCellImbalance": 1.111619396157365,
+  "totalGhostCells": 2324,
+  "maxGhostCells": 703,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 566,
+  "threeLayerCommunicationVolume": 2324,
+  "cellStorageDuplication": 2.134765625,
+  "faceStorageDuplication": 2.2670293282876064,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "38a480733216ebc11ab13ef5e7725f6ddd56ce56ac48d401246c493a3ce988c3",
+  "status": "ok",
+  "graph": "voronoi_prisms-small",
+  "graphSHA256": "9e1736ca33cbc0b9b26c1f94fe5a3707b60eb63e3fde172f17e1652159b6c50d",
+  "graphMetadata": {
+    "cells": 2048,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "voronoi_prisms",
+    "graded": false,
+    "internalFaces": 7512,
+    "layers": 8,
+    "maxCellFaces": 12,
+    "minCellFaces": 5,
+    "physicalFaces": 944,
+    "scale": "small",
+    "seed": 20261007,
+    "sites": 256
+  },
+  "unixStarted": 1791372013.5784237,
+  "unixEnded": 1791372013.6218653
+}

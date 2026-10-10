@@ -1,0 +1,34 @@
+[
+  {
+    "algorithm": "metis-volume-contig",
+    "comparisons": 52,
+    "geometricMeanGhostRatio": 0.7559298901617852,
+    "worstGhostRatio": 1.013059564952226,
+    "maxOwnedFaceWorkImbalance": 1.0437116564417177,
+    "maxComponentsPerPart": 4
+  },
+  {
+    "algorithm": "metis-volume-work",
+    "comparisons": 52,
+    "geometricMeanGhostRatio": 0.7650483592177999,
+    "worstGhostRatio": 1.0030412685505183,
+    "maxOwnedFaceWorkImbalance": 1.0452453987730062,
+    "maxComponentsPerPart": 4
+  },
+  {
+    "algorithm": "metis-cut-work",
+    "comparisons": 52,
+    "geometricMeanGhostRatio": 0.8088905954857176,
+    "worstGhostRatio": 1.0829599512095955,
+    "maxOwnedFaceWorkImbalance": 1.0414110429447854,
+    "maxComponentsPerPart": 7
+  },
+  {
+    "algorithm": "graph-growth",
+    "comparisons": 52,
+    "geometricMeanGhostRatio": 1.0,
+    "worstGhostRatio": 1.0,
+    "maxOwnedFaceWorkImbalance": 1.0429447852760736,
+    "maxComponentsPerPart": 73
+  }
+]

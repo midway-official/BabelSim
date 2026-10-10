@@ -1,0 +1,193 @@
+{
+  "status": "passed",
+  "atol": 1e-10,
+  "rtol": 1e-09,
+  "comparisons": [
+    {
+      "variant": "software",
+      "case": "prism",
+      "ranks": 8,
+      "repeat": 1,
+      "time": 0.1,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/prism/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/software/prism/results/benchmark-r8-n01",
+      "fields": {
+        "U": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "baseline",
+      "case": "prism",
+      "ranks": 8,
+      "repeat": 1,
+      "time": 0.1,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/prism/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/prism/results/benchmark-r8-n01",
+      "fields": {
+        "U": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "baseline",
+      "case": "prism",
+      "ranks": 8,
+      "repeat": 2,
+      "time": 0.1,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/prism/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/prism/results/benchmark-r8-n02",
+      "fields": {
+        "U": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "software",
+      "case": "prism",
+      "ranks": 8,
+      "repeat": 2,
+      "time": 0.1,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/prism/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/software/prism/results/benchmark-r8-n02",
+      "fields": {
+        "U": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 1024000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "software",
+      "case": "voronoi",
+      "ranks": 8,
+      "repeat": 1,
+      "time": 0.2,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/voronoi/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/software/voronoi/results/benchmark-r8-n01",
+      "fields": {
+        "U": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "baseline",
+      "case": "voronoi",
+      "ranks": 8,
+      "repeat": 1,
+      "time": 0.2,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/voronoi/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/voronoi/results/benchmark-r8-n01",
+      "fields": {
+        "U": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "baseline",
+      "case": "voronoi",
+      "ranks": 8,
+      "repeat": 2,
+      "time": 0.2,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/voronoi/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/voronoi/results/benchmark-r8-n02",
+      "fields": {
+        "U": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    },
+    {
+      "variant": "software",
+      "case": "voronoi",
+      "ranks": 8,
+      "repeat": 2,
+      "time": 0.2,
+      "reference": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/baseline/voronoi/results/benchmark-r8-n01",
+      "candidate": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/runs-engineering-v3/software/voronoi/results/benchmark-r8-n02",
+      "fields": {
+        "U": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        },
+        "p": {
+          "cells": 512000,
+          "maxAbsolute": 0.0,
+          "maxToleranceRatio": 0.0,
+          "relativeL2": 0.0
+        }
+      }
+    }
+  ],
+  "skipped": [],
+  "note": "Validate frozen binary A/B fields, coverage and saved time after measurement.\n\nSettings overrides need their own accuracy budget and are reported as skipped.\nThis checks numerical equivalence; it does not validate a physical model.\n"
+}

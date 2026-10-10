@@ -170,7 +170,14 @@ for module in ("simple", "transient_simple", "piso"):
     text = texts[ROOT / "src/physics" / module / "main.cpp"]
     assert "equ::solve" in text and "for (int iter" in text
     assert "solveIncompressible" not in text
-    assert re.search(r"math::interpolate\(rAU \* gradP(?:, pressureOptions)?\)", text)  # Rhie-Chow is local to each solver.
+    if module == "piso":
+        # Total-pressure Rhie-Chow form: pressure-free HbyA plus temporal
+        # correction, then the flux of the actual assembled pressure matrix.
+        assert "math::flux(HbyA, pressureOptions)" in text
+        assert "equ::faceFlux(pressureEquation, p)" in text
+        assert "rAUf * temporalFlux" in text
+    else:
+        assert re.search(r"math::interpolate\(rAU \* gradP(?:, pressureOptions)?\)", text)
     assert "coupling::" not in text
 assert "while (time.value() < time.end())" in texts[ROOT / "src/physics/transient_simple/main.cpp"]
 # The model contract has no data or transport implementation.

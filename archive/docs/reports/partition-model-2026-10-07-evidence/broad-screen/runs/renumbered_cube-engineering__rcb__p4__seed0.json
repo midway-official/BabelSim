@@ -1,0 +1,101 @@
+{
+  "algorithm": "rcb",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.13906036999833304,
+  "initialPartitionSeconds": 0.13315890700323507,
+  "exactBalanceSeconds": 0.0059014629950979725,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 287670272,
+    "peakRSSBytes": 287670272,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 12800,
+  "cutFacesPerPart": [
+    6400,
+    6400,
+    6400,
+    6400
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128000,
+    128000,
+    128000,
+    128000
+  ],
+  "ghostCellsPerPart": [
+    19440,
+    19440,
+    19440,
+    19440
+  ],
+  "firstLayerGhostsPerPart": [
+    6400,
+    6400,
+    6400,
+    6400
+  ],
+  "localCellsPerPart": [
+    147440,
+    147440,
+    147440,
+    147440
+  ],
+  "localFacesPerPart": [
+    451043,
+    451043,
+    451043,
+    451043
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    768000,
+    768000,
+    768000,
+    768000
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 77760,
+  "maxGhostCells": 19440,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 25600,
+  "threeLayerCommunicationVolume": 77760,
+  "cellStorageDuplication": 1.151875,
+  "faceStorageDuplication": 1.1600900205761318,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "c7224c3ef5b62a65c349cb74e3c6e46383c568df404850b8aa68071d5fe9d2f4",
+  "status": "ok",
+  "graph": "renumbered_cube-engineering",
+  "graphSHA256": "a6b01e4fd28a59f3c6de19573af1fe089b52078371301722993f6dc0ddb68427",
+  "graphMetadata": {
+    "cells": 512000,
+    "components": 1,
+    "construction": "hex cube with scrambled cell IDs",
+    "family": "renumbered_cube",
+    "internalFaces": 1516800,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 38400,
+    "scale": "engineering",
+    "seed": 73021
+  },
+  "unixStarted": 1791372089.5400696,
+  "unixEnded": 1791372089.8164673
+}

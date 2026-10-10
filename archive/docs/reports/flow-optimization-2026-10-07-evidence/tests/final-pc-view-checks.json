@@ -1,0 +1,70 @@
+[
+  {
+    "name": "backend",
+    "ranks": 1,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "1",
+      "build-petsc/petsc_backend_test"
+    ],
+    "returncode": 0,
+    "actualPcView": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/final-backend-pc-view-1.txt"
+  },
+  {
+    "name": "backend",
+    "ranks": 2,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "2",
+      "build-petsc/petsc_backend_test"
+    ],
+    "returncode": 0,
+    "actualPcView": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/final-backend-pc-view-2.txt"
+  },
+  {
+    "name": "backend",
+    "ranks": 4,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "4",
+      "build-petsc/petsc_backend_test"
+    ],
+    "returncode": 0,
+    "actualPcView": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/final-backend-pc-view-4.txt"
+  },
+  {
+    "name": "heat",
+    "ranks": 4,
+    "command": [
+      "mpirun",
+      "--bind-to",
+      "core",
+      "--map-by",
+      "core",
+      "-np",
+      "4",
+      "build-petsc/babelsim-solve",
+      "-case",
+      "/tmp/babelsim-flow-opt-20261007/heat-amg-regression/case",
+      "-time",
+      "final-cf-pcview"
+    ],
+    "returncode": 0,
+    "actualPcView": "/home/midway/BabelSim/docs/reports/flow-optimization-2026-10-07-evidence/amg-strong-profiles/final-heat-pc-view-4.txt"
+  }
+]

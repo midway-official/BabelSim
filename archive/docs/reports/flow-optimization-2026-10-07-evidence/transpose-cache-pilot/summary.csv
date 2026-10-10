@@ -1,0 +1,3 @@
+case,variant,ranks,samples,sustainedSamples,computeMedian,computeMin,computeMax,speedup,efficiency,workMedian,setups,iterations,setupSeconds,solveSeconds,haloSeconds,reductionSeconds
+piso,rhs-budget,4,1,1,148.6907136,148.6907136,148.6907136,,,6,9,1353,9.738203907,175.2107693999999,0.4604536520000001,1.7263661450000023
+piso,transpose-cache,4,1,1,148.737713721,148.737713721,148.737713721,,,6,9,1353,9.658066638,173.99485641400005,0.46719348700000035,1.6603606999999978

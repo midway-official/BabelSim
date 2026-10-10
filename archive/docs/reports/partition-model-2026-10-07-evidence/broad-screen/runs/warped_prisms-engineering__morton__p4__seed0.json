@@ -1,0 +1,102 @@
+{
+  "algorithm": "morton",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.07581836800090969,
+  "initialPartitionSeconds": 0.07260232100088615,
+  "exactBalanceSeconds": 0.0032160470000235364,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0000039992481413,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 324554752,
+    "peakRSSBytes": 324554752,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 13347,
+  "cutFacesPerPart": [
+    6049,
+    6849,
+    7538,
+    6258
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    125024,
+    125024,
+    125023,
+    125023
+  ],
+  "ghostCellsPerPart": [
+    18150,
+    20399,
+    22726,
+    18857
+  ],
+  "firstLayerGhostsPerPart": [
+    6010,
+    6787,
+    7491,
+    6236
+  ],
+  "localCellsPerPart": [
+    143174,
+    145423,
+    147749,
+    143880
+  ],
+  "localFacesPerPart": [
+    365447,
+    371500,
+    377880,
+    367512
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    625120,
+    625120,
+    625115,
+    625115
+  ],
+  "ownedCellImbalance": 1.0000039992481413,
+  "ownedFaceWorkImbalance": 1.0000039992481413,
+  "localFaceImbalance": 1.0196857803781727,
+  "localCellImbalance": 1.0185617328420304,
+  "totalGhostCells": 80132,
+  "maxGhostCells": 22726,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 26524,
+  "threeLayerCommunicationVolume": 80132,
+  "cellStorageDuplication": 1.160233876031306,
+  "faceStorageDuplication": 1.1707812348206437,
+  "componentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "ownershipSHA256": "3a473d227d5a9e44e45e9de640b9056aad9dc69d2e57db5352a621d69899572f",
+  "status": "ok",
+  "graph": "warped_prisms-engineering",
+  "graphSHA256": "2cf5cffce6f4f16e506e09b92d9600976f2f892ef693373c6b4157dd8a6ae4ab",
+  "graphMetadata": {
+    "cells": 500094,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 1234359,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 63,
+    "physicalFaces": 31752,
+    "scale": "engineering",
+    "warp": 0.15
+  },
+  "unixStarted": 1791372048.9691339,
+  "unixEnded": 1791372049.133148
+}

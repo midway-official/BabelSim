@@ -258,6 +258,11 @@ public:
     Index patchCount() const { return static_cast<Index>(m_storage.patches.size()); }
     const std::string& patchName(Index patch) const { return m_storage.patches.at(patch).name; }
     PatchKind patchKind(Index patch) const { return m_storage.patches.at(patch).kind; }
+    IndexRange patchFaces(Index patch) const {
+        const auto& faces = m_storage.patches.at(patch).faces;
+        const Index* first = faces.data();
+        return {first, faces.size() == 0 ? first : first + faces.size()};
+    }
     double cellVolume(Index cell) const { return m_storage.cell_volumes.at(cell); }
     const Vec3& vertex(Index index) const { return m_storage.vertices.at(index); }
     void validate() const;

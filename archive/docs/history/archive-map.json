@@ -1,0 +1,130 @@
+{
+  "archivedOn": "2026-10-08",
+  "policy": "Historical development records; original numerical data and frozen source snapshots preserved.",
+  "moves": [
+    {
+      "from": "docs/reports/backend-performance-optimization.md",
+      "to": "docs/history/reports/backend-performance-optimization.md"
+    },
+    {
+      "from": "docs/reports/cavity-ghia-validation.md",
+      "to": "docs/history/reports/cavity-ghia-validation.md"
+    },
+    {
+      "from": "docs/reports/cavity-ghia-validation.pdf",
+      "to": "docs/history/reports/cavity-ghia-validation.pdf"
+    },
+    {
+      "from": "docs/reports/cavity-re10000.md",
+      "to": "docs/history/reports/cavity-re10000.md"
+    },
+    {
+      "from": "docs/reports/f1-f7-evidence",
+      "to": "docs/history/reports/f1-f7-evidence"
+    },
+    {
+      "from": "docs/reports/f1-f7-implementation.md",
+      "to": "docs/history/reports/f1-f7-implementation.md"
+    },
+    {
+      "from": "docs/reports/framework-review-2026-09-09-evidence",
+      "to": "docs/history/reports/framework-review-2026-09-09-evidence"
+    },
+    {
+      "from": "docs/reports/framework-review-2026-09-09.md",
+      "to": "docs/history/reports/framework-review-2026-09-09.md"
+    },
+    {
+      "from": "docs/reports/images",
+      "to": "docs/history/reports/images"
+    },
+    {
+      "from": "docs/reports/mpi-audit-2026-09-26-evidence",
+      "to": "docs/history/reports/mpi-audit-2026-09-26-evidence"
+    },
+    {
+      "from": "docs/reports/mpi-audit-2026-09-26.md",
+      "to": "docs/history/reports/mpi-audit-2026-09-26.md"
+    },
+    {
+      "from": "docs/reports/mpi-scaling-2026-09-26-evidence",
+      "to": "docs/history/reports/mpi-scaling-2026-09-26-evidence"
+    },
+    {
+      "from": "docs/reports/mpi-scaling-2026-09-26.md",
+      "to": "docs/history/reports/mpi-scaling-2026-09-26.md"
+    },
+    {
+      "from": "docs/reports/physics-audit-2026-09-26-evidence",
+      "to": "docs/history/reports/physics-audit-2026-09-26-evidence"
+    },
+    {
+      "from": "docs/reports/physics-audit-2026-09-26.md",
+      "to": "docs/history/reports/physics-audit-2026-09-26.md"
+    },
+    {
+      "from": "docs/reports/physics-fixes-2026-09-26-evidence",
+      "to": "docs/history/reports/physics-fixes-2026-09-26-evidence"
+    },
+    {
+      "from": "docs/reports/physics-fixes-2026-09-26.md",
+      "to": "docs/history/reports/physics-fixes-2026-09-26.md"
+    },
+    {
+      "from": "docs/reports/polyhedral-fvm",
+      "to": "docs/history/reports/polyhedral-fvm"
+    },
+    {
+      "from": "docs/reports/rans-equation-verification.md",
+      "to": "docs/history/reports/rans-equation-verification.md"
+    },
+    {
+      "from": "docs/reports/re1000-linear-solver-benchmark.md",
+      "to": "docs/history/reports/re1000-linear-solver-benchmark.md"
+    },
+    {
+      "from": "docs/reports/re1000-n128-mpi-performance.md",
+      "to": "docs/history/reports/re1000-n128-mpi-performance.md"
+    },
+    {
+      "from": "docs/reports/re1000-n256-linear-solver-mpi.md",
+      "to": "docs/history/reports/re1000-n256-linear-solver-mpi.md"
+    },
+    {
+      "from": "docs/reports/rocm-feasibility-2026-09-26-evidence",
+      "to": "docs/history/reports/rocm-feasibility-2026-09-26-evidence"
+    },
+    {
+      "from": "docs/reports/rocm-feasibility-2026-09-26.md",
+      "to": "docs/history/reports/rocm-feasibility-2026-09-26.md"
+    },
+    {
+      "from": "docs/reports/simple-parallel-consistency-2026-09-10-evidence",
+      "to": "docs/history/reports/simple-parallel-consistency-2026-09-10-evidence"
+    },
+    {
+      "from": "docs/reports/simple-parallel-consistency-2026-09-10.md",
+      "to": "docs/history/reports/simple-parallel-consistency-2026-09-10.md"
+    },
+    {
+      "from": "docs/reports/solver-scaling-experiments-2026-09-28",
+      "to": "docs/history/reports/solver-scaling-experiments-2026-09-28"
+    },
+    {
+      "from": "docs/reports/strong-scaling-analysis-2026-09-28.csv",
+      "to": "docs/history/reports/strong-scaling-analysis-2026-09-28.csv"
+    },
+    {
+      "from": "docs/reports/strong-scaling-analysis-2026-09-28.md",
+      "to": "docs/history/reports/strong-scaling-analysis-2026-09-28.md"
+    },
+    {
+      "from": "docs/polyhedral-fvm-refactor-plan.md",
+      "to": "docs/history/plans/polyhedral-fvm-refactor-plan.md"
+    },
+    {
+      "from": "docs/polyhedral-fvm-refactor-prompts.md",
+      "to": "docs/history/plans/polyhedral-fvm-refactor-prompts.md"
+    }
+  ]
+}

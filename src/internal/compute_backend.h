@@ -18,6 +18,8 @@ class ComputeBackend {
 public:
     virtual ~ComputeBackend() = default;
 
+    // Collective on the backend communicator. All ranks call in the same
+    // field order, even when only one rank modified owned values.
     virtual void synchronize(ScalarField& field) = 0;
     virtual void synchronize(VectorField& field) = 0;
     virtual void synchronize(TensorField& field) = 0;

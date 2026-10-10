@@ -1,0 +1,116 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.04830023601243738,
+  "initialPartitionSeconds": 0.04764254100155085,
+  "exactBalanceSeconds": 0.0006576950108865276,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 318332928,
+    "peakRSSBytes": 318332928,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 77706,
+  "cutFacesPerPart": [
+    30643,
+    47063,
+    46149,
+    31557
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    91208,
+    91208,
+    91208,
+    91208
+  ],
+  "ghostCellsPerPart": [
+    91739,
+    126903,
+    121168,
+    94046
+  ],
+  "firstLayerGhostsPerPart": [
+    30478,
+    46842,
+    45984,
+    31336
+  ],
+  "localCellsPerPart": [
+    182947,
+    218111,
+    212376,
+    185254
+  ],
+  "localFacesPerPart": [
+    582584,
+    688948,
+    671245,
+    589994
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    547248,
+    547248,
+    547248,
+    547248
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0880541509674582,
+  "localCellImbalance": 1.092346448175007,
+  "totalGhostCells": 433856,
+  "maxGhostCells": 126903,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 154640,
+  "threeLayerCommunicationVolume": 433856,
+  "cellStorageDuplication": 2.189193930356986,
+  "faceStorageDuplication": 2.2111078713128864,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "537e6ad06375bb6cca22e3fe44ab9f5adad60d3b00ba00bce147a62b3c54eafd",
+  "status": "ok",
+  "graph": "branching_duct-engineering",
+  "graphSHA256": "30c03bb9bab24b1a93f9e7ea910e5ae4edebdf8fbdd28eba5c675c5908ab00e9",
+  "graphMetadata": {
+    "cells": 364832,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "branching_duct",
+    "graded": false,
+    "internalFaces": 1043516,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 101960,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      384,
+      384,
+      8
+    ]
+  },
+  "unixStarted": 1791377892.1411154,
+  "unixEnded": 1791377892.2736166,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/branching_duct-engineering__morton-isotropic__p4__seed0.json"
+}

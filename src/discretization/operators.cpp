@@ -44,7 +44,7 @@ T internalFaceValue(const Field<T>& field, Index face) {
 
 double correctedInternalFaceValue(
     const ScalarField& field,
-    const VectorField& field_gradient,
+    const Vec3* field_gradient,
     Index face)
 {
     const Mesh& mesh = field.mesh();
@@ -53,15 +53,15 @@ double correctedInternalFaceValue(
     const Index neighbour = detail::meshData(mesh).face_neighbour[f];
     const double weight = ownerWeight(mesh, face);
     const Vec3 face_gradient =
-        weight * detail::fieldData(field_gradient)[owner] +
-        (1.0 - weight) * detail::fieldData(field_gradient)[neighbour];
+        weight * field_gradient[owner] +
+        (1.0 - weight) * field_gradient[neighbour];
     return internalFaceValue(field, face) +
         dot(detail::meshData(mesh).face_skewness[f], face_gradient);
 }
 
 Vec3 correctedInternalFaceValue(
     const VectorField& field,
-    const TensorField& field_gradient,
+    const Tensor3* field_gradient,
     Index face)
 {
     const Mesh& mesh = field.mesh();
@@ -72,8 +72,8 @@ Vec3 correctedInternalFaceValue(
     Vec3 value = internalFaceValue(field, face);
     for (std::size_t component = 0; component < 3; ++component) {
         const Vec3 face_gradient =
-            weight * detail::fieldData(field_gradient)[owner][component] +
-            (1.0 - weight) * detail::fieldData(field_gradient)[neighbour][component];
+            weight * field_gradient[owner][component] +
+            (1.0 - weight) * field_gradient[neighbour][component];
         value[component] += dot(detail::meshData(mesh).face_skewness[f], face_gradient);
     }
     return value;
@@ -110,7 +110,7 @@ Vec3 linearUpwindCorrection(
 
 double reconstructedBoundaryValue(
     const ScalarField& field,
-    const VectorField& field_gradient,
+    const Vec3* field_gradient,
     Index face,
     double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
@@ -125,8 +125,8 @@ double reconstructedBoundaryValue(
     const Vec3 normal = mesh.faceNormal(face);
     const double prescribed_normal_gradient =
         condition.type == BoundaryType::FixedGradient ? condition.value : 0.0;
-    const Vec3 constrained_gradient = detail::fieldData(field_gradient)[owner] +
-        (prescribed_normal_gradient - dot(detail::fieldData(field_gradient)[owner], normal)) * normal;
+    const Vec3 constrained_gradient = field_gradient[owner] +
+        (prescribed_normal_gradient - dot(field_gradient[owner], normal)) * normal;
     return detail::fieldData(field)[owner] + dot(
         constrained_gradient,
         detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[static_cast<std::size_t>(owner)]);
@@ -134,7 +134,7 @@ double reconstructedBoundaryValue(
 
 Vec3 reconstructedBoundaryValue(
     const VectorField& field,
-    const TensorField& field_gradient,
+    const Tensor3* field_gradient,
     Index face,
     double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
@@ -154,9 +154,9 @@ Vec3 reconstructedBoundaryValue(
         const double prescribed_normal_gradient =
             condition.type == BoundaryType::FixedGradient
             ? condition.value[component] : 0.0;
-        const Vec3 constrained_gradient = detail::fieldData(field_gradient)[owner][component] +
+        const Vec3 constrained_gradient = field_gradient[owner][component] +
             (prescribed_normal_gradient -
-             dot(detail::fieldData(field_gradient)[owner][component], normal)) * normal;
+             dot(field_gradient[owner][component], normal)) * normal;
         value[component] += dot(constrained_gradient, offset);
     }
     if (condition.type == BoundaryType::Symmetry) {
@@ -167,7 +167,7 @@ Vec3 reconstructedBoundaryValue(
 
 double correctedFaceValue(
     const ScalarField& field,
-    const VectorField& field_gradient,
+    const Vec3* field_gradient,
     Index face,
     double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
@@ -178,13 +178,65 @@ double correctedFaceValue(
 
 Vec3 correctedFaceValue(
     const VectorField& field,
-    const TensorField& field_gradient,
+    const Tensor3* field_gradient,
     Index face,
     double outward_flux = std::numeric_limits<double>::quiet_NaN())
 {
     return field.mesh().boundaryFace(face)
         ? reconstructedBoundaryValue(field, field_gradient, face, outward_flux)
         : correctedInternalFaceValue(field, field_gradient, face);
+}
+
+double correctedInternalFaceValue(
+    const ScalarField& field,
+    const VectorField& field_gradient,
+    Index face)
+{
+    return correctedInternalFaceValue(field, detail::fieldData(field_gradient), face);
+}
+
+Vec3 correctedInternalFaceValue(
+    const VectorField& field,
+    const TensorField& field_gradient,
+    Index face)
+{
+    return correctedInternalFaceValue(field, detail::fieldData(field_gradient), face);
+}
+
+double reconstructedBoundaryValue(
+    const ScalarField& field,
+    const VectorField& field_gradient,
+    Index face,
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
+{
+    return reconstructedBoundaryValue(field, detail::fieldData(field_gradient), face, outward_flux);
+}
+
+Vec3 reconstructedBoundaryValue(
+    const VectorField& field,
+    const TensorField& field_gradient,
+    Index face,
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
+{
+    return reconstructedBoundaryValue(field, detail::fieldData(field_gradient), face, outward_flux);
+}
+
+double correctedFaceValue(
+    const ScalarField& field,
+    const VectorField& field_gradient,
+    Index face,
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
+{
+    return correctedFaceValue(field, detail::fieldData(field_gradient), face, outward_flux);
+}
+
+Vec3 correctedFaceValue(
+    const VectorField& field,
+    const TensorField& field_gradient,
+    Index face,
+    double outward_flux = std::numeric_limits<double>::quiet_NaN())
+{
+    return correctedFaceValue(field, detail::fieldData(field_gradient), face, outward_flux);
 }
 
 template <typename T>
@@ -223,16 +275,17 @@ Eigen::Vector3d toEigen(const Vec3& value) {
 void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
     const Mesh& mesh = scalar.mesh();
     result.fill({});
+    Vec3* result_values = detail::fieldData(result);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(mesh).face_owner[f];
         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
         const double value = interpolatedFaceValue(scalar, face);
         const Vec3 contribution = value * detail::meshData(mesh).face_area_vectors[f];
-        detail::fieldData(result)[owner] += contribution *
+        result_values[owner] += contribution *
             detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
         if (neighbour != invalid_index) {
-            detail::fieldData(result)[neighbour] -= contribution *
+            result_values[neighbour] -= contribution *
                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
         }
     }
@@ -242,18 +295,21 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
     if (mesh.orthogonalGeometry()) {
         return;
     }
-    const VectorField initial_gradient = result;
+    // Reconstruction only reads cell gradients; avoid copying boundary
+    // traces and flux metadata of a complete calculated Field.
+    const std::vector<Vec3> initial_gradient = detail::fieldValues(result);
     result.fill({});
+    result_values = detail::fieldData(result);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(mesh).face_owner[f];
         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
-        const double value = correctedFaceValue(scalar, initial_gradient, face);
+        const double value = correctedFaceValue(scalar, initial_gradient.data(), face);
         const Vec3 contribution = value * detail::meshData(mesh).face_area_vectors[f];
-        detail::fieldData(result)[owner] += contribution *
+        result_values[owner] += contribution *
             detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
         if (neighbour != invalid_index) {
-            detail::fieldData(result)[neighbour] -= contribution *
+            result_values[neighbour] -= contribution *
                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
         }
     }
@@ -309,6 +365,7 @@ void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
 void greenGaussGradient(const VectorField& vector, TensorField& result) {
     const Mesh& mesh = vector.mesh();
     result.fill({});
+    Tensor3* result_values = detail::fieldData(result);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(mesh).face_owner[f];
@@ -316,10 +373,10 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
         const Vec3 value = interpolatedFaceValue(vector, face);
         for (std::size_t component = 0; component < 3; ++component) {
             const Vec3 contribution = value[component] * detail::meshData(mesh).face_area_vectors[f];
-            detail::fieldData(result)[owner][component] += contribution *
+            result_values[owner][component] += contribution *
                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
             if (neighbour != invalid_index) {
-                detail::fieldData(result)[neighbour][component] -= contribution *
+                result_values[neighbour][component] -= contribution *
                     detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
             }
         }
@@ -327,19 +384,20 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
     if (mesh.orthogonalGeometry()) {
         return;
     }
-    const TensorField initial_gradient = result;
+    const std::vector<Tensor3> initial_gradient = detail::fieldValues(result);
     result.fill({});
+    result_values = detail::fieldData(result);
     for (Index face = 0; face < mesh.faceCount(); ++face) {
         const auto f = static_cast<std::size_t>(face);
         const Index owner = detail::meshData(mesh).face_owner[f];
         const Index neighbour = detail::meshData(mesh).face_neighbour[f];
-        const Vec3 value = correctedFaceValue(vector, initial_gradient, face);
+        const Vec3 value = correctedFaceValue(vector, initial_gradient.data(), face);
         for (std::size_t component = 0; component < 3; ++component) {
             const Vec3 contribution = value[component] * detail::meshData(mesh).face_area_vectors[f];
-            detail::fieldData(result)[owner][component] += contribution *
+            result_values[owner][component] += contribution *
                 detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(owner)];
             if (neighbour != invalid_index) {
-                detail::fieldData(result)[neighbour][component] -= contribution *
+                result_values[neighbour][component] -= contribution *
                     detail::meshData(mesh).cell_inverse_volumes[static_cast<std::size_t>(neighbour)];
             }
         }
@@ -1231,17 +1289,22 @@ void addScalarDiffusion(
     FaceDiffusivity diffusivity,
     const ScalarField& scalar,
     GradientMethod gradient_method,
-    DiffusionMethod diffusion_method)
+    DiffusionMethod diffusion_method,
+    const VectorField* reconstructed_gradient = nullptr)
 {
     const Mesh& mesh = scalar.mesh();
     requireEquation(equation, mesh);
     requireField(scalar, mesh, FieldLocation::Cell, "scalar");
 
-    std::optional<VectorField> cell_gradient;
+    std::optional<VectorField> gradient_workspace;
+    const VectorField* cell_gradient = reconstructed_gradient;
+    if (cell_gradient) requireField(*cell_gradient, mesh, FieldLocation::Cell, "diffusion gradient");
     if (correctedDiffusion(diffusion_method)) {
-        cell_gradient.emplace(
-            mesh, FieldLocation::Cell, "grad(" + scalar.name() + ')');
-        gradient(scalar, *cell_gradient, gradient_method);
+        if (!cell_gradient) {
+            gradient_workspace.emplace(mesh, FieldLocation::Cell, "grad(" + scalar.name() + ')');
+            gradient(scalar, *gradient_workspace, gradient_method);
+            cell_gradient = &*gradient_workspace;
+        }
     } else if (diffusion_method != DiffusionMethod::Orthogonal) {
         throw std::invalid_argument("unsupported diffusion method");
     }
@@ -1423,6 +1486,23 @@ void addDiffusion(
             equation, {diffusivity, nullptr}, vector,
             gradient_method, diffusion_method);
     }
+}
+
+void addDiffusion(ScalarDiscreteEquation& equation, double diffusivity,
+                  const ScalarField& scalar, const VectorField& reconstructed_gradient,
+                  DiffusionMethod method) {
+    if (diffusivity < 0.0 || !std::isfinite(diffusivity))
+        throw std::invalid_argument("diffusivity must be non-negative and finite");
+    addScalarDiffusion(equation, {diffusivity, nullptr}, scalar,
+        GradientMethod::GreenGauss, method, &reconstructed_gradient);
+}
+
+void addDiffusion(ScalarDiscreteEquation& equation, const ScalarField& face_diffusivity,
+                  const ScalarField& scalar, const VectorField& reconstructed_gradient,
+                  DiffusionMethod method) {
+    requireField(face_diffusivity, scalar.mesh(), FieldLocation::Face, "face diffusivity");
+    addScalarDiffusion(equation, {0.0, &face_diffusivity}, scalar,
+        GradientMethod::GreenGauss, method, &reconstructed_gradient);
 }
 
 void addDiffusion(

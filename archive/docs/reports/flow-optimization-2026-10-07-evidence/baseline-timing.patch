@@ -1,0 +1,112 @@
+--- a/include/babelsim/solver_control.h
++++ b/include/babelsim/solver_control.h
+@@ -77,6 +77,8 @@
+     // Result I/O is recorded separately from numerical work so one-time and
+     // per-write costs are not mistaken for Krylov or assembly hotspots.
+     std::uint64_t output_writes = 0;
++    std::uint64_t reported_iteration_intervals = 0;
++    double iteration_compute_seconds = 0.0;
+     double elapsed_seconds = 0.0;
+     double assembly_seconds = 0.0;
+     double pattern_build_seconds = 0.0;
+@@ -107,6 +109,8 @@
+         preconditioner_setups += other.preconditioner_setups;
+         preconditioner_applications += other.preconditioner_applications;
+         output_writes += other.output_writes;
++        reported_iteration_intervals += other.reported_iteration_intervals;
++        iteration_compute_seconds += other.iteration_compute_seconds;
+         elapsed_seconds += other.elapsed_seconds;
+         assembly_seconds += other.assembly_seconds;
+         pattern_build_seconds += other.pattern_build_seconds;
+--- a/include/babelsim/runtime.h
++++ b/include/babelsim/runtime.h
+@@ -7,6 +7,7 @@
+ #include <memory>
+ 
+ namespace babelsim {
++namespace monitor { class Reporter; }
+ struct RuntimeControl {
+     Methods methods;
+     TimeControl time;
+@@ -50,6 +51,10 @@
+     // Case records result-writing as an I/O phase; it is not part of the
+     // numerical solver counters or convergence decision.
+     void recordOutput(double seconds);
++    // Observation only: time between completed generic reporter iterations,
++    // excluding output. The first iteration and all preceding setup are omitted.
++    void recordIteration();
++    friend class monitor::Reporter;
+     // 性能快照属于 Case/Application 生命周期观测，不是 Physics Solver API。
+     friend class Case;
+     PerformanceCounters performance() const;
+--- a/src/runtime/runtime.cpp
++++ b/src/runtime/runtime.cpp
+@@ -30,6 +30,9 @@
+     int current_step = 0;
+     std::chrono::steady_clock::time_point started;
+     PerformanceCounters lifecycle_performance;
++    bool iteration_window_started = false;
++    std::chrono::steady_clock::time_point first_iteration_end;
++    double first_iteration_output_seconds = 0.0;
+ };
+ 
+ void RuntimeControl::validate() const {
+@@ -97,6 +100,8 @@
+     PerformanceCounters result = m_implementation->fvm.performance();
+     result.output_writes = m_implementation->lifecycle_performance.output_writes;
+     result.output_seconds = m_implementation->lifecycle_performance.output_seconds;
++    result.reported_iteration_intervals = m_implementation->lifecycle_performance.reported_iteration_intervals;
++    result.iteration_compute_seconds = m_implementation->lifecycle_performance.iteration_compute_seconds;
+     result.elapsed_seconds = std::chrono::duration<double>(
+         std::chrono::steady_clock::now() - m_implementation->started).count();
+     return result;
+@@ -107,6 +112,21 @@
+         throw std::invalid_argument("result output time is invalid");
+     ++m_implementation->lifecycle_performance.output_writes;
+     m_implementation->lifecycle_performance.output_seconds += seconds;
++}
++
++void RunTime::recordIteration() {
++    auto& state = *m_implementation;
++    const auto now = std::chrono::steady_clock::now();
++    if (!state.iteration_window_started) {
++        state.first_iteration_end = now;
++        state.first_iteration_output_seconds = state.lifecycle_performance.output_seconds;
++        state.iteration_window_started = true;
++        return;
++    }
++    ++state.lifecycle_performance.reported_iteration_intervals;
++    const double elapsed = std::chrono::duration<double>(now - state.first_iteration_end).count();
++    state.lifecycle_performance.iteration_compute_seconds = std::max(0.0, elapsed -
++        (state.lifecycle_performance.output_seconds - state.first_iteration_output_seconds));
+ }
+ 
+ 
+--- a/src/io/monitor.cpp
++++ b/src/io/monitor.cpp
+@@ -1,5 +1,6 @@
+ #include "babelsim/monitor.h"
+ #include "babelsim/solver.h"
++#include "babelsim/runtime.h"
+ #include <iostream>
+ #include <stdexcept>
+ #include <type_traits>
+@@ -27,6 +28,7 @@
+     printMetrics(metrics);
+ }
+ void Reporter::iteration(int index, int limit, bool urgent, std::initializer_list<Metric> metrics) const {
++    RunTime::current().recordIteration();
+     if (!primaryProcess() || !(index == 1 || index % interval_ == 0 || urgent || index == limit)) return;
+     std::cout << name_ << ' ' << index;
+     printMetrics(metrics);
+--- a/src/runtime/application.cpp
++++ b/src/runtime/application.cpp
+@@ -102,6 +102,8 @@
+            << ",\n  \"caseSetupSeconds\": " << case_setup_seconds
+            << ",\n  \"solverSeconds\": " << solver_seconds
+            << ",\n  \"solverComputeSeconds\": " << solver_compute_seconds
++           << ",\n  \"iterationComputeSeconds\": " << local.iteration_compute_seconds
++           << ",\n  \"reportedIterationIntervals\": " << local.reported_iteration_intervals
+            << ",\n  \"applicationSeconds\": " << application_seconds
+            << ",\n  \"partition\": {"
+            << "\n    \"globalCells\": " << partition.global_cells

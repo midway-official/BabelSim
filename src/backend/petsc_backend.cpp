@@ -65,7 +65,9 @@ public:
         : m_mesh(&mesh), m_parallel(std::move(parallel)) {
         mesh.validate();
         m_parallel.validate();
-        const bool mesh_is_distributed = ownedCellCount(mesh) < mesh.cellCount();
+        // A disconnected component can own every local cell and have no
+        // ghosts while still being part of a distributed global mesh.
+        const bool mesh_is_distributed = ownedCellCount(mesh) < mesh.globalCellCount();
         if (m_parallel.distributed() != mesh_is_distributed)
             throw std::invalid_argument(
                 "PETSc backend and mesh ownership are inconsistent (rank=" +
@@ -125,29 +127,28 @@ public:
         const std::string identity = equationIdentity(equation.numerical_identity, unknown.name(), false);
         PetscLinearSystem& system = getSystem(identity, 1);
         recordEquationConfig(identity, config);
-        std::vector<PetscScalar> matrix_values;
-        std::vector<PetscScalar> rhs_values;
         const Clock::time_point assembly_start = Clock::now();
-        m_assembly_plan->matrixValues(equation, matrix_values);
-        m_assembly_plan->rhsValues(equation, rhs_values);
+        m_assembly_plan->matrixValues(equation, m_matrix_values);
+        m_assembly_plan->rhsValues(equation, m_rhs_values);
         ++m_performance.equation_assemblies;
         m_performance.assembly_seconds += secondsSince(assembly_start);
 
-        const PetscMatrixUpdateMetrics update = system.updateMatrix(matrix_values);
+        const PetscMatrixUpdateMetrics update = system.updateMatrix(m_matrix_values);
         recordMatrixUpdate(identity, update);
         const PetscSetupMetrics setup = system.prepare(config);
         recordPreconditionerSetup(identity, setup);
 
-        std::vector<double> initial(static_cast<std::size_t>(m_index_map->localSize()));
-        const double* field = fieldData(unknown);
-        for (Index cell : meshData(*m_mesh).owned_cells)
-            initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = field[cell];
-        std::vector<double> solution;
-        const PetscSolveMetrics metrics = system.solveRhs(rhs_values, initial, solution);
+        if (config.warm_start) {
+            m_initial.resize(static_cast<std::size_t>(m_index_map->localSize()));
+            const double* field = fieldData(unknown);
+            for (Index cell : meshData(*m_mesh).owned_cells)
+                m_initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = field[cell];
+        }
+        const PetscSolveMetrics metrics = system.solveRhs(m_rhs_values, m_initial, m_solution);
         recordSolve(identity, metrics);
         double* target = fieldData(unknown);
         for (Index cell : meshData(*m_mesh).owned_cells)
-            target[cell] = solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
+            target[cell] = m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
         synchronize(unknown);
         return metrics.result;
     }
@@ -160,12 +161,11 @@ public:
         const std::string identity = equationIdentity(equation.numerical_identity, unknown.name(), true);
         PetscLinearSystem& system = getSystem(identity, 3);
         recordEquationConfig(identity, config);
-        std::vector<PetscScalar> matrix_values;
         const Clock::time_point assembly_start = Clock::now();
-        m_assembly_plan->matrixValues(equation, matrix_values);
+        m_assembly_plan->matrixValues(equation, m_matrix_values);
         ++m_performance.equation_assemblies;
         m_performance.assembly_seconds += secondsSince(assembly_start);
-        const PetscMatrixUpdateMetrics update = system.updateMatrix(matrix_values);
+        const PetscMatrixUpdateMetrics update = system.updateMatrix(m_matrix_values);
         recordMatrixUpdate(identity, update);
         const PetscSetupMetrics setup = system.prepare(config);
         recordPreconditionerSetup(identity, setup);
@@ -173,21 +173,21 @@ public:
         std::array<SolveResult, 3> results;
         Vec3* values = fieldData(unknown);
         for (std::size_t component = 0; component < 3; ++component) {
-            std::vector<PetscScalar> rhs_values;
-            m_assembly_plan->rhsValues(equation, component, rhs_values);
-            std::vector<double> initial(static_cast<std::size_t>(m_index_map->localSize()));
-            for (Index cell : meshData(*m_mesh).owned_cells) {
+            m_assembly_plan->rhsValues(equation, component, m_rhs_values);
+            if (config.warm_start) {
+              m_initial.resize(static_cast<std::size_t>(m_index_map->localSize()));
+              for (Index cell : meshData(*m_mesh).owned_cells) {
                 const Vec3& value = values[cell];
                 const double component_value = component == 0 ? value.x : component == 1 ? value.y : value.z;
-                initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = component_value;
+                m_initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = component_value;
+              }
             }
-            std::vector<double> solution;
-            const PetscSolveMetrics metrics = system.solveRhs(rhs_values, initial, solution, component);
+            const PetscSolveMetrics metrics = system.solveRhs(m_rhs_values, m_initial, m_solution, component);
             results[component] = metrics.result;
             recordSolve(identity, metrics);
             for (Index cell : meshData(*m_mesh).owned_cells) {
                 Vec3& value = values[cell];
-                const double solved = solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
+                const double solved = m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
                 if (component == 0) value.x = solved;
                 else if (component == 1) value.y = solved;
                 else value.z = solved;
@@ -260,15 +260,22 @@ private:
 
     void recordSolve(const std::string& identity, const PetscSolveMetrics& metrics) {
         EquationPerformanceCounters& equation = equationMetrics(identity);
+        if (metrics.preconditioner_reused) {
+            ++m_performance.preconditioner_reuses;
+            ++equation.preconditioner_reuses;
+        }
+        m_performance.preconditioner_retries += metrics.retries;
+        equation.preconditioner_retries += metrics.retries;
+        recordPreconditionerSetup(identity, metrics.recovery_setup);
         ++m_performance.linear_solves;
         m_performance.krylov_iterations += static_cast<std::uint64_t>(metrics.result.iterations);
         m_performance.linear_solve_seconds += metrics.solve_seconds;
         m_performance.rhs_seconds += metrics.rhs_seconds;
         m_performance.residual_check_seconds += metrics.residual_seconds;
-        ++m_performance.true_residual_checks;
+        m_performance.true_residual_checks += metrics.true_residual_checks;
         ++equation.linear_solves;
         equation.krylov_iterations += static_cast<std::uint64_t>(metrics.result.iterations);
-        ++equation.true_residual_checks;
+        equation.true_residual_checks += metrics.true_residual_checks;
         equation.last_status = solveStatusName(metrics.result.status);
         equation.last_initial_residual = metrics.result.initial_residual;
         equation.last_final_residual = metrics.result.final_residual;
@@ -284,7 +291,10 @@ private:
         if (&field.mesh() != m_mesh ||
             (field.location() != FieldLocation::Cell && field.location() != FieldLocation::Face))
             throw std::invalid_argument("field does not belong to the PETSc backend mesh");
-        if (haloValid(field)) return;
+        // Cache validity is local: a different owner may have modified the
+        // field. Agree before skipping this collective, including on ranks
+        // with no neighbours. Count the decision in reduction diagnostics.
+        if (m_halo ? all(haloValid(field)) : haloValid(field)) return;
         if (m_halo) {
             const Clock::time_point start = Clock::now();
             m_halo->exchange(field);
@@ -306,6 +316,12 @@ private:
     std::unique_ptr<HaloExchange> m_halo;
     std::unordered_map<std::string, std::unique_ptr<PetscLinearSystem>> m_systems;
     std::unordered_map<std::string, EquationPerformanceCounters> m_equation_performance;
+    // One numerical workspace per backend. Calls are sequential and every
+    // equation uses the same owned-cell layout; capacity survives RHS/steps.
+    std::vector<PetscScalar> m_matrix_values;
+    std::vector<PetscScalar> m_rhs_values;
+    std::vector<double> m_initial;
+    std::vector<double> m_solution;
     mutable PerformanceCounters m_performance;
 };
 

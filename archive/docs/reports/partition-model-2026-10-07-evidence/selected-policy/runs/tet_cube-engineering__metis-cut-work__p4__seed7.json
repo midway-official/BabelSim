@@ -1,0 +1,108 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.40878590200736653,
+  "initialPartitionSeconds": 0.40331414800311904,
+  "exactBalanceSeconds": 0.005471754004247487,
+  "quotaTransfers": 402,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.001048710242925,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 8173,
+  "memory": {
+    "beforeRSSBytes": 288956416,
+    "peakRSSBytes": 313729024,
+    "sampledRSSIncrementBytes": 24772608
+  },
+  "cutFaces": 8341,
+  "cutFacesPerPart": [
+    4398,
+    4017,
+    3757,
+    4510
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    127776,
+    127776,
+    127776,
+    127776
+  ],
+  "ghostCellsPerPart": [
+    12901,
+    11974,
+    11064,
+    13263
+  ],
+  "firstLayerGhostsPerPart": [
+    4235,
+    4014,
+    3639,
+    4413
+  ],
+  "localCellsPerPart": [
+    140677,
+    139750,
+    138840,
+    141039
+  ],
+  "localFacesPerPart": [
+    286618,
+    285216,
+    282908,
+    287306
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    511104,
+    511104,
+    511104,
+    511104
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0062834486816665,
+  "localCellImbalance": 1.0068712453552167,
+  "totalGhostCells": 49202,
+  "maxGhostCells": 13263,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 16301,
+  "threeLayerCommunicationVolume": 49202,
+  "cellStorageDuplication": 1.096266121963436,
+  "faceStorageDuplication": 1.1046831955922864,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "396395e260536404f3c2710afba4ee66589e37507926670ff76d593930fd2dbc",
+  "status": "ok",
+  "graph": "tet_cube-engineering",
+  "graphSHA256": "ea9db4890d31f6e6e78bb03880447f309c8fd8cfc0658c01e4acd667316baf9e",
+  "graphMetadata": {
+    "cells": 511104,
+    "components": 1,
+    "construction": "conforming six-tetrahedra subdivision of each cube",
+    "family": "tet_cube",
+    "internalFaces": 1010592,
+    "maxCellFaces": 4,
+    "minCellFaces": 4,
+    "n": 44,
+    "physicalFaces": 23232,
+    "scale": "engineering"
+  },
+  "unixStarted": 1791377924.255319,
+  "unixEnded": 1791377924.7541075
+}

@@ -1,0 +1,4 @@
+{
+  "status": "interrupted",
+  "reason": "Unbounded connectivity checks made quota repair too expensive; completed records retained as an algorithm experiment, not the final selection."
+}

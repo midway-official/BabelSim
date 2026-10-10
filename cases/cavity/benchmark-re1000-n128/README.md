@@ -24,6 +24,6 @@ mpirun -np 4 build/babelsim-solve -case cases/cavity/benchmark-re1000-n128 -time
 build/babelsim-post -case cases/cavity/benchmark-re1000-n128 -time throughput-np4 -format vtk tecplot
 ```
 
-旧局部 AMG/GMRES 数据见 `docs/reports/re1000-n128-mpi-performance.md`；当前
+旧局部 AMG/GMRES 数据见 `archive/docs/history/reports/re1000-n128-mpi-performance.md`；当前
 BiCGSTAB+ILUT/分布式 AMG 的 time-to-solution、固定外迭代、计数器和热点见
-`docs/reports/backend-performance-optimization.md`。
+`archive/docs/history/reports/backend-performance-optimization.md`。

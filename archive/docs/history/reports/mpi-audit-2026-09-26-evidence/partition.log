@@ -1,0 +1,12 @@
+partition ranks=2 cells=4096 cutFaces=126 ghostCellsTotal=436 localFaceImbalance=1 haloBytesTotal=6976 firstLayerBytesTotal=3040
+partition ranks=2 cells=561 cutFaces=78 ghostCellsTotal=211 localFaceImbalance=1.00036 haloBytesTotal=3376 firstLayerBytesTotal=1152
+partition ranks=2 cells=256 cutFaces=4 ghostCellsTotal=14 localFaceImbalance=1 haloBytesTotal=224 firstLayerBytesTotal=96
+partition ranks=3 cells=4096 cutFaces=185 ghostCellsTotal=762 localFaceImbalance=1.07561 haloBytesTotal=12192 firstLayerBytesTotal=4048
+partition ranks=3 cells=561 cutFaces=142 ghostCellsTotal=469 localFaceImbalance=1.17727 haloBytesTotal=7504 firstLayerBytesTotal=2496
+partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128
+partition ranks=4 cells=4096 cutFaces=234 ghostCellsTotal=907 localFaceImbalance=1.07006 haloBytesTotal=14512 firstLayerBytesTotal=4880
+partition ranks=4 cells=561 cutFaces=188 ghostCellsTotal=670 localFaceImbalance=1.10864 haloBytesTotal=10720 firstLayerBytesTotal=3312
+partition ranks=4 cells=256 cutFaces=16 ghostCellsTotal=64 localFaceImbalance=1.11538 haloBytesTotal=1024 firstLayerBytesTotal=384
+partition ranks=8 cells=4096 cutFaces=509 ghostCellsTotal=1974 localFaceImbalance=1.14615 haloBytesTotal=31584 firstLayerBytesTotal=10384
+partition ranks=8 cells=561 cutFaces=312 ghostCellsTotal=1151 localFaceImbalance=1.37319 haloBytesTotal=18416 firstLayerBytesTotal=5424
+partition ranks=8 cells=256 cutFaces=28 ghostCellsTotal=133 localFaceImbalance=1.4321 haloBytesTotal=2128 firstLayerBytesTotal=704

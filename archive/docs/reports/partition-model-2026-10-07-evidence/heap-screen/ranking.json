@@ -1,0 +1,20 @@
+[
+  {
+    "algorithm": "metis-volume-contig",
+    "comparisons": 6,
+    "geometricMeanGhostRatio": 0.8293156161894328,
+    "worstGhostRatio": 1.013059564952226,
+    "worstSeedGhostRatio": 1.0260134173612523,
+    "maxOwnedFaceWorkImbalance": 1.0120278243538232,
+    "maxComponentsPerPart": 2
+  },
+  {
+    "algorithm": "graph-growth",
+    "comparisons": 6,
+    "geometricMeanGhostRatio": 1.0,
+    "worstGhostRatio": 1.0,
+    "worstSeedGhostRatio": 1.0,
+    "maxOwnedFaceWorkImbalance": 1.012985818912335,
+    "maxComponentsPerPart": 40
+  }
+]

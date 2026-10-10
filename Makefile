@@ -3,6 +3,20 @@
 
 CXX := mpic++
 AR := gcc-ar
+BUILD ?= build
+
+# Delivery builds use the bundled sources and keep both dependencies and
+# framework products under BUILD. An explicit PETSC_DIR still selects an
+# existing installation for developers who need a different PETSc build.
+EIGEN_DIR ?= $(CURDIR)/dependencies/eigen
+PETSC_SOURCE ?= $(CURDIR)/dependencies/petsc
+PETSC_LOCAL_DIR := $(abspath $(BUILD)/petsc)
+PETSC_DIR ?= $(PETSC_LOCAL_DIR)
+PETSC_ARCH ?= arch-babelsim-$(notdir $(abspath $(BUILD)))
+PETSC_JOBS ?= 4
+PETSC_CC ?= mpicc
+PETSC_FC ?= mpifort
+PETSC_OPTFLAGS ?= -O3 -march=native -mtune=native
 
 # 面向本机计算速度：跨文件优化、矢量化与浮点重结合/倒数优化。
 # 显式关闭融合乘加，避免它在不同分区的 Krylov 路径上额外放大舍入差异。
@@ -12,16 +26,33 @@ OPTFLAGS = -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
            -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
 CXXFLAGS = -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow \
            -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
-PETSC_DIR ?= /home/midway/opt/petsc-3.25.5-openmpi-opt
 PETSC_PKG_CONFIG_PATH := $(PETSC_DIR)/lib/pkgconfig
-PETSC_CFLAGS := $(shell PKG_CONFIG_PATH=$(PETSC_PKG_CONFIG_PATH) pkg-config --cflags PETSc 2>/dev/null)
-PETSC_LIBS := $(shell PKG_CONFIG_PATH=$(PETSC_PKG_CONFIG_PATH) pkg-config --libs PETSc 2>/dev/null)
-CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
+# Expand pkg-config only when recipes run, after the source-build prerequisite.
+# Eager expansion would cache empty flags on a completely clean checkout.
+PETSC_CFLAGS = $(shell PKG_CONFIG_PATH="$(PETSC_PKG_CONFIG_PATH)" pkg-config --cflags PETSc 2>/dev/null)
+PETSC_LIBS = $(shell PKG_CONFIG_PATH="$(PETSC_PKG_CONFIG_PATH)" pkg-config --libs PETSc 2>/dev/null)
+CPPFLAGS ?= -Iinclude -Isrc -I$(EIGEN_DIR)
 CPPFLAGS += $(PETSC_CFLAGS)
 LDLIBS += $(PETSC_LIBS)
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 
-BUILD ?= build-petsc
+# Optional multilevel graph partitioner. Set USE_METIS=0 for the dependency-free
+# graph-growth fallback, or supply METIS_CFLAGS/METIS_LIBS for a custom install.
+USE_METIS ?= auto
+METIS_DIR ?= $(HOME)/opt/metis-5.1.0
+METIS_CFLAGS ?= $(shell test ! -f $(METIS_DIR)/include/metis.h || printf '%s' '-I$(METIS_DIR)/include')
+METIS_LIBS ?= $(shell if test -f $(METIS_DIR)/include/metis.h -a -f $(METIS_DIR)/lib/libmetis.so; then printf '%s' '-L$(METIS_DIR)/lib -lmetis'; elif test -f /usr/include/metis.h; then printf '%s' '-lmetis'; fi)
+PARTITION_LIBS :=
+ifneq ($(USE_METIS),0)
+ifneq ($(strip $(METIS_LIBS)),)
+CPPFLAGS += $(METIS_CFLAGS) -DBABELSIM_USE_METIS=1
+LDLIBS += $(METIS_LIBS)
+PARTITION_LIBS := $(METIS_LIBS)
+else ifeq ($(USE_METIS),1)
+$(error USE_METIS=1 requires METIS headers and library)
+endif
+endif
+
 DEBUG_BUILD ?= build-debug
 DEBUG_OPTFLAGS ?= -O1 -g3 -fno-omit-frame-pointer \
                   -fsanitize=address,undefined -fno-sanitize-recover=all
@@ -52,6 +83,7 @@ SOURCES := src/core/mesh.cpp \
            src/discretization/field_math.cpp \
            $(COMPUTE_BACKEND_SOURCES) \
            src/parallel/parallel_context.cpp \
+           src/parallel/mesh_partition.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \
            src/runtime/solver_api.cpp \
@@ -76,14 +108,14 @@ TEST_SOURCES := tests/numerical_configuration_test.cpp \
                 tests/public_equation_test.cpp \
                 tests/backend_interface_test.cpp \
                 tests/petsc_backend_test.cpp \
+                tests/residual_restart_test.cpp \
                 tests/simple_solver_test.cpp \
                 tests/mesh_file_test.cpp \
                 tests/case_lifecycle_test.cpp \
                 tests/case_io_test.cpp \
                 tests/field_writer_test.cpp \
-                tests/heat_solver_test.cpp \
+                tests/scalar_equation_test.cpp \
                 tests/time_history_test.cpp \
-                tests/transport_solver_test.cpp \
                 tests/cavity_regression_test.cpp \
                 tests/cavity_3d_test.cpp \
                 tests/nonorthogonal_cavity_test.cpp \
@@ -96,6 +128,34 @@ MPI_TESTS := $(BUILD)/parallel_partition_test $(BUILD)/parallel_simple_test \
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
 all: $(LIB) $(APPS)
+
+PETSC_BUILD_ARGS = --source "$(PETSC_SOURCE)" --build "$(abspath $(BUILD))" \
+                   --arch "$(PETSC_ARCH)" --jobs "$(PETSC_JOBS)" \
+                   --cc "$(PETSC_CC)" --cxx "$(CXX)" --fc "$(PETSC_FC)" \
+                   --optflags="$(PETSC_OPTFLAGS)"
+ifeq ($(abspath $(PETSC_DIR)),$(PETSC_LOCAL_DIR))
+PETSC_READY := $(PETSC_LOCAL_DIR)/.babelsim-built
+$(PETSC_READY): dependencies/build_petsc.py dependencies/sources.json \
+                $(wildcard dependencies/distfiles/hypre-*.tar.gz) \
+                $(PETSC_SOURCE)/configure $(PETSC_SOURCE)/include/petscversion.h Makefile
+	+python3 dependencies/build_petsc.py $(PETSC_BUILD_ARGS)
+else
+PETSC_READY := $(PETSC_DIR)/lib/pkgconfig/PETSc.pc
+$(PETSC_READY):
+	@echo "PETSc installation is missing $@; omit PETSC_DIR to build the bundled sources."
+	@exit 1
+endif
+
+# All objects wait for a usable installation; a rebuilt dependency also
+# invalidates old objects even when a generated include is no longer present.
+$(OBJECTS) $(SOLVER_OBJECTS): $(PETSC_READY)
+
+petsc: $(PETSC_READY)
+
+petsc-check: $(BUILD)/petsc_backend_test
+	$(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/petsc_backend_test
 
 # Small-case lifetime and bounds checks use a separate tree and do not alter
 # the release benchmark binary or its optimization flags.
@@ -140,7 +200,7 @@ test-architecture:
 	python3 tests/architecture_test.py
 
 test-external: $(LIB)
-	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR)
+	python3 tests/external_solver_test.py --library $(LIB) --petsc-dir $(PETSC_DIR) --partition-libs='$(PARTITION_LIBS)'
 
 test: test-architecture $(TESTS)
 	@set -e; for test in $(TESTS); do $$test; done
@@ -149,8 +209,13 @@ $(BUILD)/case_programming_test: tests/case_programming_test.cpp tests/examples/c
 	+$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) tests/case_programming_test.cpp tests/examples/coupled_scalar.cpp $(LIB) $(LDLIBS) -o $@
 
 test-workflow: test-architecture $(APPS) $(BUILD)/case_programming_test $(BUILD)/time_history_test
+	python3 tests/benchmark_work_test.py
 	$(BUILD)/time_history_test
 	python3 tests/solver_workflow_test.py --solver $(BUILD)/babelsim-solve --post $(BUILD)/babelsim-post
+
+test-piso-coupling: $(BUILD)/babelsim-solve $(BUILD)/physics_contract_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/physics_contract_test
+	python3 tests/piso_coupling_test.py --solver $(BUILD)/babelsim-solve
 
 test-rans: $(BUILD)/babelsim-solve $(BUILD)/rans_equations_test
 	python3 tests/rans_validation_test.py --solver $(BUILD)/babelsim-solve \
@@ -162,8 +227,20 @@ test-scalar-time: $(BUILD)/babelsim-solve
 test-simple-parallel: $(BUILD)/babelsim-solve
 	python3 tests/simple_parallel_consistency_test.py --solver $(BUILD)/babelsim-solve
 
-test-mpi: $(MPI_TESTS) $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
+# 完整测试矩阵按组顺序执行，避免工作流测试同时写入相同算例目录。
+test-full:
+	$(MAKE) test
+	$(MAKE) test-workflow
+	$(MAKE) test-external
+	$(MAKE) test-rans
+	$(MAKE) test-scalar-time
+	$(MAKE) test-simple-parallel
+	$(MAKE) test-mpi
+	$(MAKE) test-mpi-poiseuille
+
+test-mpi: $(MPI_TESTS) $(BUILD)/petsc_backend_test $(BUILD)/residual_restart_test $(BUILD)/numerical_contract_test $(BUILD)/physics_contract_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_partition_test
+	TMPDIR=/tmp mpirun -np 3 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_partition_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/numerical_contract_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/numerical_contract_test 4
@@ -175,6 +252,8 @@ test-mpi: $(MPI_TESTS) $(BUILD)/numerical_contract_test $(BUILD)/physics_contrac
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/parallel_math_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/petsc_backend_test
 	TMPDIR=/tmp mpirun -np 4 $(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/residual_restart_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/residual_restart_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_unstructured_test
 	TMPDIR=/tmp mpirun -np 2 $(BUILD)/parallel_channel_test \
 		cases/poiseuille/mesh/poiseuille.mesh $(BUILD)/mpi-output
@@ -228,9 +307,9 @@ validate-poiseuille: $(BUILD)/babelsim-solve
 validate: test validate-cavity validate-poiseuille
 
 clean:
-	$(RM) -r $(BUILD)
+	python3 dependencies/build_petsc.py $(PETSC_BUILD_ARGS) --clean
 
-.PHONY: all debug test test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all petsc petsc-check debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

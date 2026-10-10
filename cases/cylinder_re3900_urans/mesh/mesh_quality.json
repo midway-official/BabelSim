@@ -1,0 +1,53 @@
+{
+  "cells": 49350,
+  "triangular_prisms": 49350,
+  "other_cell_types": 0,
+  "vertices": 49828,
+  "faces": 172964,
+  "annular_layer_cells": 21504,
+  "outer_triangular_cells": 27846,
+  "annular_layers": 28,
+  "wall_segments": 384,
+  "first_layer_height_D": 0.004,
+  "radial_growth": 1.07,
+  "layer_outer_radius_D": 0.8227907636430898,
+  "wake_target_size_D": 0.08,
+  "domain_D": [
+    -10.0,
+    25.0,
+    -10.0,
+    10.0
+  ],
+  "span_thickness_D": 0.1,
+  "min_volume": 1.6361731626485468e-06,
+  "max_volume": 0.08018456887198377,
+  "min_triangle_angle_deg": 23.62559328241059,
+  "max_edge_aspect_ratio": 2.283999966901109,
+  "max_nonorthogonality_deg": 38.800435563778436,
+  "p95_nonorthogonality_deg": 26.06448364369066,
+  "max_normalized_skewness": 0.4979824106744754,
+  "max_boundary_nonorthogonality_deg": 45.870519815828125,
+  "max_circle_sagitta_D": 1.6733041299454854e-05,
+  "area_relative_error": 1.6259218804198676e-16,
+  "interface_edges": 384,
+  "boundary_face_counts": {
+    "cylinder": 384,
+    "farfield": 60,
+    "outlet": 17,
+    "inlet": 17,
+    "front": 49350,
+    "back": 49350
+  },
+  "gates": {
+    "cell_count": true,
+    "positive_volume": true,
+    "minimum_angle": true,
+    "nonorthogonality": true,
+    "skewness": true,
+    "area": true,
+    "conformal_interface": true,
+    "unique_triangles": true,
+    "wall_complete": true
+  },
+  "passed": true
+}

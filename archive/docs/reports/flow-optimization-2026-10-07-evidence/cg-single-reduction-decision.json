@@ -1,0 +1,9 @@
+{
+  "adopted": false,
+  "productionBinaryUnchanged": true,
+  "reason": "保留已通过完整回归的 v12；单归约在三组工程规模配对中平均慢 24.99%，没有支持接入的速度收益",
+  "fieldConsistencyPassed": true,
+  "pairedGeometricMeanSpeedup": 0.8000570138092568,
+  "scope": "this hardware and fixed-work engineering screen; not a claim that single-reduction CG is universally slower",
+  "productionBinarySha256": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c"
+}

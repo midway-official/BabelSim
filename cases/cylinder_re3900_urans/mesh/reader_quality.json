@@ -1,0 +1,12 @@
+{
+  "cells": 49350,
+  "hexahedra": 0,
+  "prisms": 49350,
+  "min_volume": 1.636173162648486e-06,
+  "total_volume": 69.92146368819284,
+  "max_nonorthogonality_deg": 38.80043556377797,
+  "max_normalized_skewness": 0.4979824106745078,
+  "max_relative_cell_area_closure": 9.988140056792631e-17,
+  "wall_cell_distance_min": 0.001333288711889663,
+  "wall_cell_distance_max": 0.001333288711890154
+}

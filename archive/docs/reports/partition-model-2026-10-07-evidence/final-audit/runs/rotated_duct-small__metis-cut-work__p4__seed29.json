@@ -1,0 +1,108 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 0.02868923600181006,
+  "initialPartitionSeconds": 0.0285660950030433,
+  "exactBalanceSeconds": 0.00012314099876675755,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": 192,
+  "memory": {
+    "beforeRSSBytes": 274329600,
+    "peakRSSBytes": 274329600,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 192,
+  "cutFacesPerPart": [
+    128,
+    64,
+    128,
+    64
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    384,
+    192,
+    384,
+    192
+  ],
+  "firstLayerGhostsPerPart": [
+    128,
+    64,
+    128,
+    64
+  ],
+  "localCellsPerPart": [
+    2432,
+    2240,
+    2432,
+    2240
+  ],
+  "localFacesPerPart": [
+    7968,
+    7344,
+    7968,
+    7344
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    1,
+    2,
+    1
+  ],
+  "ownedFaceIncidencesPerPart": [
+    12288,
+    12288,
+    12288,
+    12288
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0407523510971788,
+  "localCellImbalance": 1.0410958904109588,
+  "totalGhostCells": 1152,
+  "maxGhostCells": 384,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 384,
+  "threeLayerCommunicationVolume": 1152,
+  "cellStorageDuplication": 1.140625,
+  "faceStorageDuplication": 1.1474820143884892,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "9fa487c883cea512ea8fc75805198a4fb791a479b234779053408b20e722cbf0",
+  "status": "ok",
+  "graph": "rotated_duct-small",
+  "graphSHA256": "cd46b3f224035fa5d5153d1806686cea88d257e18276cf6bc4baae481991f447",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "rotated_duct",
+    "graded": false,
+    "internalFaces": 22464,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 4224,
+    "rotated": true,
+    "scale": "small",
+    "shape": [
+      128,
+      8,
+      8
+    ]
+  },
+  "unixStarted": 1791373802.8704703,
+  "unixEnded": 1791373802.956465
+}

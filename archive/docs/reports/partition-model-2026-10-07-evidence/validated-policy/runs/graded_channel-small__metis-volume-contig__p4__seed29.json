@@ -1,0 +1,116 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 0.03054283199890051,
+  "initialPartitionSeconds": 0.030435660999501124,
+  "exactBalanceSeconds": 0.00010717099939938635,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 384,
+  "memory": {
+    "beforeRSSBytes": 195002368,
+    "peakRSSBytes": 195002368,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 192,
+  "cutFacesPerPart": [
+    128,
+    64,
+    128,
+    64
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    384,
+    192,
+    384,
+    192
+  ],
+  "firstLayerGhostsPerPart": [
+    128,
+    64,
+    128,
+    64
+  ],
+  "localCellsPerPart": [
+    2432,
+    2240,
+    2432,
+    2240
+  ],
+  "localFacesPerPart": [
+    7968,
+    7344,
+    7968,
+    7344
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    1,
+    2,
+    1
+  ],
+  "ownedFaceIncidencesPerPart": [
+    12288,
+    12288,
+    12288,
+    12288
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0407523510971788,
+  "localCellImbalance": 1.0410958904109588,
+  "totalGhostCells": 1152,
+  "maxGhostCells": 384,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 384,
+  "threeLayerCommunicationVolume": 1152,
+  "cellStorageDuplication": 1.140625,
+  "faceStorageDuplication": 1.1474820143884892,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "9fa487c883cea512ea8fc75805198a4fb791a479b234779053408b20e722cbf0",
+  "status": "ok",
+  "graph": "graded_channel-small",
+  "graphSHA256": "3890921371ded5ce392f707ff9ee1641573552a31b3bd5c27e5e8ad18a1e8f3c",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "graded_channel",
+    "graded": true,
+    "internalFaces": 22464,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 4224,
+    "rotated": false,
+    "scale": "small",
+    "shape": [
+      128,
+      8,
+      8
+    ]
+  },
+  "unixStarted": 1791377813.890076,
+  "unixEnded": 1791377813.9526455,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/graded_channel-small__metis-volume-contig__p4__seed29.json"
+}

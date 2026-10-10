@@ -2,6 +2,9 @@
 
 #include "babelsim/field.h"
 #include "babelsim/methods.h"
+#include <functional>
+#include <initializer_list>
+#include <vector>
 
 namespace babelsim::math {
 
@@ -258,5 +261,9 @@ double integral(const ScalarField&); // cell volumes, or face areas
 double max(const ScalarField&);
 double normL2(const ScalarField&); // unweighted Euclidean norm over owned entities
 double normL2(const VectorField&);
+// Independent owned-entity Euclidean norms, in input order. A single global
+// reduction serves the batch; no halo exchange is needed for a norm.
+std::vector<double> normsL2(std::initializer_list<std::reference_wrapper<const ScalarField>>);
+std::vector<double> normsL2(std::initializer_list<std::reference_wrapper<const VectorField>>);
 } // namespace math
 } // namespace babelsim

@@ -1,0 +1,60 @@
+{
+  "case": "/home/midway/babelsim-flow-opt-20261007/current-profile-prism12",
+  "input": {
+    "sha256": "37630a98fc761a49441c14fd71240e2dd70d77b4c35e8a09ff6bfee1b0311159",
+    "files": [
+      {
+        "path": "case.bs",
+        "bytes": 186,
+        "sha256": "ec44118ef613342df588c8422271fc1a48a2757a39c25e17b5508178e8a5374d"
+      },
+      {
+        "path": "control.bs",
+        "bytes": 36,
+        "sha256": "c1940936ca8b008ba684cfa1324bbf5e07bbdbb77ce012b8ac2d87c4184fbeee"
+      },
+      {
+        "path": "fields/initial/U.field",
+        "bytes": 300,
+        "sha256": "192205da309f5d1b96d8d2d6b82d5b20e65426e4c974103aee2c994553e94af8"
+      },
+      {
+        "path": "fields/initial/p.field",
+        "bytes": 268,
+        "sha256": "84062f8b4a2ce677b0902e3862bdf34bf8d429de66096cb3718403f5a281d94d"
+      },
+      {
+        "path": "generation.json",
+        "bytes": 450,
+        "sha256": "069e30ac95945692993dd52d05f842e1f8ebebcceb0da988bab3e046f0aa98f4"
+      },
+      {
+        "path": "mesh/flow.mesh",
+        "bytes": 143132671,
+        "sha256": "17c7481096dcbdf23440b8ed7c8619238a2f83ae9b62292a70bf244abc5d4b2f"
+      },
+      {
+        "path": "numerics/methods.bs",
+        "bytes": 355,
+        "sha256": "870d4c58a73ac8c3b272915248b494bb4e6ffa6d6c732970cb65a2ca0c67f9dc"
+      },
+      {
+        "path": "numerics/solution.bs",
+        "bytes": 637,
+        "sha256": "cd63d7488573e62686bb2e3268ae54629154745e982dc5c39a70684f5b8fc15d"
+      },
+      {
+        "path": "output.bs",
+        "bytes": 66,
+        "sha256": "1252c602687e26a4f88023a570d36ed9d5dd5f84f2cca2d969b0910f8d54d35a"
+      },
+      {
+        "path": "physics/flow.bs",
+        "bytes": 53,
+        "sha256": "282f382b9cd54c1ef253754bf6fbdedde960f933cbe3c9333f7f14486764f872"
+      }
+    ]
+  },
+  "binarySha256": "2114c30d7632f2fa500822cfafe2a134c69a5e280089bc312243ff3be2e7c53c",
+  "purpose": "PETSc stage profile; excluded from formal performance statistics"
+}

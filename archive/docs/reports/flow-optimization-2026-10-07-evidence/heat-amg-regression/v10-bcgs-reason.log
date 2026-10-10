@@ -1,0 +1,14 @@
+DIAGNOSTIC KSP reason=-5 iterations=1 recurrence=0.000119189 true=0.000119189
+heat time=0.01 residual=1.86233e-05
+
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[60897,1],0]
+  Exit code:    2
+--------------------------------------------------------------------------

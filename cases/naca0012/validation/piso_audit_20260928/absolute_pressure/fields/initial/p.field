@@ -1,0 +1,15 @@
+field p
+{
+    type scalar
+    location cell
+    internal file /home/midway/BabelSim/cases/naca0012/results/piso_komega_bdf2_dt0p01_T30_mpi4_retry1/8
+    boundary
+    {
+        airfoil { type zeroGradient }
+        inlet { type zeroGradient }
+        outlet { type fixedValue value (0) }
+        farfield { type zeroGradient }
+        front { type symmetry }
+        back { type symmetry }
+    }
+}

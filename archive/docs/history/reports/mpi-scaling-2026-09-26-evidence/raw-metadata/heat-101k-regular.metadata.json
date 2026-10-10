@@ -1,0 +1,3486 @@
+{
+  "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+  "caseManifest": {
+    "sha256": "5a3b050516d924fb33ba78799c89c7f5bf8dd4e0e7b985725c8e56c04943b548",
+    "files": [
+      {
+        "path": "case.bs",
+        "bytes": 184,
+        "sha256": "a8ffc2fbb63abb149d0fa11cde965425e03f887483257120d931f514d998814e"
+      },
+      {
+        "path": "control.bs",
+        "bytes": 31,
+        "sha256": "c6981af5a1b8f87e3dde65ac02673d872d84e46ab5f0a98c78fe59372f8a16d6"
+      },
+      {
+        "path": "fields/initial/T.field",
+        "bytes": 308,
+        "sha256": "0578a0d105589e3842b8721f157053520b2a5041a39ee72321278665c3d01c19"
+      },
+      {
+        "path": "generation.json",
+        "bytes": 180,
+        "sha256": "dfb606f801de45a93ddec9ea895b9e66228cb16fcf5d64672c34b83c5bb479e2"
+      },
+      {
+        "path": "mesh.mesh",
+        "bytes": 13364615,
+        "sha256": "d5de3fba0a8d33e94841c22500fef5e70016a07bd487b14b44f536500b779b43"
+      },
+      {
+        "path": "numerics/methods.bs",
+        "bytes": 175,
+        "sha256": "36edf285954f65f5c38cf31a790f2e2596fce711e51770ec523914cad9826993"
+      },
+      {
+        "path": "numerics/solution.bs",
+        "bytes": 212,
+        "sha256": "f390cdeb4741bfb118b39402f0e9176ff09025191f546c6ee56fa7e849b9597e"
+      },
+      {
+        "path": "output.bs",
+        "bytes": 63,
+        "sha256": "1ae4f20a585cd7d4b6965b55b6ecaaf35158776d1cba007123ec529f3067292d"
+      },
+      {
+        "path": "physics/thermal.bs",
+        "bytes": 51,
+        "sha256": "84ab6c53211385b338bb24d8f59a303e02bd6caa7d6cf5a66c58a09841bb90c4"
+      }
+    ]
+  },
+  "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+  "binarySha256": "31a4df169a076a8f2a911355351d896b196cff8a50d1a0163da0ae789966bad9",
+  "mode": "complete",
+  "timeoutSeconds": 600.0,
+  "repeat": 2,
+  "warmup": 1,
+  "git": {
+    "commit": "fa7d7c3d31f578f452182aa946344a06d249239c",
+    "branch": "codex/polyhedral-fvm",
+    "status": "?? cases/cylinder_re100/\n?? cases/planar_jet/validation/planar_jet_vorticity_t19.png\n?? docs/reports/rocm-feasibility-2026-09-26-evidence/\n?? docs/reports/rocm-feasibility-2026-09-26.md\n?? tools/generate_mpi_flow_case.py\n?? tools/generate_mpi_scaling_case.py",
+    "diff": ""
+  },
+  "host": {
+    "hostname": "midway",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+    "cpu": "Architecture:                         x86_64\nCPU op-mode(s):                       32-bit, 64-bit\nAddress sizes:                        48 bits physical, 48 bits virtual\nByte Order:                           Little Endian\nCPU(s):                               24\nOn-line CPU(s) list:                  0-23\nVendor ID:                            AuthenticAMD\nModel name:                           AMD RYZEN AI MAX+ 392 w/ Radeon 8060S\nCPU family:                           26\nModel:                                112\nThread(s) per core:                   2\nCore(s) per socket:                   12\nSocket(s):                            1\nStepping:                             0\nBogoMIPS:                             6387.58\nFlags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx_vnni avx512_bf16 clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm avx512_vp2intersect\nVirtualization:                       AMD-V\nHypervisor vendor:                    Microsoft\nVirtualization type:                  full\nL1d cache:                            576 KiB (12 instances)\nL1i cache:                            384 KiB (12 instances)\nL2 cache:                             12 MiB (12 instances)\nL3 cache:                             32 MiB (1 instance)\nNUMA node(s):                         1\nNUMA node0 CPU(s):                    0-23\nVulnerability Gather data sampling:   Not affected\nVulnerability Itlb multihit:          Not affected\nVulnerability L1tf:                   Not affected\nVulnerability Mds:                    Not affected\nVulnerability Meltdown:               Not affected\nVulnerability Mmio stale data:        Not affected\nVulnerability Reg file data sampling: Not affected\nVulnerability Retbleed:               Not affected\nVulnerability Spec rstack overflow:   Not affected\nVulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:             Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP always-on; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                  Not affected\nVulnerability Tsx async abort:        Not affected",
+    "memory": "total        used        free      shared  buff/cache   available\nMem:            11Gi       526Mi       7.6Gi       2.0Mi       3.4Gi        10Gi\nSwap:          3.0Gi       180Mi       2.8Gi",
+    "mpi": "mpirun (Open MPI) 4.1.2\n\nReport bugs to http://www.open-mpi.org/community/help/",
+    "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0\nCopyright (C) 2021 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+    "mpi_compiler": "g++",
+    "eigen": "#define EIGEN_WORLD_VERSION 3\n#define EIGEN_MAJOR_VERSION 4\n#define EIGEN_MINOR_VERSION 0\n#define EIGEN_VERSION_AT_LEAST(x,y,z) (EIGEN_WORLD_VERSION>x || (EIGEN_WORLD_VERSION>=x && \\\n                                      (EIGEN_MAJOR_VERSION>y || (EIGEN_MAJOR_VERSION>=y && \\\n                                                                 EIGEN_MINOR_VERSION>=z))))",
+    "cpu_flags": "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx_vnni avx512_bf16 clzero xsaveerptr arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload avx512vbmi umip avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid fsrm avx512_vp2intersect",
+    "cpuTopology": {
+      "allowedCpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "logicalCpus": 24,
+      "physicalCores": 12
+    },
+    "environment": {
+      "CXXFLAGS": "",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "GOMP_CPU_AFFINITY": "",
+      "OMP_PROC_BIND": ""
+    }
+  },
+  "build": {
+    "makefileSha256": "d9f1ed9fc54937660a000bc423e502382cff2282a3a88d728a2acaa1a2fc2c00",
+    "optimizationFlags": "",
+    "compilerFlags": "",
+    "backendDefaults": {
+      "ASYNC_HALO": "",
+      "CSR_SPMV": "",
+      "SERIAL_CSR_SPMV": "",
+      "INPLACE_PRECONDITIONER": ""
+    }
+  },
+  "runs": [
+    {
+      "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+      "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+      "ranks": 1,
+      "repeat": 0,
+      "warmup": true,
+      "binding": "physical-core",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      },
+      "mode": "complete",
+      "modeNote": "production-convergence",
+      "command": [
+        "mpirun",
+        "--bind-to",
+        "core",
+        "--map-by",
+        "core",
+        "--report-bindings",
+        "-np",
+        "1",
+        "/home/midway/BabelSim/build-petsc/babelsim-solve",
+        "-case",
+        "/tmp/babelsim-mpi-study/prism-n37-regular",
+        "-time",
+        "benchmark-r1-warmup",
+        "-performance",
+        "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-1/warmup-01/performance"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "elapsedSeconds": 3.0092126540039317,
+      "returncode": 0,
+      "status": "converged",
+      "memory": {
+        "peakTreeRssKiB": 314424,
+        "peakSolverRssKiB": 288888
+      },
+      "performance": [
+        {
+          "rank": 0,
+          "ranks": 1,
+          "status": "converged",
+          "mpiInitSeconds": 0.224955906,
+          "caseSetupSeconds": 0.738525969,
+          "solverSeconds": 1.921580931,
+          "solverComputeSeconds": 0.9625861389999999,
+          "applicationSeconds": 2.6601659680000003,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 101306,
+            "ownedCells": 101306,
+            "ghostCells": 0,
+            "localFaces": 258741,
+            "ownedFaces": 258741,
+            "communicationFaces": 0,
+            "neighbourRanks": 0
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 0,
+          "haloBytes": 0,
+          "globalReductions": 0,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 1.9219286350000002,
+          "assemblySeconds": 0.000818866,
+          "patternBuildSeconds": 0.02503485,
+          "matrixUpdateSeconds": 0.003911444,
+          "rhsSeconds": 7.6155e-05,
+          "residualCheckSeconds": 0.0015273110000000002,
+          "preconditionerSeconds": 0.472537087,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.450671851,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 0,
+          "globalReductionSeconds": 0,
+          "outputSeconds": 0.9589947920000002,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 0,
+            "haloBytes": 0,
+            "globalReductions": 0,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 1.921929851,
+            "assemblySeconds": 0.000818866,
+            "patternBuildSeconds": 0.02503485,
+            "matrixUpdateSeconds": 0.003911444,
+            "rhsSeconds": 7.6155e-05,
+            "residualCheckSeconds": 0.0015273110000000002,
+            "preconditionerSeconds": 0.472537087,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.450671851,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 0,
+            "globalReductionSeconds": 0,
+            "outputSeconds": 0.9589947920000002,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014424,
+                "lastFinalResidual": 3.4903905378246756e-14,
+                "lastRelativeResidual": 1.4543293907594075e-13,
+                "patternBuildSeconds": 0.02503485,
+                "matrixUpdateSeconds": 0.003911444,
+                "preconditionerSeconds": 0.472537087,
+                "rhsSeconds": 7.6155e-05,
+                "solveSeconds": 0.450671851,
+                "residualCheckSeconds": 0.0015273110000000002
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-1/warmup-01/performance/rank-0000.json"
+        }
+      ],
+      "results": [
+        {
+          "path": "results/benchmark-r1-warmup/1/rank-0000/T.csv",
+          "bytes": 8641053,
+          "sha256": "430bae3e3d9cd8e411768686e10afb39aee8d2bca741713f2097b852a9b9bea0"
+        },
+        {
+          "path": "results/benchmark-r1-warmup/1/rank-0000/mesh.geometry",
+          "bytes": 35496580,
+          "sha256": "88e08254638d473fea6e9da2324676008450e23e4fb3d46f56188d024ae9f894"
+        },
+        {
+          "path": "results/benchmark-r1-warmup/1/rank-0000/metadata.bs",
+          "bytes": 111,
+          "sha256": "5aa4ecdfedb741f3910cf997ee5e943178bfe84eed6ed33229d3076c87b6a9af"
+        },
+        {
+          "path": "results/benchmark-r1-warmup/rank-0000/T.csv",
+          "bytes": 8641053,
+          "sha256": "430bae3e3d9cd8e411768686e10afb39aee8d2bca741713f2097b852a9b9bea0"
+        },
+        {
+          "path": "results/benchmark-r1-warmup/rank-0000/mesh.geometry",
+          "bytes": 35496580,
+          "sha256": "88e08254638d473fea6e9da2324676008450e23e4fb3d46f56188d024ae9f894"
+        },
+        {
+          "path": "results/benchmark-r1-warmup/rank-0000/metadata.bs",
+          "bytes": 111,
+          "sha256": "5aa4ecdfedb741f3910cf997ee5e943178bfe84eed6ed33229d3076c87b6a9af"
+        }
+      ]
+    },
+    {
+      "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+      "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+      "ranks": 1,
+      "repeat": 1,
+      "warmup": false,
+      "binding": "physical-core",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      },
+      "mode": "complete",
+      "modeNote": "production-convergence",
+      "command": [
+        "mpirun",
+        "--bind-to",
+        "core",
+        "--map-by",
+        "core",
+        "--report-bindings",
+        "-np",
+        "1",
+        "/home/midway/BabelSim/build-petsc/babelsim-solve",
+        "-case",
+        "/tmp/babelsim-mpi-study/prism-n37-regular",
+        "-time",
+        "benchmark-r1-n01",
+        "-performance",
+        "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-1/repeat-01/performance"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "elapsedSeconds": 2.9821848240026156,
+      "returncode": 0,
+      "status": "converged",
+      "memory": {
+        "peakTreeRssKiB": 314540,
+        "peakSolverRssKiB": 288812
+      },
+      "performance": [
+        {
+          "rank": 0,
+          "ranks": 1,
+          "status": "converged",
+          "mpiInitSeconds": 0.221811697,
+          "caseSetupSeconds": 0.6891402560000001,
+          "solverSeconds": 1.95109024,
+          "solverComputeSeconds": 0.941652103,
+          "applicationSeconds": 2.640282726,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 101306,
+            "ownedCells": 101306,
+            "ghostCells": 0,
+            "localFaces": 258741,
+            "ownedFaces": 258741,
+            "communicationFaces": 0,
+            "neighbourRanks": 0
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 0,
+          "haloBytes": 0,
+          "globalReductions": 0,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 1.9513961270000002,
+          "assemblySeconds": 0.000794303,
+          "patternBuildSeconds": 0.025826248000000003,
+          "matrixUpdateSeconds": 0.003002194,
+          "rhsSeconds": 8.481600000000001e-05,
+          "residualCheckSeconds": 0.0014610880000000001,
+          "preconditionerSeconds": 0.45424127400000003,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.448446708,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 0,
+          "globalReductionSeconds": 0,
+          "outputSeconds": 1.009438137,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 0,
+            "haloBytes": 0,
+            "globalReductions": 0,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 1.9513971250000002,
+            "assemblySeconds": 0.000794303,
+            "patternBuildSeconds": 0.025826248000000003,
+            "matrixUpdateSeconds": 0.003002194,
+            "rhsSeconds": 8.481600000000001e-05,
+            "residualCheckSeconds": 0.0014610880000000001,
+            "preconditionerSeconds": 0.45424127400000003,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.448446708,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 0,
+            "globalReductionSeconds": 0,
+            "outputSeconds": 1.009438137,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014424,
+                "lastFinalResidual": 3.4903905378246756e-14,
+                "lastRelativeResidual": 1.4543293907594075e-13,
+                "patternBuildSeconds": 0.025826248000000003,
+                "matrixUpdateSeconds": 0.003002194,
+                "preconditionerSeconds": 0.45424127400000003,
+                "rhsSeconds": 8.481600000000001e-05,
+                "solveSeconds": 0.448446708,
+                "residualCheckSeconds": 0.0014610880000000001
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-1/repeat-01/performance/rank-0000.json"
+        }
+      ],
+      "results": [
+        {
+          "path": "results/benchmark-r1-n01/1/rank-0000/T.csv",
+          "bytes": 8641053,
+          "sha256": "430bae3e3d9cd8e411768686e10afb39aee8d2bca741713f2097b852a9b9bea0"
+        },
+        {
+          "path": "results/benchmark-r1-n01/1/rank-0000/mesh.geometry",
+          "bytes": 35496580,
+          "sha256": "88e08254638d473fea6e9da2324676008450e23e4fb3d46f56188d024ae9f894"
+        },
+        {
+          "path": "results/benchmark-r1-n01/1/rank-0000/metadata.bs",
+          "bytes": 111,
+          "sha256": "5aa4ecdfedb741f3910cf997ee5e943178bfe84eed6ed33229d3076c87b6a9af"
+        },
+        {
+          "path": "results/benchmark-r1-n01/rank-0000/T.csv",
+          "bytes": 8641053,
+          "sha256": "430bae3e3d9cd8e411768686e10afb39aee8d2bca741713f2097b852a9b9bea0"
+        },
+        {
+          "path": "results/benchmark-r1-n01/rank-0000/mesh.geometry",
+          "bytes": 35496580,
+          "sha256": "88e08254638d473fea6e9da2324676008450e23e4fb3d46f56188d024ae9f894"
+        },
+        {
+          "path": "results/benchmark-r1-n01/rank-0000/metadata.bs",
+          "bytes": 111,
+          "sha256": "5aa4ecdfedb741f3910cf997ee5e943178bfe84eed6ed33229d3076c87b6a9af"
+        }
+      ]
+    },
+    {
+      "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+      "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+      "ranks": 1,
+      "repeat": 2,
+      "warmup": false,
+      "binding": "physical-core",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      },
+      "mode": "complete",
+      "modeNote": "production-convergence",
+      "command": [
+        "mpirun",
+        "--bind-to",
+        "core",
+        "--map-by",
+        "core",
+        "--report-bindings",
+        "-np",
+        "1",
+        "/home/midway/BabelSim/build-petsc/babelsim-solve",
+        "-case",
+        "/tmp/babelsim-mpi-study/prism-n37-regular",
+        "-time",
+        "benchmark-r1-n02",
+        "-performance",
+        "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-1/repeat-02/performance"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "elapsedSeconds": 2.9869572940006037,
+      "returncode": 0,
+      "status": "converged",
+      "memory": {
+        "peakTreeRssKiB": 314524,
+        "peakSolverRssKiB": 288988
+      },
+      "performance": [
+        {
+          "rank": 0,
+          "ranks": 1,
+          "status": "converged",
+          "mpiInitSeconds": 0.222515549,
+          "caseSetupSeconds": 0.695787923,
+          "solverSeconds": 1.9477670990000002,
+          "solverComputeSeconds": 0.9484321970000001,
+          "applicationSeconds": 2.643607839,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 101306,
+            "ownedCells": 101306,
+            "ghostCells": 0,
+            "localFaces": 258741,
+            "ownedFaces": 258741,
+            "communicationFaces": 0,
+            "neighbourRanks": 0
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 0,
+          "haloBytes": 0,
+          "globalReductions": 0,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 1.948065323,
+          "assemblySeconds": 0.0007904380000000001,
+          "patternBuildSeconds": 0.025297998000000002,
+          "matrixUpdateSeconds": 0.003144848,
+          "rhsSeconds": 8.0746e-05,
+          "residualCheckSeconds": 0.0016492050000000002,
+          "preconditionerSeconds": 0.453094496,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.456769845,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 0,
+          "globalReductionSeconds": 0,
+          "outputSeconds": 0.9993349020000001,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 0,
+            "haloBytes": 0,
+            "globalReductions": 0,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 1.948066148,
+            "assemblySeconds": 0.0007904380000000001,
+            "patternBuildSeconds": 0.025297998000000002,
+            "matrixUpdateSeconds": 0.003144848,
+            "rhsSeconds": 8.0746e-05,
+            "residualCheckSeconds": 0.0016492050000000002,
+            "preconditionerSeconds": 0.453094496,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.456769845,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 0,
+            "globalReductionSeconds": 0,
+            "outputSeconds": 0.9993349020000001,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014424,
+                "lastFinalResidual": 3.4903905378246756e-14,
+                "lastRelativeResidual": 1.4543293907594075e-13,
+                "patternBuildSeconds": 0.025297998000000002,
+                "matrixUpdateSeconds": 0.003144848,
+                "preconditionerSeconds": 0.453094496,
+                "rhsSeconds": 8.0746e-05,
+                "solveSeconds": 0.456769845,
+                "residualCheckSeconds": 0.0016492050000000002
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-1/repeat-02/performance/rank-0000.json"
+        }
+      ],
+      "results": [
+        {
+          "path": "results/benchmark-r1-n02/1/rank-0000/T.csv",
+          "bytes": 8641053,
+          "sha256": "430bae3e3d9cd8e411768686e10afb39aee8d2bca741713f2097b852a9b9bea0"
+        },
+        {
+          "path": "results/benchmark-r1-n02/1/rank-0000/mesh.geometry",
+          "bytes": 35496580,
+          "sha256": "88e08254638d473fea6e9da2324676008450e23e4fb3d46f56188d024ae9f894"
+        },
+        {
+          "path": "results/benchmark-r1-n02/1/rank-0000/metadata.bs",
+          "bytes": 111,
+          "sha256": "5aa4ecdfedb741f3910cf997ee5e943178bfe84eed6ed33229d3076c87b6a9af"
+        },
+        {
+          "path": "results/benchmark-r1-n02/rank-0000/T.csv",
+          "bytes": 8641053,
+          "sha256": "430bae3e3d9cd8e411768686e10afb39aee8d2bca741713f2097b852a9b9bea0"
+        },
+        {
+          "path": "results/benchmark-r1-n02/rank-0000/mesh.geometry",
+          "bytes": 35496580,
+          "sha256": "88e08254638d473fea6e9da2324676008450e23e4fb3d46f56188d024ae9f894"
+        },
+        {
+          "path": "results/benchmark-r1-n02/rank-0000/metadata.bs",
+          "bytes": 111,
+          "sha256": "5aa4ecdfedb741f3910cf997ee5e943178bfe84eed6ed33229d3076c87b6a9af"
+        }
+      ]
+    },
+    {
+      "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+      "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+      "ranks": 4,
+      "repeat": 0,
+      "warmup": true,
+      "binding": "physical-core",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      },
+      "mode": "complete",
+      "modeNote": "production-convergence",
+      "command": [
+        "mpirun",
+        "--bind-to",
+        "core",
+        "--map-by",
+        "core",
+        "--report-bindings",
+        "-np",
+        "4",
+        "/home/midway/BabelSim/build-petsc/babelsim-solve",
+        "-case",
+        "/tmp/babelsim-mpi-study/prism-n37-regular",
+        "-time",
+        "benchmark-r4-warmup",
+        "-performance",
+        "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/warmup-04/performance"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "elapsedSeconds": 2.4002837869993527,
+      "returncode": 0,
+      "status": "converged",
+      "memory": {
+        "peakTreeRssKiB": 641160,
+        "peakSolverRssKiB": 170612
+      },
+      "performance": [
+        {
+          "rank": 0,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22713360000000002,
+          "caseSetupSeconds": 1.3821141940000001,
+          "solverSeconds": 0.680878624,
+          "solverComputeSeconds": 0.385330266,
+          "applicationSeconds": 2.063040382,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29602,
+            "ownedCells": 25327,
+            "ghostCells": 4275,
+            "localFaces": 76956,
+            "ownedFaces": 65981,
+            "communicationFaces": 2452,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.681411471,
+          "assemblySeconds": 0.000378253,
+          "patternBuildSeconds": 0.009527637,
+          "matrixUpdateSeconds": 0.000534221,
+          "rhsSeconds": 4.4829e-05,
+          "residualCheckSeconds": 0.0005125770000000001,
+          "preconditionerSeconds": 0.23399274900000003,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.137687633,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 7.2236e-05,
+          "globalReductionSeconds": 0.00017396300000000001,
+          "outputSeconds": 0.295600047,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 68336,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.681139314,
+            "assemblySeconds": 0.000288564,
+            "patternBuildSeconds": 0.009478532000000001,
+            "matrixUpdateSeconds": 0.00048003600000000004,
+            "rhsSeconds": 3.6503e-05,
+            "residualCheckSeconds": 0.0005125770000000001,
+            "preconditionerSeconds": 0.23399274900000003,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.137685994,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 7.2236e-05,
+            "globalReductionSeconds": 5.0505000000000005e-05,
+            "outputSeconds": 0.295548358,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.009478532000000001,
+                "matrixUpdateSeconds": 0.00048003600000000004,
+                "preconditionerSeconds": 0.23399274900000003,
+                "rhsSeconds": 3.6503e-05,
+                "solveSeconds": 0.137685994,
+                "residualCheckSeconds": 0.0005125770000000001
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/warmup-04/performance/rank-0000.json"
+        },
+        {
+          "rank": 1,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22720224600000002,
+          "caseSetupSeconds": 1.38186399,
+          "solverSeconds": 0.681088299,
+          "solverComputeSeconds": 0.385488339,
+          "applicationSeconds": 2.062972771,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29508,
+            "ownedCells": 25327,
+            "ghostCells": 4181,
+            "localFaces": 76696,
+            "ownedFaces": 65977,
+            "communicationFaces": 2438,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.681411471,
+          "assemblySeconds": 0.000378253,
+          "patternBuildSeconds": 0.009527637,
+          "matrixUpdateSeconds": 0.000534221,
+          "rhsSeconds": 4.4829e-05,
+          "residualCheckSeconds": 0.0005125770000000001,
+          "preconditionerSeconds": 0.23399274900000003,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.137687633,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 7.2236e-05,
+          "globalReductionSeconds": 0.00017396300000000001,
+          "outputSeconds": 0.295600047,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 66832,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.681414896,
+            "assemblySeconds": 0.000354418,
+            "patternBuildSeconds": 0.009499751,
+            "matrixUpdateSeconds": 0.000534221,
+            "rhsSeconds": 4.4829e-05,
+            "residualCheckSeconds": 0.000511828,
+            "preconditionerSeconds": 0.23398130900000003,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.137687405,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 6.8101e-05,
+            "globalReductionSeconds": 0.000150203,
+            "outputSeconds": 0.29559996,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.009499751,
+                "matrixUpdateSeconds": 0.000534221,
+                "preconditionerSeconds": 0.23398130900000003,
+                "rhsSeconds": 4.4829e-05,
+                "solveSeconds": 0.137687405,
+                "residualCheckSeconds": 0.000511828
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/warmup-04/performance/rank-0001.json"
+        },
+        {
+          "rank": 2,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.226621114,
+          "caseSetupSeconds": 1.381896889,
+          "solverSeconds": 0.681090399,
+          "solverComputeSeconds": 0.38549035200000004,
+          "applicationSeconds": 2.0630464230000003,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29672,
+            "ownedCells": 25326,
+            "ghostCells": 4346,
+            "localFaces": 76835,
+            "ownedFaces": 65641,
+            "communicationFaces": 2519,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.681411471,
+          "assemblySeconds": 0.000378253,
+          "patternBuildSeconds": 0.009527637,
+          "matrixUpdateSeconds": 0.000534221,
+          "rhsSeconds": 4.4829e-05,
+          "residualCheckSeconds": 0.0005125770000000001,
+          "preconditionerSeconds": 0.23399274900000003,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.137687633,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 7.2236e-05,
+          "globalReductionSeconds": 0.00017396300000000001,
+          "outputSeconds": 0.295600047,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 69192,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.681417854,
+            "assemblySeconds": 0.000301644,
+            "patternBuildSeconds": 0.009496419,
+            "matrixUpdateSeconds": 0.00046754200000000004,
+            "rhsSeconds": 4.2875000000000005e-05,
+            "residualCheckSeconds": 0.0005125010000000001,
+            "preconditionerSeconds": 0.23399272200000001,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.137686265,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 6.915300000000001e-05,
+            "globalReductionSeconds": 0.00017396300000000001,
+            "outputSeconds": 0.295600047,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.009496419,
+                "matrixUpdateSeconds": 0.00046754200000000004,
+                "preconditionerSeconds": 0.23399272200000001,
+                "rhsSeconds": 4.2875000000000005e-05,
+                "solveSeconds": 0.137686265,
+                "residualCheckSeconds": 0.0005125010000000001
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/warmup-04/performance/rank-0002.json"
+        },
+        {
+          "rank": 3,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22479174200000002,
+          "caseSetupSeconds": 1.381991648,
+          "solverSeconds": 0.6808900760000001,
+          "solverComputeSeconds": 0.38529032900000004,
+          "applicationSeconds": 2.062901425,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29545,
+            "ownedCells": 25326,
+            "ghostCells": 4219,
+            "localFaces": 76403,
+            "ownedFaces": 65609,
+            "communicationFaces": 2352,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.681411471,
+          "assemblySeconds": 0.000378253,
+          "patternBuildSeconds": 0.009527637,
+          "matrixUpdateSeconds": 0.000534221,
+          "rhsSeconds": 4.4829e-05,
+          "residualCheckSeconds": 0.0005125770000000001,
+          "preconditionerSeconds": 0.23399274900000003,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.137687633,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 7.2236e-05,
+          "globalReductionSeconds": 0.00017396300000000001,
+          "outputSeconds": 0.295600047,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 67976,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.681152611,
+            "assemblySeconds": 0.000378253,
+            "patternBuildSeconds": 0.009527637,
+            "matrixUpdateSeconds": 0.000522704,
+            "rhsSeconds": 3.6666000000000004e-05,
+            "residualCheckSeconds": 0.000511936,
+            "preconditionerSeconds": 0.233992376,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.137687633,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 7.0336e-05,
+            "globalReductionSeconds": 7.8955e-05,
+            "outputSeconds": 0.295599747,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.009527637,
+                "matrixUpdateSeconds": 0.000522704,
+                "preconditionerSeconds": 0.233992376,
+                "rhsSeconds": 3.6666000000000004e-05,
+                "solveSeconds": 0.137687633,
+                "residualCheckSeconds": 0.000511936
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/warmup-04/performance/rank-0003.json"
+        }
+      ],
+      "results": [
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0000/T.csv",
+          "bytes": 2149641,
+          "sha256": "a8c08389d80bf2b6cffaa81439f3027a6b5a407053a5315232195d29ae8bad1a"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0000/mesh.geometry",
+          "bytes": 8693672,
+          "sha256": "f084f85c3b6ca39be0ee927df7375d064c48b83c14c0f339975d1215f534ed71"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0000/metadata.bs",
+          "bytes": 110,
+          "sha256": "4c0efd104f3dc0024ac49e2d66e93c75f057a42e82f6b24c1effdfd0b461879a"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0001/T.csv",
+          "bytes": 2171470,
+          "sha256": "419be6c78a7488342890db814bf674493dc6817f530e39e78a9fc20af5da25df"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0001/mesh.geometry",
+          "bytes": 9028199,
+          "sha256": "5baacb89b2b870f968783dac08147e65f2fff8ff74457a9cdfb420416eaddcce"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0001/metadata.bs",
+          "bytes": 110,
+          "sha256": "ad98c5286ceaca076a58116a2ed08078442eb314e95b3ad7be8ee36412e6e169"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0002/T.csv",
+          "bytes": 2150727,
+          "sha256": "e52dedb960ef54d9c0997449bee8344b28b07c7867d12f9f1e4187c2e8306fcc"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0002/mesh.geometry",
+          "bytes": 8885637,
+          "sha256": "ad048c8854f681066643c3b65825e23ae4d84132dc1329626619b2904b48fb3b"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0002/metadata.bs",
+          "bytes": 110,
+          "sha256": "8c18fe8e93fd0a5508e9e581877a7d4b3f90b7411edebfcbf1dedabd00e9fc57"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0003/T.csv",
+          "bytes": 2169296,
+          "sha256": "e5522ba569dc84afe9e223bb7f10e9a8c4f2080c10051ecb439eee8188ef0c55"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0003/mesh.geometry",
+          "bytes": 8889072,
+          "sha256": "a0abea389874a7e3ced39bc132d72fd09af0edf501cc8241c60111c92532b434"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/1/rank-0003/metadata.bs",
+          "bytes": 110,
+          "sha256": "7679cba764789445e0a84bfb792180935e6712cd50654dda87a44ef971181808"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0000/T.csv",
+          "bytes": 2149641,
+          "sha256": "a8c08389d80bf2b6cffaa81439f3027a6b5a407053a5315232195d29ae8bad1a"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0000/mesh.geometry",
+          "bytes": 8693672,
+          "sha256": "f084f85c3b6ca39be0ee927df7375d064c48b83c14c0f339975d1215f534ed71"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0000/metadata.bs",
+          "bytes": 110,
+          "sha256": "4c0efd104f3dc0024ac49e2d66e93c75f057a42e82f6b24c1effdfd0b461879a"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0001/T.csv",
+          "bytes": 2171470,
+          "sha256": "419be6c78a7488342890db814bf674493dc6817f530e39e78a9fc20af5da25df"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0001/mesh.geometry",
+          "bytes": 9028199,
+          "sha256": "5baacb89b2b870f968783dac08147e65f2fff8ff74457a9cdfb420416eaddcce"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0001/metadata.bs",
+          "bytes": 110,
+          "sha256": "ad98c5286ceaca076a58116a2ed08078442eb314e95b3ad7be8ee36412e6e169"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0002/T.csv",
+          "bytes": 2150727,
+          "sha256": "e52dedb960ef54d9c0997449bee8344b28b07c7867d12f9f1e4187c2e8306fcc"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0002/mesh.geometry",
+          "bytes": 8885637,
+          "sha256": "ad048c8854f681066643c3b65825e23ae4d84132dc1329626619b2904b48fb3b"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0002/metadata.bs",
+          "bytes": 110,
+          "sha256": "8c18fe8e93fd0a5508e9e581877a7d4b3f90b7411edebfcbf1dedabd00e9fc57"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0003/T.csv",
+          "bytes": 2169296,
+          "sha256": "e5522ba569dc84afe9e223bb7f10e9a8c4f2080c10051ecb439eee8188ef0c55"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0003/mesh.geometry",
+          "bytes": 8889072,
+          "sha256": "a0abea389874a7e3ced39bc132d72fd09af0edf501cc8241c60111c92532b434"
+        },
+        {
+          "path": "results/benchmark-r4-warmup/rank-0003/metadata.bs",
+          "bytes": 110,
+          "sha256": "7679cba764789445e0a84bfb792180935e6712cd50654dda87a44ef971181808"
+        }
+      ]
+    },
+    {
+      "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+      "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+      "ranks": 4,
+      "repeat": 1,
+      "warmup": false,
+      "binding": "physical-core",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      },
+      "mode": "complete",
+      "modeNote": "production-convergence",
+      "command": [
+        "mpirun",
+        "--bind-to",
+        "core",
+        "--map-by",
+        "core",
+        "--report-bindings",
+        "-np",
+        "4",
+        "/home/midway/BabelSim/build-petsc/babelsim-solve",
+        "-case",
+        "/tmp/babelsim-mpi-study/prism-n37-regular",
+        "-time",
+        "benchmark-r4-n01",
+        "-performance",
+        "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-01/performance"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "elapsedSeconds": 2.3868797709947103,
+      "returncode": 0,
+      "status": "converged",
+      "memory": {
+        "peakTreeRssKiB": 640764,
+        "peakSolverRssKiB": 170416
+      },
+      "performance": [
+        {
+          "rank": 0,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22452813800000002,
+          "caseSetupSeconds": 1.3809794370000001,
+          "solverSeconds": 0.665210425,
+          "solverComputeSeconds": 0.400813101,
+          "applicationSeconds": 2.046211398,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29602,
+            "ownedCells": 25327,
+            "ghostCells": 4275,
+            "localFaces": 76956,
+            "ownedFaces": 65981,
+            "communicationFaces": 2452,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.6680896550000001,
+          "assemblySeconds": 0.00029010500000000003,
+          "patternBuildSeconds": 0.008978752000000001,
+          "matrixUpdateSeconds": 0.000658557,
+          "rhsSeconds": 4.4210000000000005e-05,
+          "residualCheckSeconds": 0.000490586,
+          "preconditionerSeconds": 0.24363631100000002,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.144067009,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.2481e-05,
+          "globalReductionSeconds": 0.002285739,
+          "outputSeconds": 0.26446820400000004,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 68336,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.6657352240000001,
+            "assemblySeconds": 0.00024522300000000003,
+            "patternBuildSeconds": 0.008973390000000001,
+            "matrixUpdateSeconds": 0.000631171,
+            "rhsSeconds": 4.0791e-05,
+            "residualCheckSeconds": 0.000490076,
+            "preconditionerSeconds": 0.24363567600000002,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.144066884,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 4.9452e-05,
+            "globalReductionSeconds": 3.7676e-05,
+            "outputSeconds": 0.26439732400000004,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008973390000000001,
+                "matrixUpdateSeconds": 0.000631171,
+                "preconditionerSeconds": 0.24363567600000002,
+                "rhsSeconds": 4.0791e-05,
+                "solveSeconds": 0.144066884,
+                "residualCheckSeconds": 0.000490076
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-01/performance/rank-0000.json"
+        },
+        {
+          "rank": 1,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22438892000000002,
+          "caseSetupSeconds": 1.3788495120000002,
+          "solverSeconds": 0.667436981,
+          "solverComputeSeconds": 0.40297116,
+          "applicationSeconds": 2.046357861,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29508,
+            "ownedCells": 25327,
+            "ghostCells": 4181,
+            "localFaces": 76696,
+            "ownedFaces": 65977,
+            "communicationFaces": 2438,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.6680896550000001,
+          "assemblySeconds": 0.00029010500000000003,
+          "patternBuildSeconds": 0.008978752000000001,
+          "matrixUpdateSeconds": 0.000658557,
+          "rhsSeconds": 4.4210000000000005e-05,
+          "residualCheckSeconds": 0.000490586,
+          "preconditionerSeconds": 0.24363631100000002,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.144067009,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.2481e-05,
+          "globalReductionSeconds": 0.002285739,
+          "outputSeconds": 0.26446820400000004,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 66832,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.668095918,
+            "assemblySeconds": 0.000253363,
+            "patternBuildSeconds": 0.008978752000000001,
+            "matrixUpdateSeconds": 0.000658557,
+            "rhsSeconds": 4.4210000000000005e-05,
+            "residualCheckSeconds": 0.000489837,
+            "preconditionerSeconds": 0.24360609300000002,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.144066825,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.2481e-05,
+            "globalReductionSeconds": 0.002285739,
+            "outputSeconds": 0.26446582100000005,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008978752000000001,
+                "matrixUpdateSeconds": 0.000658557,
+                "preconditionerSeconds": 0.24360609300000002,
+                "rhsSeconds": 4.4210000000000005e-05,
+                "solveSeconds": 0.144066825,
+                "residualCheckSeconds": 0.000489837
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-01/performance/rank-0001.json"
+        },
+        {
+          "rank": 2,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.224428707,
+          "caseSetupSeconds": 1.3790463620000002,
+          "solverSeconds": 0.667243274,
+          "solverComputeSeconds": 0.40277807200000004,
+          "applicationSeconds": 2.0463206140000003,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29672,
+            "ownedCells": 25326,
+            "ghostCells": 4346,
+            "localFaces": 76835,
+            "ownedFaces": 65641,
+            "communicationFaces": 2519,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.6680896550000001,
+          "assemblySeconds": 0.00029010500000000003,
+          "patternBuildSeconds": 0.008978752000000001,
+          "matrixUpdateSeconds": 0.000658557,
+          "rhsSeconds": 4.4210000000000005e-05,
+          "residualCheckSeconds": 0.000490586,
+          "preconditionerSeconds": 0.24363631100000002,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.144067009,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.2481e-05,
+          "globalReductionSeconds": 0.002285739,
+          "outputSeconds": 0.26446820400000004,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 69192,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.6677823780000001,
+            "assemblySeconds": 0.00026380500000000004,
+            "patternBuildSeconds": 0.008964077,
+            "matrixUpdateSeconds": 0.000658351,
+            "rhsSeconds": 3.6959e-05,
+            "residualCheckSeconds": 0.000490586,
+            "preconditionerSeconds": 0.24363631100000002,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.144067009,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.0136e-05,
+            "globalReductionSeconds": 0.002040506,
+            "outputSeconds": 0.264465202,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008964077,
+                "matrixUpdateSeconds": 0.000658351,
+                "preconditionerSeconds": 0.24363631100000002,
+                "rhsSeconds": 3.6959e-05,
+                "solveSeconds": 0.144067009,
+                "residualCheckSeconds": 0.000490586
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-01/performance/rank-0002.json"
+        },
+        {
+          "rank": 3,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22346704,
+          "caseSetupSeconds": 1.379072674,
+          "solverSeconds": 0.667154164,
+          "solverComputeSeconds": 0.40268596,
+          "applicationSeconds": 2.046248178,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29545,
+            "ownedCells": 25326,
+            "ghostCells": 4219,
+            "localFaces": 76403,
+            "ownedFaces": 65609,
+            "communicationFaces": 2352,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.6680896550000001,
+          "assemblySeconds": 0.00029010500000000003,
+          "patternBuildSeconds": 0.008978752000000001,
+          "matrixUpdateSeconds": 0.000658557,
+          "rhsSeconds": 4.4210000000000005e-05,
+          "residualCheckSeconds": 0.000490586,
+          "preconditionerSeconds": 0.24363631100000002,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.144067009,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.2481e-05,
+          "globalReductionSeconds": 0.002285739,
+          "outputSeconds": 0.26446820400000004,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 67976,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.667689622,
+            "assemblySeconds": 0.00029010500000000003,
+            "patternBuildSeconds": 0.008945429000000001,
+            "matrixUpdateSeconds": 0.0006162250000000001,
+            "rhsSeconds": 3.7068000000000005e-05,
+            "residualCheckSeconds": 0.0004898260000000001,
+            "preconditionerSeconds": 0.24363566500000003,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.144066949,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.1949e-05,
+            "globalReductionSeconds": 0.0021239320000000003,
+            "outputSeconds": 0.26446820400000004,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008945429000000001,
+                "matrixUpdateSeconds": 0.0006162250000000001,
+                "preconditionerSeconds": 0.24363566500000003,
+                "rhsSeconds": 3.7068000000000005e-05,
+                "solveSeconds": 0.144066949,
+                "residualCheckSeconds": 0.0004898260000000001
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-01/performance/rank-0003.json"
+        }
+      ],
+      "results": [
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0000/T.csv",
+          "bytes": 2149641,
+          "sha256": "a8c08389d80bf2b6cffaa81439f3027a6b5a407053a5315232195d29ae8bad1a"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0000/mesh.geometry",
+          "bytes": 8693672,
+          "sha256": "f084f85c3b6ca39be0ee927df7375d064c48b83c14c0f339975d1215f534ed71"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0000/metadata.bs",
+          "bytes": 110,
+          "sha256": "4c0efd104f3dc0024ac49e2d66e93c75f057a42e82f6b24c1effdfd0b461879a"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0001/T.csv",
+          "bytes": 2171470,
+          "sha256": "419be6c78a7488342890db814bf674493dc6817f530e39e78a9fc20af5da25df"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0001/mesh.geometry",
+          "bytes": 9028199,
+          "sha256": "5baacb89b2b870f968783dac08147e65f2fff8ff74457a9cdfb420416eaddcce"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0001/metadata.bs",
+          "bytes": 110,
+          "sha256": "ad98c5286ceaca076a58116a2ed08078442eb314e95b3ad7be8ee36412e6e169"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0002/T.csv",
+          "bytes": 2150727,
+          "sha256": "e52dedb960ef54d9c0997449bee8344b28b07c7867d12f9f1e4187c2e8306fcc"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0002/mesh.geometry",
+          "bytes": 8885637,
+          "sha256": "ad048c8854f681066643c3b65825e23ae4d84132dc1329626619b2904b48fb3b"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0002/metadata.bs",
+          "bytes": 110,
+          "sha256": "8c18fe8e93fd0a5508e9e581877a7d4b3f90b7411edebfcbf1dedabd00e9fc57"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0003/T.csv",
+          "bytes": 2169296,
+          "sha256": "e5522ba569dc84afe9e223bb7f10e9a8c4f2080c10051ecb439eee8188ef0c55"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0003/mesh.geometry",
+          "bytes": 8889072,
+          "sha256": "a0abea389874a7e3ced39bc132d72fd09af0edf501cc8241c60111c92532b434"
+        },
+        {
+          "path": "results/benchmark-r4-n01/1/rank-0003/metadata.bs",
+          "bytes": 110,
+          "sha256": "7679cba764789445e0a84bfb792180935e6712cd50654dda87a44ef971181808"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0000/T.csv",
+          "bytes": 2149641,
+          "sha256": "a8c08389d80bf2b6cffaa81439f3027a6b5a407053a5315232195d29ae8bad1a"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0000/mesh.geometry",
+          "bytes": 8693672,
+          "sha256": "f084f85c3b6ca39be0ee927df7375d064c48b83c14c0f339975d1215f534ed71"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0000/metadata.bs",
+          "bytes": 110,
+          "sha256": "4c0efd104f3dc0024ac49e2d66e93c75f057a42e82f6b24c1effdfd0b461879a"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0001/T.csv",
+          "bytes": 2171470,
+          "sha256": "419be6c78a7488342890db814bf674493dc6817f530e39e78a9fc20af5da25df"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0001/mesh.geometry",
+          "bytes": 9028199,
+          "sha256": "5baacb89b2b870f968783dac08147e65f2fff8ff74457a9cdfb420416eaddcce"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0001/metadata.bs",
+          "bytes": 110,
+          "sha256": "ad98c5286ceaca076a58116a2ed08078442eb314e95b3ad7be8ee36412e6e169"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0002/T.csv",
+          "bytes": 2150727,
+          "sha256": "e52dedb960ef54d9c0997449bee8344b28b07c7867d12f9f1e4187c2e8306fcc"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0002/mesh.geometry",
+          "bytes": 8885637,
+          "sha256": "ad048c8854f681066643c3b65825e23ae4d84132dc1329626619b2904b48fb3b"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0002/metadata.bs",
+          "bytes": 110,
+          "sha256": "8c18fe8e93fd0a5508e9e581877a7d4b3f90b7411edebfcbf1dedabd00e9fc57"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0003/T.csv",
+          "bytes": 2169296,
+          "sha256": "e5522ba569dc84afe9e223bb7f10e9a8c4f2080c10051ecb439eee8188ef0c55"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0003/mesh.geometry",
+          "bytes": 8889072,
+          "sha256": "a0abea389874a7e3ced39bc132d72fd09af0edf501cc8241c60111c92532b434"
+        },
+        {
+          "path": "results/benchmark-r4-n01/rank-0003/metadata.bs",
+          "bytes": 110,
+          "sha256": "7679cba764789445e0a84bfb792180935e6712cd50654dda87a44ef971181808"
+        }
+      ]
+    },
+    {
+      "case": "/tmp/babelsim-mpi-study/prism-n37-regular",
+      "binary": "/home/midway/BabelSim/build-petsc/babelsim-solve",
+      "ranks": 4,
+      "repeat": 2,
+      "warmup": false,
+      "binding": "physical-core",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      },
+      "mode": "complete",
+      "modeNote": "production-convergence",
+      "command": [
+        "mpirun",
+        "--bind-to",
+        "core",
+        "--map-by",
+        "core",
+        "--report-bindings",
+        "-np",
+        "4",
+        "/home/midway/BabelSim/build-petsc/babelsim-solve",
+        "-case",
+        "/tmp/babelsim-mpi-study/prism-n37-regular",
+        "-time",
+        "benchmark-r4-n02",
+        "-performance",
+        "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-02/performance"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "elapsedSeconds": 2.4620285229975707,
+      "returncode": 0,
+      "status": "converged",
+      "memory": {
+        "peakTreeRssKiB": 641188,
+        "peakSolverRssKiB": 170576
+      },
+      "performance": [
+        {
+          "rank": 0,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22502154600000002,
+          "caseSetupSeconds": 1.425053208,
+          "solverSeconds": 0.6980136060000001,
+          "solverComputeSeconds": 0.42211279200000007,
+          "applicationSeconds": 2.123111762,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29602,
+            "ownedCells": 25327,
+            "ghostCells": 4275,
+            "localFaces": 76956,
+            "ownedFaces": 65981,
+            "communicationFaces": 2452,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.698408369,
+          "assemblySeconds": 0.00045282400000000005,
+          "patternBuildSeconds": 0.008875001,
+          "matrixUpdateSeconds": 0.0005924540000000001,
+          "rhsSeconds": 4.2853000000000005e-05,
+          "residualCheckSeconds": 0.000702323,
+          "preconditionerSeconds": 0.263905806,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.141519955,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.5563e-05,
+          "globalReductionSeconds": 0.0032947210000000005,
+          "outputSeconds": 0.275979824,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 68336,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.6984160970000001,
+            "assemblySeconds": 0.000412315,
+            "patternBuildSeconds": 0.008788182,
+            "matrixUpdateSeconds": 0.000556635,
+            "rhsSeconds": 4.0248000000000005e-05,
+            "residualCheckSeconds": 0.000647041,
+            "preconditionerSeconds": 0.263905806,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.141519955,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.5563e-05,
+            "globalReductionSeconds": 0.0032947210000000005,
+            "outputSeconds": 0.275900814,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008788182,
+                "matrixUpdateSeconds": 0.000556635,
+                "preconditionerSeconds": 0.263905806,
+                "rhsSeconds": 4.0248000000000005e-05,
+                "solveSeconds": 0.141519955,
+                "residualCheckSeconds": 0.000647041
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-02/performance/rank-0000.json"
+        },
+        {
+          "rank": 1,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22502154200000002,
+          "caseSetupSeconds": 1.4284518860000002,
+          "solverSeconds": 0.694620307,
+          "solverComputeSeconds": 0.41864049799999997,
+          "applicationSeconds": 2.123115035,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29508,
+            "ownedCells": 25327,
+            "ghostCells": 4181,
+            "localFaces": 76696,
+            "ownedFaces": 65977,
+            "communicationFaces": 2438,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.698408369,
+          "assemblySeconds": 0.00045282400000000005,
+          "patternBuildSeconds": 0.008875001,
+          "matrixUpdateSeconds": 0.0005924540000000001,
+          "rhsSeconds": 4.2853000000000005e-05,
+          "residualCheckSeconds": 0.000702323,
+          "preconditionerSeconds": 0.263905806,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.141519955,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.5563e-05,
+          "globalReductionSeconds": 0.0032947210000000005,
+          "outputSeconds": 0.275979824,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 66832,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.694939383,
+            "assemblySeconds": 0.000427337,
+            "patternBuildSeconds": 0.008862881000000001,
+            "matrixUpdateSeconds": 0.0005924540000000001,
+            "rhsSeconds": 4.2853000000000005e-05,
+            "residualCheckSeconds": 0.000646911,
+            "preconditionerSeconds": 0.263875099,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.141519808,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.4641e-05,
+            "globalReductionSeconds": 3.3529000000000004e-05,
+            "outputSeconds": 0.275979809,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008862881000000001,
+                "matrixUpdateSeconds": 0.0005924540000000001,
+                "preconditionerSeconds": 0.263875099,
+                "rhsSeconds": 4.2853000000000005e-05,
+                "solveSeconds": 0.141519808,
+                "residualCheckSeconds": 0.000646911
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-02/performance/rank-0001.json"
+        },
+        {
+          "rank": 2,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.224332098,
+          "caseSetupSeconds": 1.4257997070000001,
+          "solverSeconds": 0.697274493,
+          "solverComputeSeconds": 0.421294669,
+          "applicationSeconds": 2.1231031160000002,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29672,
+            "ownedCells": 25326,
+            "ghostCells": 4346,
+            "localFaces": 76835,
+            "ownedFaces": 65641,
+            "communicationFaces": 2519,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.698408369,
+          "assemblySeconds": 0.00045282400000000005,
+          "patternBuildSeconds": 0.008875001,
+          "matrixUpdateSeconds": 0.0005924540000000001,
+          "rhsSeconds": 4.2853000000000005e-05,
+          "residualCheckSeconds": 0.000702323,
+          "preconditionerSeconds": 0.263905806,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.141519955,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.5563e-05,
+          "globalReductionSeconds": 0.0032947210000000005,
+          "outputSeconds": 0.275979824,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 69192,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.697646669,
+            "assemblySeconds": 0.000427891,
+            "patternBuildSeconds": 0.008875001,
+            "matrixUpdateSeconds": 0.0005642980000000001,
+            "rhsSeconds": 3.6905e-05,
+            "residualCheckSeconds": 0.0007020510000000001,
+            "preconditionerSeconds": 0.26390476900000004,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.141463626,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.0831e-05,
+            "globalReductionSeconds": 0.0026988240000000003,
+            "outputSeconds": 0.275979824,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008875001,
+                "matrixUpdateSeconds": 0.0005642980000000001,
+                "preconditionerSeconds": 0.26390476900000004,
+                "rhsSeconds": 3.6905e-05,
+                "solveSeconds": 0.141463626,
+                "residualCheckSeconds": 0.0007020510000000001
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-02/performance/rank-0002.json"
+        },
+        {
+          "rank": 3,
+          "ranks": 4,
+          "status": "converged",
+          "mpiInitSeconds": 0.22280164400000002,
+          "caseSetupSeconds": 1.426825014,
+          "solverSeconds": 0.6962451420000001,
+          "solverComputeSeconds": 0.4202661540000001,
+          "applicationSeconds": 2.1231133470000003,
+          "partition": {
+            "globalCells": 101306,
+            "localCells": 29545,
+            "ownedCells": 25326,
+            "ghostCells": 4219,
+            "localFaces": 76403,
+            "ownedFaces": 65609,
+            "communicationFaces": 2352,
+            "neighbourRanks": 3
+          },
+          "linearSolves": 1,
+          "krylovIterations": 4,
+          "sparseMatvecs": 0,
+          "haloExchanges": 1,
+          "haloBytes": 69192,
+          "globalReductions": 2,
+          "equationAssemblies": 1,
+          "matrixPatternBuilds": 1,
+          "matrixValueUpdates": 1,
+          "rhsOnlySolves": 0,
+          "trueResidualChecks": 1,
+          "preconditionerSetups": 1,
+          "preconditionerApplications": 0,
+          "outputWrites": 2,
+          "elapsedSeconds": 0.698408369,
+          "assemblySeconds": 0.00045282400000000005,
+          "patternBuildSeconds": 0.008875001,
+          "matrixUpdateSeconds": 0.0005924540000000001,
+          "rhsSeconds": 4.2853000000000005e-05,
+          "residualCheckSeconds": 0.000702323,
+          "preconditionerSeconds": 0.263905806,
+          "preconditionerApplySeconds": 0,
+          "linearSolveSeconds": 0.141519955,
+          "sparseMatvecSeconds": 0,
+          "haloSeconds": 5.5563e-05,
+          "globalReductionSeconds": 0.0032947210000000005,
+          "outputSeconds": 0.275979824,
+          "local": {
+            "linearSolves": 1,
+            "krylovIterations": 4,
+            "sparseMatvecs": 0,
+            "haloExchanges": 1,
+            "haloBytes": 67976,
+            "globalReductions": 2,
+            "equationAssemblies": 1,
+            "matrixPatternBuilds": 1,
+            "matrixValueUpdates": 1,
+            "rhsOnlySolves": 0,
+            "trueResidualChecks": 1,
+            "preconditionerSetups": 1,
+            "preconditionerApplications": 0,
+            "outputWrites": 2,
+            "elapsedSeconds": 0.6965714590000001,
+            "assemblySeconds": 0.00045282400000000005,
+            "patternBuildSeconds": 0.008810075,
+            "matrixUpdateSeconds": 0.000573068,
+            "rhsSeconds": 3.7708000000000006e-05,
+            "residualCheckSeconds": 0.000702323,
+            "preconditionerSeconds": 0.26390428,
+            "preconditionerApplySeconds": 0,
+            "linearSolveSeconds": 0.141464157,
+            "sparseMatvecSeconds": 0,
+            "haloSeconds": 5.4142000000000004e-05,
+            "globalReductionSeconds": 0.0016933830000000001,
+            "outputSeconds": 0.275978988,
+            "equationSystems": [
+              {
+                "identity": "scalar:temperature:T",
+                "kspType": "bcgs",
+                "pcType": "hypre-boomeramg",
+                "lastStatus": "converged",
+                "matrixPatternBuilds": 1,
+                "matrixValueUpdates": 1,
+                "rhsOnlySolves": 0,
+                "linearSolves": 1,
+                "krylovIterations": 4,
+                "preconditionerSetups": 1,
+                "trueResidualChecks": 1,
+                "lastInitialResidual": 0.24000000000014393,
+                "lastFinalResidual": 7.627993243796292e-14,
+                "lastRelativeResidual": 3.178330518246549e-13,
+                "patternBuildSeconds": 0.008810075,
+                "matrixUpdateSeconds": 0.000573068,
+                "preconditionerSeconds": 0.26390428,
+                "rhsSeconds": 3.7708000000000006e-05,
+                "solveSeconds": 0.141464157,
+                "residualCheckSeconds": 0.000702323
+              }
+            ]
+          },
+          "path": "/tmp/babelsim-mpi-study/results-n37-regular-omp1/ranks-4/repeat-02/performance/rank-0003.json"
+        }
+      ],
+      "results": [
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0000/T.csv",
+          "bytes": 2149641,
+          "sha256": "a8c08389d80bf2b6cffaa81439f3027a6b5a407053a5315232195d29ae8bad1a"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0000/mesh.geometry",
+          "bytes": 8693672,
+          "sha256": "f084f85c3b6ca39be0ee927df7375d064c48b83c14c0f339975d1215f534ed71"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0000/metadata.bs",
+          "bytes": 110,
+          "sha256": "4c0efd104f3dc0024ac49e2d66e93c75f057a42e82f6b24c1effdfd0b461879a"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0001/T.csv",
+          "bytes": 2171470,
+          "sha256": "419be6c78a7488342890db814bf674493dc6817f530e39e78a9fc20af5da25df"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0001/mesh.geometry",
+          "bytes": 9028199,
+          "sha256": "5baacb89b2b870f968783dac08147e65f2fff8ff74457a9cdfb420416eaddcce"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0001/metadata.bs",
+          "bytes": 110,
+          "sha256": "ad98c5286ceaca076a58116a2ed08078442eb314e95b3ad7be8ee36412e6e169"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0002/T.csv",
+          "bytes": 2150727,
+          "sha256": "e52dedb960ef54d9c0997449bee8344b28b07c7867d12f9f1e4187c2e8306fcc"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0002/mesh.geometry",
+          "bytes": 8885637,
+          "sha256": "ad048c8854f681066643c3b65825e23ae4d84132dc1329626619b2904b48fb3b"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0002/metadata.bs",
+          "bytes": 110,
+          "sha256": "8c18fe8e93fd0a5508e9e581877a7d4b3f90b7411edebfcbf1dedabd00e9fc57"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0003/T.csv",
+          "bytes": 2169296,
+          "sha256": "e5522ba569dc84afe9e223bb7f10e9a8c4f2080c10051ecb439eee8188ef0c55"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0003/mesh.geometry",
+          "bytes": 8889072,
+          "sha256": "a0abea389874a7e3ced39bc132d72fd09af0edf501cc8241c60111c92532b434"
+        },
+        {
+          "path": "results/benchmark-r4-n02/1/rank-0003/metadata.bs",
+          "bytes": 110,
+          "sha256": "7679cba764789445e0a84bfb792180935e6712cd50654dda87a44ef971181808"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0000/T.csv",
+          "bytes": 2149641,
+          "sha256": "a8c08389d80bf2b6cffaa81439f3027a6b5a407053a5315232195d29ae8bad1a"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0000/mesh.geometry",
+          "bytes": 8693672,
+          "sha256": "f084f85c3b6ca39be0ee927df7375d064c48b83c14c0f339975d1215f534ed71"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0000/metadata.bs",
+          "bytes": 110,
+          "sha256": "4c0efd104f3dc0024ac49e2d66e93c75f057a42e82f6b24c1effdfd0b461879a"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0001/T.csv",
+          "bytes": 2171470,
+          "sha256": "419be6c78a7488342890db814bf674493dc6817f530e39e78a9fc20af5da25df"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0001/mesh.geometry",
+          "bytes": 9028199,
+          "sha256": "5baacb89b2b870f968783dac08147e65f2fff8ff74457a9cdfb420416eaddcce"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0001/metadata.bs",
+          "bytes": 110,
+          "sha256": "ad98c5286ceaca076a58116a2ed08078442eb314e95b3ad7be8ee36412e6e169"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0002/T.csv",
+          "bytes": 2150727,
+          "sha256": "e52dedb960ef54d9c0997449bee8344b28b07c7867d12f9f1e4187c2e8306fcc"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0002/mesh.geometry",
+          "bytes": 8885637,
+          "sha256": "ad048c8854f681066643c3b65825e23ae4d84132dc1329626619b2904b48fb3b"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0002/metadata.bs",
+          "bytes": 110,
+          "sha256": "8c18fe8e93fd0a5508e9e581877a7d4b3f90b7411edebfcbf1dedabd00e9fc57"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0003/T.csv",
+          "bytes": 2169296,
+          "sha256": "e5522ba569dc84afe9e223bb7f10e9a8c4f2080c10051ecb439eee8188ef0c55"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0003/mesh.geometry",
+          "bytes": 8889072,
+          "sha256": "a0abea389874a7e3ced39bc132d72fd09af0edf501cc8241c60111c92532b434"
+        },
+        {
+          "path": "results/benchmark-r4-n02/rank-0003/metadata.bs",
+          "bytes": 110,
+          "sha256": "7679cba764789445e0a84bfb792180935e6712cd50654dda87a44ef971181808"
+        }
+      ]
+    }
+  ],
+  "wallClockByRank": {
+    "1": {
+      "converged": {
+        "samples": 2,
+        "medianSeconds": 2.9845710590016097,
+        "minSeconds": 2.9821848240026156,
+        "maxSeconds": 2.9869572940006037,
+        "coefficientOfVariation": 0.0007995236004842444
+      }
+    },
+    "4": {
+      "converged": {
+        "samples": 2,
+        "medianSeconds": 2.4244541469961405,
+        "minSeconds": 2.3868797709947103,
+        "maxSeconds": 2.4620285229975707,
+        "coefficientOfVariation": 0.0154980765662177
+      }
+    }
+  },
+  "convergedWallClock": {
+    "1": {
+      "samples": 2,
+      "medianSeconds": 2.9845710590016097,
+      "minSeconds": 2.9821848240026156,
+      "maxSeconds": 2.9869572940006037,
+      "coefficientOfVariation": 0.0007995236004842444
+    },
+    "4": {
+      "samples": 2,
+      "medianSeconds": 2.4244541469961405,
+      "minSeconds": 2.3868797709947103,
+      "maxSeconds": 2.4620285229975707,
+      "coefficientOfVariation": 0.0154980765662177
+    }
+  },
+  "criticalPathByRank": {
+    "1": {
+      "caseSetupSeconds": {
+        "samples": 2,
+        "min": 0.6891402560000001,
+        "mean": 0.6924640895,
+        "max": 0.695787923
+      },
+      "solverSeconds": {
+        "samples": 2,
+        "min": 1.9477670990000002,
+        "mean": 1.9494286695,
+        "max": 1.95109024
+      },
+      "solverComputeSeconds": {
+        "samples": 2,
+        "min": 0.941652103,
+        "mean": 0.9450421500000001,
+        "max": 0.9484321970000001
+      },
+      "applicationSeconds": {
+        "samples": 2,
+        "min": 2.640282726,
+        "mean": 2.6419452825,
+        "max": 2.643607839
+      }
+    },
+    "4": {
+      "caseSetupSeconds": {
+        "samples": 2,
+        "min": 1.3809794370000001,
+        "mean": 1.4047156615,
+        "max": 1.4284518860000002
+      },
+      "solverSeconds": {
+        "samples": 2,
+        "min": 0.667436981,
+        "mean": 0.6827252935000001,
+        "max": 0.6980136060000001
+      },
+      "solverComputeSeconds": {
+        "samples": 2,
+        "min": 0.40297116,
+        "mean": 0.41254197600000003,
+        "max": 0.42211279200000007
+      },
+      "applicationSeconds": {
+        "samples": 2,
+        "min": 2.046357861,
+        "mean": 2.084736448,
+        "max": 2.123115035
+      }
+    }
+  },
+  "phaseTimesByRank": {
+    "1": {
+      "0": {
+        "caseSetupSeconds": {
+          "min": 0.6891402560000001,
+          "mean": 0.6924640895,
+          "max": 0.695787923
+        },
+        "solverSeconds": {
+          "min": 1.9477670990000002,
+          "mean": 1.9494286695,
+          "max": 1.95109024
+        },
+        "solverComputeSeconds": {
+          "min": 0.941652103,
+          "mean": 0.9450421500000001,
+          "max": 0.9484321970000001
+        },
+        "applicationSeconds": {
+          "min": 2.640282726,
+          "mean": 2.6419452825,
+          "max": 2.643607839
+        }
+      }
+    },
+    "4": {
+      "0": {
+        "caseSetupSeconds": {
+          "min": 1.3809794370000001,
+          "mean": 1.4030163225,
+          "max": 1.425053208
+        },
+        "solverSeconds": {
+          "min": 0.665210425,
+          "mean": 0.6816120155000001,
+          "max": 0.6980136060000001
+        },
+        "solverComputeSeconds": {
+          "min": 0.400813101,
+          "mean": 0.41146294650000004,
+          "max": 0.42211279200000007
+        },
+        "applicationSeconds": {
+          "min": 2.046211398,
+          "mean": 2.08466158,
+          "max": 2.123111762
+        }
+      },
+      "1": {
+        "caseSetupSeconds": {
+          "min": 1.3788495120000002,
+          "mean": 1.4036506990000002,
+          "max": 1.4284518860000002
+        },
+        "solverSeconds": {
+          "min": 0.667436981,
+          "mean": 0.681028644,
+          "max": 0.694620307
+        },
+        "solverComputeSeconds": {
+          "min": 0.40297116,
+          "mean": 0.41080582899999996,
+          "max": 0.41864049799999997
+        },
+        "applicationSeconds": {
+          "min": 2.046357861,
+          "mean": 2.084736448,
+          "max": 2.123115035
+        }
+      },
+      "2": {
+        "caseSetupSeconds": {
+          "min": 1.3790463620000002,
+          "mean": 1.4024230345000002,
+          "max": 1.4257997070000001
+        },
+        "solverSeconds": {
+          "min": 0.667243274,
+          "mean": 0.6822588835000001,
+          "max": 0.697274493
+        },
+        "solverComputeSeconds": {
+          "min": 0.40277807200000004,
+          "mean": 0.4120363705,
+          "max": 0.421294669
+        },
+        "applicationSeconds": {
+          "min": 2.0463206140000003,
+          "mean": 2.084711865,
+          "max": 2.1231031160000002
+        }
+      },
+      "3": {
+        "caseSetupSeconds": {
+          "min": 1.379072674,
+          "mean": 1.402948844,
+          "max": 1.426825014
+        },
+        "solverSeconds": {
+          "min": 0.667154164,
+          "mean": 0.6816996530000001,
+          "max": 0.6962451420000001
+        },
+        "solverComputeSeconds": {
+          "min": 0.40268596,
+          "mean": 0.41147605700000006,
+          "max": 0.4202661540000001
+        },
+        "applicationSeconds": {
+          "min": 2.046248178,
+          "mean": 2.0846807625,
+          "max": 2.1231133470000003
+        }
+      }
+    }
+  },
+  "partitionByRank": {
+    "1": {
+      "0": {
+        "globalCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "localCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "ownedCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "ghostCells": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "localFaces": {
+          "min": 258741,
+          "mean": 258741,
+          "max": 258741
+        },
+        "ownedFaces": {
+          "min": 258741,
+          "mean": 258741,
+          "max": 258741
+        },
+        "communicationFaces": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "neighbourRanks": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        }
+      }
+    },
+    "4": {
+      "0": {
+        "globalCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "localCells": {
+          "min": 29602,
+          "mean": 29602,
+          "max": 29602
+        },
+        "ownedCells": {
+          "min": 25327,
+          "mean": 25327,
+          "max": 25327
+        },
+        "ghostCells": {
+          "min": 4275,
+          "mean": 4275,
+          "max": 4275
+        },
+        "localFaces": {
+          "min": 76956,
+          "mean": 76956,
+          "max": 76956
+        },
+        "ownedFaces": {
+          "min": 65981,
+          "mean": 65981,
+          "max": 65981
+        },
+        "communicationFaces": {
+          "min": 2452,
+          "mean": 2452,
+          "max": 2452
+        },
+        "neighbourRanks": {
+          "min": 3,
+          "mean": 3,
+          "max": 3
+        }
+      },
+      "1": {
+        "globalCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "localCells": {
+          "min": 29508,
+          "mean": 29508,
+          "max": 29508
+        },
+        "ownedCells": {
+          "min": 25327,
+          "mean": 25327,
+          "max": 25327
+        },
+        "ghostCells": {
+          "min": 4181,
+          "mean": 4181,
+          "max": 4181
+        },
+        "localFaces": {
+          "min": 76696,
+          "mean": 76696,
+          "max": 76696
+        },
+        "ownedFaces": {
+          "min": 65977,
+          "mean": 65977,
+          "max": 65977
+        },
+        "communicationFaces": {
+          "min": 2438,
+          "mean": 2438,
+          "max": 2438
+        },
+        "neighbourRanks": {
+          "min": 3,
+          "mean": 3,
+          "max": 3
+        }
+      },
+      "2": {
+        "globalCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "localCells": {
+          "min": 29672,
+          "mean": 29672,
+          "max": 29672
+        },
+        "ownedCells": {
+          "min": 25326,
+          "mean": 25326,
+          "max": 25326
+        },
+        "ghostCells": {
+          "min": 4346,
+          "mean": 4346,
+          "max": 4346
+        },
+        "localFaces": {
+          "min": 76835,
+          "mean": 76835,
+          "max": 76835
+        },
+        "ownedFaces": {
+          "min": 65641,
+          "mean": 65641,
+          "max": 65641
+        },
+        "communicationFaces": {
+          "min": 2519,
+          "mean": 2519,
+          "max": 2519
+        },
+        "neighbourRanks": {
+          "min": 3,
+          "mean": 3,
+          "max": 3
+        }
+      },
+      "3": {
+        "globalCells": {
+          "min": 101306,
+          "mean": 101306,
+          "max": 101306
+        },
+        "localCells": {
+          "min": 29545,
+          "mean": 29545,
+          "max": 29545
+        },
+        "ownedCells": {
+          "min": 25326,
+          "mean": 25326,
+          "max": 25326
+        },
+        "ghostCells": {
+          "min": 4219,
+          "mean": 4219,
+          "max": 4219
+        },
+        "localFaces": {
+          "min": 76403,
+          "mean": 76403,
+          "max": 76403
+        },
+        "ownedFaces": {
+          "min": 65609,
+          "mean": 65609,
+          "max": 65609
+        },
+        "communicationFaces": {
+          "min": 2352,
+          "mean": 2352,
+          "max": 2352
+        },
+        "neighbourRanks": {
+          "min": 3,
+          "mean": 3,
+          "max": 3
+        }
+      }
+    }
+  },
+  "localCountersByRank": {
+    "1": {
+      "0": {
+        "linearSolves": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "krylovIterations": {
+          "min": 4,
+          "mean": 4,
+          "max": 4
+        },
+        "sparseMatvecs": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloExchanges": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloBytes": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "globalReductions": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "equationAssemblies": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerSetups": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerApplications": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "outputWrites": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "elapsedSeconds": {
+          "min": 1.948066148,
+          "mean": 1.9497316365000001,
+          "max": 1.9513971250000002
+        },
+        "assemblySeconds": {
+          "min": 0.0007904380000000001,
+          "mean": 0.0007923705000000001,
+          "max": 0.000794303
+        },
+        "preconditionerSeconds": {
+          "min": 0.453094496,
+          "mean": 0.453667885,
+          "max": 0.45424127400000003
+        },
+        "preconditionerApplySeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "linearSolveSeconds": {
+          "min": 0.448446708,
+          "mean": 0.4526082765,
+          "max": 0.456769845
+        },
+        "sparseMatvecSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "globalReductionSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "outputSeconds": {
+          "min": 0.9993349020000001,
+          "mean": 1.0043865195000001,
+          "max": 1.009438137
+        }
+      }
+    },
+    "4": {
+      "0": {
+        "linearSolves": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "krylovIterations": {
+          "min": 4,
+          "mean": 4,
+          "max": 4
+        },
+        "sparseMatvecs": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloExchanges": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "haloBytes": {
+          "min": 68336,
+          "mean": 68336,
+          "max": 68336
+        },
+        "globalReductions": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "equationAssemblies": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerSetups": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerApplications": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "outputWrites": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "elapsedSeconds": {
+          "min": 0.6657352240000001,
+          "mean": 0.6820756605,
+          "max": 0.6984160970000001
+        },
+        "assemblySeconds": {
+          "min": 0.00024522300000000003,
+          "mean": 0.000328769,
+          "max": 0.000412315
+        },
+        "preconditionerSeconds": {
+          "min": 0.24363567600000002,
+          "mean": 0.253770741,
+          "max": 0.263905806
+        },
+        "preconditionerApplySeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "linearSolveSeconds": {
+          "min": 0.141519955,
+          "mean": 0.14279341950000002,
+          "max": 0.144066884
+        },
+        "sparseMatvecSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloSeconds": {
+          "min": 4.9452e-05,
+          "mean": 5.25075e-05,
+          "max": 5.5563e-05
+        },
+        "globalReductionSeconds": {
+          "min": 3.7676e-05,
+          "mean": 0.0016661985000000002,
+          "max": 0.0032947210000000005
+        },
+        "outputSeconds": {
+          "min": 0.26439732400000004,
+          "mean": 0.270149069,
+          "max": 0.275900814
+        }
+      },
+      "1": {
+        "linearSolves": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "krylovIterations": {
+          "min": 4,
+          "mean": 4,
+          "max": 4
+        },
+        "sparseMatvecs": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloExchanges": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "haloBytes": {
+          "min": 66832,
+          "mean": 66832,
+          "max": 66832
+        },
+        "globalReductions": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "equationAssemblies": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerSetups": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerApplications": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "outputWrites": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "elapsedSeconds": {
+          "min": 0.668095918,
+          "mean": 0.6815176505,
+          "max": 0.694939383
+        },
+        "assemblySeconds": {
+          "min": 0.000253363,
+          "mean": 0.00034035,
+          "max": 0.000427337
+        },
+        "preconditionerSeconds": {
+          "min": 0.24360609300000002,
+          "mean": 0.253740596,
+          "max": 0.263875099
+        },
+        "preconditionerApplySeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "linearSolveSeconds": {
+          "min": 0.141519808,
+          "mean": 0.1427933165,
+          "max": 0.144066825
+        },
+        "sparseMatvecSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloSeconds": {
+          "min": 5.2481e-05,
+          "mean": 5.3561e-05,
+          "max": 5.4641e-05
+        },
+        "globalReductionSeconds": {
+          "min": 3.3529000000000004e-05,
+          "mean": 0.001159634,
+          "max": 0.002285739
+        },
+        "outputSeconds": {
+          "min": 0.26446582100000005,
+          "mean": 0.270222815,
+          "max": 0.275979809
+        }
+      },
+      "2": {
+        "linearSolves": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "krylovIterations": {
+          "min": 4,
+          "mean": 4,
+          "max": 4
+        },
+        "sparseMatvecs": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloExchanges": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "haloBytes": {
+          "min": 69192,
+          "mean": 69192,
+          "max": 69192
+        },
+        "globalReductions": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "equationAssemblies": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerSetups": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerApplications": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "outputWrites": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "elapsedSeconds": {
+          "min": 0.6677823780000001,
+          "mean": 0.6827145235000001,
+          "max": 0.697646669
+        },
+        "assemblySeconds": {
+          "min": 0.00026380500000000004,
+          "mean": 0.00034584800000000005,
+          "max": 0.000427891
+        },
+        "preconditionerSeconds": {
+          "min": 0.24363631100000002,
+          "mean": 0.25377054000000004,
+          "max": 0.26390476900000004
+        },
+        "preconditionerApplySeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "linearSolveSeconds": {
+          "min": 0.141463626,
+          "mean": 0.1427653175,
+          "max": 0.144067009
+        },
+        "sparseMatvecSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloSeconds": {
+          "min": 5.0136e-05,
+          "mean": 5.0483500000000005e-05,
+          "max": 5.0831e-05
+        },
+        "globalReductionSeconds": {
+          "min": 0.002040506,
+          "mean": 0.002369665,
+          "max": 0.0026988240000000003
+        },
+        "outputSeconds": {
+          "min": 0.264465202,
+          "mean": 0.270222513,
+          "max": 0.275979824
+        }
+      },
+      "3": {
+        "linearSolves": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "krylovIterations": {
+          "min": 4,
+          "mean": 4,
+          "max": 4
+        },
+        "sparseMatvecs": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloExchanges": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "haloBytes": {
+          "min": 67976,
+          "mean": 67976,
+          "max": 67976
+        },
+        "globalReductions": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "equationAssemblies": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerSetups": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "preconditionerApplications": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "outputWrites": {
+          "min": 2,
+          "mean": 2,
+          "max": 2
+        },
+        "elapsedSeconds": {
+          "min": 0.667689622,
+          "mean": 0.6821305405,
+          "max": 0.6965714590000001
+        },
+        "assemblySeconds": {
+          "min": 0.00029010500000000003,
+          "mean": 0.0003714645,
+          "max": 0.00045282400000000005
+        },
+        "preconditionerSeconds": {
+          "min": 0.24363566500000003,
+          "mean": 0.2537699725,
+          "max": 0.26390428
+        },
+        "preconditionerApplySeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "linearSolveSeconds": {
+          "min": 0.141464157,
+          "mean": 0.142765553,
+          "max": 0.144066949
+        },
+        "sparseMatvecSeconds": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "haloSeconds": {
+          "min": 5.1949e-05,
+          "mean": 5.30455e-05,
+          "max": 5.4142000000000004e-05
+        },
+        "globalReductionSeconds": {
+          "min": 0.0016933830000000001,
+          "mean": 0.0019086575000000002,
+          "max": 0.0021239320000000003
+        },
+        "outputSeconds": {
+          "min": 0.26446820400000004,
+          "mean": 0.270223596,
+          "max": 0.275978988
+        }
+      }
+    }
+  }
+}

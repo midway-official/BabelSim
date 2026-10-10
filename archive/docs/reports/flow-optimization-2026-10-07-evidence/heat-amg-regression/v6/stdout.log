@@ -1,0 +1,5 @@
+heat time=0.01 residual=1.85269e-17
+heat time=0.02 residual=4.48191e-17
+heat time=0.03 residual=3.18829e-17
+heat time=0.04 residual=7.87687e-17
+heat time=0.05 residual=2.08426e-16

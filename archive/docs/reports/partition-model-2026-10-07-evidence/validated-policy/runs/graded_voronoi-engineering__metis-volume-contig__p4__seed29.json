@@ -1,0 +1,113 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 1.0051681059994735,
+  "initialPartitionSeconds": 0.7756290730030742,
+  "exactBalanceSeconds": 0.22953903299639933,
+  "quotaTransfers": 514,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.001046875,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 12339,
+  "memory": {
+    "beforeRSSBytes": 351989760,
+    "peakRSSBytes": 352579584,
+    "sampledRSSIncrementBytes": 589824
+  },
+  "cutFaces": 12916,
+  "cutFacesPerPart": [
+    6157,
+    6296,
+    5926,
+    7453
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128000,
+    128000,
+    128000,
+    128000
+  ],
+  "ghostCellsPerPart": [
+    12171,
+    11786,
+    11735,
+    14965
+  ],
+  "firstLayerGhostsPerPart": [
+    3001,
+    2965,
+    2814,
+    3659
+  ],
+  "localCellsPerPart": [
+    140171,
+    139786,
+    139735,
+    142965
+  ],
+  "localFacesPerPart": [
+    570399,
+    568603,
+    568554,
+    583121
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    3,
+    2,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    1014358,
+    1019321,
+    1013442,
+    1012431
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.004367969667589,
+  "localFaceImbalance": 1.0182509362952525,
+  "localCellImbalance": 1.0163563236572193,
+  "totalGhostCells": 50657,
+  "maxGhostCells": 14965,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 12439,
+  "threeLayerCommunicationVolume": 50657,
+  "cellStorageDuplication": 1.098939453125,
+  "faceStorageDuplication": 1.1098069215981148,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "331ca18bdeb6930d27b4fcf2377b5ac3e590202bf24a3261ded42fcabb761551",
+  "status": "ok",
+  "graph": "graded_voronoi-engineering",
+  "graphSHA256": "22628d51906fe8dabedb51d08dded9498c0bcb6b4c8df2b79e7781abeecf3512",
+  "graphMetadata": {
+    "cells": 512000,
+    "components": 1,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 1995520,
+    "layers": 32,
+    "maxCellFaces": 14,
+    "minCellFaces": 5,
+    "physicalFaces": 68512,
+    "scale": "engineering",
+    "seed": 20261007,
+    "sites": 16000
+  },
+  "unixStarted": 1791378321.0854483,
+  "unixEnded": 1791378322.283237,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/graded-voronoi-validation",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/graded-voronoi-validation/runs/graded_voronoi-engineering__metis-volume-contig__p4__seed29.json"
+}

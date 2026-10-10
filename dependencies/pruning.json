@@ -1,0 +1,37 @@
+{
+  "selection": "PETSc 3.25.5 CPU/MPI/real/double/Hypre; no Fortran or Python API bindings",
+  "petsc_selected_compilation_units": 974,
+  "before": {
+    "petsc": {
+      "files": 11568,
+      "bytes": 97011433
+    },
+    "eigen": {
+      "files": 1784,
+      "bytes": 15452179
+    },
+    "hypre": {
+      "files": 2696,
+      "bytes": 53091483
+    }
+  },
+  "after": {
+    "petsc": {
+      "files": 2153,
+      "bytes": 32367123
+    },
+    "eigen": {
+      "files": 189,
+      "bytes": 4497880
+    },
+    "hypre": {
+      "files": 1367,
+      "bytes": 28312478
+    }
+  },
+  "hypre_archive_bytes": 3624607,
+  "retained_controls": "Ancestor makefiles and the petscmpiexec configure prerequisite are retained; YAML include source is retained.",
+  "removed_non_build_symlinks": [
+    "petsc/doc/community/CODE_OF_CONDUCT.md (target removed with unused documentation)"
+  ]
+}

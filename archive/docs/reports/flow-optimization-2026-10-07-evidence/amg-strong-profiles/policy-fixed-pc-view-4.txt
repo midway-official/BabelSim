@@ -1,0 +1,36 @@
+PC Object: 4 MPI processes
+  type: hypre
+    HYPRE BoomerAMG preconditioning
+      Cycle type V
+      Maximum number of levels 25
+      Maximum number of iterations PER hypre call 1
+      Convergence tolerance PER hypre call 0.
+      Threshold for strong coupling 0.25
+      Interpolation truncation factor 0.
+      Interpolation: max elements per row 4
+      Number of levels of aggressive coarsening 1
+      Number of paths for aggressive coarsening 1
+      Maximum row sums 0.9
+      Sweeps down         1
+      Sweeps up           1
+      Sweeps on coarse    1
+      Relax down          symmetric-SOR/Jacobi
+      Relax up            symmetric-SOR/Jacobi
+      Relax on coarse     Gaussian-elimination
+      Relax weight  (all)      1.
+      Outer relax weight (all) 1.
+      Maximum size of coarsest grid 9
+      Minimum size of coarsest grid 1
+      Not using CF-relaxation
+      Not using more complex smoothers.
+      Measure type        local
+      Coarsen type        HMIS
+      Interpolation type  ext+i
+      SpGEMM type         hypre
+  linear system matrix, which is also used to construct the preconditioner:
+  Mat Object: 4 MPI processes
+    type: mpiaij
+    rows=16, cols=16
+    total: nonzeros=72, allocated nonzeros=72
+    total number of mallocs used during MatSetValues calls=0
+      not using I-node (on process 0) routines

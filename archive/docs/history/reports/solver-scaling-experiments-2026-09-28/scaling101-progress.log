@@ -1,0 +1,161 @@
+RUN case=piso101-gamg1 ranks=8 repeat=0
+DONE status=converged compute=2.911267125
+RUN case=heat101-gamg1 ranks=8 repeat=0
+DONE status=converged compute=0.11436604400000006
+RUN case=heat101-bjacobi ranks=1 repeat=0
+DONE status=converged compute=0.19184165799999997
+RUN case=piso101-gamg1 ranks=1 repeat=0
+DONE status=converged compute=7.513203031
+RUN case=heat101-hypre ranks=4 repeat=0
+DONE status=converged compute=0.4685635
+RUN case=piso101-hypre ranks=2 repeat=0
+DONE status=converged compute=16.576593803
+RUN case=heat101-gamg1 ranks=4 repeat=0
+DONE status=converged compute=0.112336102
+RUN case=heat101-hypre ranks=1 repeat=0
+DONE status=converged compute=0.935983963
+RUN case=piso101-gamg1 ranks=4 repeat=0
+DONE status=converged compute=2.7781462130000003
+RUN case=piso101-hypre ranks=4 repeat=0
+DONE status=converged compute=10.192022690000002
+RUN case=piso101-hypre ranks=8 repeat=0
+DONE status=converged compute=9.184389183
+RUN case=heat101-gamg1 ranks=2 repeat=0
+DONE status=converged compute=0.19371017700000004
+RUN case=heat101-bjacobi ranks=2 repeat=0
+DONE status=converged compute=0.12688091599999995
+RUN case=heat101-bjacobi ranks=8 repeat=0
+DONE status=converged compute=0.07896130600000001
+RUN case=piso101-hypre ranks=1 repeat=0
+DONE status=converged compute=27.065531257000004
+RUN case=heat101-hypre ranks=8 repeat=0
+DONE status=converged compute=0.4915609740000001
+RUN case=heat101-bjacobi ranks=4 repeat=0
+DONE status=converged compute=0.08211321999999999
+RUN case=heat101-hypre ranks=2 repeat=0
+DONE status=converged compute=0.6520345280000002
+RUN case=heat101-gamg1 ranks=1 repeat=0
+DONE status=converged compute=0.31770945800000017
+RUN case=piso101-gamg1 ranks=2 repeat=0
+DONE status=converged compute=4.7238276180000005
+RUN case=piso101-hypre ranks=2 repeat=1
+DONE status=converged compute=16.538444597
+RUN case=piso101-gamg1 ranks=2 repeat=1
+DONE status=converged compute=4.822743528
+RUN case=piso101-hypre ranks=4 repeat=1
+DONE status=converged compute=9.960189889
+RUN case=heat101-gamg1 ranks=8 repeat=1
+DONE status=converged compute=0.13105099200000003
+RUN case=piso101-gamg1 ranks=4 repeat=1
+DONE status=converged compute=2.930496608
+RUN case=piso101-gamg1 ranks=1 repeat=1
+DONE status=converged compute=8.178147841000001
+RUN case=piso101-gamg1 ranks=8 repeat=1
+DONE status=converged compute=3.0106888890000003
+RUN case=piso101-hypre ranks=1 repeat=1
+DONE status=converged compute=26.725577957000002
+RUN case=heat101-hypre ranks=8 repeat=1
+DONE status=converged compute=0.468329998
+RUN case=heat101-hypre ranks=4 repeat=1
+DONE status=converged compute=0.43332966800000006
+RUN case=heat101-bjacobi ranks=2 repeat=1
+DONE status=converged compute=0.12441068
+RUN case=heat101-bjacobi ranks=1 repeat=1
+DONE status=converged compute=0.21497414699999995
+RUN case=heat101-gamg1 ranks=2 repeat=1
+DONE status=converged compute=0.2047492820000001
+RUN case=heat101-gamg1 ranks=4 repeat=1
+DONE status=converged compute=0.11868710400000004
+RUN case=piso101-hypre ranks=8 repeat=1
+DONE status=converged compute=9.146359059000002
+RUN case=heat101-bjacobi ranks=8 repeat=1
+DONE status=converged compute=0.072099144
+RUN case=heat101-hypre ranks=1 repeat=1
+DONE status=converged compute=1.007340423
+RUN case=heat101-gamg1 ranks=1 repeat=1
+DONE status=converged compute=0.31779778400000014
+RUN case=heat101-bjacobi ranks=4 repeat=1
+DONE status=converged compute=0.087379977
+RUN case=heat101-hypre ranks=2 repeat=1
+DONE status=converged compute=0.6342138580000001
+RUN case=heat101-hypre ranks=4 repeat=2
+DONE status=converged compute=0.4147235900000001
+RUN case=heat101-bjacobi ranks=8 repeat=2
+DONE status=converged compute=0.08922790999999997
+RUN case=heat101-hypre ranks=2 repeat=2
+DONE status=converged compute=0.657372165
+RUN case=heat101-bjacobi ranks=2 repeat=2
+DONE status=converged compute=0.126943042
+RUN case=heat101-bjacobi ranks=4 repeat=2
+DONE status=converged compute=0.06853691199999995
+RUN case=piso101-hypre ranks=4 repeat=2
+DONE status=converged compute=9.860897640000001
+RUN case=heat101-bjacobi ranks=1 repeat=2
+DONE status=converged compute=0.23662238999999996
+RUN case=piso101-hypre ranks=8 repeat=2
+DONE status=converged compute=9.50698086
+RUN case=piso101-hypre ranks=1 repeat=2
+DONE status=converged compute=26.34603723
+RUN case=piso101-gamg1 ranks=4 repeat=2
+DONE status=converged compute=2.9146054670000003
+RUN case=heat101-hypre ranks=8 repeat=2
+DONE status=converged compute=0.5227670520000001
+RUN case=piso101-gamg1 ranks=1 repeat=2
+DONE status=converged compute=8.399476684000001
+RUN case=heat101-gamg1 ranks=4 repeat=2
+DONE status=converged compute=0.12687524500000003
+RUN case=heat101-gamg1 ranks=2 repeat=2
+DONE status=converged compute=0.20316103200000002
+RUN case=piso101-gamg1 ranks=8 repeat=2
+DONE status=converged compute=3.1131907260000005
+RUN case=heat101-gamg1 ranks=8 repeat=2
+DONE status=converged compute=0.11626359500000003
+RUN case=piso101-gamg1 ranks=2 repeat=2
+DONE status=converged compute=4.797896861
+RUN case=heat101-hypre ranks=1 repeat=2
+DONE status=converged compute=1.231527168
+RUN case=piso101-hypre ranks=2 repeat=2
+DONE status=converged compute=17.576711261
+RUN case=heat101-gamg1 ranks=1 repeat=2
+DONE status=converged compute=0.3099059689999999
+RUN case=piso101-hypre ranks=1 repeat=3
+DONE status=converged compute=25.711429006000003
+RUN case=heat101-hypre ranks=8 repeat=3
+DONE status=converged compute=0.485739366
+RUN case=piso101-gamg1 ranks=8 repeat=3
+DONE status=converged compute=2.91148095
+RUN case=piso101-hypre ranks=8 repeat=3
+DONE status=converged compute=9.219083266
+RUN case=heat101-hypre ranks=1 repeat=3
+DONE status=converged compute=0.9718407410000001
+RUN case=heat101-bjacobi ranks=4 repeat=3
+DONE status=converged compute=0.07032382000000004
+RUN case=heat101-bjacobi ranks=8 repeat=3
+DONE status=converged compute=0.07715883699999998
+RUN case=heat101-gamg1 ranks=2 repeat=3
+DONE status=converged compute=0.200389162
+RUN case=piso101-gamg1 ranks=1 repeat=3
+DONE status=converged compute=8.355316096000001
+RUN case=piso101-gamg1 ranks=4 repeat=3
+DONE status=converged compute=2.947305138
+RUN case=heat101-gamg1 ranks=1 repeat=3
+DONE status=converged compute=0.3276358560000001
+RUN case=piso101-gamg1 ranks=2 repeat=3
+DONE status=converged compute=4.656851898999999
+RUN case=piso101-hypre ranks=4 repeat=3
+DONE status=converged compute=10.433728180000001
+RUN case=piso101-hypre ranks=2 repeat=3
+DONE status=converged compute=17.125435564
+RUN case=heat101-hypre ranks=2 repeat=3
+DONE status=converged compute=0.6626584990000001
+RUN case=heat101-bjacobi ranks=1 repeat=3
+DONE status=converged compute=0.2154381139999999
+RUN case=heat101-bjacobi ranks=2 repeat=3
+DONE status=converged compute=0.124300036
+RUN case=heat101-gamg1 ranks=4 repeat=3
+DONE status=converged compute=0.144891589
+RUN case=heat101-gamg1 ranks=8 repeat=3
+DONE status=converged compute=0.13108455900000004
+RUN case=heat101-hypre ranks=4 repeat=3
+DONE status=converged compute=0.42733779200000005
+Completed 80 runs; 0 did not converge. Evidence: /home/midway/BabelSim/docs/reports/solver-scaling-experiments-2026-09-28/scaling101

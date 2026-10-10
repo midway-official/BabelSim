@@ -1,0 +1,105 @@
+{
+  "algorithm": "metis-cut-work",
+  "parts": 4,
+  "seed": 7,
+  "partitionSeconds": 0.7057812330021989,
+  "initialPartitionSeconds": 0.5568674209935125,
+  "exactBalanceSeconds": 0.14891381200868636,
+  "quotaTransfers": 402,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.001046875,
+  "nativeObjective": 13291,
+  "memory": {
+    "beforeRSSBytes": 381374464,
+    "peakRSSBytes": 426401792,
+    "sampledRSSIncrementBytes": 45027328
+  },
+  "cutFaces": 13258,
+  "cutFacesPerPart": [
+    6074,
+    7275,
+    6174,
+    6993
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    128000,
+    128000,
+    128000,
+    128000
+  ],
+  "ghostCellsPerPart": [
+    11539,
+    14549,
+    12984,
+    14388
+  ],
+  "firstLayerGhostsPerPart": [
+    2945,
+    3501,
+    3126,
+    3508
+  ],
+  "localCellsPerPart": [
+    139539,
+    142549,
+    140984,
+    142388
+  ],
+  "localFacesPerPart": [
+    567727,
+    580976,
+    574361,
+    580848
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    1019168,
+    1010978,
+    1010148,
+    1005658
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.007592774209877,
+  "localFaceImbalance": 1.0086774147623694,
+  "localCellImbalance": 1.0083754819085347,
+  "totalGhostCells": 53460,
+  "maxGhostCells": 14549,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 13080,
+  "threeLayerCommunicationVolume": 53460,
+  "cellStorageDuplication": 1.1044140625,
+  "faceStorageDuplication": 1.1160807019175618,
+  "componentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "ownershipSHA256": "75c995ccfa24986288ce5aa02c4ab2e1f38e70f1089244d93f4d67e85410c9b5",
+  "status": "ok",
+  "graph": "graded_voronoi-engineering",
+  "graphSHA256": "96a57afe0dd5f99457b5673233552939c87115f5b93b4ae33217757912a2e4a5",
+  "graphMetadata": {
+    "cells": 512000,
+    "components": 2,
+    "construction": "bounded convex Voronoi-polygon extrusion",
+    "family": "graded_voronoi",
+    "graded": true,
+    "internalFaces": 1981664,
+    "layers": 32,
+    "maxCellFaces": 14,
+    "minCellFaces": 5,
+    "physicalFaces": 82624,
+    "scale": "engineering",
+    "seed": 20261007,
+    "sites": 16000
+  },
+  "unixStarted": 1791374305.981018,
+  "unixEnded": 1791374303.908457
+}

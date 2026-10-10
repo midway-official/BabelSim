@@ -1,0 +1,3 @@
+partition ranks=4 cells=4096 cutFaces=169 ghostCellsTotal=726 localFaceImbalance=1.02198 haloBytesTotal=11616 firstLayerBytesTotal=3808
+partition ranks=4 cells=561 cutFaces=122 ghostCellsTotal=504 localFaceImbalance=1.06333 haloBytesTotal=8064 firstLayerBytesTotal=2496
+partition ranks=4 cells=256 cutFaces=6 ghostCellsTotal=36 localFaceImbalance=1.04085 haloBytesTotal=576 firstLayerBytesTotal=192

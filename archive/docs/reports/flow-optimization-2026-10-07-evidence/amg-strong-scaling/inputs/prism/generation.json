@@ -1,0 +1,14 @@
+{
+  "cells": 1024000,
+  "faces": 2585600,
+  "gridN": 80,
+  "minCellFaces": 5,
+  "maxCellFaces": 5,
+  "template": "/tmp/babelsim-flow-opt-20261007/formal-inputs/piso6",
+  "templateInputSha256": "aba8474cb902462fa5997d7b86074653e18eb1415cfe74709041fed6bea6c4e2",
+  "acceptedSteps": 10,
+  "measuredIntervals": 9,
+  "deltaT": 0.01,
+  "unchangedSolutionControls": true,
+  "meshSha256": "17c7481096dcbdf23440b8ed7c8619238a2f83ae9b62292a70bf244abc5d4b2f"
+}

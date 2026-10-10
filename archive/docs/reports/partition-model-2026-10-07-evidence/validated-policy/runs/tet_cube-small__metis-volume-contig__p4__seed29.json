@@ -1,0 +1,110 @@
+{
+  "algorithm": "metis-volume-contig",
+  "parts": 4,
+  "seed": 29,
+  "partitionSeconds": 0.04536250600358471,
+  "initialPartitionSeconds": 0.045084052995662205,
+  "exactBalanceSeconds": 0.0002784530079225078,
+  "quotaTransfers": 5,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0007716049382716,
+  "rawComponentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "nativeObjective": 1123,
+  "memory": {
+    "beforeRSSBytes": 195592192,
+    "peakRSSBytes": 195592192,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 627,
+  "cutFacesPerPart": [
+    324,
+    315,
+    272,
+    343
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2592,
+    2592,
+    2592,
+    2592
+  ],
+  "ghostCellsPerPart": [
+    905,
+    859,
+    798,
+    964
+  ],
+  "firstLayerGhostsPerPart": [
+    285,
+    279,
+    254,
+    308
+  ],
+  "localCellsPerPart": [
+    3497,
+    3451,
+    3390,
+    3556
+  ],
+  "localFacesPerPart": [
+    7436,
+    7366,
+    7205,
+    7559
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    10368,
+    10368,
+    10368,
+    10368
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0226611648515187,
+  "localCellImbalance": 1.0237512595364906,
+  "totalGhostCells": 3526,
+  "maxGhostCells": 964,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1126,
+  "threeLayerCommunicationVolume": 3526,
+  "cellStorageDuplication": 1.3400848765432098,
+  "faceStorageDuplication": 1.3687962962962963,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "6e37e403a63fb326695939e98b3ae39bb5f12f80442ce426690dc05276493555",
+  "status": "ok",
+  "graph": "tet_cube-small",
+  "graphSHA256": "5a93958f7b832b19bb19235588045344c89208696c5ffcecee0d0b5220985992",
+  "graphMetadata": {
+    "cells": 10368,
+    "components": 1,
+    "construction": "conforming six-tetrahedra subdivision of each cube",
+    "family": "tet_cube",
+    "internalFaces": 19872,
+    "maxCellFaces": 4,
+    "minCellFaces": 4,
+    "n": 12,
+    "physicalFaces": 1728,
+    "scale": "small"
+  },
+  "unixStarted": 1791377817.5664523,
+  "unixEnded": 1791377817.6444592,
+  "sourceStudy": "docs/reports/partition-model-2026-10-07-evidence/selected-policy",
+  "sourceRecord": "docs/reports/partition-model-2026-10-07-evidence/selected-policy/runs/tet_cube-small__metis-volume-contig__p4__seed29.json"
+}

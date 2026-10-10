@@ -1,10 +1,19 @@
-# NACA0012：15°、右向左来流、二维瞬态 PISO / kOmega
+# NACA0012：15°、右向左来流、PISO / k–ω
 
-这是重新构建的算例。网格、边界条件和生成器均位于本目录；不依赖旧的
-`generate_naca0012_ogrid.py`。网格已生成并通过 Python 与 BabelSim 原生读取器两套质量检查。
-**此前已有 `deltaT=0.5 s`、`t=50 s` 的 100 步瞬态记录；这些结果来自旧 Eigen 数值后端，
-尚未在当前 PETSc 后端复现。** 动量、k、ω 对流均采用一阶迎风。
-原始失败记录与根因对照见 `validation/`；网格质量、短算可运行性和湍流模型物理精度是不同证据层次。
+## 当前正式计算状态
+
+正式计算已于 2026-09-28 完成：原有 127,013 单元网格、PISO、Wilcox 1988 k–ω、BDF2，
+`deltaT=0.01 s`、`endTime=30 s`，4 核并行，共 3,000 步。退出码为 0；3,000 步全部
+`accepted=true`、`linear=ok`、`converged=true`。全程最大压力—速度耦合残差为
+`9.1766e-6`（容限 `1e-5`）。终点快照覆盖全部单元，U、p、k、omega、mut 均有限。
+
+终点场范围：`|U|=6.41e-6–2.88319 m/s`、`k=4.46907e-8–0.101278`、
+`omega=0.636935–124803 s^-1`、`mut=5.27407e-13–9.00291e-4`。完整根因、耦合修复和
+逐字段检查记录见[长时失稳审计](validation/piso-coupling-audit-20260928.md)。
+紧凑日志与复现实验材料在 `validation/piso_audit_20260928/`；完整瞬态场保存在本地
+`results/piso_komega_bdf2_dt0p01_T30_mpi4_coupled/`。
+
+当前网格文件 SHA256 为 `ef58e557a8fee0423e193bc5bcd715aec466c562b435c1cc03f07f267f54fe25`。
 
 ## 几何、方向和计算域
 
@@ -53,7 +62,13 @@ Delaunay 连接。质量良好的三角形对合并成凸四边形，其余保�
 拓扑检查会拒绝不匹配的内界面、漏标的外边界和非流形边。
 网格预览为 `mesh/mesh_overview.png` 和 `mesh/mesh_wall_details.png`。
 
-第 100 步 `t=50 s` 的速度场云图与流线见下图，`t=30 s` 快照也保存在验证目录：
+当前正式计算的已保存快照可视化：
+
+- [t=14 s 速度场与流线](validation/flow_t14_dt0p01.png)
+- [t=27 s 速度场与流线](validation/flow_latest_t27_dt0p01.png)
+- [终点 t=30 s 速度场与流线](validation/flow_t30_dt0p01.png)
+
+以下为历史配置 `dt=0.5 s` 的旧图，不能用于判断当前 BDF2 / k–ω 结果：
 
 ![NACA0012 第 100 步速度场](validation/flow_t50_dt0.5.png)
 
@@ -62,47 +77,26 @@ Delaunay 连接。质量良好的三角形对合并成凸四边形，其余保�
 
 ## 求解设置和边界
 
-`rho=1 kg/m³`、`mu=1e-6 Pa·s`，所以 `Re_c=1e6`。
-当前代码的 `kOmega` 对应 **Wilcox1988m**，不是 SST；模型常数显式列在
-`physics/kOmega.bs`。入口强度 `I=0.1%`，`k=1.5e-6`、`omega=1.5 s^-1`，
-入口 `mu_t/mu=1`。Wilcox 模型对外流 omega 有敏感性，后续应做入口湍流条件敏感性检查。
+`rho=1 kg/m³`、`mu=1e-6 Pa·s`，所以 `Re_c=1e6`。k–ω 实现为 **Wilcox1988m**，不是 SST。入口 `k=1.5e-6`、`omega=1.5 s^-1`，对应入口湍流黏度比 `mu_t/mu=1`。壁面 omega 固定值按第一层中心壁距的 Wilcox 光滑壁渐近式计算。该模型没有自动高 y+ 壁函数。
 
 | 边界 | U | p | k / omega |
 |---|---|---|---|
 | 右侧 inlet | `(-1,0,0)` | 零梯度 | 固定入口值 |
 | 左侧 outlet | 零梯度 | `0` | 零梯度 |
 | 上下 farfield | `(-1,0,0)` | 零梯度 | 固定入口值 |
-| airfoil | 无滑移 | 零梯度 | `k=1e-12`；omega 为近壁固定值 |
+| airfoil | 无滑移 | 零梯度 | `k=1e-12`；omega 使用近壁固定值 |
 | front/back | symmetry | symmetry | symmetry |
 
-壁面 omega 使用 Wilcox 光滑壁渐近式在首层中心壁距处的值 `6*nu/(beta*d1²)=3.55556e5 s^-1`，
-`d1=1.5e-5 c`，`beta=0.075`。壁距检查见 `mesh/reader_quality.json`。
-没有使用高 y+ 壁函数；k 的微小正下限与模型的数值下限一致。
+`fields/initial/k.dat` 和 `omega.dat` 用到翼面距离连续建立近壁初始分布。它们是可复现的启动种子，不是已收敛边界层。运行时 `initializePotentialFlow 1` 先修正初始速度和面通量，使初始通量满足连续性，再推进第一个物理时间步。
 
-- PISO：每时间步一次动量预测，4 次压力修正，每次含 3 次非正交追加修正。
-- 时间格式：隐式 Euler，`deltaT=0.5 s`、`endTime=50 s`，共 100 步；时间步高于用户给定的 `0.005 s` 下限。
-- 动量、k、omega 对流：均为 upwind（一阶迎风）；压力修正对流：upwind。
-- 扩散：limitedCorrected；梯度：leastSquares。
-- 速度松弛和湍流输运松弛均为 0.3，用于控制高 Courant 启动阶段的耦合增长。
-- 当前压力修正配置为 PETSc `cg` + Hypre BoomerAMG，启用跨时间步初值复用；动量、k、omega
-  使用 `bcgs` + `bjacobi`。经过 1/2-rank 五步场对照后，将动量/压力 `rtol` 设为 `1e-9`，k/omega
-  设为 `1e-10`；压力配置来自全尺寸网格的 AMG 单步对照。计时、MPI 敏感性和复现记录见
-  [`validation/petsc_one_step_timing.md`](validation/petsc_one_step_timing.md)。PETSc 配置与旧后端 ILUT 不等价。
-- 正式算例每 10 步输出一次（每 5 s）。仓库保留的 100 步至 `t=50 s` 结果来自旧 Eigen 后端；
-  PETSc 后端当前已完成 2-rank、5 步 AMG 短算，但尚未复现 100 步运行。
+时间步设置为 `0.01 s`，终止于 `30 s`，共 3000 步。动量使用线性迎风二阶格式；k、omega 使用一阶迎风；时间格式为 BDF2。PISO 每步执行 1 次动量预测和至少 8 次总压力校正，并进行 1 次附加非正交校正。`couplingTolerance=1e-5` 检查压力—速度耦合残差，未达到时增加校正至 `maxCorrectors=50`，仍失败则退出，避免仅凭质量守恒误报成功。速度松弛为 `1.0`；标准分步湍流校正也设为 `1.0`，每个物理步各更新一次 omega 和 k，湍流输运相对残差容限为 `0.05`。压力、动量、k 和 omega 方程均使用 Hypre AMG 预条件。需要把湍流非线性变化也迭代收敛时，可使用 `turbulenceCoupling iterated`，但它每步会多次重解输运方程。
 
-旧后端 100 步数据的数值范围汇总见 `validation/completed_run_summary.json`，运行日志见
-`validation/dt0.5_100steps.log`，全时间快照保存在 `results/dt0.5_100steps/`。此前
-`dt=0.05` 的 100 步结果保留在 `results/dt0.05_100steps/`。当前 PETSc 后端的 1/2-rank 五步 AMG
-短算均通过，所有保存时刻和 final 场比较通过 `atol=rtol=5e-6`；完整对照表与路径见性能报告。
-这里的 `PISO converged=true` 是单次预测-修正配置下的质量判据，不代表湍流输运在每个时间步达到稳态容差。
-中心格式及未松弛设置的失稳受控证据见 `validation/instability_analysis.md`。
+压力、k、omega 和动量方程均配置 PETSc BCGS/CG 与 Hypre AMG 预条件。为避免 BDF2 启动局部负值令 `k/omega` 人为变得极大，Wilcox 实现增加 `maxTurbulentViscosityRatio=1e5`，以 `omega >= rho*k/(1e5*mu)` 限制湍流黏度；日志中的 `omegaBoundedCells` 记录触发单元数。
 
-仓库中的旧结果是 100 步数值试算，当前 PETSc 结果只有 5 步短算；二者都不等于湍流模型的物理验证。
-`deltaT=0.5 s` 是较大的瞬态步长，本次通过数值稳定性与场完整性检查，
-仍需用较小时间步做时间精度敏感性比较。为压住前缘启动增长，动量也用了较耗散的一阶迎风，且速度/湍流松弛为 0.3；
-后续定量比较仍需考察动量格式、松弛参数、网格和时间步敏感性，并与可信实验/基准数据比较。
-时间格式为一阶隐式 Euler；不改变用户要求的 `Δt=0.005 s` 下限。
+早期启动问题分析见 `validation/piso-komega-diagnosis.md`；历史失稳对照见
+`validation/instability_analysis.md`。完整 30 s 正式运行已经通过退出状态、耦合残差、
+最终元数据和保存场检查；审计文档列出可复核的日志、状态和字段范围。历史短算与单步
+计时数据仍保留在 `validation/`，不得与这次正式配置或其精度结论混用。
 
 ## 生成、复核与运行
 
@@ -117,17 +111,17 @@ python3 cases/naca0012/plot_mesh.py
 python3 cases/naca0012/plot_flow.py --time 50
 
 make -j4
-mpic++ -std=c++17 -O2 -Iinclude cases/naca0012/check_mesh.cpp build-petsc/libbabelsim.a -o /tmp/naca-check-mesh
+mpic++ -std=c++17 -O2 -Iinclude cases/naca0012/check_mesh.cpp build/libbabelsim.a -o /tmp/naca-check-mesh
 /tmp/naca-check-mesh cases/naca0012/mesh/naca0012.mesh > cases/naca0012/mesh/reader_quality.json
 
 python3 cases/naca0012/run_smoke.py --steps 10 --ranks 4
 # 将上一条输出的 run_directory 传给检查器：
 python3 cases/naca0012/summarize_run.py /absolute/path/to/run_directory
 
-mpirun -np 2 build-petsc/babelsim-solve -case cases/naca0012
+mpirun -np 4 build/babelsim-solve -case cases/naca0012
 ```
 
-当前运行配置采用 `deltaT=0.5`，短算脚本也拒绝 `--dt < 0.005`。
+当前正式运行配置采用 `deltaT=0.01`，短算脚本也拒绝 `--dt < 0.005`。
 短算脚本复制配置到带时间戳的 `results/smoke-*`，引用同一份全尺寸网格，
 不修改正式 control.bs。`summarize_run.py` 同时检查退出码、完成步数、线性求解状态、
 全局单元覆盖、所有保存时刻的有限性、k/omega 下限截断和宽松启动场值上限。

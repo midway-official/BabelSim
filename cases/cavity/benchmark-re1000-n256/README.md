@@ -14,5 +14,5 @@ CG+ILUT 不是 BabelSim 支持的组合，也不适合压力/动量方程的通�
 
 `velocityTolerance=3e-3` 以及线性相对残差 `3e-3` 是固定工作量的吞吐判据，不是精度验证阈值。完整的 1/2/4-rank
 运行时间、峰值内存和旧后端热点解释见
-`docs/reports/re1000-n256-linear-solver-mpi.md`。该历史报告中的 GMRES 和局部 MPI-AMG
+`archive/docs/history/reports/re1000-n256-linear-solver-mpi.md`。该历史报告中的 GMRES 和局部 MPI-AMG
 数据不代表当前实现；重新测量时应同时保留完成时间和固定外迭代吞吐两组数据。

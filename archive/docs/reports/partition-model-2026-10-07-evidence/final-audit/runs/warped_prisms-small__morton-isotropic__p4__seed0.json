@@ -1,0 +1,103 @@
+{
+  "algorithm": "morton-isotropic",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0019380830053705722,
+  "initialPartitionSeconds": 0.0018897109985118732,
+  "exactBalanceSeconds": 4.8372006858699024e-05,
+  "quotaTransfers": 0,
+  "unsafeQuotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 274329600,
+    "peakRSSBytes": 274329600,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 768,
+  "cutFacesPerPart": [
+    384,
+    384,
+    384,
+    384
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2048,
+    2048,
+    2048,
+    2048
+  ],
+  "ghostCellsPerPart": [
+    1200,
+    1200,
+    1200,
+    1200
+  ],
+  "firstLayerGhostsPerPart": [
+    384,
+    384,
+    384,
+    384
+  ],
+  "localCellsPerPart": [
+    3248,
+    3248,
+    3248,
+    3248
+  ],
+  "localFacesPerPart": [
+    8705,
+    8705,
+    8705,
+    8705
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    10240,
+    10240,
+    10240,
+    10240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.0,
+  "localCellImbalance": 1.0,
+  "totalGhostCells": 4800,
+  "maxGhostCells": 1200,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1536,
+  "threeLayerCommunicationVolume": 4800,
+  "cellStorageDuplication": 1.5859375,
+  "faceStorageDuplication": 1.619233630952381,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "115f1b53eb7debe8a3ad40e89fd4559ea6357f0a2280c53beca64643b9954d08",
+  "status": "ok",
+  "graph": "warped_prisms-small",
+  "graphSHA256": "766cb0295beda7a64f3a89c1182b6d2ed4d96459bbeddf19f66250fb581a9a58",
+  "graphMetadata": {
+    "cells": 8192,
+    "components": 1,
+    "construction": "warped checkerboard triangular-prism extrusion",
+    "family": "warped_prisms",
+    "internalFaces": 19456,
+    "maxCellFaces": 5,
+    "minCellFaces": 5,
+    "n": 16,
+    "physicalFaces": 2048,
+    "scale": "small",
+    "warp": 0.15
+  },
+  "unixStarted": 1791373814.5740936,
+  "unixEnded": 1791373814.6311517
+}

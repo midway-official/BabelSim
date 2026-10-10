@@ -1,0 +1,100 @@
+{
+  "algorithm": "metis-cut",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0019464710057945922,
+  "initialPartitionSeconds": 0.0018815560033544898,
+  "exactBalanceSeconds": 6.49150024401024e-05,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": 74,
+  "memory": {
+    "beforeRSSBytes": 257114112,
+    "peakRSSBytes": 257114112,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 74,
+  "cutFacesPerPart": [
+    46,
+    44,
+    16,
+    42
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    80,
+    80,
+    80,
+    80
+  ],
+  "ghostCellsPerPart": [
+    123,
+    108,
+    60,
+    100
+  ],
+  "firstLayerGhostsPerPart": [
+    37,
+    36,
+    16,
+    32
+  ],
+  "localCellsPerPart": [
+    203,
+    188,
+    140,
+    180
+  ],
+  "localFacesPerPart": [
+    726,
+    672,
+    527,
+    646
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    3,
+    2,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    480,
+    480,
+    480,
+    480
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.1295215869311552,
+  "localCellImbalance": 1.1420534458509142,
+  "totalGhostCells": 391,
+  "maxGhostCells": 123,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 121,
+  "threeLayerCommunicationVolume": 391,
+  "cellStorageDuplication": 2.221875,
+  "faceStorageDuplication": 2.2632042253521125,
+  "componentsPerPart": [
+    1,
+    1,
+    2,
+    1
+  ],
+  "ownershipSHA256": "a8a849c7af3d2360dec0e741831a41ff1cb8769d4e04d1712a410b061b33bad0",
+  "status": "ok",
+  "graph": "disconnected-fixture",
+  "graphSHA256": "bf155aff7e296862da2235d9f57f46a84d182ace315db1b5590b4d83391bfd59",
+  "graphMetadata": {
+    "cells": 320,
+    "components": 2,
+    "construction": "two disconnected conforming hex domains",
+    "family": "disconnected",
+    "internalFaces": 784,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 352,
+    "scale": "fixture"
+  },
+  "unixStarted": 1791371879.0585165,
+  "unixEnded": 1791371879.1058803
+}

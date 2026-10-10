@@ -1,0 +1,12 @@
+{
+  "samples": [
+    {
+      "count": 0,
+      "valid": true,
+      "study": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-t1",
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-t1-validation.json",
+      "computeSeconds": 191.380029769,
+      "sustained": true
+    }
+  ]
+}

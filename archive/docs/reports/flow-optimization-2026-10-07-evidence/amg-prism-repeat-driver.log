@@ -1,0 +1,16 @@
+RUN variant=optimized case=prism ranks=1 repeat=1
+DONE status=converged compute=601.959s work=10 sustained=True
+RUN variant=reference case=prism ranks=1 repeat=1
+DONE status=converged compute=2023.314s work=10 sustained=True
+RUN variant=optimized case=prism ranks=12 repeat=1
+DONE status=converged compute=113.307s work=10 sustained=True
+RUN variant=reference case=prism ranks=12 repeat=1
+DONE status=converged compute=431.650s work=10 sustained=True
+RUN variant=reference case=prism ranks=12 repeat=2
+DONE status=converged compute=426.788s work=10 sustained=True
+RUN variant=reference case=prism ranks=1 repeat=2
+DONE status=converged compute=1967.580s work=10 sustained=True
+RUN variant=optimized case=prism ranks=12 repeat=2
+DONE status=converged compute=113.601s work=10 sustained=True
+RUN variant=optimized case=prism ranks=1 repeat=2
+DONE status=converged compute=586.516s work=10 sustained=True

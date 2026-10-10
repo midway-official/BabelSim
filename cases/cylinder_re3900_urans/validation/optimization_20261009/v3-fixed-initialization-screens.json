@@ -1,0 +1,45 @@
+{
+  "samples": [
+    {
+      "nonorthogonalCorrections": 3,
+      "initialPressureSolves": 4,
+      "accepted": true,
+      "valid": true,
+      "computeSeconds": 15.886014507,
+      "outerIterations": 50,
+      "study": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n3-screen",
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n3-validation.json"
+    },
+    {
+      "nonorthogonalCorrections": 2,
+      "initialPressureSolves": 4,
+      "accepted": true,
+      "valid": true,
+      "computeSeconds": 14.746489264000001,
+      "outerIterations": 50,
+      "study": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n2-screen",
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n2-validation.json"
+    },
+    {
+      "nonorthogonalCorrections": 1,
+      "initialPressureSolves": 4,
+      "accepted": true,
+      "valid": true,
+      "computeSeconds": 12.981997202,
+      "outerIterations": 50,
+      "study": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n1-screen",
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n1-validation.json"
+    },
+    {
+      "nonorthogonalCorrections": 0,
+      "initialPressureSolves": 4,
+      "accepted": true,
+      "valid": true,
+      "computeSeconds": 10.662714689000001,
+      "outerIterations": 50,
+      "study": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-screen",
+      "validation": "/home/midway/BabelSim/cases/cylinder_re3900_urans/validation/optimization_20261009/v3-fixed-init-n0-validation.json"
+    }
+  ],
+  "note": "Five-step screens; any selected candidate still needs a sustained interval check."
+}

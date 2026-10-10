@@ -3,6 +3,7 @@
 #include "internal/petsc_session.h"
 
 #include <petscpc.h>
+#include <petscoptions.h>
 
 #include <algorithm>
 #include <chrono>
@@ -33,7 +34,7 @@ bool sameValues(const std::vector<PetscScalar>& left,
     if (left.size() != right.size()) return false;
     for (std::size_t i = 0; i < left.size(); ++i) {
         // Exact equality is intentional: only an unchanged effective matrix may
-        // reuse a setup PC. NaN coefficients conservatively force an update.
+        // skip its numerical update. NaN coefficients conservatively force it.
         if (left[i] != right[i]) return false;
     }
     return true;
@@ -53,6 +54,66 @@ bool hasPreconditioner(PreconditionerType type) {
     return type != PreconditionerType::None;
 }
 
+// Hypre's advanced controls have no public PETSc setters. Attach a private
+// options database only while parsing them, then restore the original database
+// before destroying ours (PetscObjectSetOptions does not retain a reference).
+class ScopedPcOptions {
+public:
+    explicit ScopedPcOptions(PC pc) : m_pc(pc) {
+        checkPetsc(PetscObjectGetOptions(reinterpret_cast<PetscObject>(pc), &m_previous),
+                   "PetscObjectGetOptions(PC)");
+        checkPetsc(PetscOptionsCreate(&m_options), "PetscOptionsCreate(PC)");
+    }
+    ~ScopedPcOptions() {
+        if (m_attached)
+            PetscObjectSetOptions(reinterpret_cast<PetscObject>(m_pc), m_previous);
+        PetscOptionsDestroy(&m_options);
+    }
+    ScopedPcOptions(const ScopedPcOptions&) = delete;
+    ScopedPcOptions& operator=(const ScopedPcOptions&) = delete;
+
+    void set(const char* key, const char* value) {
+        checkPetsc(PetscOptionsSetValue(m_options, key, value), "PetscOptionsSetValue(PC)");
+    }
+    void apply() {
+        checkPetsc(PetscObjectSetOptions(reinterpret_cast<PetscObject>(m_pc), m_options),
+                   "PetscObjectSetOptions(PC)");
+        m_attached = true;
+        checkPetsc(PCSetFromOptions(m_pc), "PCSetFromOptions(Hypre)");
+    }
+
+private:
+    PC m_pc;
+    PetscOptions m_previous = nullptr;
+    PetscOptions m_options = nullptr;
+    bool m_attached = false;
+};
+
+void configureHypreForCpu(PC pc, LinearSolverType solver, bool distributed) {
+    ScopedPcOptions options(pc);
+    // Parallel coarsening and bounded distance-two interpolation reduce the
+    // work and communication of the hierarchy on general sparse operators.
+    // Keep the symmetric smoother, one V cycle, and zero PC tolerance used
+    // by the CG-compatible PETSc defaults. BabelSim still checks b-A*x.
+    options.set("-pc_hypre_boomeramg_coarsen_type", "HMIS");
+    options.set("-pc_hypre_boomeramg_interp_type", "ext+i");
+    options.set("-pc_hypre_boomeramg_P_max", "4");
+    // BiCGStab's fixed shadow residual can break down with the aggressively
+    // coarsened hierarchy even on a nonsingular diffusion operator. Keep the
+    // ordinary hierarchy for that Krylov method; CG and the GMRES variants
+    // retain the cheaper aggressive level. This is a solver policy, independent
+    // of geometry, equation identity, matrix size, and physical model.
+    options.set("-pc_hypre_boomeramg_agg_nl",
+                solver == LinearSolverType::BiCGSTAB ? "0" : "1");
+    // MPI benefits from natural ordering for CG/GMRES. BiCGStab also needs
+    // the ordinary CF ordering to avoid the observed shadow breakdown.
+    // Set both values explicitly so a Krylov configuration change on the
+    // same PC cannot retain the previous method's relaxation order.
+    options.set("-pc_hypre_boomeramg_no_CF",
+                distributed && solver != LinearSolverType::BiCGSTAB ? "true" : "false");
+    options.apply();
+}
+
 }  // namespace
 
 PetscLinearSystem::PetscLinearSystem(
@@ -62,7 +123,7 @@ PetscLinearSystem::PetscLinearSystem(
     : m_identity(std::move(identity)), m_index_map(&index_map), m_plan(&plan),
       m_parallel(parallel), m_right_hand_sides(right_hand_sides) {
     if (m_identity.empty()) throw std::invalid_argument("PETSc equation identity is empty");
-    if (right_hand_sides == 0 || right_hand_sides > m_rhs.size())
+    if (right_hand_sides == 0 || right_hand_sides > m_fresh_iterations.size())
         throw std::invalid_argument("PETSc linear system supports one or three right-hand sides");
     ensurePetscSession();
     const MPI_Comm communicator = parallel.communicator == MPI_COMM_NULL
@@ -71,10 +132,8 @@ PetscLinearSystem::PetscLinearSystem(
     checkPetsc(MatSetSizes(m_matrix, index_map.localSize(), index_map.localSize(),
                            index_map.globalSize(), index_map.globalSize()), "MatSetSizes");
     checkPetsc(MatSetType(m_matrix, MATAIJ), "MatSetType(MATAIJ)");
-    const auto& rows = plan.rows();
-    const auto& columns = plan.columns();
-    std::vector<PetscInt> coo_rows = rows;
-    std::vector<PetscInt> coo_columns = columns;
+    std::vector<PetscInt> coo_rows, coo_columns;
+    plan.cooPattern(coo_rows, coo_columns);
     checkPetsc(MatSetPreallocationCOO(m_matrix, plan.nonzeroContributions(),
                                       coo_rows.data(), coo_columns.data()),
                "MatSetPreallocationCOO");
@@ -86,23 +145,18 @@ PetscLinearSystem::PetscLinearSystem(
     checkPetsc(KSPSetOperators(m_ksp, m_matrix, m_matrix), "KSPSetOperators");
     checkPetsc(KSPSetConvergenceTest(m_ksp, &PetscLinearSystem::convergenceTest,
                                      &m_convergence, nullptr), "KSPSetConvergenceTest");
-    for (std::size_t i = 0; i < m_right_hand_sides; ++i) {
-        checkPetsc(VecCreateMPI(communicator, index_map.localSize(), index_map.globalSize(),
-                               &m_rhs[i]), "VecCreateMPI(rhs)");
-        checkPetsc(VecDuplicate(m_rhs[i], &m_solution[i]), "VecDuplicate(solution)");
-    }
-    checkPetsc(VecDuplicate(m_rhs[0], &m_residual), "VecDuplicate(residual)");
-    m_work_solution.resize(static_cast<std::size_t>(index_map.localSize()));
+    checkPetsc(VecCreateMPI(communicator, index_map.localSize(), index_map.globalSize(),
+                           &m_rhs), "VecCreateMPI(rhs)");
+    checkPetsc(VecDuplicate(m_rhs, &m_solution), "VecDuplicate(solution)");
+    checkPetsc(VecDuplicate(m_rhs, &m_residual), "VecDuplicate(residual)");
 }
 
 PetscLinearSystem::~PetscLinearSystem() { release(); }
 
 void PetscLinearSystem::release() noexcept {
     if (m_residual) VecDestroy(&m_residual);
-    for (std::size_t i = 0; i < m_right_hand_sides; ++i) {
-        if (m_solution[i]) VecDestroy(&m_solution[i]);
-        if (m_rhs[i]) VecDestroy(&m_rhs[i]);
-    }
+    if (m_solution) VecDestroy(&m_solution);
+    if (m_rhs) VecDestroy(&m_rhs);
     if (m_ksp) KSPDestroy(&m_ksp);
     if (m_matrix) MatDestroy(&m_matrix);
 }
@@ -137,6 +191,7 @@ void PetscLinearSystem::configure(const LinearSolverConfig& config) {
     m_config = config;
     m_configured = true;
     m_setup_pending = true;
+    m_force_rebuild = true;
 }
 
 void PetscLinearSystem::setupPreconditioner(const LinearSolverConfig& config) {
@@ -155,6 +210,7 @@ void PetscLinearSystem::setupPreconditioner(const LinearSolverConfig& config) {
     case PreconditionerType::Hypre:
         checkPetsc(PCSetType(pc, PCHYPRE), "PCSetType(PCHYPRE)");
         checkPetsc(PCHYPRESetType(pc, "boomeramg"), "PCHYPRESetType(boomeramg)");
+        configureHypreForCpu(pc, config.solver, m_parallel.distributed());
         break;
     case PreconditionerType::GAMG:
         checkPetsc(PCSetType(pc, PCGAMG), "PCSetType(PCGAMG)");
@@ -199,8 +255,8 @@ void PetscLinearSystem::computeTrueResidual(Vec rhs, Vec solution, double& norm)
 }
 
 PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(
-    const std::vector<PetscScalar>& matrix_values) {
-    if (matrix_values.size() != m_plan->rows().size())
+    std::vector<PetscScalar>& matrix_values) {
+    if (matrix_values.size() != static_cast<std::size_t>(m_plan->nonzeroContributions()))
         throw std::invalid_argument("PETSc matrix values do not match fixed COO pattern");
     PetscMatrixUpdateMetrics metrics;
     const Clock::time_point update_start = Clock::now();
@@ -211,7 +267,9 @@ PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(
         checkPetsc(MatSetValuesCOO(m_matrix, matrix_values.data(), INSERT_VALUES),
                    "MatSetValuesCOO(matrix update)");
         checkPetsc(KSPSetOperators(m_ksp, m_matrix, m_matrix), "KSPSetOperators(matrix update)");
-        m_previous_matrix_values = matrix_values;
+        // PETSc has consumed the COO values. Exchange scratch storage instead
+        // of copying every coefficient into the retained equality snapshot.
+        m_previous_matrix_values.swap(matrix_values);
         m_matrix_ready = true;
         m_setup_pending = true;
         ++m_matrix_updates;
@@ -225,16 +283,43 @@ PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(
 
 PetscSetupMetrics PetscLinearSystem::prepare(const LinearSolverConfig& config) {
     configure(config);
+    if (!m_setup_pending && !m_force_rebuild) return {};
+    const bool reuse = hasPreconditioner(config.preconditioner) &&
+        m_preconditioner_setups != 0 && !m_force_rebuild &&
+        m_matrix_updates - m_preconditioner_matrix_update <
+            static_cast<std::uint64_t>(config.preconditioner_rebuild_interval) &&
+        m_preconditioner_rhs_solves <
+            static_cast<std::uint64_t>(config.preconditioner_rebuild_interval);
+    // Many RHS solves amortize a fresh factorization/hierarchy. Limit lagged
+    // work as well as matrix age, without aging unchanged-matrix RHS-only
+    // calls into rebuilds. Counts are collective, so no extra reduction or
+    // timing-dependent branch is needed.
+    return setup(reuse);
+}
+
+PetscSetupMetrics PetscLinearSystem::setup(bool reuse) {
     PetscSetupMetrics metrics;
-    if (m_setup_pending) {
-        const Clock::time_point setup_start = Clock::now();
-        checkPetsc(KSPSetUp(m_ksp), "KSPSetUp");
-        configureBlockJacobiSubsolvers(config);
-        metrics.seconds = secondsSince(setup_start);
-        metrics.preconditioner_was_setup = hasPreconditioner(config.preconditioner);
+    const Clock::time_point setup_start = Clock::now();
+    checkPetsc(KSPSetReusePreconditioner(m_ksp, reuse ? PETSC_TRUE : PETSC_FALSE),
+               "KSPSetReusePreconditioner");
+    // Also leave PETSc's RHS-only stage when a failed/growing lagged solve
+    // requests a rebuild without another matrix value update.
+    checkPetsc(KSPSetOperators(m_ksp, m_matrix, m_matrix), "KSPSetOperators(setup)");
+    checkPetsc(KSPSetUp(m_ksp), "KSPSetUp");
+    if (!reuse) {
+        configureBlockJacobiSubsolvers(m_config);
+        // Factor local blocks here rather than charging their lazy setup to
+        // the first velocity component's KSPSolve time.
+        checkPetsc(KSPSetUpOnBlocks(m_ksp), "KSPSetUpOnBlocks");
+        metrics.preconditioner_was_setup = hasPreconditioner(m_config.preconditioner);
         if (metrics.preconditioner_was_setup) ++m_preconditioner_setups;
-        m_setup_pending = false;
+        m_preconditioner_matrix_update = m_matrix_updates;
+        m_preconditioner_rhs_solves = 0;
+        m_fresh_iterations.fill(0);
     }
+    metrics.seconds = secondsSince(setup_start);
+    m_setup_pending = false;
+    m_force_rebuild = false;
     return metrics;
 }
 
@@ -276,52 +361,115 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(
         throw std::logic_error("PETSc linear system must update and prepare before solving RHS");
     if (right_hand_side >= m_right_hand_sides)
         throw std::out_of_range("PETSc RHS index is outside this equation system");
-    if (initial_guess.size() != static_cast<std::size_t>(m_index_map->localSize()))
+    if (m_config.warm_start &&
+        initial_guess.size() != static_cast<std::size_t>(m_index_map->localSize()))
         throw std::invalid_argument("PETSc initial guess does not match local ownership");
     PetscSolveMetrics metrics;
     const Clock::time_point rhs_start = Clock::now();
-    Vec rhs = m_rhs[right_hand_side];
-    Vec x = m_solution[right_hand_side];
+    Vec rhs = m_rhs;
+    Vec x = m_solution;
     setVectorValues(rhs, rhs_values);
-    if (m_config.warm_start) {
-        PetscScalar* x_array = nullptr;
-        checkPetsc(VecGetArray(x, &x_array), "VecGetArray(initial guess)");
-        for (std::size_t i = 0; i < initial_guess.size(); ++i)
-            x_array[i] = static_cast<PetscScalar>(initial_guess[i]);
-        checkPetsc(VecRestoreArray(x, &x_array), "VecRestoreArray(initial guess)");
-    } else {
-        checkPetsc(VecSet(x, 0.0), "VecSet(zero initial guess)");
-    }
+    const auto reset_guess = [&]() {
+        if (m_config.warm_start) {
+            PetscScalar* x_array = nullptr;
+            checkPetsc(VecGetArray(x, &x_array), "VecGetArray(initial guess)");
+            for (std::size_t i = 0; i < initial_guess.size(); ++i)
+                x_array[i] = static_cast<PetscScalar>(initial_guess[i]);
+            checkPetsc(VecRestoreArray(x, &x_array), "VecRestoreArray(initial guess)");
+        } else {
+            checkPetsc(VecSet(x, 0.0), "VecSet(zero initial guess)");
+        }
+    };
+    reset_guess();
     metrics.rhs_seconds = secondsSince(rhs_start);
 
     const double rhs_norm = vectorNorm(rhs);
-    double initial_residual = 0.0;
-    computeTrueResidual(rhs, x, initial_residual);
+    // For x0=0, r0=b exactly; avoid an SpMV and a second global norm per RHS.
+    double initial_residual = rhs_norm;
+    if (m_config.warm_start) computeTrueResidual(rhs, x, initial_residual);
     const double scale = residualScale(initial_residual, rhs_norm);
     const double target = residualTarget(m_config, scale);
     m_convergence.target = static_cast<PetscReal>(target);
 
-    const Clock::time_point solve_start = Clock::now();
-    checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
-    metrics.solve_seconds = secondsSince(solve_start);
-    PetscInt iterations = 0;
-    PetscInt max_iterations = 0;
-    KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
-    checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
-    checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
-    max_iterations = static_cast<PetscInt>(m_config.max_iterations);
-    const Clock::time_point residual_start = Clock::now();
-    double final_residual = 0.0;
-    computeTrueResidual(rhs, x, final_residual);
-    ++m_true_residual_checks;
-    metrics.residual_seconds = secondsSince(residual_start);
+    metrics.preconditioner_reused = hasPreconditioner(m_config.preconditioner) &&
+        m_preconditioner_matrix_update < m_matrix_updates;
+    if (residualConverged(initial_residual, target)) {
+        // r0 is already the true residual (or exactly b for a zero guess).
+        // Avoid KSPSolve and its duplicate norm/matvec for an accepted x0.
+        metrics.result = SolveResult(SolveStatus::Converged, 0, initial_residual,
+                                    initial_residual, initial_residual / scale);
+        if (m_config.warm_start) solution = initial_guess;
+        else solution.assign(rhs_values.size(), 0.0);
+        ++m_true_residual_checks;
+        ++metrics.true_residual_checks;
+        return metrics;
+    }
+    int total_iterations = 0;
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        int attempt_iterations = 0;
+        KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
+        double final_residual = 0.0;
+        for (int restart = 0; restart < 3; ++restart) {
+            checkPetsc(KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
+                static_cast<PetscInt>(m_config.max_iterations - attempt_iterations)),
+                "KSPSetTolerances(remaining iterations)");
+            const Clock::time_point solve_start = Clock::now();
+            checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
+            metrics.solve_seconds += secondsSince(solve_start);
+            PetscInt iterations = 0;
+            checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
+            checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
+            attempt_iterations += static_cast<int>(iterations);
+            total_iterations += static_cast<int>(iterations);
+            const Clock::time_point residual_start = Clock::now();
+            computeTrueResidual(rhs, x, final_residual);
+            ++m_true_residual_checks;
+            ++metrics.true_residual_checks;
+            metrics.residual_seconds += secondsSince(residual_start);
+            if (residualConverged(final_residual, target) || reason <= 0
+                || !std::isfinite(final_residual) || attempt_iterations >= m_config.max_iterations)
+                break;
+            // A converged recursive Krylov norm may lie just below the true
+            // norm. Continue from this x using a tighter internal target;
+            // keep the original scale/acceptance target and iteration budget.
+            // VecNorm and KSP reason are collective, including zero-owned ranks.
+            m_convergence.target *= 0.5;
+            checkPetsc(KSPSetInitialGuessNonzero(m_ksp, PETSC_TRUE),
+                       "KSPSetInitialGuessNonzero(true-residual restart)");
+        }
+        checkPetsc(KSPSetInitialGuessNonzero(m_ksp,
+            m_config.warm_start ? PETSC_TRUE : PETSC_FALSE), "KSPSetInitialGuessNonzero(restore)");
+        checkPetsc(KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
+            static_cast<PetscInt>(m_config.max_iterations)), "KSPSetTolerances(restore)");
 
-    SolveStatus status = SolveStatus::NumericalFailure;
-    if (residualConverged(final_residual, target)) status = SolveStatus::Converged;
-    else if (reason == KSP_DIVERGED_ITS || iterations >= max_iterations)
-        status = SolveStatus::MaxIterations;
-    metrics.result = SolveResult(status, static_cast<int>(iterations), initial_residual,
-                                 final_residual, final_residual / scale);
+        SolveStatus status = SolveStatus::NumericalFailure;
+        if (residualConverged(final_residual, target)) status = SolveStatus::Converged;
+        else if (reason == KSP_DIVERGED_ITS || attempt_iterations >= m_config.max_iterations)
+            status = SolveStatus::MaxIterations;
+        metrics.result = SolveResult(status, total_iterations, initial_residual,
+                                     final_residual, final_residual / scale);
+        if (status != SolveStatus::Converged && attempt == 0 &&
+            metrics.preconditioner_reused) {
+            // Vec norms and iteration counts are collective, so all ranks
+            // take this branch together. Restore the original x0 and target;
+            // a failed stale PC never weakens BabelSim's residual contract.
+            metrics.recovery_setup = setup(false);
+            ++metrics.retries;
+            reset_guess();
+            m_convergence.target = static_cast<PetscReal>(target);
+            continue;
+        }
+        if (status == SolveStatus::Converged) {
+            int& fresh = m_fresh_iterations[right_hand_side];
+            if (m_preconditioner_matrix_update == m_matrix_updates)
+                fresh = std::max(fresh, attempt_iterations);
+            else if (attempt_iterations > m_config.preconditioner_reuse_iteration_growth *
+                                      static_cast<double>(std::max(fresh, 1)))
+                m_force_rebuild = true;
+        }
+        break;
+    }
+    if (total_iterations > 0) ++m_preconditioner_rhs_solves;
 
     PetscScalar* x_array = nullptr;
     checkPetsc(VecGetArray(x, &x_array), "VecGetArray(solution)");

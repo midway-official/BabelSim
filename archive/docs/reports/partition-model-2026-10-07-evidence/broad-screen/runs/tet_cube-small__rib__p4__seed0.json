@@ -1,0 +1,101 @@
+{
+  "algorithm": "rib",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.0026891080051427707,
+  "initialPartitionSeconds": 0.002581573004135862,
+  "exactBalanceSeconds": 0.00010753500100690871,
+  "quotaTransfers": 0,
+  "rawCellImbalance": 1.0,
+  "nativeObjective": null,
+  "memory": {
+    "beforeRSSBytes": 215453696,
+    "peakRSSBytes": 215453696,
+    "sampledRSSIncrementBytes": 0
+  },
+  "cutFaces": 779,
+  "cutFacesPerPart": [
+    389,
+    389,
+    390,
+    390
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    2592,
+    2592,
+    2592,
+    2592
+  ],
+  "ghostCellsPerPart": [
+    918,
+    874,
+    874,
+    917
+  ],
+  "firstLayerGhostsPerPart": [
+    288,
+    288,
+    288,
+    288
+  ],
+  "localCellsPerPart": [
+    3510,
+    3466,
+    3466,
+    3509
+  ],
+  "localFacesPerPart": [
+    7492,
+    7416,
+    7416,
+    7490
+  ],
+  "neighbourRanksPerPart": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "ownedFaceIncidencesPerPart": [
+    10368,
+    10368,
+    10368,
+    10368
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.005165358556383,
+  "localCellImbalance": 1.0063794710056626,
+  "totalGhostCells": 3583,
+  "maxGhostCells": 918,
+  "maxNeighbourRanks": 3,
+  "firstLayerCommunicationVolume": 1152,
+  "threeLayerCommunicationVolume": 3583,
+  "cellStorageDuplication": 1.345582561728395,
+  "faceStorageDuplication": 1.3802777777777777,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "72ba7cd2508a77c6ceba1ec9f0d36788510abd3257ff534662257dada047ec12",
+  "status": "ok",
+  "graph": "tet_cube-small",
+  "graphSHA256": "5a93958f7b832b19bb19235588045344c89208696c5ffcecee0d0b5220985992",
+  "graphMetadata": {
+    "cells": 10368,
+    "components": 1,
+    "construction": "conforming six-tetrahedra subdivision of each cube",
+    "family": "tet_cube",
+    "internalFaces": 19872,
+    "maxCellFaces": 4,
+    "minCellFaces": 4,
+    "n": 12,
+    "physicalFaces": 1728,
+    "scale": "small"
+  },
+  "unixStarted": 1791372013.1978078,
+  "unixEnded": 1791372013.236057
+}

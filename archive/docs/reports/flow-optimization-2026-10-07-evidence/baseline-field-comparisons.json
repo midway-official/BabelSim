@@ -1,0 +1,184 @@
+[
+  {
+    "label": "normalized-v5-np1-vs-np4",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r1-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r4-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "93638b9ab337a0052dd5c1b5c58e7c18d06f5f981124b5b8b3b730a756445f51",
+    "candidateFieldsSha256": "c1b457dc72de9c389f4336da7c23af92d9f81db7bb6e1a0fa55a3fe8a6bcbf71",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 9.174630610786494e-09,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.6036722949586135e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "normalized-v5-np1-vs-np8",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r1-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r8-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "93638b9ab337a0052dd5c1b5c58e7c18d06f5f981124b5b8b3b730a756445f51",
+    "candidateFieldsSha256": "1afc3a98f738eac17daf0e2fe1b8b8a330b687f22b77402f91fb40608137d0c5",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 1.1399617916296734e-09,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.927014459113252e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "normalized-v5-np1-vs-np12",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r1-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r12-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "93638b9ab337a0052dd5c1b5c58e7c18d06f5f981124b5b8b3b730a756445f51",
+    "candidateFieldsSha256": "eaebdbb1aa52ff50b49e07e6c6e7b47f9a1df9b51c18afc8db6b249e03a02f24",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 8.842940379949482e-09,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.8889575237324152e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "v2-vs-normalized-v5-np4",
+    "reference": "/tmp/babelsim-flow-opt-20261007/memory-partition-ab-work/rhs-budget/piso/results/benchmark-r4-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r4-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "ed94deba0c1554c0d1ffff244b6a74d03c3cb145a8e46de358190aacb7f3a8dc",
+    "candidateFieldsSha256": "c1b457dc72de9c389f4336da7c23af92d9f81db7bb6e1a0fa55a3fe8a6bcbf71",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 1.0178583753628345e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 6.874540492418646e-09,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "normalized-v5-vs-HMIS-np4",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r4-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/hmis-pilot-work/hmis/piso/results/benchmark-r4-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "c1b457dc72de9c389f4336da7c23af92d9f81db7bb6e1a0fa55a3fe8a6bcbf71",
+    "candidateFieldsSha256": "ec936f1b06029412389682cad34f936164d35979a8315bc47712dffe1f82a5d6",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 5.042645467856488e-09,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 2.7649514677818843e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "v2-vs-normalized-v5-np12",
+    "reference": "/tmp/babelsim-flow-opt-20261007/memory-partition-ab-work/rhs-budget/piso/results/benchmark-r12-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r12-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "9e21a50547fa6ac55aabe83794013d06d964482556d39d6f0a7822524bfe04b0",
+    "candidateFieldsSha256": "eaebdbb1aa52ff50b49e07e6c6e7b47f9a1df9b51c18afc8db6b249e03a02f24",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 1.4030468564740772e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.3818908684015696e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  },
+  {
+    "label": "normalized-v5-vs-HMIS-np12",
+    "reference": "/tmp/babelsim-flow-opt-20261007/final-strong-scaling-work/final/piso/results/benchmark-r12-n01",
+    "candidate": "/tmp/babelsim-flow-opt-20261007/hmis-pilot-work/hmis/piso/results/benchmark-r12-n01",
+    "atol": 5e-06,
+    "rtol": 5e-06,
+    "time": 0.06,
+    "cells": 500094,
+    "referenceFieldsSha256": "eaebdbb1aa52ff50b49e07e6c6e7b47f9a1df9b51c18afc8db6b249e03a02f24",
+    "candidateFieldsSha256": "c442ceeac7690fb011b8336f56f6e7fae0b9a219c8ad66da17ff541bc6ab417c",
+    "fields": {
+      "U": {
+        "components": 3,
+        "maxAbsoluteDifference": 2.0209956555494735e-09,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      },
+      "p": {
+        "components": 1,
+        "maxAbsoluteDifference": 1.6229418475788293e-08,
+        "maxGeometryDifference": 0.0,
+        "mismatchedComponents": 0
+      }
+    },
+    "passed": true
+  }
+]

@@ -6,6 +6,7 @@
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
 
@@ -74,14 +75,13 @@ template<class T> Field<T> resultField(const Equation<T>& a, const char* name) {
 // Freeze the actual explicit flux, including any limiter evaluated at assembly.
 // A frozen gradient alone is insufficient when the limiter also depends on x.
 ScalarField diffusionCorrection(const ScalarField& k, const ScalarField& x,
-    GradientMethod gradientMethod, DiffusionMethod diffusionMethod) {
+    const VectorField* g, DiffusionMethod diffusionMethod) {
     ScalarField correction(x.mesh(), FieldLocation::Face, "equ.frozenCorrection");
     if (diffusionMethod == DiffusionMethod::Orthogonal) return correction;
-    VectorField g(x.mesh(), FieldLocation::Cell, "equ.frozenGradient");
-    gradient(x, g, gradientMethod); finish(g);
-    diffusionFlux(k, x, g, correction, diffusionMethod);
+    if (!g) throw std::logic_error("corrected diffusion requires a reconstructed gradient");
+    diffusionFlux(k, x, *g, correction, diffusionMethod);
     ScalarField orthogonal(x.mesh(), FieldLocation::Face, "equ.orthogonalFlux");
-    diffusionFlux(k, x, g, orthogonal, DiffusionMethod::Orthogonal);
+    diffusionFlux(k, x, *g, orthogonal, DiffusionMethod::Orthogonal);
     correction -= orthogonal;
     return correction;
 }
@@ -131,14 +131,19 @@ template<class T> void laplacian(Equation<T>& a, double k, double factor, const 
     finite(k); finite(factor);
     auto& s = state(a); auto& x = *s.unknown; finish(x);
     DiscreteEquation<T> contribution(x.mesh()); auto m = a.options(term); m.overlay(overrides);
-    addDiffusion(contribution, k, x, *m.gradient, *m.diffusion);
-    accumulate(s.coefficients, contribution, -factor);
     if constexpr(std::is_same_v<T,double>) {
+        std::optional<VectorField> g;
+        if (*m.diffusion != DiffusionMethod::Orthogonal) {
+            g.emplace(x.mesh(), FieldLocation::Cell, "equ.frozenGradient");
+            gradient(x, *g, *m.gradient); finish(*g);
+            addDiffusion(contribution, k, x, *g, *m.diffusion);
+        } else addDiffusion(contribution, k, x, *m.gradient, *m.diffusion);
         ScalarField kf(x.mesh(),FieldLocation::Face,"equ.frozenDiffusivity",k);
-        auto correction = diffusionCorrection(kf, x, *m.gradient, *m.diffusion);
+        auto correction = diffusionCorrection(kf, x, g ? &*g : nullptr, *m.diffusion);
         using Snapshot=typename std::remove_reference_t<decltype(s)>::DiffusionSnapshot;
         s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{std::move(kf),x,std::move(correction)}),factor});
-    }
+    } else addDiffusion(contribution, k, x, *m.gradient, *m.diffusion);
+    accumulate(s.coefficients, contribution, -factor);
 
 }
 template<class T> void laplacian(Equation<T>& a, const ScalarField& k, double factor, const std::string& term, const OperatorOptions& overrides) {
@@ -146,21 +151,27 @@ template<class T> void laplacian(Equation<T>& a, const ScalarField& k, double fa
     if (&k.mesh()!=&x.mesh() || (k.location()!=FieldLocation::Cell && k.location()!=FieldLocation::Face))
         throw std::invalid_argument("equ diffusivity must be a compatible cell or face field");
     backend().synchronize(const_cast<ScalarField&>(k)); finish(x);
-    ScalarField kf(x.mesh(), FieldLocation::Face, "equ.diffusivity");
+    std::optional<ScalarField> kf;
     auto m = a.options(term); m.overlay(overrides); const ScalarField* face = &k;
     if (k.location()==FieldLocation::Cell) {
-        interpolate(k, kf, m.coefficientInterpolation.value_or(*m.interpolation),
+        kf.emplace(x.mesh(), FieldLocation::Face, "equ.diffusivity");
+        interpolate(k, *kf, m.coefficientInterpolation.value_or(*m.interpolation),
             m.coefficientGradient.value_or(*m.gradient));
-        finish(kf); face=&kf;
+        finish(*kf); face=&*kf;
     }
     DiscreteEquation<T> contribution(x.mesh());
-    addDiffusion(contribution, *face, x, *m.gradient, *m.diffusion);
-    accumulate(s.coefficients, contribution, -factor);
     if constexpr(std::is_same_v<T,double>) {
-        auto correction = diffusionCorrection(*face, x, *m.gradient, *m.diffusion);
+        std::optional<VectorField> g;
+        if (*m.diffusion != DiffusionMethod::Orthogonal) {
+            g.emplace(x.mesh(), FieldLocation::Cell, "equ.frozenGradient");
+            gradient(x, *g, *m.gradient); finish(*g);
+            addDiffusion(contribution, *face, x, *g, *m.diffusion);
+        } else addDiffusion(contribution, *face, x, *m.gradient, *m.diffusion);
+        auto correction = diffusionCorrection(*face, x, g ? &*g : nullptr, *m.diffusion);
         using Snapshot=typename std::remove_reference_t<decltype(s)>::DiffusionSnapshot;
         s.diffusion.push_back({std::make_shared<Snapshot>(Snapshot{*face,x,std::move(correction)}),factor});
-    }
+    } else addDiffusion(contribution, *face, x, *m.gradient, *m.diffusion);
+    accumulate(s.coefficients, contribution, -factor);
 
 }
 template<class T> void reaction(Equation<T>& a, double c) {
@@ -417,7 +428,8 @@ INSTANTIATE(Vec3)
 namespace babelsim::diagnostics {
 template<class T> double relativeResidual(const equ::Equation<T>& equation, const Field<T>& x) {
     auto ax = equ::apply(equation, x); auto b = equation.rhs(); auto r = b - ax;
-    return math::normL2(r) / std::max(math::normL2(ax) + math::normL2(b), 1e-30);
+    const auto norms = math::normsL2({r, ax, b});
+    return norms[0] / std::max(norms[1] + norms[2], 1e-30);
 }
 template double relativeResidual(const equ::Equation<double>&, const ScalarField&);
 template double relativeResidual(const equ::Equation<Vec3>&, const VectorField&);

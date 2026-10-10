@@ -1,0 +1,9 @@
+# Preserve the exact bytes of generated scientific evidence. These attributes
+# only exempt serialized output formatting from whitespace linting; they do not
+# enable line-ending conversion or change checks on source code and Markdown.
+docs/history/**/*.csv -whitespace
+docs/history/**/*.log -whitespace
+docs/history/**/environment.txt -whitespace
+docs/reports/*-evidence/**/*.csv -whitespace
+docs/reports/*-evidence/**/*.svg -whitespace
+docs/reports/*-evidence/**/diff-from-baseline.patch -whitespace

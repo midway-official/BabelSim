@@ -1,0 +1,107 @@
+{
+  "algorithm": "metis-volume-work",
+  "parts": 4,
+  "seed": 0,
+  "partitionSeconds": 0.5362487379898084,
+  "initialPartitionSeconds": 0.4876159919949714,
+  "exactBalanceSeconds": 0.04863274599483702,
+  "quotaTransfers": 240,
+  "rawCellImbalance": 1.0010431154381085,
+  "nativeObjective": 16640,
+  "memory": {
+    "beforeRSSBytes": 276389888,
+    "peakRSSBytes": 323182592,
+    "sampledRSSIncrementBytes": 46792704
+  },
+  "cutFaces": 9854,
+  "cutFacesPerPart": [
+    4930,
+    4946,
+    4908,
+    4924
+  ],
+  "ghostLayers": 3,
+  "ownedCellsPerPart": [
+    115040,
+    115040,
+    115040,
+    115040
+  ],
+  "ghostCellsPerPart": [
+    12480,
+    12501,
+    12480,
+    12481
+  ],
+  "firstLayerGhostsPerPart": [
+    4160,
+    4161,
+    4160,
+    4161
+  ],
+  "localCellsPerPart": [
+    127520,
+    127541,
+    127520,
+    127521
+  ],
+  "localFacesPerPart": [
+    391452,
+    391542,
+    391390,
+    391365
+  ],
+  "neighbourRanksPerPart": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "ownedFaceIncidencesPerPart": [
+    690240,
+    690240,
+    690240,
+    690240
+  ],
+  "ownedCellImbalance": 1.0,
+  "ownedFaceWorkImbalance": 1.0,
+  "localFaceImbalance": 1.00026760355587,
+  "localCellImbalance": 1.0001215443185874,
+  "totalGhostCells": 49942,
+  "maxGhostCells": 12501,
+  "maxNeighbourRanks": 2,
+  "firstLayerCommunicationVolume": 16642,
+  "threeLayerCommunicationVolume": 49942,
+  "cellStorageDuplication": 1.1085318150208623,
+  "faceStorageDuplication": 1.1155935966347277,
+  "componentsPerPart": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "ownershipSHA256": "071696fae752c38064408fdc4c777194502a7877f561a50166270e6985e1caff",
+  "status": "ok",
+  "graph": "obstructed_cube-engineering",
+  "graphSHA256": "4cb53e54f3cc59579f8377f4ea282476a567303a0ee945e5192880eeb0a6a165",
+  "graphMetadata": {
+    "cells": 460160,
+    "components": 1,
+    "construction": "conforming Cartesian submesh",
+    "family": "obstructed_cube",
+    "graded": false,
+    "internalFaces": 1357448,
+    "maxCellFaces": 6,
+    "minCellFaces": 6,
+    "physicalFaces": 46064,
+    "rotated": false,
+    "scale": "engineering",
+    "shape": [
+      80,
+      80,
+      80
+    ]
+  },
+  "unixStarted": 1791372032.5458593,
+  "unixEnded": 1791372033.1761355
+}

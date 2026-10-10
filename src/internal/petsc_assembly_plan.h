@@ -13,9 +13,8 @@ class PetscAssemblyPlan {
 public:
     PetscAssemblyPlan(const Mesh& mesh, const PetscIndexMap& index_map);
 
-    const std::vector<PetscInt>& rows() const { return m_rows; }
-    const std::vector<PetscInt>& columns() const { return m_columns; }
-    PetscCount nonzeroContributions() const { return static_cast<PetscCount>(m_rows.size()); }
+    void cooPattern(std::vector<PetscInt>& rows, std::vector<PetscInt>& columns) const;
+    PetscCount nonzeroContributions() const;
 
     void matrixValues(const ScalarDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
     void matrixValues(const VectorDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
@@ -24,12 +23,6 @@ public:
                   std::vector<PetscScalar>& values) const;
 
 private:
-    enum class ContributionKind : unsigned char { Diagonal, Upper, Lower };
-    struct Contribution {
-        ContributionKind kind;
-        Index index;
-    };
-
     void validateEquation(const Mesh* equation_mesh, const std::vector<double>& diagonal,
                           const std::vector<double>& upper, const std::vector<double>& lower) const;
     void matrixValues(const std::vector<double>& diagonal, const std::vector<double>& upper,
@@ -37,10 +30,10 @@ private:
 
     const Mesh* m_mesh;
     const PetscIndexMap* m_index_map;
-    std::vector<PetscInt> m_rows;
-    std::vector<PetscInt> m_columns;
-    std::vector<Contribution> m_matrix_contributions;
-    std::vector<Index> m_owned_cell_order;
+    // COO coordinates are needed only when a PETSc Mat is created. Keep the
+    // compact coefficient sources; derive coordinates into temporary buffers.
+    std::vector<Index> m_upper_faces;
+    std::vector<Index> m_lower_faces;
 };
 
 }  // namespace babelsim::detail

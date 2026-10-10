@@ -1,0 +1,214 @@
+#include <petsc/private/dmnetworkimpl.h> /*I "petscdmplex.h" I*/
+#include <petscts.h>
+#include <petscdraw.h>
+
+/*@C
+  TSMonitorLGCtxNetworkDestroy - Destroys  line graph contexts that where created with `TSMonitorLGCtxNetworkCreate()`.
+
+  Collective
+
+  Input Parameter:
+. ctx - the monitor context
+
+  Level: intermediate
+
+.seealso: [](ch_ts), `TS`, `TSMonitorLGCtxNetworkSolution()`
+@*/
+PetscErrorCode TSMonitorLGCtxNetworkDestroy(TSMonitorLGCtxNetwork *ctx)
+{
+  PetscInt i;
+
+  PetscFunctionBegin;
+  for (i = 0; i < (*ctx)->nlg; i++) PetscCall(PetscDrawLGDestroy(&(*ctx)->lg[i]));
+  PetscCall(PetscFree((*ctx)->lg));
+  PetscCall(PetscFree(*ctx));
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/*@C
+  TSMonitorLGCtxNetworkCreate - Creates a `TSMonitorLGCtxNetwork` context with one line-graph window for each edge and each vertex of a `DMNETWORK`
+
+  Collective
+
+  Input Parameters:
++ ts       - the `TS` context whose `DM` is a `DMNETWORK`
+. host     - the X display to open, or `NULL` for the local machine
+. label    - the title to put in the title bar
+. x        - the x screen coordinates of the upper left coordinate of the window
+. y        - the y screen coordinates of the upper left coordinate of the window
+. m        - the screen width in pixels
+. n        - the screen height in pixels
+- howoften - if positive then determines the frequency of the plotting, if -1 then only at the final time
+
+  Output Parameter:
+. ctx - the newly created network line-graph monitor context
+
+  Level: intermediate
+
+  Note:
+  Pass this context and `TSMonitorLGCtxNetworkDestroy()` to `TSMonitorSet()` with `TSMonitorLGCtxNetworkSolution()` to display the solution on the network during integration.
+
+.seealso: [](ch_ts), `TS`, `DMNETWORK`, `TSMonitorSet()`, `TSMonitorLGCtxNetworkSolution()`, `TSMonitorLGCtxNetworkDestroy()`
+@*/
+PetscErrorCode TSMonitorLGCtxNetworkCreate(TS ts, const char host[], const char label[], int x, int y, int m, int n, PetscInt howoften, TSMonitorLGCtxNetwork *ctx)
+{
+  PetscDraw draw;
+  MPI_Comm  comm;
+  DM        dm;
+  PetscInt  i, Start, End, e, nvar;
+
+  PetscFunctionBegin;
+  PetscCall(TSGetDM(ts, &dm));
+  PetscCall(PetscObjectGetComm((PetscObject)ts, &comm));
+  PetscCall(PetscNew(ctx));
+  i = 0;
+  /* loop over edges counting number of line graphs needed */
+  PetscCall(DMNetworkGetEdgeRange(dm, &Start, &End));
+  for (e = Start; e < End; e++) {
+    PetscCall(DMNetworkGetComponent(dm, e, ALL_COMPONENTS, NULL, NULL, &nvar));
+    if (!nvar) continue;
+    i++;
+  }
+  /* loop over vertices */
+  PetscCall(DMNetworkGetVertexRange(dm, &Start, &End));
+  for (e = Start; e < End; e++) {
+    PetscCall(DMNetworkGetComponent(dm, e, ALL_COMPONENTS, NULL, NULL, &nvar));
+    if (!nvar) continue;
+    i++;
+  }
+  (*ctx)->nlg = i;
+  PetscCall(PetscMalloc1(i, &(*ctx)->lg));
+
+  i = 0;
+  /* loop over edges creating all needed line graphs*/
+  PetscCall(DMNetworkGetEdgeRange(dm, &Start, &End));
+  for (e = Start; e < End; e++) {
+    PetscCall(DMNetworkGetComponent(dm, e, ALL_COMPONENTS, NULL, NULL, &nvar));
+    if (!nvar) continue;
+    PetscCall(PetscDrawCreate(comm, host, label, x, y, m, n, &draw));
+    PetscCall(PetscDrawSetFromOptions(draw));
+    PetscCall(PetscDrawLGCreate(draw, nvar, &(*ctx)->lg[i]));
+    PetscCall(PetscDrawLGSetFromOptions((*ctx)->lg[i]));
+    PetscCall(PetscDrawDestroy(&draw));
+    i++;
+  }
+  /* loop over vertices */
+  PetscCall(DMNetworkGetVertexRange(dm, &Start, &End));
+  for (e = Start; e < End; e++) {
+    PetscCall(DMNetworkGetComponent(dm, e, ALL_COMPONENTS, NULL, NULL, &nvar));
+    if (!nvar) continue;
+    PetscCall(PetscDrawCreate(comm, host, label, x, y, m, n, &draw));
+    PetscCall(PetscDrawSetFromOptions(draw));
+    PetscCall(PetscDrawLGCreate(draw, nvar, &(*ctx)->lg[i]));
+    PetscCall(PetscDrawLGSetFromOptions((*ctx)->lg[i]));
+    PetscCall(PetscDrawDestroy(&draw));
+    i++;
+  }
+  PetscCall(PetscDrawDestroy(&draw));
+  (*ctx)->howoften = howoften;
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+/*@C
+  TSMonitorLGCtxNetworkSolution - Monitors progress of the `TS` solvers for a `DMNETWORK` solution with one window for each vertex and each edge
+
+  Collective
+
+  Input Parameters:
++ ts    - the `TS` context
+. step  - current time-step
+. ptime - current time
+. u     - current solution
+- dctx  - the `TSMonitorLGCtxNetwork` object that contains all the options for the monitoring, this is created with `TSMonitorLGCtxCreateNetwork()`
+
+  Options Database Key:
+. -ts_monitor_lg_solution_variables - monitor solution variables
+
+  Level: intermediate
+
+  Note:
+  Each process in a parallel run displays its component solutions in a separate graphics window
+
+.seealso: [](ch_ts), `TS`, `TSMonitorLGCtxNetworkDestroy()`
+@*/
+PetscErrorCode TSMonitorLGCtxNetworkSolution(TS ts, PetscInt step, PetscReal ptime, Vec u, void *dctx)
+{
+#if defined(PETSC_USE_COMPLEX)
+  PetscFunctionBegin;
+  PetscFunctionReturn(PETSC_SUCCESS);
+#else
+  TSMonitorLGCtxNetwork ctx = (TSMonitorLGCtxNetwork)dctx;
+  const PetscScalar    *xv;
+  PetscScalar          *yv;
+  PetscInt              i, v, Start, End, offset, nvar, e;
+  TSConvergedReason     reason;
+  DM                    dm;
+  Vec                   uv;
+
+  PetscFunctionBegin;
+  if (step < 0) PetscFunctionReturn(PETSC_SUCCESS); /* -1 indicates interpolated solution */
+  if (!step) {
+    PetscDrawAxis axis;
+
+    for (i = 0; i < ctx->nlg; i++) {
+      PetscCall(PetscDrawLGGetAxis(ctx->lg[i], &axis));
+      PetscCall(PetscDrawAxisSetLabels(axis, "Solution as function of time", "Time", "Solution"));
+      PetscCall(PetscDrawLGReset(ctx->lg[i]));
+    }
+  }
+
+  if (ctx->semilogy) {
+    PetscInt n, j;
+
+    PetscCall(VecDuplicate(u, &uv));
+    PetscCall(VecCopy(u, uv));
+    PetscCall(VecGetArray(uv, &yv));
+    PetscCall(VecGetLocalSize(uv, &n));
+    for (j = 0; j < n; j++) {
+      if (PetscRealPart(yv[j]) <= 0.0) yv[j] = -12;
+      else yv[j] = PetscLog10Real(PetscRealPart(yv[j]));
+    }
+    xv = yv;
+  } else {
+    PetscCall(VecGetArrayRead(u, &xv));
+  }
+  /* iterate over edges */
+  PetscCall(TSGetDM(ts, &dm));
+  i = 0;
+  PetscCall(DMNetworkGetEdgeRange(dm, &Start, &End));
+  for (e = Start; e < End; e++) {
+    PetscCall(DMNetworkGetComponent(dm, e, ALL_COMPONENTS, NULL, NULL, &nvar));
+    if (!nvar) continue;
+
+    PetscCall(DMNetworkGetLocalVecOffset(dm, e, ALL_COMPONENTS, &offset));
+    PetscCall(PetscDrawLGAddCommonPoint(ctx->lg[i], ptime, xv + offset));
+    i++;
+  }
+
+  /* iterate over vertices */
+  PetscCall(DMNetworkGetVertexRange(dm, &Start, &End));
+  for (v = Start; v < End; v++) {
+    PetscCall(DMNetworkGetComponent(dm, v, ALL_COMPONENTS, NULL, NULL, &nvar));
+    if (!nvar) continue;
+
+    PetscCall(DMNetworkGetLocalVecOffset(dm, v, ALL_COMPONENTS, &offset));
+    PetscCall(PetscDrawLGAddCommonPoint(ctx->lg[i], ptime, xv + offset));
+    i++;
+  }
+  if (ctx->semilogy) {
+    PetscCall(VecRestoreArray(uv, &yv));
+    PetscCall(VecDestroy(&uv));
+  } else {
+    PetscCall(VecRestoreArrayRead(u, &xv));
+  }
+
+  PetscCall(TSGetConvergedReason(ts, &reason));
+  if (((ctx->howoften > 0) && (!(step % ctx->howoften))) || ((ctx->howoften == -1) && reason)) {
+    for (i = 0; i < ctx->nlg; i++) {
+      PetscCall(PetscDrawLGDraw(ctx->lg[i]));
+      PetscCall(PetscDrawLGSave(ctx->lg[i]));
+    }
+  }
+  PetscFunctionReturn(PETSC_SUCCESS);
+#endif
+}

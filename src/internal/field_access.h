@@ -18,8 +18,8 @@ struct FieldAccess {
     // 无输入边界微分约束的单元结果使用相邻单元常值外推；调用前同步单元值。
     template <typename T> static void extrapolateTrace(Field<T>& field) {
         if (!field.m_calculated_boundary) return;
-        for (Index face = 0; face < field.m_mesh->faceCount(); ++face)
-            if (field.m_mesh->boundaryFace(face))
+        for (Index patch = 0; patch < field.m_mesh->patchCount(); ++patch)
+            for (Index face : field.m_mesh->patchFaces(patch))
                 field.m_boundary_trace[face] = field.m_values[field.m_mesh->owner(face)];
     }
     template <typename T> static T* data(Field<T>& field) {

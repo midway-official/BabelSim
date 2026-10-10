@@ -1,0 +1,8 @@
+Executed existing binaries; no rebuild and no GPU validation.
+$ timeout 30s build-petsc/petsc_backend_test
+petsc_backend_test: ranks=1 owned=16 iterations=40
+exit=0
+
+$ timeout 30s mpirun -np 2 build-petsc/petsc_backend_test
+petsc_backend_test: ranks=2 owned=8 iterations=55
+exit=0
