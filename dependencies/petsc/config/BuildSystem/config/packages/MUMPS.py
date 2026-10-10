@@ -1,0 +1,206 @@
+import config.package
+
+class Configure(config.package.Package):
+  def __init__(self, framework):
+    config.package.Package.__init__(self, framework)
+    self.version          = '5.8.2'
+    self.minversion       = '5.2.1'
+    self.versionname      = 'MUMPS_VERSION'
+    self.requiresversion  = 1
+    self.gitcommit        = 'v'+self.version
+    self.download         = ['https://mumps-solver.org/MUMPS_'+self.version+'.tar.gz',
+                             'https://web.cels.anl.gov/projects/petsc/download/externalpackages/MUMPS_'+self.version+'.tar.gz']
+    self.downloaddirnames = ['petsc-pkg-mumps','MUMPS']
+    self.buildLanguages   = ['C','FC']
+    self.downloadonWindows= 1
+    self.hastests         = 1
+    self.hastestsdatafiles= 1
+    self.license          = 'https://mumps-solver.org/index.php?page=dwnld#form'
+    return
+
+  def setupHelp(self, help):
+    import nargs
+    config.package.Package.setupHelp(self, help)
+    help.addArgument('MUMPS', '-download-mumps-openmp', nargs.ArgBool(None, 1, 'Let MUMPS use OpenMP if available'))
+    help.addArgument('MUMPS', '-download-mumps-avoid-mpi-in-place', nargs.ArgBool(None, 0, 'Let MUMPS not use MPI_IN_PLACE. Since MUMPS-5.6.2, it can be used to avoid a bug in MPICH older than 4.0b1'))
+    return
+
+  def setupDependencies(self, framework):
+    config.package.Package.setupDependencies(self, framework)
+    self.flibs            = framework.require('config.packages.flibs',self)
+    self.blasLapack       = framework.require('config.packages.BlasLapack',self)
+    self.mpi              = framework.require('config.packages.MPI',self)
+    self.metis            = framework.require('config.packages.METIS',self)
+    self.parmetis         = framework.require('config.packages.ParMETIS',self)
+    self.ptscotch         = framework.require('config.packages.PTSCOTCH',self)
+    self.scalapack        = framework.require('config.packages.ScaLAPACK',self)
+    self.hwloc            = framework.require('config.packages.hwloc',self)
+    self.openmp           = framework.require('config.packages.OpenMP',self)
+    self.scalartypes      = framework.require('PETSc.options.scalarTypes',self)
+    if not self.argDB['with-mpi']:
+      self.deps           = [self.blasLapack,self.flibs]
+      self.odeps          = [self.metis,self.openmp]
+    else:
+      self.deps           = [self.scalapack,self.mpi,self.blasLapack,self.flibs]
+      self.odeps          = [self.metis,self.parmetis,self.ptscotch,self.hwloc,self.openmp]
+    return
+
+  def configureLibrary(self):
+    for arg in ['with-64-bit-blas-indices','known-64-bit-blas-indices']:
+      if self.argDB.get(arg):
+        raise RuntimeError('MUMPS cannot be used with %s' % arg)
+    liblist_common = [['libmumps_common.a','libpord.a','libpthread.a'],
+                      ['libmumps_common.a','libpord.a'],
+                      ['libmumps_common.a','libpord.a','libmpiseq.a'],
+                      ['libmumps_common.a','libpord.a','libpthread.a','libmpiseq.a']]
+    try: # Check if the MUMPS installation supports all precisions with either complex or real, in other words, it is a full installation.
+      self.functions = ['smumps_c', 'dmumps_c', 'cmumps_c', 'zmumps_c',]
+      self.includes  = ['smumps_c.h', 'dmumps_c.h', 'cmumps_c.h', 'zmumps_c.h']
+      self.liblist   = []
+      for libc in liblist_common:
+        self.liblist.append(['libsmumps.a', 'libdmumps.a', 'libcmumps.a', 'libzmumps.a'] + libc)
+      config.package.Package.configureLibrary(self)
+      self.addDefine('HAVE_MUMPS_MIXED_PRECISION',1)
+    except Exception as e:
+      self.log.write('MUMPS mixed precision with '+str(e)+'. Now only try the precision PetscScalar uses.\n')
+      if self.scalartypes.precision == 'single':
+        if self.scalartypes.scalartype == 'real': l = 's'
+        else: l = 'c'
+      elif self.scalartypes.precision == 'double':
+        if self.scalartypes.scalartype == 'real': l = 'd'
+        else: l = 'z'
+      else: raise RuntimeError('With a partial installation of MUMPS, you can only use single or double precision')
+      self.functions = [l+'mumps_c']
+      self.includes  = [l+'mumps_c.h']
+      self.liblist   = []
+      for libc in liblist_common:
+        self.liblist.append(['lib'+l+'mumps.a'] + libc)
+      config.package.Package.configureLibrary(self)
+
+  def Install(self):
+    import os
+
+    if self.openmp.found and self.argDB['download-mumps-openmp']:
+      #  MUMPS has no make flags for turning on/off OpenMP it just uses it if it can
+      #  we only pass OpenMP compiler flags to MUMPS if self.usesopenmp is yes
+      self.usesopenmp = 'yes'
+      # use OMP_NUM_THREADS to control the number of threads used
+
+    if not self.fortran.FortranDefineCompilerOption:
+      raise RuntimeError('Fortran compiler cannot handle preprocessing directives from command line.')
+    g = open(os.path.join(self.packageDir,'Makefile.inc'),'w')
+    g.write('LPORDDIR   = $(topdir)/PORD/lib/\n')
+    g.write('IPORD      = -I$(topdir)/PORD/include/\n')
+    g.write('LPORD      = -L$(LPORDDIR) -lpord\n')
+    g.write('PLAT       = \n')
+    orderingsc = '-Dpord'
+    orderingsf = self.fortran.FortranDefineCompilerOption+'pord'
+    if self.metis.found:
+      g.write('IMETIS = '+self.headers.toString(self.metis.include)+'\n')
+      g.write('LMETIS = '+self.libraries.toString(self.metis.lib)+'\n')
+      orderingsc += ' -Dmetis'
+      orderingsf += ' '+self.fortran.FortranDefineCompilerOption+'metis'
+    if self.parmetis.found:
+      g.write('IPARMETIS = '+self.headers.toString(self.parmetis.include)+'\n')
+      g.write('LPARMETIS = '+self.libraries.toString(self.parmetis.lib)+'\n')
+      orderingsc += ' -Dparmetis'
+      orderingsf += ' '+self.fortran.FortranDefineCompilerOption+'parmetis'
+    if self.ptscotch.found:
+      g.write('ISCOTCH = '+self.headers.toString(self.ptscotch.include)+'\n')
+      g.write('LSCOTCH = '+self.libraries.toString(self.ptscotch.lib)+'\n')
+      orderingsc += ' -Dscotch -Dptscotch'
+      orderingsf += ' '+self.fortran.FortranDefineCompilerOption+'scotch '+self.fortran.FortranDefineCompilerOption+'ptscotch'
+
+    g.write('ORDERINGSC = '+orderingsc+'\n')
+    g.write('ORDERINGSF = '+orderingsf+'\n')
+    g.write('LORDERINGS  = $(LPARMETIS) $(LMETIS) $(LPORD) $(LSCOTCH)\n')
+    g.write('IORDERINGSC = $(IPARMETIS) $(IMETIS) $(IPORD) $(ISCOTCH)\n')
+    g.write('IORDERINGSF = $(ISCOTCH)\n')
+
+    g.write('RM = '+self.programs.RM+'\n')
+    self.pushLanguage('C')
+    g.write('CC = '+self.getCompiler()+'\n')
+    g.write('OPTC    = '+self.updatePackageCFlags(self.getCompilerFlags())+'\n')
+    g.write('OUTC = -o \n')
+    self.popLanguage()
+    if not self.fortran.fortranIsF90:
+      raise RuntimeError('Installing MUMPS requires a F90 compiler')
+    self.pushLanguage('FC')
+    g.write('FC = '+self.getCompiler()+'\n')
+    g.write('FL = '+self.getCompiler()+'\n')
+    if self.usesopenmp == 'yes':
+      g.write('OPTF    = '+self.updatePackageFFlags(self.getCompilerFlags())+'\n')
+    else:
+      g.write('OPTF    = '+self.updatePackageFFlags(' '.join(self.removeOpenMPFlag(self.getCompilerFlags().split())))+'\n')
+    if self.blasLapack.checkForRoutine('dgemmt'):
+      g.write('OPTF   += -DGEMMT_AVAILABLE\n')
+    g.write('OUTF = -o \n')
+    self.popLanguage()
+
+    # set fortran name mangling
+    # this mangling information is for both BLAS and the Fortran compiler so cannot use the BlasLapack mangling flag
+    if self.compilers.fortranManglingDoubleUnderscore:
+      g.write('CDEFS   = -DAdd__\n')
+    elif self.compilers.fortranMangling == 'underscore':
+      g.write('CDEFS   = -DAdd_\n')
+    elif self.compilers.fortranMangling == 'caps':
+      g.write('CDEFS   = -DUPPPER\n')
+
+    g.write('AR      = '+self.setCompilers.AR+' '+self.setCompilers.AR_FLAGS+' \n')
+    g.write('LIBEXT  = .'+self.setCompilers.AR_LIB_SUFFIX+'\n')
+    g.write('RANLIB  = '+self.setCompilers.RANLIB+'\n')
+    g.write('SCALAP  = '+self.libraries.toString(self.scalapack.lib)+'\n')
+    if not self.mpi.usingMPIUni:
+      g.write('INCPAR  = '+self.headers.toString(self.mpi.include)+'\n')
+      g.write('LIBPAR  = $(SCALAP) '+self.libraries.toString(self.mpi.lib)+'\n')
+    else:
+      g.write('INCPAR  = -I../libseq\n')
+    g.write('INCSEQ  = -I$(topdir)/libseq\n')
+    g.write('LIBSEQ  =  $(LAPACK) -L$(topdir)/libseq -lmpiseq\n')
+    g.write('LIBBLAS = '+self.libraries.toString(self.blasLapack.dlib)+'\n')
+    g.write('OPTL    = '+self.getLinkerFlags()+'\n')
+    g.write('INCS = $(INCPAR)\n')
+    g.write('LIBS = $(LIBPAR)\n')
+    if self.mpi.usingMPIUni:
+      g.write('LIBSEQNEEDED = libseqneeded\n')
+      g.write('LIBS = $(LIBSEQ)\n')
+    else:
+      g.write('LIBSEQNEEDED =\n')
+      if self.openmp.found and self.hwloc.found:
+        g.write('LIBS += '+self.libraries.toString(self.hwloc.lib)+'\n')
+        g.write('OPTF += -DUSE_LIBHWLOC\n')
+        g.write('OPTC += -DUSE_LIBHWLOC\n')
+      # To avoid a bug related to MPI_IN_PLACE and old MPICH releases, see MR 4410
+      self.avoid_mpi_in_place = 0
+      if 'download-mumps-avoid-mpi-in-place' in self.framework.clArgDB: # user-provided value takes precedence
+        self.avoid_mpi_in_place = self.framework.clArgDB['download-mumps-avoid-mpi-in-place']
+      elif hasattr(self.mpi, 'mpich_numversion') and int(self.mpi.mpich_numversion) < 40000101:
+        self.avoid_mpi_in_place = 1
+      if self.avoid_mpi_in_place:
+        g.write('OPTF += -DAVOID_MPI_IN_PLACE\n') # only take effect since mumps-5.6.2
+        self.addDefine('HAVE_MUMPS_AVOID_MPI_IN_PLACE', 1)
+    g.close()
+    if self.installNeeded('Makefile.inc'):
+      try:
+        output1,err1,ret1  = config.package.Package.executeShellCommand('make clean', cwd=self.packageDir, timeout=60, log = self.log)
+      except RuntimeError as e:
+        pass
+      try:
+        self.logPrintBox('Compiling MUMPS; this may take several minutes')
+        output2,err2,ret2 = config.package.Package.executeShellCommand(self.make.make_jnp+' prerequisites', cwd=self.packageDir, timeout=2500, log = self.log)
+        output3,err3,ret3 = config.package.Package.executeShellCommand(self.make.make_jnp+' all', cwd=os.path.join(self.packageDir,'src'), timeout=2500, log = self.log)
+        libDir     = self.libDir
+        includeDir = os.path.join(self.installDir, self.includedir)
+        self.logPrintBox('Installing MUMPS; this may take several minutes')
+        output,err,ret = config.package.Package.executeShellCommandSeq(
+          ['mkdir -p '+libDir+' '+includeDir,
+           'cp -f lib/*.* '+libDir,
+           'cp -f include/*.* '+includeDir
+          ], cwd=self.packageDir, timeout=60, log = self.log)
+        if self.mpi.usingMPIUni:
+          output,err,ret = config.package.Package.executeShellCommand(['cp', '-f', 'libseq/libmpiseq.a', libDir+'/.'], cwd=self.packageDir, timeout=60, log = self.log)
+      except RuntimeError as e:
+        self.logPrint('Error running make on MUMPS: '+str(e))
+        raise RuntimeError('Error running make on MUMPS')
+      self.postInstall(output2+err2+output3+err3,'Makefile.inc')
+    return self.installDir

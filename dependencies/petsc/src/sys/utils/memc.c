@@ -1,0 +1,105 @@
+/*
+    We define the memory operations here. The reason we just do not use
+  the standard memory routines in the PETSc code is that on some machines
+  they are broken.
+
+*/
+#include <petsc/private/petscimpl.h> /*I  "petscsys.h"   I*/
+#include <petscviewer.h>
+#include <../src/sys/utils/ftn-kernels/fcopy.h>
+
+/*@
+  PetscMemcmp - Compares two byte streams in memory.
+
+  Not Collective
+
+  Input Parameters:
++ str1 - Pointer to the first byte stream
+. str2 - Pointer to the second byte stream
+- len  - The length of the byte stream
+         (both str1 and str2 are assumed to be of length len)
+
+  Output Parameter:
+. e - `PETSC_TRUE` if equal else `PETSC_FALSE`.
+
+  Level: intermediate
+
+  Notes:
+  `PetscArraycmp()` is preferred
+
+  This routine is analogous to `memcmp()` with additional error checking
+
+.seealso: `PetscMemcpy()`, `PetscArrayzero()`, `PetscMemzero()`, `PetscArraycmp()`, `PetscArraycpy()`, `PetscStrallocpy()`,
+          `PetscArraymove()`
+@*/
+PetscErrorCode PetscMemcmp(const void *str1, const void *str2, size_t len, PetscBool *e)
+{
+  if (!len) {
+    // if e is a bad ptr I guess we just die here then?
+    *e = PETSC_TRUE;
+    return PETSC_SUCCESS;
+  }
+
+  PetscFunctionBegin;
+  PetscAssertPointer(str1, 1);
+  PetscAssertPointer(str2, 2);
+  PetscAssertPointer(e, 4);
+  *e = memcmp((char *)str1, (char *)str2, len) ? PETSC_FALSE : PETSC_TRUE;
+  PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+#if defined(PETSC_HAVE_HWLOC)
+  #include <hwloc.h>
+  #if defined(HWLOC_HAVE_WINDOWS_H)
+    // hwloc_pid_t is a HANDLE on Windows, and hwloc.h has already included windows.h
+    #define PetscHwlocSelf() GetCurrentProcess()
+    #define PetscHwlocPid()  ((unsigned long)GetCurrentProcessId())
+  #else
+    #define PetscHwlocSelf() getpid()
+    #define PetscHwlocPid()  ((unsigned long)getpid())
+  #endif
+#endif
+
+/*@
+  PetscProcessPlacementView - display the MPI rank placement by core
+
+  Input Parameter:
+. viewer - `PETSCVIEWERASCII` to display the results on
+
+  Level: intermediate
+
+  Note:
+  Requires that PETSc be installed with hwloc, for example using `--download-hwloc`
+
+.seealso: `PetscInitialize()`
+@*/
+PetscErrorCode PetscProcessPlacementView(PetscViewer viewer)
+{
+#if defined(PETSC_HAVE_HWLOC)
+  PetscBool        isascii;
+  PetscMPIInt      rank;
+  hwloc_bitmap_t   set;
+  hwloc_topology_t topology;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(viewer, PETSC_VIEWER_CLASSID, 1);
+  PetscCall(PetscObjectTypeCompare((PetscObject)viewer, PETSCVIEWERASCII, &isascii));
+  PetscCheck(isascii, PetscObjectComm((PetscObject)viewer), PETSC_ERR_SUP, "Only ASCII viewer is supported");
+
+  PetscCallMPI(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+  hwloc_topology_init(&topology);
+  hwloc_topology_load(topology);
+  set = hwloc_bitmap_alloc();
+
+  PetscCallExternal(hwloc_get_proc_cpubind, topology, PetscHwlocSelf(), set, HWLOC_CPUBIND_PROCESS);
+  PetscCall(PetscViewerASCIIPushSynchronized(viewer));
+  PetscCall(PetscViewerASCIISynchronizedPrintf(viewer, "MPI rank %d Process id: %lu coreid %d\n", rank, PetscHwlocPid(), hwloc_bitmap_first(set)));
+  PetscCall(PetscViewerFlush(viewer));
+  hwloc_bitmap_free(set);
+  hwloc_topology_destroy(topology);
+#else
+  PetscFunctionBegin;
+  SETERRQ(PetscObjectComm((PetscObject)viewer), PETSC_ERR_SUP, "Requires PETSc be configured with --with-hwloc or --download-hwloc");
+#endif
+  PetscFunctionReturn(PETSC_SUCCESS);
+}

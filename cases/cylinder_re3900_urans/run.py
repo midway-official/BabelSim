@@ -64,7 +64,7 @@ def worker(manifest_path):
     parameters = manifest['parameters']
     n = manifest['cells']
     started = time.monotonic()
-    binary = Path(manifest.get('binary_path', str(REPO/'build-petsc/babelsim-solve')))
+    binary = Path(manifest.get('binary_path', str(REPO/'build/babelsim-solve')))
     command = ['mpirun', '-np', str(manifest['ranks']), '--bind-to', 'core', '--map-by', 'core',
                str(binary), '-case', manifest['input_case'], '-time', label,
                '-performance', str(directory/(label+'_performance'))]
@@ -186,7 +186,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--label', default='run')
     parser.add_argument('--ranks', type=int, default=8)
-    parser.add_argument('--binary', type=Path, default=REPO/'build-petsc/babelsim-solve',
+    parser.add_argument('--binary', type=Path, default=REPO/'build/babelsim-solve',
                         help='solver binary to freeze in the run manifest')
     parser.add_argument('--end-time', type=float)
     parser.add_argument('--dt', type=float)

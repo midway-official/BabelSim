@@ -26,4 +26,4 @@ python3 cases/cylinder_re100/postprocess.py --dt .001 --gif
 
 后处理按 globalCellId 合并两个 rank；使用加权最小二乘梯度计算带符号涡量，输出尾流探针、压力加一层切向黏性牵引估算的升阻力和有限时窗频谱。梯度通过仿射场精确性检查。应结合涡量正负结构、探针周期性以及网格/时间步敏感性评估涡脱落。升阻力为近壁一层梯度估计，尚未做力积分精度验证。
 
-原算例创建阶段的数值失稳分析、对照实验和文献方案位于本地 validation/analysis_and_plan.md；其中结论对应当时的源码与输入。该算例的网格、脚本和配置作为 Re3900 生成依赖随本次提交保存，results 和大规模原始验证输出保留本地。后续通用求解器优化与验收见 [圆柱优化报告](../../docs/reports/cylinder-optimization-2026-10-09.md)。
+原算例创建阶段的数值失稳分析、对照实验和文献方案位于本地 validation/analysis_and_plan.md；其中结论对应当时的源码与输入。该算例的网格、脚本和配置作为 Re3900 生成依赖随本次提交保存，results 和大规模原始验证输出保留本地。后续通用求解器优化与验收见 [圆柱优化报告](../../archive/docs/reports/cylinder-optimization-2026-10-09.md)。

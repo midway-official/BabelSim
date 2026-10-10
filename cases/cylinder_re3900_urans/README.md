@@ -66,7 +66,7 @@ Re=3900 尾流及展向分辨率的参考为
 显式真实残差 `1.000002882754994e-14` 略高于绝对门槛 `1e-14`。
 这一线性验收失败本身不能证明流场发散。原输入、结果和日志保留；
 本次通用软件及求解设置优化已通过选定配置的数值验收，见
-[本次优化报告](../../docs/reports/cylinder-optimization-2026-10-09.md)。
+[本次优化报告](../../archive/docs/reports/cylinder-optimization-2026-10-09.md)。
 新正式运行标签为 `formal_dt0p01_optimized_v3`，从 t=0 开始，8 rank、BDF2、
 dt=0.01、终点 t=120。运行状态以新标签的状态文件为准。
 
@@ -119,7 +119,7 @@ turbulenceCorrectors 8
 
 ```bash
 OPENBLAS_NUM_THREADS=1 python3 cases/cylinder_re3900_urans/generate_mesh.py
-build-petsc/check_cylinder_re3900_mesh cases/cylinder_re3900_urans/mesh/cylinder_re3900.mesh > cases/cylinder_re3900_urans/mesh/reader_quality.json
+build/check_cylinder_re3900_mesh cases/cylinder_re3900_urans/mesh/cylinder_re3900.mesh > cases/cylinder_re3900_urans/mesh/reader_quality.json
 python3 cases/cylinder_re3900_urans/run.py --label new_formal_label --ranks 8
 ```
 

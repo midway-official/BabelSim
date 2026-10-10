@@ -150,7 +150,7 @@ def compare(reference,candidate,atol,rtol):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path)
-    parser.add_argument('--solver',type=Path,default=Path('build-petsc/babelsim-solve'))
+    parser.add_argument('--solver',type=Path,default=Path('build/babelsim-solve'))
     parser.add_argument('--cases',nargs='+',default=['cavity','channel','cube','warped','warped4'])
     parser.add_argument('--modes',nargs='+',default=['steady','euler','bdf2'])
     args=parser.parse_args()

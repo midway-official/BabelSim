@@ -60,7 +60,7 @@ def main():
     parser.add_argument('--repeat', type=int, default=3)
     parser.add_argument('--warmup', type=int, default=1)
     parser.add_argument('--timeout', type=float, default=180)
-    parser.add_argument('--binary', type=Path, default=bench.ROOT / 'build-petsc/babelsim-solve')
+    parser.add_argument('--binary', type=Path, default=bench.ROOT / 'build/babelsim-solve')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--seed', type=int, default=20260928)
     args = parser.parse_args()

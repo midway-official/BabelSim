@@ -29,7 +29,7 @@ def complete_snapshot(path,n):
 def worker():
     env={**os.environ,'OMP_NUM_THREADS':'1','OPENBLAS_NUM_THREADS':'1','MKL_NUM_THREADS':'1'}
     n=json.loads((CASE/'mesh/mesh_quality.json').read_text())['cells']
-    cmd=['mpirun','-np','2','--bind-to','core','--map-by','core',str(REPO/'build-petsc/babelsim-solve'),'-case',str(CASE),'-time','run']
+    cmd=['mpirun','-np','2','--bind-to','core','--map-by','core',str(REPO/'build/babelsim-solve'),'-case',str(CASE),'-time','run']
     started=time.monotonic();state={'status':'running','started_at':datetime.datetime.now().astimezone().isoformat(),
         'worker_pid':os.getpid(),'mpi_ranks':2,'threads_per_rank':1,'command':cmd,
         'control':(CASE/'control.bs').read_text(),'last_complete_time':None,

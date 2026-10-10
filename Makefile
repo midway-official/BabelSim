@@ -3,6 +3,20 @@
 
 CXX := mpic++
 AR := gcc-ar
+BUILD ?= build
+
+# Delivery builds use the bundled sources and keep both dependencies and
+# framework products under BUILD. An explicit PETSC_DIR still selects an
+# existing installation for developers who need a different PETSc build.
+EIGEN_DIR ?= $(CURDIR)/dependencies/eigen
+PETSC_SOURCE ?= $(CURDIR)/dependencies/petsc
+PETSC_LOCAL_DIR := $(abspath $(BUILD)/petsc)
+PETSC_DIR ?= $(PETSC_LOCAL_DIR)
+PETSC_ARCH ?= arch-babelsim-$(notdir $(abspath $(BUILD)))
+PETSC_JOBS ?= 4
+PETSC_CC ?= mpicc
+PETSC_FC ?= mpifort
+PETSC_OPTFLAGS ?= -O3 -march=native -mtune=native
 
 # 面向本机计算速度：跨文件优化、矢量化与浮点重结合/倒数优化。
 # 显式关闭融合乘加，避免它在不同分区的 Krylov 路径上额外放大舍入差异。
@@ -12,11 +26,12 @@ OPTFLAGS = -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects \
            -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG
 CXXFLAGS = -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow \
            -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1
-PETSC_DIR ?= /home/midway/opt/petsc-3.25.5-openmpi-opt
 PETSC_PKG_CONFIG_PATH := $(PETSC_DIR)/lib/pkgconfig
-PETSC_CFLAGS := $(shell PKG_CONFIG_PATH=$(PETSC_PKG_CONFIG_PATH) pkg-config --cflags PETSc 2>/dev/null)
-PETSC_LIBS := $(shell PKG_CONFIG_PATH=$(PETSC_PKG_CONFIG_PATH) pkg-config --libs PETSc 2>/dev/null)
-CPPFLAGS ?= -Iinclude -Isrc -I/usr/include/eigen3
+# Expand pkg-config only when recipes run, after the source-build prerequisite.
+# Eager expansion would cache empty flags on a completely clean checkout.
+PETSC_CFLAGS = $(shell PKG_CONFIG_PATH="$(PETSC_PKG_CONFIG_PATH)" pkg-config --cflags PETSc 2>/dev/null)
+PETSC_LIBS = $(shell PKG_CONFIG_PATH="$(PETSC_PKG_CONFIG_PATH)" pkg-config --libs PETSc 2>/dev/null)
+CPPFLAGS ?= -Iinclude -Isrc -I$(EIGEN_DIR)
 CPPFLAGS += $(PETSC_CFLAGS)
 LDLIBS += $(PETSC_LIBS)
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
@@ -38,7 +53,6 @@ $(error USE_METIS=1 requires METIS headers and library)
 endif
 endif
 
-BUILD ?= build-petsc
 DEBUG_BUILD ?= build-debug
 DEBUG_OPTFLAGS ?= -O1 -g3 -fno-omit-frame-pointer \
                   -fsanitize=address,undefined -fno-sanitize-recover=all
@@ -114,6 +128,34 @@ MPI_TESTS := $(BUILD)/parallel_partition_test $(BUILD)/parallel_simple_test \
 APPS := $(BUILD)/babelsim-solve $(BUILD)/babelsim-post
 
 all: $(LIB) $(APPS)
+
+PETSC_BUILD_ARGS = --source "$(PETSC_SOURCE)" --build "$(abspath $(BUILD))" \
+                   --arch "$(PETSC_ARCH)" --jobs "$(PETSC_JOBS)" \
+                   --cc "$(PETSC_CC)" --cxx "$(CXX)" --fc "$(PETSC_FC)" \
+                   --optflags="$(PETSC_OPTFLAGS)"
+ifeq ($(abspath $(PETSC_DIR)),$(PETSC_LOCAL_DIR))
+PETSC_READY := $(PETSC_LOCAL_DIR)/.babelsim-built
+$(PETSC_READY): dependencies/build_petsc.py dependencies/sources.json \
+                $(wildcard dependencies/distfiles/hypre-*.tar.gz) \
+                $(PETSC_SOURCE)/configure $(PETSC_SOURCE)/include/petscversion.h Makefile
+	+python3 dependencies/build_petsc.py $(PETSC_BUILD_ARGS)
+else
+PETSC_READY := $(PETSC_DIR)/lib/pkgconfig/PETSc.pc
+$(PETSC_READY):
+	@echo "PETSc installation is missing $@; omit PETSC_DIR to build the bundled sources."
+	@exit 1
+endif
+
+# All objects wait for a usable installation; a rebuilt dependency also
+# invalidates old objects even when a generated include is no longer present.
+$(OBJECTS) $(SOLVER_OBJECTS): $(PETSC_READY)
+
+petsc: $(PETSC_READY)
+
+petsc-check: $(BUILD)/petsc_backend_test
+	$(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 2 $(BUILD)/petsc_backend_test
+	TMPDIR=/tmp mpirun -np 4 $(BUILD)/petsc_backend_test
 
 # Small-case lifetime and bounds checks use a separate tree and do not alter
 # the release benchmark binary or its optimization flags.
@@ -265,9 +307,9 @@ validate-poiseuille: $(BUILD)/babelsim-solve
 validate: test validate-cavity validate-poiseuille
 
 clean:
-	$(RM) -r $(BUILD)
+	python3 dependencies/build_petsc.py $(PETSC_BUILD_ARGS) --clean
 
-.PHONY: all debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all petsc petsc-check debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

@@ -31,7 +31,7 @@ def main(experiments=EXPERIMENTS, report_name="stability_study"):
    (path/f'numerics/{item}.bs').write_text(replace((CASE/f'numerics/{item}.bs').read_text(),changes))
   (path/'control.bs').write_text(f'startTime 0\nendTime 0.4\ndeltaT {dt}\n')
   (path/'output.bs').write_text('directory results\ntimeName run\nwriteInterval 5\nwriteFields U p\n')
-  cmd=['mpirun','-np','2','--bind-to','core','--map-by','core',str(REPO/'build-petsc/babelsim-solve'),'-case',str(path),'-time','run']
+  cmd=['mpirun','-np','2','--bind-to','core','--map-by','core',str(REPO/'build/babelsim-solve'),'-case',str(path),'-time','run']
   started=time.monotonic()
   with (path/'solver.log').open('w') as out:p=subprocess.run(cmd,stdout=out,stderr=subprocess.STDOUT,env=env)
   lines=(path/'solver.log').read_text().splitlines();steps=[x for x in lines if x.startswith('PISO ')]

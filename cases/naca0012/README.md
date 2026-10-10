@@ -111,14 +111,14 @@ python3 cases/naca0012/plot_mesh.py
 python3 cases/naca0012/plot_flow.py --time 50
 
 make -j4
-mpic++ -std=c++17 -O2 -Iinclude cases/naca0012/check_mesh.cpp build-petsc/libbabelsim.a -o /tmp/naca-check-mesh
+mpic++ -std=c++17 -O2 -Iinclude cases/naca0012/check_mesh.cpp build/libbabelsim.a -o /tmp/naca-check-mesh
 /tmp/naca-check-mesh cases/naca0012/mesh/naca0012.mesh > cases/naca0012/mesh/reader_quality.json
 
 python3 cases/naca0012/run_smoke.py --steps 10 --ranks 4
 # 将上一条输出的 run_directory 传给检查器：
 python3 cases/naca0012/summarize_run.py /absolute/path/to/run_directory
 
-mpirun -np 4 build-petsc/babelsim-solve -case cases/naca0012
+mpirun -np 4 build/babelsim-solve -case cases/naca0012
 ```
 
 当前正式运行配置采用 `deltaT=0.01`，短算脚本也拒绝 `--dt < 0.005`。

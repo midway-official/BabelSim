@@ -41,24 +41,30 @@ def headings(path: Path) -> set[str]:
     return result
 
 
-def documents() -> list[Path]:
-    selected = [ROOT / "README.md"]
+def documents(delivery_only: bool = False) -> list[Path]:
+    selected = [ROOT / "README.md", ROOT / "dependencies/README.md"]
     selected.extend((ROOT / "docs").glob("*.md"))
-    selected.extend((ROOT / "docs/performance").glob("*.md"))
-    selected.extend((ROOT / "docs/reports").glob("*.md"))
-    selected.extend((ROOT / "docs/reports").glob("*-evidence/README.md"))
-    selected.extend((ROOT / "docs/history").rglob("*.md"))
+    for group in ("user-guide", "reference", "developer-guide", "examples"):
+        selected.extend((ROOT / "docs" / group).rglob("*.md"))
+    if not delivery_only:
+        selected.extend((ROOT / "archive/docs").glob("*.md"))
+        selected.extend((ROOT / "archive/docs/manuals").glob("*.md"))
+        selected.extend((ROOT / "archive/docs/reports").glob("*.md"))
+        selected.extend((ROOT / "archive/docs/reports").glob("*-evidence/README.md"))
+        selected.extend((ROOT / "archive/docs/history").rglob("*.md"))
     # Only tracked case entry documents; leave unrelated local cases alone.
-    names = subprocess.check_output(
-        ["git", "ls-files", "-z", "cases/**/README.md"], cwd=ROOT
-    ).decode().split("\0")
-    selected.extend(ROOT / name for name in names if name)
+    if not delivery_only:
+        names = subprocess.check_output(
+            ["git", "ls-files", "-z", "cases/**/README.md"], cwd=ROOT
+        ).decode().split("\0")
+        selected.extend(ROOT / name for name in names if name)
     return sorted(set(p for p in selected if p.is_file()))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", type=Path, help="optional diagnostic output")
+    parser.add_argument("--delivery-only", action="store_true", help="check product manuals without Git or optional archives")
     args = parser.parse_args()
     makefile = (ROOT / "Makefile").read_text()
     targets = set(re.findall(r"^([a-z][a-z0-9-]*):", makefile, re.MULTILINE))
@@ -66,10 +72,11 @@ def main() -> int:
     historical: list[dict[str, object]] = []
     checked_links = 0
     anchors: dict[Path, set[str]] = {}
-    docs = documents()
+    navigation: dict[Path, set[Path]] = {}
+    docs = documents(args.delivery_only)
     for path in docs:
         relative = path.relative_to(ROOT).as_posix()
-        is_historical = relative.startswith(("docs/history/reports/", "docs/history/plans/"))
+        is_historical = relative.startswith(("archive/docs/history/reports/", "archive/docs/history/plans/"))
         content = path.read_text()
         # Code fences contain examples, not rendered Markdown links.
         rendered = re.sub(r"(?ms)^\s*(```|~~~).*?^\s*\1\s*$", "", content)
@@ -80,6 +87,8 @@ def main() -> int:
                 continue
             checked_links += 1
             target = (path.parent / unquote(parsed.path)).resolve() if parsed.path else path
+            if target.suffix == ".md":
+                navigation.setdefault(path, set()).add(target)
             problem = None
             if not target.exists():
                 problem = "missing file or directory"
@@ -97,8 +106,29 @@ def main() -> int:
                     errors.append(dict(file=relative, target=target, problem="missing Make target"))
         if is_historical and "历史开发记录" not in content:
             errors.append(dict(file=relative, problem="missing historical notice"))
+    # Every delivery manual must be discoverable from the product docs entrance.
+    entrance = ROOT / "docs/README.md"
+    reached: set[Path] = set()
+    pending = [entrance]
+    while pending:
+        path = pending.pop()
+        if path in reached:
+            continue
+        reached.add(path)
+        pending.extend(target for target in navigation.get(path, set()) - reached
+                       if target.is_relative_to(ROOT / "docs"))
+    manuals = [path for path in docs if path.is_relative_to(ROOT / "docs")]
+    for path in manuals:
+        if path not in reached:
+            errors.append(dict(file=path.relative_to(ROOT).as_posix(), problem="manual is unreachable from docs/README.md"))
+    allowed_groups = {"user-guide", "reference", "developer-guide", "examples"}
+    for path in (ROOT / "docs").iterdir():
+        if (path.is_dir() and path.name not in allowed_groups) or (path.is_file() and path.name != "README.md"):
+            errors.append(dict(file=path.relative_to(ROOT).as_posix(), problem="unexpected delivery docs entry"))
     result = dict(status="passed" if not errors else "failed", documents=len(docs),
                   localLinks=checked_links, errors=errors, historicalUnresolved=historical,
+                  deliveryManuals=len(manuals), deliveryManualsReachable=sum(path in reached for path in manuals),
+                  deliveryOnly=args.delivery_only,
                   frozenSourceSnapshotsExcluded=True)
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

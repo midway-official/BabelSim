@@ -1,0 +1,28 @@
+{
+  "petsc": {
+    "version": "3.25.5",
+    "tag": "v3.25.5",
+    "commit": "a0b507cc1cc9eac739c34d6e71521f4854e84e36",
+    "repository": "https://gitlab.com/petsc/petsc",
+    "source_directory": "dependencies/petsc",
+    "license": "dependencies/petsc/LICENSE",
+    "source_subset": "CPU/MPI/real/double/Hypre library source selected by PETSc gmakegen; Fortran and Python bindings disabled"
+  },
+  "hypre": {
+    "version": "3.1.0 with PETSc required fixes",
+    "commit": "85b779557005b2eb94c231c1b516e988b87f4e53",
+    "repository": "https://github.com/hypre-space/hypre",
+    "archive": "dependencies/distfiles/hypre-3.1.0-petsc-minimal.tar.gz",
+    "sha256": "58b1e5d5397e0d1f6203ca5c39c49f59b4516ef45901e09f6dfa0327bd2a2c57",
+    "license": "COPYRIGHT and LICENSE-MIT in archive",
+    "source_subset": "CPU library and GNU configure source; documentation, tests, examples and CUDA sources removed"
+  },
+  "eigen": {
+    "version": "3.4.0",
+    "source_url": "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+    "source_directory": "dependencies/eigen",
+    "license": "dependencies/eigen/COPYING.MPL2",
+    "upstream_archive_sha256": "8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72",
+    "source_subset": "Eigen/Core, Eigen/Cholesky and transitive headers, including Jacobi and CPU variants"
+  }
+}
