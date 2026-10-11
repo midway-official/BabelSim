@@ -96,6 +96,46 @@ void verifyHypreOptionsIsolation(const Mesh& mesh, const ParallelContext& parall
             "cannot restore global Hypre option");
 }
 
+void verifyWarmResidualScale(const Mesh& mesh, const ParallelContext& parallel) {
+    auto backend = detail::makeComputeBackend(mesh, parallel);
+    ScalarField field(mesh, FieldLocation::Cell, "warmScale");
+    ScalarDiscreteEquation equation(mesh);
+    LinearSolverConfig config;
+    config.solver = LinearSolverType::ConjugateGradient;
+    config.preconditioner = PreconditionerType::BlockJacobi;
+    config.warm_start = true;
+    config.relative_tolerance = 1e-12;
+    config.absolute_tolerance = 1e-28;
+    // Exercise both branches of max(||b||, ||r0||), including changes in
+    // scale and repeated split reductions on the same communicator.
+    for (double scale : {1e-12, 1.0, 1e12}) {
+        assembleManufactured(equation, scale);
+        double local_squared = 0.0;
+        for (Index cell : detail::meshData(mesh).owned_cells)
+            local_squared += equation.source[cell] * equation.source[cell];
+        double global_squared = 0.0;
+        parallel.sum(&local_squared, &global_squared, 1);
+        const double rhs_norm = std::sqrt(global_squared);
+        for (double factor : {0.5, 20.0}) {
+            for (Index cell = 0; cell < mesh.cellCount(); ++cell)
+                detail::fieldData(field)[cell] = factor * scale * exactValue(mesh, cell);
+            const auto result = backend->solve(equation, field, config);
+            const double expected_initial = std::abs(1.0 - factor) * rhs_norm;
+            if (std::abs(result.initial_residual / expected_initial - 1.0) >= 1e-12)
+                std::cerr << "warm scale=" << scale << " factor=" << factor
+                          << " initial=" << result.initial_residual
+                          << " expected=" << expected_initial << '\n';
+            require(result.converged(), "warm residual scaling solve failed");
+            require(std::abs(result.initial_residual / expected_initial - 1.0) < 1e-12,
+                    "warm initial norm differs from independently known residual");
+            require(result.final_residual <= std::max(config.absolute_tolerance,
+                        config.relative_tolerance * std::max(rhs_norm, expected_initial)),
+                    "warm solve violated original true residual target");
+            verifyField(field, scale, scale * 1e-9);
+        }
+    }
+}
+
 void verifyPreconditionerReuse(const Mesh& mesh, const ParallelContext& parallel) {
     // Independently known solutions for changed operators, including a change
     // confined to one rank. PC reuse must never suppress an update of A.
@@ -247,6 +287,7 @@ int main(int argc, char** argv) {
         const Mesh mesh = parallel.size == 1 ? global : decompose(global, parallel, 3);
         verifyHypreOptionsIsolation(mesh, parallel);
         verifyPreconditionerReuse(mesh, parallel);
+        verifyWarmResidualScale(mesh, parallel);
         auto backend = detail::makeComputeBackend(mesh, parallel);
 
         // Only one owner changes its values after all ranks cache a valid halo.

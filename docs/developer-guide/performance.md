@@ -68,6 +68,8 @@ python3 tools/benchmark_backend.py \
 
 长期 Equation 使用长期 PETSc Mat/Vec/KSP/PC，分离模式、矩阵更新、RHS 更新和重复 solve。PC 可以复用旧矩阵版本，A 始终更新到当前装配；失败重建/重试仍检查当前 A 的真实残差。参数定义见[数值参考](../reference/numerical-controls.md)。
 
+分布式 CG 使用 PETSc 的 single-reduction 变体合并两个内积归约；串行保持普通 CG。热启动同时需要 `||b||` 与 `||b-A*x0||`，后端使用 split-phase norm 将两者放入一次归约。两种优化均位于通用线性系统层，不依赖方程名或物理模型；原始真实残差目标、最终残差检查及重启预算保持不变。归约次数减少不等于整步必然加速，应与装配、其他通信和 PC 成本一起实测。
+
 linearSolves 计逻辑 RHS；两个尝试的 Krylov 工作与真实残差检查均计入实际计数。已经满足真实残差的初值可以不进入 Krylov。不要用“少一次 solve 调用”直接推断完成了更少数学工作。
 
 ## 报告验收

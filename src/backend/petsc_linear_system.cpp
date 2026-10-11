@@ -178,6 +178,13 @@ void PetscLinearSystem::configure(const LinearSolverConfig& config) {
     config.validate();
     if (m_configured && config == m_config) return;
     checkPetsc(KSPSetType(m_ksp, kspType(config.solver)), "KSPSetType");
+    // Merge CG's two inner products on distributed systems. PETSc owns the
+    // recurrence and work vectors; the final b-A*x acceptance and restart
+    // budget below remain unchanged. Serial CG avoids the extra work vectors.
+    if (config.solver == LinearSolverType::ConjugateGradient)
+        checkPetsc(KSPCGUseSingleReduction(m_ksp,
+            m_parallel.distributed() ? PETSC_TRUE : PETSC_FALSE),
+            "KSPCGUseSingleReduction");
     checkPetsc(KSPSetNormType(m_ksp, KSP_NORM_UNPRECONDITIONED), "KSPSetNormType");
     // BabelSim's convergence callback enforces its original true-residual
     // contract; PETSc's built-in tolerance test is disabled.
@@ -383,10 +390,24 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(
     reset_guess();
     metrics.rhs_seconds = secondsSince(rhs_start);
 
-    const double rhs_norm = vectorNorm(rhs);
-    // For x0=0, r0=b exactly; avoid an SpMV and a second global norm per RHS.
-    double initial_residual = rhs_norm;
-    if (m_config.warm_start) computeTrueResidual(rhs, x, initial_residual);
+    double rhs_norm = 0.0;
+    double initial_residual = 0.0;
+    if (m_config.warm_start) {
+        // Both norms are needed for the original residual scale. Queue them
+        // together so distributed solves pay for one collective, not two.
+        checkPetsc(MatMult(m_matrix, x, m_residual), "MatMult(initial residual)");
+        checkPetsc(VecAYPX(m_residual, -1.0, rhs), "VecAYPX(initial residual)");
+        PetscReal b_norm = 0.0, r_norm = 0.0;
+        checkPetsc(VecNormBegin(rhs, NORM_2, &b_norm), "VecNormBegin(rhs)");
+        checkPetsc(VecNormBegin(m_residual, NORM_2, &r_norm), "VecNormBegin(initial residual)");
+        checkPetsc(VecNormEnd(rhs, NORM_2, &b_norm), "VecNormEnd(rhs)");
+        checkPetsc(VecNormEnd(m_residual, NORM_2, &r_norm), "VecNormEnd(initial residual)");
+        rhs_norm = static_cast<double>(b_norm);
+        initial_residual = static_cast<double>(r_norm);
+    } else {
+        // For x0=0, r0=b exactly; no SpMV or second norm is necessary.
+        initial_residual = rhs_norm = vectorNorm(rhs);
+    }
     const double scale = residualScale(initial_residual, rhs_norm);
     const double target = residualTarget(m_config, scale);
     m_convergence.target = static_cast<PetscReal>(target);
