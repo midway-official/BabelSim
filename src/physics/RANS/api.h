@@ -2,6 +2,7 @@
 
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
+#include "babelsim/history.h"
 
 #include <algorithm>
 #include <cmath>
@@ -59,7 +60,8 @@ struct TransportResult {
 class Model {
 public:
     virtual ~Model() = default;
-    virtual void saveOld(double dt) = 0;
+    virtual void addHistories(time::HistoryGroup&) = 0;
+    virtual void beginStep() {}
     virtual const char* modelName() const = 0;
     virtual TransportResult solveTransport() = 0;
     virtual double tolerance() const = 0;
@@ -78,7 +80,11 @@ public:
     // Explicit remainder of the eddy-viscosity deviatoric stress after the
     // implicit div(muEff*grad(U)) term. Do not add the full stress a second time.
     TensorField deviatoricStressRemainder(const VectorField& velocity) const;
-    void saveOld(double dt) { if (model_) model_->saveOld(dt); }
+    void addHistories(time::HistoryGroup& histories) {
+        histories.track(*viscosity_);
+        if (model_) model_->addHistories(histories);
+    }
+    void beginStep() { if (model_) model_->beginStep(); }
     TransportResult solveTransport() {
         return model_ ? model_->solveTransport() : TransportResult{};
     }

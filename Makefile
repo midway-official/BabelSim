@@ -68,6 +68,8 @@ COMPUTE_BACKEND_SOURCES ?= src/backend/petsc_backend.cpp \
                           src/backend/solver_control.cpp
 SOURCES := src/core/mesh.cpp \
            src/io/config.cpp \
+           src/io/model_description.cpp \
+           src/io/time_step.cpp \
            src/io/case_reader.cpp \
            src/io/case.cpp \
            src/io/field_reader.cpp \
@@ -96,6 +98,8 @@ HEADERS := $(wildcard include/babelsim/*.h)
 TEST_SUPPORT_HEADERS := $(wildcard tests/support/*.h)
 
 TEST_SOURCES := tests/numerical_configuration_test.cpp \
+                tests/module_description_test.cpp \
+                tests/time_tools_test.cpp \
                 tests/procedural_equation_test.cpp \
                 tests/monitor_test.cpp \
                 tests/numerical_contract_test.cpp \
@@ -224,6 +228,10 @@ test-rans: $(BUILD)/babelsim-solve $(BUILD)/rans_equations_test
 test-scalar-time: $(BUILD)/babelsim-solve
 	python3 tests/scalar_time_order_test.py --solver $(BUILD)/babelsim-solve
 
+test-descriptions: $(BUILD)/babelsim-solve $(BUILD)/module_description_test
+	$(BUILD)/module_description_test
+	python3 tests/module_description_workflow_test.py --solver $(BUILD)/babelsim-solve
+
 test-simple-parallel: $(BUILD)/babelsim-solve
 	python3 tests/simple_parallel_consistency_test.py --solver $(BUILD)/babelsim-solve
 
@@ -309,7 +317,7 @@ validate: test validate-cavity validate-poiseuille
 clean:
 	python3 dependencies/build_petsc.py $(PETSC_BUILD_ARGS) --clean
 
-.PHONY: all petsc petsc-check debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
+.PHONY: all petsc petsc-check debug test test-full test-architecture test-external test-workflow test-rans test-scalar-time test-descriptions test-simple-parallel test-mpi test-mpi-heat test-mpi-poiseuille postprocess-mpi-poiseuille \
 	validate validate-cavity validate-poiseuille clean
 
 -include $(OBJECTS:.o=.d) $(SOLVER_OBJECTS:.o=.d)

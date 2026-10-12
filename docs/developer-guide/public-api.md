@@ -119,6 +119,8 @@ while (!clock.finished()) {
 }
 ```
 
+关联场可通过 `time::HistoryGroup` 一起保存并检查同步；`time::weights/predict` 提供公共时间工具，`time::beginStep` 提供显式接受与拒绝。用法与边界见[时间推进与关联历史](time-integration.md)。
+
 TimeStepper 只在 advance 时改变时间，查询 value/dt/step 无副作用。History 只有 save 才推进，必须每物理步一次，不能放进非线性内循环。BDF2 第一次保存历史不足时使用 Euler，此后使用两层历史；显式重构修正还需要求解器正确提供当前迭代/时间预测。
 
 内置 heat 与公开热示例包含相同的 BDF2 场外推，以便新时刻的空间延迟修正一致。自定义耦合示例限定 Euler，使外层时间与内层耦合的契约清楚。

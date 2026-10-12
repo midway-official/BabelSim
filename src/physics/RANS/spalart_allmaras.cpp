@@ -1,5 +1,6 @@
 #include "api.h"
 #include "babelsim/equ.h"
+#include "babelsim/builtin_descriptions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -24,25 +25,30 @@ class SpalartAllmaras final : public Model {
 public:
     SpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
                    ScalarField& effectiveViscosity, double density, double viscosity)
+        : SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity,
+            problem.parameters(builtin::spalartAllmaras())) {}
+
+    SpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
+                   ScalarField& effectiveViscosity, double density, double viscosity,
+             const ModuleParameters& parameters)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
           nuTilda(problem.scalarField("nuTilda")),
           wallDistance(problem.scalarField("wallDistance")),
           mut(problem.createScalarField("mut", 0.0)),
-          relaxation(problem.solution().fraction("turbulenceRelaxation", 0.7)),
-          residualTolerance(problem.solution().positive("turbulenceTolerance", 1e-6)),
-          nuTildaMin(problem.physics().positive("saNuTildaMin", 1e-14)),
-          wallDistanceMin(problem.physics().positive("saWallDistanceMin", 1e-12)),
-          cb1(problem.physics().positive("saCb1", 0.1355)),
-          cb2(problem.physics().positive("saCb2", 0.622)),
-          sigma(problem.physics().positive("saSigma", 2.0 / 3.0)),
-          kappa(problem.physics().positive("saKappa", 0.41)),
-          cw2(problem.physics().positive("saCw2", 0.3)),
-          cw3(problem.physics().positive("saCw3", 2.0)),
-          cv1(problem.physics().positive("saCv1", 7.1)),
-          ct3(problem.physics().positive("saCt3", 1.2)),
-          ct4(problem.physics().positive("saCt4", 0.5)),
-          cw1(problem.physics().positive("saCw1",
-              cb1 / (kappa * kappa) + (1.0 + cb2) / sigma)),
+          relaxation(parameters.solution.number("turbulenceRelaxation")),
+          residualTolerance(parameters.solution.number("turbulenceTolerance")),
+          nuTildaMin(parameters.physics.number("saNuTildaMin")),
+          wallDistanceMin(parameters.physics.number("saWallDistanceMin")),
+          cb1(parameters.physics.number("saCb1")),
+          cb2(parameters.physics.number("saCb2")),
+          sigma(parameters.physics.number("saSigma")),
+          kappa(parameters.physics.number("saKappa")),
+          cw2(parameters.physics.number("saCw2")),
+          cw3(parameters.physics.number("saCw3")),
+          cv1(parameters.physics.number("saCv1")),
+          ct3(parameters.physics.number("saCt3")),
+          ct4(parameters.physics.number("saCt4")),
+          cw1(parameters.physics.number("saCw1")),
           momentumOptions(readEquationControl(problem, "momentum", velocity,
               {"convection", "diffusion"}).spatial),
           nuTildaControl(readEquationControl(problem, "nuTildaTransport", nuTilda, {"convection", "diffusion"})),
@@ -58,8 +64,9 @@ public:
     const char* modelName() const override { return "Spalart-Allmaras"; }
     double tolerance() const override { return residualTolerance; }
 
-    void saveOld(double dt) override {
-        nuTildaHistory.save(nuTilda, dt);
+    void addHistories(time::HistoryGroup& histories) override {
+        histories.add(nuTilda, nuTildaHistory);
+        histories.track(mut);
     }
 
     TransportResult solveTransport() override {

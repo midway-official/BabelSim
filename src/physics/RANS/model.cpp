@@ -1,8 +1,5 @@
 #include "model.h"
 
-#include <algorithm>
-#include <cctype>
-#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -11,12 +8,7 @@ namespace {
 
 std::string selectedModel(const Parameters& settings) {
     if (!settings.contains("turbulenceModel")) return "none";
-    const std::string selected = settings.word("turbulenceModel");
-    std::string result;
-    for (unsigned char character : selected) {
-        if (std::isalnum(character)) result += static_cast<char>(std::tolower(character));
-    }
-    return result;
+    return settings.word("turbulenceModel");
 }
 
 }  // 匿名命名空间
@@ -30,18 +22,18 @@ Model* create(
     double molecular_viscosity)
 {
     const std::string model = selectedModel(problem.physics());
-    if (model == "none" || model == "laminar" || model == "off") return nullptr;
-    if (model == "sa" || model == "spalartallmaras") {
+    if (model == "none") return nullptr;
+    if (model == "SA") {
         return makeSpalartAllmaras(
             problem, velocity, face_flux, effective_viscosity,
             density, molecular_viscosity);
     }
-    if (model == "komega" || model == "wilcox1988") {
+    if (model == "kOmega") {
         return makeKOmega(
             problem, velocity, face_flux, effective_viscosity,
             density, molecular_viscosity);
     }
-    if (model == "kepsilon" || model == "standardkepsilon") {
+    if (model == "kEpsilon") {
         return makeKEpsilon(
             problem, velocity, face_flux, effective_viscosity,
             density, molecular_viscosity);

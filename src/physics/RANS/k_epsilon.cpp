@@ -1,5 +1,6 @@
 #include "api.h"
 #include "babelsim/equ.h"
+#include "babelsim/builtin_descriptions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,18 +27,24 @@ class KEpsilon final : public Model {
 public:
     KEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
              ScalarField& effectiveViscosity, double density, double viscosity)
+        : KEpsilon(problem, velocity, flux, effectiveViscosity, density, viscosity,
+            problem.parameters(builtin::kEpsilon())) {}
+
+    KEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
+             ScalarField& effectiveViscosity, double density, double viscosity,
+             const ModuleParameters& parameters)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
           k(problem.scalarField("k")), epsilon(problem.scalarField("epsilon")),
           mut(problem.createScalarField("mut", 0.0)),
-          relaxation(problem.solution().fraction("turbulenceRelaxation", 0.7)),
-          residualTolerance(problem.solution().positive("turbulenceTolerance", 1e-6)),
-          kMin(problem.physics().positive("kMin", 1e-12)),
-          epsilonMin(problem.physics().positive("epsilonMin", 1e-12)),
-          Cmu(problem.physics().positive("kEpsilonCmu", 0.09)),
-          C1(problem.physics().positive("kEpsilonC1", 1.44)),
-          C2(problem.physics().positive("kEpsilonC2", 1.92)),
-          sigmaK(problem.physics().positive("kEpsilonSigmaK", 1.0)),
-          sigmaEpsilon(problem.physics().positive("kEpsilonSigmaEpsilon", 1.3)),
+          relaxation(parameters.solution.number("turbulenceRelaxation")),
+          residualTolerance(parameters.solution.number("turbulenceTolerance")),
+          kMin(parameters.physics.number("kMin")),
+          epsilonMin(parameters.physics.number("epsilonMin")),
+          Cmu(parameters.physics.number("kEpsilonCmu")),
+          C1(parameters.physics.number("kEpsilonC1")),
+          C2(parameters.physics.number("kEpsilonC2")),
+          sigmaK(parameters.physics.number("kEpsilonSigmaK")),
+          sigmaEpsilon(parameters.physics.number("kEpsilonSigmaEpsilon")),
           momentumOptions(readEquationControl(problem, "momentum", velocity,
               {"convection", "diffusion"}).spatial),
           kControl(readEquationControl(problem, "kTransport", k, {"convection", "diffusion"})),
@@ -54,9 +61,10 @@ public:
     const char* modelName() const override { return "standard k-epsilon"; }
     double tolerance() const override { return residualTolerance; }
 
-    void saveOld(double dt) override {
-        kHistory.save(k, dt);
-        epsilonHistory.save(epsilon, dt);
+    void addHistories(time::HistoryGroup& histories) override {
+        histories.add(k, kHistory);
+        histories.add(epsilon, epsilonHistory);
+        histories.track(mut);
     }
 
     TransportResult solveTransport() override {

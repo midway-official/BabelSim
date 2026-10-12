@@ -68,17 +68,11 @@ Index patchIndex(const Mesh& mesh, const std::string& name) {
 
 BoundaryType boundaryType(Reader& input) {
     const ConfigToken& token = input.take();
-    if (token.text == "fixedValue" || token.text == "fixed_value" ||
-        token.text == "dirichlet") return BoundaryType::FixedValue;
-    if (token.text == "fixedGradient" || token.text == "fixed_gradient" ||
-        token.text == "neumann") return BoundaryType::FixedGradient;
-    if (token.text == "zeroGradient" || token.text == "zero_gradient") {
-        return BoundaryType::ZeroGradient;
-    }
-    if (token.text == "symmetry" || token.text == "mirror") return BoundaryType::Symmetry;
-    if (token.text == "inletOutlet" || token.text == "inlet_outlet") {
-        return BoundaryType::InletOutlet;
-    }
+    if (token.text == "fixedValue") return BoundaryType::FixedValue;
+    if (token.text == "fixedGradient") return BoundaryType::FixedGradient;
+    if (token.text == "zeroGradient") return BoundaryType::ZeroGradient;
+    if (token.text == "symmetry") return BoundaryType::Symmetry;
+    if (token.text == "inletOutlet") return BoundaryType::InletOutlet;
     input.fail(token, "unknown boundary condition " + token.text);
 }
 

@@ -45,7 +45,7 @@ field C {
 
 `type` 支持 scalar/vector/tensor，分量数为 1/3/9；tensor 行优先为 xx、xy、xz、yx、yy、yz、zx、zy、zz。加载位置为 cell。字段名、类型、位置、internal 和全部物理 patch 必须与求解器和网格一致。场文件路径为 case 的 fields 目录加 `<name>.field`。
 
-boundary 接受 `fixedValue`、`fixedGradient`、`zeroGradient`、`symmetry`、`inletOutlet`。需要 value 的条件必须提供正确分量数；zeroGradient/symmetry 不提供 value。兼容别名为 fixed_value/dirichlet、fixed_gradient/neumann、zero_gradient、mirror。原生参考统一使用主名称。
+boundary 接受 `fixedValue`、`fixedGradient`、`zeroGradient`、`symmetry`、`inletOutlet`。需要 value 的条件必须提供正确分量数；zeroGradient/symmetry 不提供 value。配置统一使用这些名称，历史别名已删除。
 
 ## internal file
 

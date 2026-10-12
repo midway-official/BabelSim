@@ -1,11 +1,11 @@
 #include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/equ.h"
+#include "babelsim/builtin_descriptions.h"
 #include "babelsim/geometry.h"
 #include "babelsim/solver.h"
 #include "../RANS/api.h"
 #include "babelsim/monitor.h"
-#include <limits>
 
 namespace babelsim {
 SolverResult runSimple(Case& problem) {
@@ -13,22 +13,22 @@ SolverResult runSimple(Case& problem) {
     auto& U = problem.vectorField("U");
     auto& p = problem.scalarField("p");
     auto& phi = problem.createFaceScalarField("phi");
-    const auto& physical = problem.physics();
-    const double rho = physical.positive("density");
+    const auto parameters = problem.parameters(builtin::simple());
+    const double rho = parameters.physics.number("density");
 
     const auto& methods = problem.methods(); // loaded once by Case/runtime
     const auto V = geometry::cellVolumes(problem.mesh());
     const auto Sf = geometry::faceAreaVectors(problem.mesh());
     const auto Af = geometry::faceAreas(problem.mesh());
-    const auto& settings = problem.solution();
-    const int maxIterations = settings.integer("maxIterations", 1000, 1, std::numeric_limits<int>::max());
-    const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections", 1, 0, 20);
-    const double alphaU = settings.fraction("velocityRelaxation", 0.7);
-    const double alphaP = settings.fraction("pressureRelaxation", 0.3);
-    const double massTolerance = settings.positive("continuityTolerance", 1e-8);
-    const double velocityTolerance = settings.positive("velocityTolerance", 1e-7);
-    const double momentumTolerance = settings.positive("momentumTolerance", 1e-6);
-    const double pressureTolerance = settings.positive("pressureCorrectionTolerance", 1e-6);
+    const auto& settings = parameters.solution;
+    const int maxIterations = settings.integer("maxIterations");
+    const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections");
+    const double alphaU = settings.number("velocityRelaxation");
+    const double alphaP = settings.number("pressureRelaxation");
+    const double massTolerance = settings.number("continuityTolerance");
+    const double velocityTolerance = settings.number("velocityTolerance");
+    const double momentumTolerance = settings.number("momentumTolerance");
+    const double pressureTolerance = settings.number("pressureCorrectionTolerance");
 
     auto turbulence = rans::load(problem, U, phi);
     const auto& muEff = turbulence.effectiveViscosity();
@@ -129,5 +129,5 @@ SolverResult runSimple(Case& problem) {
     write(problem, readTimeControl(problem).start, 0);
     return SolverResult::completed();
 }
-const SolverRegistration simple("simple", runSimple);
+const SolverRegistration simple("simple", runSimple, &builtin::simple());
 }

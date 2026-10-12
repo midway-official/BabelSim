@@ -6,6 +6,7 @@
 #include "babelsim/time.h"
 #include "babelsim/methods.h"
 #include "babelsim/solver_control.h"
+#include "babelsim/model_description.h"
 
 #include <memory>
 
@@ -50,10 +51,12 @@ public:
     Case& operator=(const Case&) = delete;
 
     const std::string& solver() const;
+    const CaseDefinition& definition() const;
     const Mesh& mesh() const;
     // 读取 case.bs 的 physics 条目所指向的字典；solution() 对应 solution 条目。
     const Parameters& physics() const;
     const Parameters& solution() const;
+    ModuleParameters parameters(const ModuleDescription&) const;
     // 文件加载的单元场默认选入输出列表；真正写出仍需显式 write()。
     // These overloads load the named cell field from fields/initial. Repeated
     // loads return the same object; a program-created field cannot be loaded later.

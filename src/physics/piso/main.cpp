@@ -1,13 +1,14 @@
 #include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/equ.h"
+#include "babelsim/builtin_descriptions.h"
+#include "babelsim/time_discretization.h"
 #include "babelsim/geometry.h"
 #include "babelsim/solver.h"
 #include "../RANS/api.h"
 #include "babelsim/monitor.h"
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <stdexcept>
 
 namespace babelsim {
@@ -21,17 +22,11 @@ ScalarField temporalFluxCorrection(
     const time::History<double>& flux,
     TimeMethod method, const OperatorOptions& options)
 {
-    if (velocity.levels() == 0 || velocity.levels() != flux.levels()
-        || velocity.dt() != flux.dt() || velocity.previousDt() != flux.previousDt()
-        || method == TimeMethod::Steady)
-        throw std::invalid_argument("PISO requires matching transient U/phi histories");
-    const double dt = velocity.dt();
-    double previousWeight = 1.0 / dt, olderWeight = 0.0;
-    if (method == TimeMethod::BDF2 && velocity.levels() >= 2) {
-        const double ratio = dt / velocity.previousDt();
-        previousWeight = (1.0 + ratio) / dt;
-        olderWeight = -ratio * ratio / ((1.0 + ratio) * dt);
-    }
+    time::requireMatching(velocity, flux);
+    if (method == TimeMethod::Steady)
+        throw std::invalid_argument("PISO requires transient histories");
+    const auto weights = time::weights(method, velocity);
+    const double previousWeight = weights.previous, olderWeight = weights.older;
     const auto mismatch = flux.previous() - math::flux(velocity.previous(), options);
     auto correction = previousWeight * mismatch;
     if (olderWeight != 0.0)
@@ -68,54 +63,47 @@ SolverResult runPiso(Case& problem) {
     auto& U = problem.vectorField("U");
     auto& p = problem.scalarField("p");
     auto& phi = problem.createFaceScalarField("phi");
-    const auto& physical = problem.physics();
-    const double rho = physical.positive("density");
+    const auto parameters = problem.parameters(builtin::piso());
+    const double rho = parameters.physics.number("density");
 
     const auto& methods = problem.methods(); // 方法字典由 Case/runtime 解析一次
     const auto V = geometry::cellVolumes(problem.mesh());
-    const auto& settings = problem.solution();
+    const auto& settings = parameters.solution;
     // 每个时间步的预测--修正外层遍数；1 就是标准 PISO。
-    const int maxIterations = settings.integer("maxIterations", 1, 1, std::numeric_limits<int>::max());
+    const int maxIterations = settings.integer("maxIterations");
     // 外层每遍的动量/压力校正次数，每次用更新后的 U 重建 HbyA。
-    const int correctors = settings.integer("nCorrectors", 2, 1, 100);
-    const int maxCorrectors = settings.integer("maxCorrectors", correctors, correctors, 100);
+    const int correctors = settings.integer("nCorrectors");
+    const int maxCorrectors = settings.integer("maxCorrectors");
     // Optional control on the corrected frozen momentum equation. A tiny
     // continuity residual alone does not bound the PISO splitting error.
-    const double couplingTolerance = settings.positive("couplingTolerance",
-        std::numeric_limits<double>::max());
-    const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections", 1, 0, 20);
+    const double couplingTolerance = settings.number("couplingTolerance");
+    const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections");
     // A settings comparison must be able to keep the projected initial state
     // fixed while changing the pressure corrections inside physical steps.
-    const int initialNonOrthogonalCorrections = settings.integer(
-        "initialNonOrthogonalCorrections", nonOrthogonalCorrections, 0, 20);
-    const double alphaU = settings.fraction("velocityRelaxation", 1.0);
-    const double massTolerance = settings.positive("continuityTolerance", 1e-8);
-    const double velocityTolerance = settings.positive("velocityTolerance", 1e-7);
-    const double momentumTolerance = settings.positive("momentumTolerance", 1e-6);
-    const double pressureTolerance = settings.positive("pressureCorrectionTolerance", 1e-6);
-    const bool initializePotentialFlow = settings.integer("initializePotentialFlow", 0, 0, 1) != 0;
+    const int initialNonOrthogonalCorrections = settings.integer("initialNonOrthogonalCorrections");
+    const double alphaU = settings.number("velocityRelaxation");
+    const double massTolerance = settings.number("continuityTolerance");
+    const double velocityTolerance = settings.number("velocityTolerance");
+    const double momentumTolerance = settings.number("momentumTolerance");
+    const double pressureTolerance = settings.number("pressureCorrectionTolerance");
+    const bool initializePotentialFlow = settings.integer("initializePotentialFlow") != 0;
 
     auto turbulence = rans::load(problem, U, phi);
-    const std::string turbulenceCoupling = settings.contains("turbulenceCoupling")
-        ? settings.word("turbulenceCoupling") : "iterated";
-    if (turbulenceCoupling != "iterated" && turbulenceCoupling != "segregated")
-        throw std::invalid_argument("turbulenceCoupling must be iterated or segregated");
+    const std::string turbulenceCoupling = settings.word("turbulenceCoupling");
     const bool segregatedTurbulence = turbulenceCoupling == "segregated";
     if (segregatedTurbulence && maxIterations != 1)
         throw std::invalid_argument("segregated turbulence requires one PISO momentum pass");
     if (segregatedTurbulence && turbulence
-        && settings.fraction("turbulenceRelaxation", 0.7) != 1.0)
+        && problem.solution().fraction("turbulenceRelaxation", 0.7) != 1.0)
         throw std::invalid_argument("single-pass transient turbulence requires turbulenceRelaxation 1");
     // With one momentum pass, converge the model's relaxed transport equations
     // at the SAME time level. Otherwise relaxation changes physical time rates.
-    const int turbulenceLimit = settings.integer("turbulenceMaxIterations", 1000, 1,
-        std::numeric_limits<int>::max());
+    const int turbulenceLimit = settings.integer("turbulenceMaxIterations");
     // Group model Picard solves before rebuilding the flow equations. History
     // is still saved exactly once per physical step. The legacy multi-pass
     // default remains one model correction per flow pass.
-    const int turbulenceCorrections = settings.integer("turbulenceCorrectors",
-        turbulence && maxIterations == 1 && !segregatedTurbulence ? turbulenceLimit : 1,
-        1, turbulenceLimit);
+    const int turbulenceCorrections = settings.contains("turbulenceCorrectors") ? settings.integer("turbulenceCorrectors")
+        : (turbulence && maxIterations == 1 && !segregatedTurbulence ? turbulenceLimit : 1);
     if (segregatedTurbulence && turbulenceCorrections != 1)
         throw std::invalid_argument("segregated turbulence requires one transport correction");
     const auto& muEff = turbulence.effectiveViscosity();
@@ -156,13 +144,17 @@ SolverResult runPiso(Case& problem) {
     const int writeInterval = readWriteInterval(problem);
     auto U_old = time::history(U);
     auto phi_old = time::history(phi);
+    time::HistoryGroup histories;
+    histories.add(U, U_old);
+    histories.add(phi, phi_old);
+    histories.track(p);
+    turbulence.addHistories(histories);
     problem.validate();
 
     while (time.value() < time.end()) {
         time.advance();
-        U_old.save(U, time.dt());
-        phi_old.save(phi, time.dt());
-        if (turbulence) turbulence.saveOld(time.dt());
+        histories.save(time);
+        turbulence.beginStep();
         const auto temporalFlux = rho * temporalFluxCorrection(
             U_old, phi_old, methods.time, pressureOptions);
 
@@ -300,5 +292,5 @@ SolverResult runPiso(Case& problem) {
     }
     return SolverResult::completed();
 }
-const SolverRegistration piso("piso", runPiso);
+const SolverRegistration piso("piso", runPiso, &builtin::piso());
 }

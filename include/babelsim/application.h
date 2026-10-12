@@ -4,6 +4,7 @@
 
 namespace babelsim {
 class Case;
+struct ModuleDescription;
 using ApplicationErrorHandler = void (*)(const char* message);
 
 // Physics reports a numerical outcome; only the application maps it to an exit
@@ -20,7 +21,8 @@ struct SolverResult {
 // 对象及名称必须在应用运行期间保持有效；不支持运行中的并发注册或动态插件卸载。
 class SolverRegistration {
 public:
-    SolverRegistration(const char* name, SolverResult (*run)(Case&)) noexcept;
+    SolverRegistration(const char* name, SolverResult (*run)(Case&),
+        const ModuleDescription* description = nullptr) noexcept;
     ~SolverRegistration() noexcept;
     SolverRegistration(const SolverRegistration&) = delete;
     SolverRegistration& operator=(const SolverRegistration&) = delete;
@@ -28,13 +30,15 @@ public:
 private:
     const char* m_name;
     SolverResult (*m_run)(Case&);
+    const ModuleDescription* m_description;
     mutable const SolverRegistration* m_next;
     static const SolverRegistration*& first() noexcept;
     friend int runApplication(int argc, char* argv[], ApplicationErrorHandler);
 };
 
-// Dispatch and MPI lifetime only. No output or automatic result writes.
-// The application may supply its own error handler; default operation is silent.
+// Dispatch and MPI lifetime. Numerical runs never write results implicitly;
+// explicitly requested metadata/template commands delegate their output to IO.
+// The application may supply its own error handler; default errors are silent.
 int runApplication(int argc, char* argv[], ApplicationErrorHandler onError = nullptr);
 
 }  // babelsim 命名空间

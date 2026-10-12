@@ -19,14 +19,15 @@ SolverResult runCoupledScalar(Case& problem) {
 
     auto time=time::start(problem);
     auto oldT=time::history(T), oldC=time::history(C);
+    time::HistoryGroup histories;
+    histories.add(T, oldT); histories.add(C, oldC);
     auto A=equ::createEquation(
         problem, "temperature", T, {"diffusion"});
     auto B=equ::createEquation(
         problem, "concentration", C, {"diffusion"});
     while(time.value()<time.end()) {
         time.advance();
-        oldT.save(T, time.dt());
-        oldC.save(C, time.dt());
+        histories.save(time);
         bool converged = false;
         for (int correction = 0; correction < corrections; ++correction) {
             previous.assign(T);

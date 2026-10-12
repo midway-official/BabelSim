@@ -4,6 +4,7 @@
 #include "babelsim/math.h"
 #include "babelsim/monitor.h"
 #include "babelsim/solver.h"
+#include "babelsim/time_step.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -24,14 +25,16 @@ babelsim::SolverResult runCoupled(babelsim::Case& problem) {
     auto concentration = equ::createEquation(problem, "concentration", C, {"diffusion"});
     auto oldT = time::history(T);
     auto oldC = time::history(C);
+    time::HistoryGroup histories;
+    histories.add(T, oldT);
+    histories.add(C, oldC);
+    histories.track(total);
     auto clock = time::start(problem);
     const int interval = readWriteInterval(problem);
     const monitor::Reporter reporter("coupledScalar");
     problem.validate();
     while (!clock.finished()) {
-        clock.advance();
-        oldT.save(T, clock.dt());
-        oldC.save(C, clock.dt());
+        auto step = time::beginStep(clock, histories);
         bool settled = false;
         for (int iteration = 0; iteration < limit; ++iteration) {
             const ScalarField previousT = T;
@@ -60,6 +63,7 @@ babelsim::SolverResult runCoupled(babelsim::Case& problem) {
         reporter.record({{"time", clock.value()}, {"settled", settled ? 1.0 : 0.0}});
         if (!settled) return SolverResult::notConverged();
         total.assign(T + C);
+        step.accept();
         if (clock.step() % interval == 0 || clock.finished()) write(problem, clock);
     }
     return SolverResult::completed();

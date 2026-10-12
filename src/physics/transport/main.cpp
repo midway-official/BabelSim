@@ -1,6 +1,8 @@
 #include "babelsim/application.h"
 #include "babelsim/case.h"
 #include "babelsim/equ.h"
+#include "babelsim/builtin_descriptions.h"
+#include "babelsim/time_discretization.h"
 #include "babelsim/solver.h"
 #include "babelsim/monitor.h"
 
@@ -10,28 +12,26 @@ SolverResult runTransport(Case& problem) {
     auto& C = problem.scalarField("C");
     auto& U = problem.vectorField("U");
     auto& phi = problem.createFaceScalarField("phi");
-    const auto& physical = problem.physics();
-    const double storage = physical.positive("storage");
-    const double D = physical.nonnegative("diffusivity");
+    const auto parameters = problem.parameters(builtin::transport());
+    const auto& physical = parameters.physics;
+    const double storage = physical.number("storage");
+    const double D = physical.number("diffusivity");
     const double S = physical.number("source");
 
     const int writeInterval = readWriteInterval(problem);
     auto time = time::start(problem);
     auto C_old = time::history(C);
+    time::HistoryGroup histories;
+    histories.add(C, C_old);
     auto transportEquation = equ::createEquation(problem, "transport", C, {"convection", "diffusion"});
     phi = math::flux(U, transportEquation.options());
     problem.validate();
 
     while (time.value() < time.end()) {
         time.advance();
-        C_old.save(C, time.dt());
-        // BDF2 also requires a second-order time value for deferred convection
-        // and diffusion corrections; the first step retains Euler startup.
-        if (problem.methods().time == TimeMethod::BDF2 && C_old.levels() >= 2) {
-            const double ratio = C_old.dt() / C_old.previousDt();
-            C.assignScaled(1.0 + ratio, C_old.previous());
-            C.addScaled(-ratio, C_old.older());
-        }
+        histories.save(time);
+        if (problem.methods().time == TimeMethod::BDF2 && C_old.levels() >= 2)
+            time::predict(C, C_old, problem.methods().time);
         transportEquation.reset();
         equ::ddt(transportEquation, storage, C_old);
         equ::div(transportEquation, phi, 1.0, "convection");
@@ -45,5 +45,5 @@ SolverResult runTransport(Case& problem) {
     }
     return SolverResult::completed();
 }
-const SolverRegistration transport("transport", runTransport);
+const SolverRegistration transport("transport", runTransport, &builtin::transport());
 }

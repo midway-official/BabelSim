@@ -33,7 +33,7 @@
 | `dynamicViscosity` | 必需，正数 | 分子动力黏度 |
 | `turbulenceModel` | `none` | none / SA / kOmega / kEpsilon |
 
-输入 `U`、`p`，方程配置名 `momentum`、`pressureCorrection`。压力使用物理压力含义。模型名称经过字母数字规范化处理：`laminar/off` 对应 none，`spalartallmaras` 对应 SA，`wilcox1988` 对应当前 kOmega 实现，`standardkepsilon` 对应 kEpsilon；新算例建议使用表中标准写法。
+输入 `U`、`p`，方程配置名 `momentum`、`pressureCorrection`。压力使用物理压力含义。模型名称严格使用 `none`、`SA`、`kOmega`、`kEpsilon`；历史别名和名称规范化路径已删除。
 
 ## RANS 共用控制
 

@@ -39,9 +39,12 @@ int main(int argc, char** argv) {
         std::unique_ptr<rans::Model, void(*)(rans::Model*)> model(
             rans::create(problem, U, phi, effective, rho, mu), rans::destroy);
         require(model != nullptr, "expected turbulence model");
+        time::HistoryGroup histories;
+        model->addHistories(histories);
         auto time=time::start(problem);
         time.advance();
-        model->saveOld(time.dt());
+        histories.save(time);
+        model->beginStep();
         // Independently build one frozen-coefficient Euler step from the published
         // scalar formulas. Test observable solutions rather than private scratch fields.
         const double relaxation = problem.solution().fraction("turbulenceRelaxation", 0.7);

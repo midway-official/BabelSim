@@ -107,6 +107,17 @@ public:
     Field& operator-=(const Field& source) { addScaled(-1.0, source); return *this; }
     Field& operator*=(double factor) { assignScaled(factor, *this); return *this; }
     Field& operator/=(double factor) { assignScaled(1.0 / factor, *this); return *this; }
+    // Explicit rollback restores values AND boundary/flux/halo state. Ordinary
+    // assignment remains value-only. Mesh, location and name are never rebound.
+    void restoreSnapshot(const Field& snapshot) {
+        requireCompatible(snapshot, "field snapshot restore");
+        m_values = snapshot.m_values;
+        m_boundaries = snapshot.m_boundaries;
+        m_calculated_boundary = snapshot.m_calculated_boundary;
+        m_boundary_trace = snapshot.m_boundary_trace;
+        m_boundary_flux = snapshot.m_boundary_flux;
+        m_halo_valid = snapshot.m_halo_valid;
+    }
     void fill(const T& value) {
         updateBoundaryTrace([&](Index) { return value; });
         std::fill(m_values.begin(), m_values.end(), value);

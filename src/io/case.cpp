@@ -303,6 +303,10 @@ Case::Case(const std::filesystem::path& directory, const std::string& run_name)
 Case::~Case() = default;
 
 const std::string& Case::solver() const { return m_implementation->definition.solver; }
+const CaseDefinition& Case::definition() const { return m_implementation->definition; }
+ModuleParameters Case::parameters(const ModuleDescription& description) const {
+    return readModuleParameters(*this, description);
+}
 const Mesh& Case::mesh() const { return m_implementation->mesh; }
 const Parameters& Case::physics() const { return m_implementation->physics; }
 const Parameters& Case::solution() const { return m_implementation->solution; }
@@ -388,18 +392,27 @@ void Case::start() {
 TimeStepper::TimeStepper(Case& problem):case_(&problem),options_(problem.timeControl()),
     value_(options_.start_time),dt_(options_.delta_t) { options_.validate(); }
 TimeStepper time::start(Case& problem) { return TimeStepper(problem); }
-void TimeStepper::advance() {
+const Mesh& TimeStepper::mesh() const { return case_->mesh(); }
+void TimeStepper::advance() { advanceImpl(options_.delta_t,false); }
+void TimeStepper::advance(double requestedDt) { advanceImpl(requestedDt,true); }
+void TimeStepper::advanceImpl(double requestedDt,bool explicitStep) {
     auto& time = *this;
+    if (time.attempt_active_) throw std::logic_error("resolve the pending step before advancing the clock");
+    if (!(requestedDt>0) || !std::isfinite(requestedDt))
+        throw std::invalid_argument("requested step requires positive finite dt");
     if(time.finished()) throw std::logic_error("cannot advance beyond endTime");
     const double tolerance=32*std::numeric_limits<double>::epsilon()*
         std::max({std::abs(time.options_.start_time),std::abs(time.options_.end_time),time.options_.delta_t});
-    double next=static_cast<double>(static_cast<long double>(time.options_.start_time)+
-        static_cast<long double>(time.step_+1)*time.options_.delta_t);
+    const bool variable=time.variable_steps_ || explicitStep;
+    double next=variable
+        ? static_cast<double>(static_cast<long double>(time.value_)+requestedDt)
+        : static_cast<double>(static_cast<long double>(time.options_.start_time)+
+            static_cast<long double>(time.step_+1)*time.options_.delta_t);
     if(next>=time.options_.end_time-tolerance) next=time.options_.end_time;
     const double dt=next-time.value_;
     if(!(dt>0)) throw std::runtime_error("time step is below representable time precision");
     time.case_->setTime(next,time.step_+1,dt);
-    time.value_=next; time.dt_=dt; ++time.step_;
+    time.value_=next; time.dt_=dt; time.variable_steps_=variable; ++time.step_;
 }
 void write(Case& problem,const TimeStepper& time) {
     if(&problem!=&time.owner()) throw std::invalid_argument("time service belongs to another case");

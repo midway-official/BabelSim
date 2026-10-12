@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -23,8 +24,9 @@ const SolverRegistration*& SolverRegistration::first() noexcept {
     return head;
 }
 
-SolverRegistration::SolverRegistration(const char* name, SolverResult (*run)(Case&)) noexcept
-    : m_name(name), m_run(run), m_next(first())
+SolverRegistration::SolverRegistration(const char* name, SolverResult (*run)(Case&),
+    const ModuleDescription* description) noexcept
+    : m_name(name), m_run(run), m_description(description), m_next(first())
 {
     first() = this;
 }
@@ -42,23 +44,44 @@ struct Arguments {
     std::filesystem::path case_directory;
     std::string time_name;
     std::filesystem::path performance_directory;
+    std::string describe;
+    std::string case_template;
+    std::string format = "markdown";
+    std::filesystem::path output_directory;
+    bool list = false;
 };
 
 Arguments parseArguments(int argc, char* argv[]) {
     Arguments result;
+    std::set<std::string> used;
+    const std::string usage =
+        "usage: babelsim-solve -case <directory> [-time <name>] [-performance <directory>]; "
+        "or -describe <module> [-format markdown|json]; "
+        "or -template <solver> -output <new-directory>; or -list";
     for (int index = 1; index < argc;) {
         const std::string option = argv[index++];
-        if ((option != "-case" && option != "-time" && option != "-performance") || index == argc) {
-            throw std::invalid_argument(
-                "usage: babelsim-solve -case <case-directory> [-time <name>] "
-                "[-performance <directory>]");
-        }
+        if (!used.insert(option).second) throw std::invalid_argument("duplicate argument " + option);
+        if (option == "-list") { result.list = true; continue; }
+        if ((option != "-case" && option != "-time" && option != "-performance" &&
+             option != "-describe" && option != "-template" && option != "-format" &&
+             option != "-output") || index == argc) throw std::invalid_argument(usage);
         if (option == "-case") result.case_directory = argv[index];
         else if (option == "-time") result.time_name = argv[index];
-        else result.performance_directory = argv[index];
+        else if (option == "-performance") result.performance_directory = argv[index];
+        else if (option == "-describe") result.describe = argv[index];
+        else if (option == "-template") result.case_template = argv[index];
+        else if (option == "-format") result.format = argv[index];
+        else result.output_directory = argv[index];
         ++index;
     }
-    if (result.case_directory.empty()) {
+    const int commands = !result.describe.empty() + !result.case_template.empty() + result.list;
+    if (commands > 1 || (commands && (!result.case_directory.empty() || !result.time_name.empty() ||
+        !result.performance_directory.empty()))) throw std::invalid_argument(usage);
+    if (!result.case_template.empty() && result.output_directory.empty()) throw std::invalid_argument(usage);
+    if (result.case_template.empty() && !result.output_directory.empty()) throw std::invalid_argument(usage);
+    if (used.count("-format") && result.describe.empty()) throw std::invalid_argument(usage);
+    if (result.format != "markdown" && result.format != "json") throw std::invalid_argument(usage);
+    if (!commands && result.case_directory.empty()) {
         throw std::invalid_argument("babelsim-solve needs -case <case-directory>");
     }
     return result;
@@ -235,32 +258,73 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
             if (entry->m_name == nullptr || entry->m_run == nullptr)
                 throw std::invalid_argument("invalid solver registration");
             if (entry->m_name[0] == '\0') throw std::invalid_argument("empty solver name");
+            if (entry->m_description) {
+                validateModuleDescription(*entry->m_description);
+                if (entry->m_name != entry->m_description->name)
+                    throw std::invalid_argument("solver registration and description names differ: " + std::string(entry->m_name));
+            }
             for (const auto* previous = solvers; previous != entry; previous = previous->m_next)
                 if (std::strcmp(previous->m_name, entry->m_name) == 0)
                     throw std::invalid_argument("duplicate solver registration: " + std::string(entry->m_name));
         }
-        const auto case_start = std::chrono::steady_clock::now();
-        Case problem(arguments.case_directory, arguments.time_name);
-        const double case_setup_seconds = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - case_start).count();
-        const SolverRegistration* selected = solvers;
-        while (selected != nullptr && problem.solver() != selected->m_name) selected = selected->m_next;
-        if (selected == nullptr) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
-        const auto solver_start = std::chrono::steady_clock::now();
-        const SolverResult result = selected->m_run(problem);
-        const double solver_seconds = std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - solver_start).count();
-        if (!arguments.performance_directory.empty()) {
-            const double application_seconds = std::chrono::duration<double>(
-                std::chrono::steady_clock::now() - application_start).count();
-            writePerformance(
-                arguments.performance_directory, problem, result,
-                mpi_init_seconds, case_setup_seconds, solver_seconds, application_seconds);
+        if (arguments.list || !arguments.describe.empty() || !arguments.case_template.empty()) {
+            const auto models = registeredModuleDescriptions();
+            std::set<std::string> moduleNames;
+            for (const auto* entry = solvers; entry; entry = entry->m_next) moduleNames.insert(entry->m_name);
+            for (const auto* description : models)
+                if (!moduleNames.insert(description->name).second)
+                    throw std::invalid_argument("duplicate module registration: " + description->name);
+            const auto parallel = ParallelContext::world();
+            if (arguments.list) {
+                if (parallel.rank == 0) {
+                    std::vector<ModuleListing> modules;
+                    for (const auto* entry = solvers; entry; entry = entry->m_next)
+                        modules.push_back({entry->m_name, true, entry->m_description != nullptr});
+                    for (const auto* description : models)
+                        modules.push_back({description->name, false, true});
+                    writeModuleList(modules);
+                }
+            } else {
+                const std::string name = arguments.describe.empty() ? arguments.case_template : arguments.describe;
+                const ModuleDescription* description = nullptr;
+                for (const auto* entry = solvers; entry; entry = entry->m_next)
+                    if (name == entry->m_name) description = entry->m_description;
+                if (!description) for (const auto* model : models)
+                    if (model->name == name) description = model;
+                if (!description) throw std::invalid_argument("no description registered for module: " + name);
+                if (parallel.rank == 0) {
+                    if (!arguments.case_template.empty()) writeCaseTemplate(*description, arguments.output_directory);
+                    else writeModuleDescription(*description, arguments.format == "json"
+                        ? ModuleOutputFormat::Json : ModuleOutputFormat::Markdown);
+                }
+                parallel.barrier();
+            }
+            status = 0;
+        } else {
+            const auto case_start = std::chrono::steady_clock::now();
+            Case problem(arguments.case_directory, arguments.time_name);
+            const double case_setup_seconds = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - case_start).count();
+            const SolverRegistration* selected = solvers;
+            while (selected != nullptr && problem.solver() != selected->m_name) selected = selected->m_next;
+            if (selected == nullptr) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
+            if (selected->m_description) validateModuleConfiguration(problem, *selected->m_description);
+            const auto solver_start = std::chrono::steady_clock::now();
+            const SolverResult result = selected->m_run(problem);
+            const double solver_seconds = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - solver_start).count();
+            if (!arguments.performance_directory.empty()) {
+                const double application_seconds = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - application_start).count();
+                writePerformance(
+                    arguments.performance_directory, problem, result,
+                    mpi_init_seconds, case_setup_seconds, solver_seconds, application_seconds);
+            }
+            // Keep the established CLI contract: both nonconvergence and numerical
+            // failure are exit 2; configuration/application errors remain exit 1.
+            status = ParallelContext::world().maximum(
+                result.status == SolveStatus::Converged ? 0 : 2);
         }
-        // Keep the established CLI contract: both nonconvergence and numerical
-        // failure are exit 2; configuration/application errors remain exit 1.
-        status = ParallelContext::world().maximum(
-            result.status == SolveStatus::Converged ? 0 : 2);
     } catch (const std::exception& error) {
         if (onError) onError(error.what());
         // 单个 rank 的 I/O 失败不能让其他 rank 阻塞在后续 halo 交换或集体通信；

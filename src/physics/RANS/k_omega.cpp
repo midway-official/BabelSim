@@ -1,5 +1,6 @@
 #include "api.h"
 #include "babelsim/equ.h"
+#include "babelsim/builtin_descriptions.h"
 #include "babelsim/monitor.h"
 
 #include <algorithm>
@@ -27,19 +28,25 @@ class KOmega final : public Model {
 public:
     KOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
              ScalarField& effectiveViscosity, double density, double viscosity)
+        : KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity,
+            problem.parameters(builtin::kOmega())) {}
+
+    KOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
+             ScalarField& effectiveViscosity, double density, double viscosity,
+             const ModuleParameters& parameters)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
           k(problem.scalarField("k")), omega(problem.scalarField("omega")),
           mut(problem.createScalarField("mut", 0.0)),
-          relaxation(problem.solution().fraction("turbulenceRelaxation", 0.7)),
-          residualTolerance(problem.solution().positive("turbulenceTolerance", 1e-6)),
-          kMin(problem.physics().positive("kMin", 1e-12)),
-          omegaMin(problem.physics().positive("omegaMin", 1e-12)),
-          viscosityRatioMax(problem.physics().positive("maxTurbulentViscosityRatio", 1e5)),
-          betaStar(problem.physics().positive("kOmegaBetaStar", 0.09)),
-          beta(problem.physics().positive("kOmegaBeta", 3.0 / 40.0)),
-          gamma(problem.physics().positive("kOmegaGamma", 5.0 / 9.0)),
-          sigmaK(problem.physics().positive("kOmegaSigmaK", 0.5)),
-          sigmaOmega(problem.physics().positive("kOmegaSigmaOmega", 0.5)),
+          relaxation(parameters.solution.number("turbulenceRelaxation")),
+          residualTolerance(parameters.solution.number("turbulenceTolerance")),
+          kMin(parameters.physics.number("kMin")),
+          omegaMin(parameters.physics.number("omegaMin")),
+          viscosityRatioMax(parameters.physics.number("maxTurbulentViscosityRatio")),
+          betaStar(parameters.physics.number("kOmegaBetaStar")),
+          beta(parameters.physics.number("kOmegaBeta")),
+          gamma(parameters.physics.number("kOmegaGamma")),
+          sigmaK(parameters.physics.number("kOmegaSigmaK")),
+          sigmaOmega(parameters.physics.number("kOmegaSigmaOmega")),
           momentumOptions(readEquationControl(problem, "momentum", velocity,
               {"convection", "diffusion"}).spatial),
           kControl(readEquationControl(problem, "kTransport", k, {"convection", "diffusion"})),
@@ -56,11 +63,14 @@ public:
     const char* modelName() const override { return "Wilcox1988m k-omega"; }
     double tolerance() const override { return residualTolerance; }
 
-    void saveOld(double dt) override {
-        correction = 0;
-        kHistory.save(k, dt);
-        omegaHistory.save(omega, dt);
+    void addHistories(time::HistoryGroup& histories) override {
+        histories.add(k, kHistory);
+        histories.add(omega, omegaHistory);
+        histories.track(mut);
+        histories.watch(correction);
+        histories.watch(boundedOmegaCells);
     }
+    void beginStep() override { correction = 0; }
 
     TransportResult solveTransport() override {
         boundedOmegaCells = 0.0;

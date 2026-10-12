@@ -33,8 +33,7 @@ mpirun -np 4 build/examples/custom-heat -case work/customHeat -time mpi4
 求解函数首先加载 T 并读取类型化物性，在循环外创建 temperature 方程、时间对象和显式历史；随后校验所有已配置参数均被使用。每一步按如下顺序执行：
 
 ```cpp
-clock.advance();
-history.save(T, clock.dt());
+auto step = time::beginStep(clock, histories);
 // BDF2 从第二步开始，完整源码中先外推空间修正使用的 T。
 equation.reset();
 equ::ddt(equation, rho * cp, history);
@@ -42,8 +41,11 @@ equ::laplacian(equation, k, -1, "diffusion");
 equ::source(equation, Q);
 const auto result = equ::solve(equation);
 if (!result.converged()) return SolverResult{result.status};
+step.accept();
 if (clock.step() % interval == 0 || clock.finished()) write(problem, clock);
 ```
+
+`histories.add(T, history)` 在循环前登记关联历史；未接受的 Step 析构时自动恢复时钟、场和历史。完整时间契约见[时间推进与关联历史](time-integration.md)。
 
 Equation 绑定未知 T，reset 防止上一时间步的贡献叠加；History 在物理步开始保存，不在求解迭代中推进；-1 对应扩散项放左端；写出发生在接受步骤后。完整示例支持与内置热求解器一致的 Euler/BDF2 路径。
 
@@ -124,7 +126,7 @@ mpirun -np 4 build/examples/coupled-scalar -case work/coupled -time mpi4
 build/babelsim-post -case work/coupled -time serial/all -format vtk
 ```
 
-关键结构是：每个物理步只保存一次旧 T/C；内层重复装配并顺序求解 T、C，用整场变化判断耦合；历史不在内层更新；未收敛返回结构化失败；接受后更新 total 并写出。示例要求 Euler，不能只修改 time bdf2 就宣称得到经过验证的二阶耦合算法。
+关键结构是：每个物理步只保存一次旧 T/C；内层重复装配并顺序求解 T、C，用整场变化判断耦合；历史不在内层更新；未收敛返回结构化失败；耦合收敛后更新 total，接受步骤后写出。示例要求 Euler，不能只修改 time bdf2 就宣称得到经过验证的二阶耦合算法。
 
 `couplingIterations` 和 `couplingTolerance` 是该示例自己的顶层 solution 参数。两个方程都需要完整空间选项与线性配置。这样新增模型不需要让通用后端认识新的物理方程。
 
