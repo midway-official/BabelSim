@@ -69,8 +69,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     for name in ("math_api.cpp", "equ_api.cpp"):
         run("g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-Iinclude",
             "-fsyntax-only", name, cwd=work)
-    # physics() 与 case.bs 的条目同名；旧接口不再作为并存别名暴露。
-    for method, success in (("physics", True), ("properties", False)):
+    # 成员对象明确 read 配置；旧平面接口不再作为别名暴露。
+    for method, success in (("read.physics", True), ("physics", False), ("properties", False)):
         (work / "case_api.cpp").write_text(
             '#include "babelsim/case.h"\n'
             f'double density(babelsim::Case& problem){{ return problem.{method}().positive("density"); }}\n')
@@ -244,8 +244,8 @@ with tempfile.TemporaryDirectory(prefix="babelsim-external-") as temporary:
     (work / "failure.cpp").write_text(
         '#include "babelsim/application.h"\n#include "babelsim/case.h"\n#include <cstdlib>\n#include <iostream>\n'
         'babelsim::SolverResult failure(babelsim::Case& problem){\n'
-        ' (void)problem.physics().number("strength");\n'
-        ' auto& field=problem.createScalarField("failed",0.0); problem.output(field);\n'
+        ' (void)problem.read.physics().number("strength");\n'
+        ' auto& field=problem.create.scalarField("failed",0.0); problem.output(field);\n'
         ' const char* rank=std::getenv("OMPI_COMM_WORLD_RANK");\n'
         ' return rank && rank[0]==\'0\' ? babelsim::SolverResult::numericalFailure() : babelsim::SolverResult::completed(); }\n'
         '#if defined(TEST_EMPTY)\n'

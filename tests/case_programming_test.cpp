@@ -15,14 +15,14 @@ int main(int argc, char** argv) {
     try {
         if (argc != 3) throw std::invalid_argument("expected case directory and run name");
         babelsim::Case problem(argv[1], argv[2]);
-        babelsim::ScalarField& first = problem.scalarField("T");
+        babelsim::ScalarField& first = problem.load.scalarField("T");
         for (int i = 0; i < 24; ++i)
-            problem.createVectorField("scratch" + std::to_string(i), babelsim::Vec3{});
-        require(&first == &problem.scalarField("T"), "Case invalidated a Field reference");
-        const babelsim::TensorField& stress = problem.tensorField("stress");
+            problem.create.vectorField("scratch" + std::to_string(i), babelsim::Vec3{});
+        require(&first == &problem.load.scalarField("T"), "Case invalidated a Field reference");
+        const babelsim::TensorField& stress = problem.load.tensorField("stress");
         require(near(babelsim::detail::fieldData(stress)[0][2][2], 9.0), "tensor input order is incorrect");
         bool rejected = false;
-        try { problem.createVectorField("T", babelsim::Vec3{}); }
+        try { problem.create.vectorField("T", babelsim::Vec3{}); }
         catch (const std::invalid_argument&) { rejected = true; }
         require(rejected, "Case accepted one name for different Field types");
         result = babelsim::runCoupledScalar(problem).status == babelsim::SolveStatus::Converged ? 0 : 2;

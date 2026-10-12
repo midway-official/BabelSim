@@ -62,7 +62,8 @@ int main() {
 
     // Correction boundaries inherit homogeneous constraints. An already anchored
     // pressure matrix must not acquire an additional interior reference.
-    auto correction = field::homogeneousLike(x, "pPrime");
+    ScalarField correction(mesh, FieldLocation::Cell, "pPrime");
+    setHomogeneousCorrectionBoundaries(correction, x);
     require(correction.name() == "pPrime", "homogeneous field name is explicit");
     auto pressure = testEquation(correction);
     equ::laplacian(pressure, 1.0, -1);

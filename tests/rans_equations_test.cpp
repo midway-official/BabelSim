@@ -8,6 +8,7 @@
 #include "internal/petsc_session.h"
 #include "test_util.h"
 #include <iostream>
+#include <map>
 
 using namespace babelsim;
 
@@ -16,8 +17,8 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2, "expected generated model case");
         Case problem(argv[1]);
-        auto& U = problem.vectorField("U");
-        auto& phi = problem.createFaceScalarField("phi");
+        auto& U = problem.load.vectorField("U");
+        auto& phi = problem.create.faceScalarField("phi");
         const auto momentumControl = readEquationControl(problem, "momentum", U,
             {"convection", "diffusion"});
         phi = math::flux(U, momentumControl.spatial);
@@ -26,43 +27,47 @@ int main(int argc, char** argv) {
         for (Index p = 0; p < mesh.patchCount(); ++p) U.setBoundary(p, BoundaryCondition<Vec3>::zeroGradient());
         U.setBoundary(2, fixedValue(Vec3{})); U.setBoundary(3, fixedValue(Vec3{2,0,0}));
         math::evaluate(math::flux(U, momentumControl.spatial), phi);
-        auto& effective = problem.createScalarField("effective", 0.0);
-        const double rho = problem.physics().positive("density");
-        const double mu = problem.physics().positive("dynamicViscosity");
-        const auto model_name = problem.physics().word("turbulenceModel");
+        auto& effective = problem.create.scalarField("muEffective", 0.0);
+        const double rho = problem.read.physics().positive("density");
+        const double mu = problem.read.physics().positive("dynamicViscosity");
+        const auto model_name = problem.read.physics().word("turbulenceModel");
         if (model_name == "SA")
-            problem.scalarField("nuTilda").setBoundary(0, fixedValue(0.0));
+            problem.load.scalarField("nuTilda").setBoundary(0, fixedValue(0.0));
         for(const char* key:{"maxIterations","nonOrthogonalCorrections","velocityRelaxation",
             "pressureRelaxation","continuityTolerance","velocityTolerance","momentumTolerance",
             "pressureCorrectionTolerance"})
-            if(problem.solution().contains(key)) (void)problem.solution().number(key);
+            if(problem.read.solution().contains(key)) (void)problem.read.solution().number(key);
         std::unique_ptr<rans::Model, void(*)(rans::Model*)> model(
-            rans::create(problem, U, phi, effective, rho, mu), rans::destroy);
+            rans::createModel(problem, U, phi, effective, {rho, mu, model_name}, momentumControl.spatial), rans::destroy);
         require(model != nullptr, "expected turbulence model");
         time::HistoryGroup histories;
-        model->addHistories(histories);
-        auto time=time::start(problem);
-        time.advance();
-        histories.save(time);
-        model->beginStep();
-        // Independently build one frozen-coefficient Euler step from the published
-        // scalar formulas. Test observable solutions rather than private scratch fields.
-        const double relaxation = problem.solution().fraction("turbulenceRelaxation", 0.7);
-        std::vector<ScalarField> expected;
-        std::vector<double> initialResiduals;
+        model->registerTimeState(histories);
+        auto time=time::makeStepper(problem);
+        const double relaxation = problem.read.solution().fraction("turbulenceRelaxation", 0.7);
         const std::vector<std::string> names = model_name == "SA"
             ? std::vector<std::string>{"nuTilda"}
             : model_name == "kOmega" ? std::vector<std::string>{"omega", "k"}
             : std::vector<std::string>{"k", "epsilon"};
+        std::map<std::string, EquationControl> referenceControls;
         for (const auto& name : names) {
             const std::string equationName =
                 model_name == "SA" ? "nuTildaTransport" :
                 name == "k" ? "kTransport" :
                 model_name == "kOmega" ? "omegaTransport" : "epsilonTransport";
-            auto& configured = problem.scalarField(name);
-            const auto equationControl = readEquationControl(problem, equationName, configured,
-                {"convection", "diffusion"});
-            expected.push_back(problem.scalarField(name));
+            referenceControls.emplace(name, readEquationControl(problem, equationName,
+                problem.load.scalarField(name), {"convection", "diffusion"}));
+        }
+        problem.finalizeInitialization();
+        time.advance();
+        histories.save(time);
+        model->beginStep();
+        // Independently build one frozen-coefficient Euler step from the published
+        // scalar formulas. Test observable solutions rather than private scratch fields.
+        std::vector<ScalarField> expected;
+        std::vector<double> initialResiduals;
+        for (const auto& name : names) {
+            const auto& equationControl = referenceControls.at(name);
+            expected.push_back(problem.load.scalarField(name));
             auto& value = expected.back();
             const auto old = value;
             ScalarField diffusion(mesh, FieldLocation::Cell);
@@ -72,8 +77,8 @@ int main(int argc, char** argv) {
             source.useCalculatedBoundary();
             sink.useCalculatedBoundary();
             if (model_name != "SA") {
-                const auto& k = problem.scalarField("k");
-                const auto& second = problem.scalarField(model_name == "kOmega" ? "omega" : "epsilon");
+                const auto& k = problem.load.scalarField("k");
+                const auto& second = problem.load.scalarField(model_name == "kOmega" ? "omega" : "epsilon");
                 diffusion.evaluate(k, second, [&](double kv, double sv) {
                     const double eddy = model_name == "kOmega" ? rho*kv/sv : 0.09*rho*kv*kv/sv;
                     return mu + eddy * (model_name == "kOmega" ? 0.5 : name == "k" ? 1.0 : 1.0/1.3);
@@ -93,7 +98,7 @@ int main(int argc, char** argv) {
                     sink.evaluate(expected.front(), [&](double sv) { return 0.09*rho*sv; });
                 }
             } else {
-                const auto& distance = problem.scalarField("wallDistance");
+                const auto& distance = problem.load.scalarField("wallDistance");
                 ScalarField reaction(mesh, FieldLocation::Cell);
                 reaction.useCalculatedBoundary();
                 reaction.evaluate(old, distance, [&](double nu, double d) {
@@ -134,13 +139,13 @@ int main(int argc, char** argv) {
             require(report.equations[n].field == names[n], "incorrect diagnostic field name");
             require(near(report.equations[n].initialResidual, initialResiduals[n], 1e-10),
                     "transport residual was not measured before relaxation");
-            const auto& actual = problem.scalarField(names[n]);
+            const auto& actual = problem.load.scalarField(names[n]);
             for (Index i : detail::meshData(mesh).owned_cells)
                 require(near(detail::fieldData(actual)[i], detail::fieldData(expected[n])[i], 1e-10),
                         "transport step differs from independent source/diffusion equation");
         }
         const auto cell = [&](const char* name, Index i) {
-            return detail::fieldData(static_cast<const ScalarField&>(problem.existingScalarField(name)))[i];
+            return detail::fieldData(static_cast<const ScalarField&>(problem.fields.scalarField(name)))[i];
         };
         for (Index i : detail::meshData(mesh).owned_cells) {
             double eddy = 0;

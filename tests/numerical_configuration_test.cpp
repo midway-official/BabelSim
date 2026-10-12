@@ -67,7 +67,7 @@ int main() {
         "equation.second.maxIterations 1000\n");
     {
         Case problem(root);
-        auto& x=problem.scalarField("T");
+        auto& x=problem.load.scalarField("T");
         const auto first=readEquationControl(problem,"first",x,{"advection","diffusion"});
         const auto second=readEquationControl(problem,"second",x);
         require(first.spatial.convection==ConvectionMethod::LinearUpwind &&
@@ -82,9 +82,9 @@ int main() {
         require(first.spatial.coefficientGradient==GradientMethod::LeastSquares &&
             first.spatial.gradient==GradientMethod::GreenGauss,"coefficient and unknown gradients were coupled");
         auto a=equ::createEquation(x,first), b=equ::createEquation(x,second);
-        const auto op=problem.methods().operationOptions("pressureGradient");
+        const auto op=problem.read.methods().operationOptions("pressureGradient");
         require(op.gradient==GradientMethod::LeastSquares,"named math options");
-        problem.methods().requireAllUsed(); problem.solution().requireAllUsed();
+        problem.read.methods().requireAllUsed(); problem.read.solution().requireAllUsed();
         ScalarField phi(x.mesh(),FieldLocation::Face,"phi",1.0);
         equ::div(a,phi,1.0,"advection"); equ::div(b,phi);
         require(math::normL2(a.diagonal()-b.diagonal())>1e-6,"equation choices did not change actual convection assembly");
@@ -119,11 +119,11 @@ int main() {
     writeFile(root/"numerics/solution.bs","equation.only.kspType bcgs\nequation.only.pcType bjacobi\n"
         "equation.only.absoluteTolerance 1e-14\nequation.only.relativeTolerance 1e-10\nequation.only.maxIterations 100\n");
     {
-        Case problem(root); auto& x=problem.scalarField("T");
+        Case problem(root); auto& x=problem.load.scalarField("T");
         auto a=equ::createEquation(problem,"only",x);
         equ::reaction(a,1.0); equ::source(a,2.0);
         require(equ::solve(a).converged(),"fully named scalar solve without unused type defaults");
-        problem.solution().requireAllUsed();
+        problem.read.solution().requireAllUsed();
     }
     std::filesystem::remove_all(root);
     {

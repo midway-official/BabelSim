@@ -24,34 +24,34 @@ double vorticityMagnitude(const Tensor3& gradient) {
 class SpalartAllmaras final : public Model {
 public:
     SpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
-                   ScalarField& effectiveViscosity, double density, double viscosity)
-        : SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity,
-            problem.parameters(builtin::spalartAllmaras())) {}
+                   ScalarField& effectiveViscosity, double density, double viscosity,
+             const OperatorOptions& hostMomentumOptions)
+        : SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity, hostMomentumOptions,
+            problem.read.config(builtin::spalartAllmaras())) {}
 
     SpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
                    ScalarField& effectiveViscosity, double density, double viscosity,
-             const ModuleParameters& parameters)
+             const OperatorOptions& hostMomentumOptions, const builtin::SAConfig& parameters)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
-          nuTilda(problem.scalarField("nuTilda")),
-          wallDistance(problem.scalarField("wallDistance")),
-          mut(problem.createScalarField("mut", 0.0)),
-          relaxation(parameters.solution.number("turbulenceRelaxation")),
-          residualTolerance(parameters.solution.number("turbulenceTolerance")),
-          nuTildaMin(parameters.physics.number("saNuTildaMin")),
-          wallDistanceMin(parameters.physics.number("saWallDistanceMin")),
-          cb1(parameters.physics.number("saCb1")),
-          cb2(parameters.physics.number("saCb2")),
-          sigma(parameters.physics.number("saSigma")),
-          kappa(parameters.physics.number("saKappa")),
-          cw2(parameters.physics.number("saCw2")),
-          cw3(parameters.physics.number("saCw3")),
-          cv1(parameters.physics.number("saCv1")),
-          ct3(parameters.physics.number("saCt3")),
-          ct4(parameters.physics.number("saCt4")),
-          cw1(parameters.physics.number("saCw1")),
-          momentumOptions(readEquationControl(problem, "momentum", velocity,
-              {"convection", "diffusion"}).spatial),
-          nuTildaControl(readEquationControl(problem, "nuTildaTransport", nuTilda, {"convection", "diffusion"})),
+          nuTilda(problem.load.scalarField("nuTilda")),
+          wallDistance(problem.load.scalarField("wallDistance")),
+          mut(problem.create.scalarField("mut", 0.0)),
+          relaxation(parameters.controls.relaxation),
+          residualTolerance(parameters.controls.tolerance),
+          nuTildaMin(parameters.nuTildaMin),
+          wallDistanceMin(parameters.wallDistanceMin),
+          cb1(parameters.cb1),
+          cb2(parameters.cb2),
+          sigma(parameters.sigma),
+          kappa(parameters.kappa),
+          cw2(parameters.cw2),
+          cw3(parameters.cw3),
+          cv1(parameters.cv1),
+          ct3(parameters.ct3),
+          ct4(parameters.ct4),
+          cw1(parameters.cw1),
+          momentumOptions(hostMomentumOptions),
+          nuTildaControl(readEquationControl(problem, builtin::spalartAllmaras().equation("nuTildaTransport"), nuTilda)),
           nuTildaHistory(time::history(nuTilda))
     {
         mut.useCalculatedBoundary();
@@ -63,10 +63,11 @@ public:
 
     const char* modelName() const override { return "Spalart-Allmaras"; }
     double tolerance() const override { return residualTolerance; }
+    double relaxationFactor() const override { return relaxation; }
 
-    void addHistories(time::HistoryGroup& histories) override {
+    void registerTimeState(time::HistoryGroup& histories) override {
         histories.add(nuTilda, nuTildaHistory);
-        histories.track(mut);
+        histories.trackForRollback(mut);
     }
 
     TransportResult solveTransport() override {
@@ -163,8 +164,9 @@ private:
 } // namespace
 
 Model* makeSpalartAllmaras(Case& problem, VectorField& velocity, const ScalarField& flux,
-                          ScalarField& effectiveViscosity, double density, double viscosity) {
-    return new SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity);
+                          ScalarField& effectiveViscosity, double density, double viscosity,
+             const OperatorOptions& hostMomentumOptions) {
+    return new SpalartAllmaras(problem, velocity, flux, effectiveViscosity, density, viscosity, hostMomentumOptions);
 }
 
 } // namespace babelsim::rans

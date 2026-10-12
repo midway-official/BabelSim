@@ -41,6 +41,10 @@ template<class T> Equation<T> createEquation(const Case& problem, const std::str
     Field<T>& unknown, std::initializer_list<std::string> terms = {}) {
     return Equation<T>(unknown, readEquationControl(problem, name, unknown, terms));
 }
+template<class T> Equation<T> createEquation(const Case& problem, const EquationDescription& description,
+    Field<T>& unknown) {
+    return Equation<T>(unknown, readEquationControl(problem, description, unknown));
+}
 
 // Operators add to the LHS, source adds to the RHS. For bound unknown x:
 // div(eq, phi, c) adds c*div(phi*x); phi is an oriented, integrated face flux and

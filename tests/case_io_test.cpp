@@ -125,7 +125,7 @@ int main() {
     }
     {
         Case custom(override_case);
-        const auto& temperature = custom.scalarField("T");
+        const auto& temperature = custom.load.scalarField("T");
         const auto selected = readEquationControl(custom, "temperature", temperature);
         require(selected.linear.solver == LinearSolverType::ConjugateGradient &&
                 selected.linear.preconditioner == PreconditionerType::IncompleteCholesky &&
@@ -147,12 +147,13 @@ int main() {
     }
     {
         Case custom(output_case);
-        custom.physics().positive("density");
-        custom.physics().positive("heatCapacity");
-        custom.physics().nonnegative("conductivity");
-        custom.physics().number("source");
-        readEquationControl(custom, "temperature", custom.scalarField("T"));
-        custom.createScalarField("derived", 2.0);
+        custom.read.physics().positive("density");
+        custom.read.physics().positive("heatCapacity");
+        custom.read.physics().nonnegative("conductivity");
+        custom.read.physics().number("source");
+        readEquationControl(custom, "temperature", custom.load.scalarField("T"));
+        custom.create.scalarField("derived", 2.0);
+        custom.finalizeInitialization();
         custom.write();
         const auto result_directory = output_case / "results/0/rank-0000";
         require(std::filesystem::exists(result_directory / "T.csv") &&

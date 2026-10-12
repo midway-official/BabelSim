@@ -3,6 +3,7 @@
 #include "babelsim/case.h"
 #include "babelsim/solver.h"
 #include "babelsim/history.h"
+#include "babelsim/builtin_descriptions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -60,34 +61,38 @@ struct TransportResult {
 class Model {
 public:
     virtual ~Model() = default;
-    virtual void addHistories(time::HistoryGroup&) = 0;
+    virtual void registerTimeState(time::HistoryGroup&) = 0;
     virtual void beginStep() {}
     virtual const char* modelName() const = 0;
     virtual TransportResult solveTransport() = 0;
     virtual double tolerance() const = 0;
+    virtual double relaxationFactor() const = 0;
 };
 
-Model* create(Case&, VectorField&, const ScalarField&, ScalarField&, double, double);
+Model* createModel(Case&, VectorField&, const ScalarField&, ScalarField&,
+    const builtin::FluidConfig&, const OperatorOptions&);
 void destroy(Model*) noexcept;
 using Handle = std::unique_ptr<Model, void(*)(Model*)>;
 
 // SIMPLE-facing coupling: configuration and field ownership, no numerical model.
 class Turbulence {
 public:
-    Turbulence(Case& problem, VectorField& velocity, const ScalarField& phi);
+    Turbulence(Case& problem, VectorField& velocity, const ScalarField& phi,
+        const builtin::FluidConfig& fluid, const OperatorOptions& momentumOptions);
     explicit operator bool() const { return bool(model_); }
     const ScalarField& effectiveViscosity() const { return *viscosity_; }
     // Explicit remainder of the eddy-viscosity deviatoric stress after the
     // implicit div(muEff*grad(U)) term. Do not add the full stress a second time.
     TensorField deviatoricStressRemainder(const VectorField& velocity) const;
-    void addHistories(time::HistoryGroup& histories) {
-        histories.track(*viscosity_);
-        if (model_) model_->addHistories(histories);
+    void registerTimeState(time::HistoryGroup& histories) {
+        histories.trackForRollback(*viscosity_);
+        if (model_) model_->registerTimeState(histories);
     }
     void beginStep() { if (model_) model_->beginStep(); }
     TransportResult solveTransport() {
         return model_ ? model_->solveTransport() : TransportResult{};
     }
+    double relaxation() const { return model_ ? model_->relaxationFactor() : 1.0; }
     double tolerance() const { return model_ ? model_->tolerance() : 0.0; }
 
 private:
@@ -96,8 +101,9 @@ private:
     Handle model_;
 };
 
-inline Turbulence load(Case& problem, VectorField& velocity, const ScalarField& phi) {
-    return Turbulence(problem, velocity, phi);
+inline Turbulence create(Case& problem, VectorField& velocity, const ScalarField& phi,
+    const builtin::FluidConfig& fluid, const OperatorOptions& momentumOptions) {
+    return Turbulence(problem, velocity, phi, fluid, momentumOptions);
 }
 
 } // namespace babelsim::rans

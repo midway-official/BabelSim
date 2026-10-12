@@ -26,6 +26,24 @@ const char* typeName(ParameterType type) {
     }
     throw std::invalid_argument("invalid parameter type");
 }
+const char* fieldRoleName(FieldRole role) {
+    switch (role) {
+    case FieldRole::Input: return "input";
+    case FieldRole::Output: return "output";
+    case FieldRole::Work: return "work";
+    }
+    throw std::invalid_argument("invalid field role");
+}
+const char* initializationName(FieldInitialization source) {
+    switch (source) {
+    case FieldInitialization::File: return "file";
+    case FieldInitialization::Provided: return "provided";
+    case FieldInitialization::Constant: return "constant";
+    case FieldInitialization::Computed: return "computed";
+    case FieldInitialization::HomogeneousCorrection: return "homogeneousCorrection";
+    }
+    throw std::invalid_argument("invalid field initialization source");
+}
 const char* fieldTypeName(DescribedFieldType type) {
     switch (type) {
     case DescribedFieldType::Scalar: return "scalar";
@@ -245,6 +263,13 @@ std::vector<const ModuleDescription*> registeredModuleDescriptions() {
     return result;
 }
 
+const EquationDescription& ModuleDescription::equation(const std::string& equationName) const {
+    const auto found = std::find_if(equations.begin(), equations.end(),
+        [&](const EquationDescription& value) { return value.name == equationName; });
+    if (found == equations.end()) throw std::invalid_argument("undeclared module equation: " + name + "." + equationName);
+    return *found;
+}
+
 bool ParameterValues::contains(const std::string& name) const { return values_.count(name) != 0; }
 const ParameterValue& ParameterValues::value(const std::string& name) const {
     const auto found = values_.find(name);
@@ -283,12 +308,19 @@ void validateModuleDescription(const ModuleDescription& description) {
         requireName(field.name, "field");
         if (!names.insert(field.name).second) throw std::invalid_argument("duplicate module field: " + field.name);
         fieldTypeName(field.type);
-        if (description.supports_case_template && field.role == FieldRole::Input &&
+        fieldRoleName(field.role);
+        initializationName(field.initialization);
+        if (field.initialization == FieldInitialization::HomogeneousCorrection &&
+            std::none_of(description.fields.begin(), description.fields.end(), [&](const FieldDescription& source) {
+                return source.name == field.source_field && source.name != field.name &&
+                    source.type == DescribedFieldType::Scalar && source.location == DescribedFieldLocation::Cell;
+            })) throw std::invalid_argument("correction needs a declared scalar source field: " + field.name);
+        if (description.supports_case_template && field.initialization == FieldInitialization::File &&
             field.location != DescribedFieldLocation::Cell)
             throw std::invalid_argument("generic case templates require cell input fields: " + field.name);
         if (field.template_value.find_first_of("\r\n{}#") != std::string::npos)
             throw std::invalid_argument("invalid field tutorial literal: " + field.name);
-        if (description.supports_case_template && field.role == FieldRole::Input) checkTutorialLiteral(field);
+        if (description.supports_case_template && field.initialization == FieldInitialization::File) checkTutorialLiteral(field);
     }
     std::set<std::string> parameters;
     for (const auto& parameter : description.parameters) {
@@ -353,7 +385,7 @@ ModuleParameters readModuleParameters(const Case& problem, const ModuleDescripti
     validateModuleDescription(description);
     ModuleParameters result;
     for (const auto& parameter : description.parameters) {
-        const auto& input = parameter.dictionary == ParameterDictionary::Physics ? problem.physics() : problem.solution();
+        const auto& input = parameter.dictionary == ParameterDictionary::Physics ? problem.read.physics() : problem.read.solution();
         auto& values = valuesFor(result, parameter.dictionary);
         std::optional<ParameterValue> value;
         if (input.contains(parameter.name)) value = readValue(input, parameter);
@@ -373,25 +405,25 @@ ModuleParameters readModuleParameters(const Case& problem, const ModuleDescripti
 void validateModuleConfiguration(const Case& problem, const ModuleDescription& description) {
     (void)readModuleParameters(problem, description);
     if (!description.time_methods.empty() && std::find(description.time_methods.begin(),
-        description.time_methods.end(), problem.methods().time) == description.time_methods.end())
-        throw std::invalid_argument("module " + description.name + " does not support time " + timeName(problem.methods().time));
+        description.time_methods.end(), problem.read.methods().time) == description.time_methods.end())
+        throw std::invalid_argument("module " + description.name + " does not support time " + timeName(problem.read.methods().time));
     if (!description.compatible_solvers.empty() && std::find(description.compatible_solvers.begin(),
         description.compatible_solvers.end(), problem.solver()) == description.compatible_solvers.end())
         throw std::invalid_argument("module " + description.name + " is incompatible with solver " + problem.solver());
     for (const auto& field : description.fields) {
-        if (field.role == FieldRole::Input)
+        if (field.initialization == FieldInitialization::File)
             checkFieldHeader(problem.definition().fields_directory / (field.name + ".field"), field,
                 description.boundary_types);
     }
     for (const auto& equation : description.equations) {
         const std::string key = "equation." + equation.name;
-        const auto found = problem.methods().named.find(key);
-        if (found == problem.methods().named.end())
+        const auto found = problem.read.methods().named.find(key);
+        if (found == problem.read.methods().named.end())
             throw std::invalid_argument("module " + description.name + " needs numerical configuration " + key);
         found->second.options.requireComplete(key);
         for (const auto& option : {"kspType", "pcType", "absoluteTolerance", "relativeTolerance", "maxIterations"})
-            if (!problem.solution().contains(key + "." + option))
-                throw std::invalid_argument(problem.solution().sourcePath().string() +
+            if (!problem.read.solution().contains(key + "." + option))
+                throw std::invalid_argument(problem.read.solution().sourcePath().string() +
                     ": missing entry " + key + "." + option);
     }
 }
@@ -400,12 +432,12 @@ std::string moduleMarkdown(const ModuleDescription& description) {
     validateModuleDescription(description);
     std::ostringstream output;
     output << "# " << description.name << "\n\n" << description.explanation << "\n\n"
-        << "## Fields\n\n| Name | Type | Location | Role | Unit | Tutorial value | Description |\n"
-        << "| --- | --- | --- | --- | --- | --- | --- |\n";
+        << "## Fields\n\n| Name | Type | Location | Role | Initialization | Unit | Tutorial value | Description |\n"
+        << "| --- | --- | --- | --- | --- | --- | --- | --- |\n";
     for (const auto& field : description.fields) output << "| " << field.name << " | "
         << fieldTypeName(field.type) << " | " << (field.location == DescribedFieldLocation::Cell ? "cell" : "face")
-        << " | " << (field.role == FieldRole::Input ? "input" : "derived") << " | "
-        << tableCell(field.unit) << " | " << (field.role == FieldRole::Input ? field.template_value : "program-owned")
+        << " | " << fieldRoleName(field.role) << " | " << initializationName(field.initialization) << " | "
+        << tableCell(field.unit) << " | " << (field.initialization == FieldInitialization::File ? field.template_value : "program-owned")
         << " | " << tableCell(field.explanation) << " |\n";
     output << "\n## Parameters\n\n| Dictionary | Name | Type | Unit | Default | Range / choices | Description |\n"
         << "| --- | --- | --- | --- | --- | --- | --- |\n";
@@ -482,7 +514,7 @@ std::string moduleJson(const ModuleDescription& description) {
         }
         output << "\n    }, \"required\": "; jsonStrings(output, required);
         // Descriptions compose; equation controls and other models use the same
-        // dictionaries. Actual unknown/unused keys are checked by Case::validate.
+        // dictionaries. Actual unknown/unused keys are checked by Case::finalizeInitialization().
         output << ", \"additionalProperties\": true}" << (dictionary == ParameterDictionary::Physics ? ",\n" : "\n");
     }
     std::vector<std::string> requiredDictionaries;
@@ -498,7 +530,9 @@ std::string moduleJson(const ModuleDescription& description) {
         output << (i ? ",\n" : "\n") << "    {\"name\": " << quote(field.name)
             << ", \"type\": " << quote(fieldTypeName(field.type)) << ", \"location\": "
             << quote(field.location == DescribedFieldLocation::Cell ? "cell" : "face")
-            << ", \"role\": " << quote(field.role == FieldRole::Input ? "input" : "derived")
+            << ", \"role\": " << quote(fieldRoleName(field.role))
+            << ", \"initialization\": " << quote(initializationName(field.initialization))
+            << ", \"sourceField\": " << quote(field.source_field)
             << ", \"unit\": " << quote(field.unit) << ", \"tutorialValue\": " << quote(field.template_value)
             << ", \"description\": " << quote(field.explanation) << '}';
     }
@@ -595,7 +629,7 @@ void writeCaseTemplate(const ModuleDescription& description, const std::filesyst
         writeFile(directory / "control.bs", "startTime 0\nendTime 0.05\ndeltaT 0.01\n");
         writeFile(directory / "output.bs", "directory results\ntimeName final\nwriteInterval 1\n");
         for (const auto& field : description.fields) {
-            if (field.role != FieldRole::Input) continue;
+            if (field.initialization != FieldInitialization::File) continue;
             std::ostringstream output;
             output << "field " << field.name << "\n{\n    type " << fieldTypeName(field.type)
                 << "\n    location cell\n    internal uniform (" << field.template_value << ")\n    boundary\n    {\n";

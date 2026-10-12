@@ -48,6 +48,14 @@ assert not re.search(r'\b(?:createFaceField|loadMethods|bool\s+loop\s*\()',
 for path, text in texts.items():
     assert not re.search(r'\b(?:fvm|fvc)\s*::|namespace\s+(?:fvm|fvc)\b|'
                          r'babelsim/(?:fvm|fvc)\.h|\b(?:FvmTermKind|ScalarFvmTerm|VectorFvmTerm)\b', text), path
+# Named fields are borrowed from Case. Do not silently copy them with plain auto.
+# This deliberately allows explicit snapshots (const ScalarField old = U) and
+# value results from mathematical expressions.
+field_borrow = re.compile(
+    r"\bauto\s+\w+\s*=\s*\w+\s*\.\s*(?:load|create|fields)\s*\.", re.S)
+for folder in (ROOT / "src/physics", ROOT / "docs/examples", ROOT / "tests/external"):
+    for path in folder.rglob("*.cpp"):
+        assert not field_borrow.search(path.read_text()), (path, "use auto& for Case fields")
 for name in ("mesh.h", "field.h"):
     assert all(path.name in {"mesh.h", "field.h", "vector.h"}
                for path in closures[ROOT / "include/babelsim" / name]), name

@@ -35,9 +35,9 @@ Physics 和外部求解器使用 `include/babelsim`。它们不访问 `src/inter
 
 ## 所有权与生命周期
 
-Case 拥有 Mesh 和命名场；返回的场引用在 Case 生命周期内稳定。加载、创建、查找是不同操作，不能用同名 create 重复初始化已存在场。Equation 绑定确定的未知场并拥有独立装配状态；History 持有显式场快照。
+Case 拥有 Mesh 和命名场；返回的场引用在 Case 生命周期内稳定。`problem.load`、`problem.create`、`problem.fields` 分别负责加载、创建、查找，统一返回场引用；修正场也通过 `problem.create.homogeneousCorrection` 创建并由 Case 管理。不能用同名 create 重复初始化已存在场。配置访问集中在 `problem.read`。Equation 绑定确定的未知场并拥有独立装配状态；History 持有显式场快照。
 
-完成字段、方程和参数声明后执行 validate。validate 只检查配置使用情况；`time::start` 构造时间对象，第一次 advance/setTime 或显式 Case::start 才进入开始状态并关闭新命名场声明。为避免阶段错误，所有 Case 命名场均在推进前创建。
+初始化按依赖排列：读取强类型配置 → 加载/创建场 → 从描述绑定方程 → 计算物理初值并构造模型 → 登记历史和回滚状态 → `problem.finalizeInitialization()` → 主循环。该入口检查配置消费、描述要求的场及方程绑定、类型/位置、初始化来源和边界能力，成功后关闭资源声明。它不推进时间或求解；`time::makeStepper(problem)` 只构造时钟，之后显式 `advance()`。
 
 Equation、History 和临时 Field 应在其 Case/网格仍有效时销毁。程序不管理 PETSc 句柄或手工 MPI 会话。当前活动运行域不适合作为任意多个独立 Case 同线程重叠求解的通用调度器；多算例批处理使用独立进程或顺序生命周期。
 

@@ -35,8 +35,8 @@ private:
 };
 template<class T> History<T> history(const Field<T>& field) {return History<T>(field);}
 
-// Non-owning heterogeneous history set. Declare it after its fields/histories;
-// those objects must outlive the group. Algorithms still choose when to save.
+// Heterogeneous history group: fields are borrowed, addHistory histories are
+// owned; add(field, history) borrows an external history. Algorithms choose when to save.
 class HistoryGroup {
     struct Metadata {
         int levels; double dt, previousDt;
@@ -58,6 +58,16 @@ public:
     HistoryGroup() = default;
     HistoryGroup(const HistoryGroup&) = delete;
     HistoryGroup& operator=(const HistoryGroup&) = delete;
+    // The group owns these histories at stable addresses. Construction captures
+    // the final initialized values; rollback snapshots remain explicitly opt-in.
+    template<class T> History<T>& addHistory(Field<T>& field) {
+        requireDeclaration();
+        auto history = std::make_shared<History<T>>(field);
+        owned_.push_back(history);
+        try { add(field, *history); }
+        catch (...) { owned_.pop_back(); throw; }
+        return *history;
+    }
     template<class T> void add(Field<T>& field, History<T>& history) {
         requireDeclaration();
         field.validateStorage();
@@ -91,7 +101,7 @@ public:
     }
     // Include pressure, derived coefficients or other fields in optional rollback
     // without making them a time-discretized unknown.
-    template<class T> void track(Field<T>& field) {
+    template<class T> void trackForRollback(Field<T>& field) {
         requireDeclaration(); requireMesh(field.mesh()); field.validateStorage();
         for (const auto& entry:entries_)
             if (entry.field==&field) throw std::invalid_argument("history field is already tracked");
@@ -102,6 +112,12 @@ public:
             auto copy=std::make_shared<Field<T>>(field);
             return std::function<void()>([&field,copy] { field.restoreSnapshot(*copy); });
         });
+    }
+    template<class T, class U, class... Rest>
+    void trackForRollback(Field<T>& first, Field<U>& second, Rest&... rest) {
+        trackForRollback(first);
+        trackForRollback(second);
+        (trackForRollback(rest), ...);
     }
     // Copyable model state (e.g. counters or a closure state struct). Registration
     // is explicit; opaque pointers or external side effects cannot be rolled back.
@@ -115,7 +131,7 @@ public:
             return std::function<void()>([&value,copy] { value=*copy; });
         });
     }
-    template<class T> void watch(Field<T>&) = delete; // use track(field)
+    template<class T> void watch(Field<T>&) = delete; // use trackForRollback(field)
     template<class T> void watch(History<T>&) = delete; // use add(field, history)
     void validate() const {
         for (const auto& entry:entries_)
@@ -183,6 +199,7 @@ private:
         mesh_=&mesh;
     }
     const Mesh* mesh_=nullptr;
+    std::vector<std::shared_ptr<void>> owned_;
     std::vector<Entry> entries_;
     std::vector<const void*> tracked_, watched_;
     std::vector<std::function<std::function<void()>()>> checkpoints_;

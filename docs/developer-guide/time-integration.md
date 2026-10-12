@@ -9,13 +9,11 @@
 ```cpp
 #include "babelsim/time_discretization.h"
 
-auto oldT = time::history(T);
-auto oldC = time::history(C);
 time::HistoryGroup histories;
-histories.add(T, oldT);
-histories.add(C, oldC);
-auto clock = time::start(problem);
-problem.validate();
+auto& oldT = histories.addHistory(T);
+auto& oldC = histories.addHistory(C);
+auto clock = time::makeStepper(problem);
+problem.finalizeInitialization();
 while (!clock.finished()) {
     clock.advance();
     histories.save(clock);
@@ -26,16 +24,16 @@ while (!clock.finished()) {
 }
 ```
 
-`HistoryGroup` 保存引用，不拥有字段和历史。先声明字段/历史，再声明组；这些对象必须在组及时间步事务期间保持地址稳定。一个字段和历史只能登记一次，所有字段属于同一网格。开始推进后关闭登记。
+`HistoryGroup::addHistory(field)` 创建并持有历史，返回稳定引用；容器增长不使该引用失效。字段仍由 Case 持有，Case 必须比历史组存活更久。初值修正、投影和模型初始化完成后再调用 addHistory，明确捕获最终初始状态。专家算法也可用 `add(field, existingHistory)` 关联自行持有的历史，但须自行保证它的生存期。一个字段和历史只能登记一次，所有字段属于同一网格；开始推进后关闭登记。
 
 `save(clock)` 检查时钟、网格、连续的步号，以及 `levels/dt/previousDt`。重复保存、跳过物理步、手工推进其中一个历史均会失败。没有 TimeStepper 的高级算法可以使用 `save(dt)`，但绑定时钟后不允许混用两种路径。错误的步长/不同步在保存任何成员之前被拒绝。
 
-默认路径只执行原有历史复制和小规模元数据检查。`track()` / `watch()` 登记的回滚状态在此路径不复制；只有显式创建事务或检查点才生成快照。
+默认路径只执行原有历史复制和小规模元数据检查。`trackForRollback()` / `watch()` 登记的回滚状态在此路径不复制；只有显式创建事务或检查点才生成快照。
 
 ## 时间系数与显式预测
 
 ```cpp
-const auto coefficients = time::weights(problem.methods().time, oldT);
+const auto coefficients = time::weights(problem.read.methods().time, oldT);
 // current*x_new = previous*x_old + older*x_older （时间项的 Ax=b 形式）
 ```
 
@@ -52,8 +50,8 @@ older    = -r*r/((1+r)*dt)
 显式时间预测只在算法要求的位置调用：
 
 ```cpp
-if (problem.methods().time == TimeMethod::BDF2 && oldT.levels() >= 2)
-    time::predict(T, oldT, problem.methods().time);
+if (problem.read.methods().time == TimeMethod::BDF2 && oldT.levels() >= 2)
+    time::predict(T, oldT, problem.read.methods().time);
 ```
 
 BDF2 使用 `(1+r)*previous-r*older`，保留目标未知量的物理边界。Euler/启动分支直接恢复保存的 previous，稳态分支不改变目标。内置热传导和输运仅在 BDF2 两层就绪时预测，因此 Euler 没有新增全场遍历。流动求解器继续决定自己的预测/校正顺序，不自动外推全部未知量。
@@ -66,9 +64,11 @@ PISO 的时间通量修正保留在物理层，仅通过 `time::requireMatching(
 #include "babelsim/time_step.h"
 
 time::HistoryGroup histories;
-histories.add(T, oldT);
-histories.track(derivedCoefficient); // 没有时间导数，但拒绝步骤时必须恢复
+auto& oldT = histories.addHistory(T);
+histories.trackForRollback(pressure, derivedCoefficient); // 没有时间导数，但拒绝步骤时必须恢复
 histories.watch(modelState);         // 可复制的模型计数器/状态结构
+auto clock = time::makeStepper(problem);
+problem.finalizeInitialization();
 while (!clock.finished()) {
     auto step = time::beginStep(clock, histories);
     // beginStep 已推进时钟、保存所有关联历史。
@@ -89,9 +89,9 @@ while (!clock.finished()) {
 
 `beginStep(clock, histories, requestedDt)` 支持调用者指定步长，末步截断到 endTime。接受显式短步后，下一次默认步继续从当前时间推进 configured deltaT；拒绝则恢复原推进模式。它提供重试基础设施，尚不包含误差估计、步长控制器或 BDF2 步长比稳定性策略。
 
-所有需回滚的场都必须通过 `add/track` 登记，模型自己的可复制状态通过 `watch` 登记。Field/History 不能传入 `watch`，避免值赋值误代替完整恢复。自定义状态赋值应可靠且不抛异常；不透明外部资源、日志、文件输出和已执行的外部副作用不属于内存回滚。启动时声明阶段关闭不撤销，必须在开始时间步前完成参数读取和场声明。
+所有需回滚的场都必须通过 `addHistory/add/trackForRollback` 登记，模型自己的可复制状态通过 `watch` 登记。Field/History 不能传入 `watch`，避免值赋值误代替完整恢复。自定义状态赋值应可靠且不抛异常；不透明外部资源、日志、文件输出和已执行的外部副作用不属于内存回滚。启动时声明阶段关闭不撤销，必须在开始时间步前完成参数读取和场声明。
 
-待接受步骤期间不能再推进时钟或保存历史，也不能嵌套事务。与历史组无关的其他状态不会自动发现。SIMPLE/PISO/RANS 通过模型 `addHistories` 将输运量登记到同一组；`beginStep` 钩子只重置每步模型计数器，不能推进历史。模型原来的 `saveOld` 路径已删除，模型和宿主不再分别保存同一步历史。
+待接受步骤期间不能再推进时钟或保存历史，也不能嵌套事务。与历史组无关的其他状态不会自动发现。SIMPLE/PISO/RANS 通过模型 `registerTimeState` 将输运量登记到同一组；`beginStep` 钩子只重置每步模型计数器，不能推进历史。模型原来的 `saveOld` 路径已删除，模型和宿主不再分别保存同一步历史。
 
 ## 容量项的适用范围
 

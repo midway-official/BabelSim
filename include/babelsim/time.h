@@ -50,7 +50,7 @@ private:
     friend class time::Step;
 };
 namespace time {
-TimeStepper start(Case&);
+TimeStepper makeStepper(Case&);
 }
 
 }  // babelsim 命名空间

@@ -10,59 +10,45 @@
 namespace babelsim {
 SolverResult runTransientSimple(Case& problem) {
     const monitor::Reporter reporter("Transient SIMPLE");
-    auto& U = problem.vectorField("U");
-    auto& p = problem.scalarField("p");
-    auto& phi = problem.createFaceScalarField("phi");
-    const auto parameters = problem.parameters(builtin::transientSimple());
-    const double rho = parameters.physics.number("density");
+    const auto& spec = builtin::transientSimple();
+    const auto config = problem.read.config(spec);
 
-    const auto& methods = problem.methods(); // loaded once by Case/runtime
+    auto& U = problem.load.vectorField("U");
+    auto& p = problem.load.scalarField("p");
+    auto& phi = problem.create.faceScalarField("phi");
+    auto& pPrime = problem.create.homogeneousCorrection(p, "pPrime");
+    auto momentumEquation = equ::createEquation(problem, spec.equation("momentum"), U);
+    auto pressureCorrectionEquation = equ::createEquation(problem, spec.equation("pressureCorrection"), pPrime);
+    const auto pressureOptions = pressureCorrectionEquation.options("diffusion");
+    const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
+        ? 1 : config.coupling.nonOrthogonalCorrections + 1;
+
+    phi = math::flux(U, momentumEquation.options());
+    auto turbulence = rans::create(problem, U, phi, config.fluid, momentumEquation.options());
+    const auto& muEff = turbulence.effectiveViscosity();
     const auto V = geometry::cellVolumes(problem.mesh());
     const auto Sf = geometry::faceAreaVectors(problem.mesh());
     const auto Af = geometry::faceAreas(problem.mesh());
-    const auto& settings = parameters.solution;
-    const int maxIterations = settings.integer("maxIterations");
-    const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections");
-    const double alphaU = settings.number("velocityRelaxation");
-    const double alphaP = settings.number("pressureRelaxation");
-    const double massTolerance = settings.number("continuityTolerance");
-    const double velocityTolerance = settings.number("velocityTolerance");
-    const double momentumTolerance = settings.number("momentumTolerance");
-    const double pressureTolerance = settings.number("pressureCorrectionTolerance");
-
-    auto turbulence = rans::load(problem, U, phi);
-    const auto& muEff = turbulence.effectiveViscosity();
-    auto pPrime = field::homogeneousLike(p, "pPrime");
-    auto momentumEquation = equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
-    auto pressureCorrectionEquation = equ::createEquation(problem, "pressureCorrection", pPrime, {"diffusion"});
-    const auto pressureOptions = pressureCorrectionEquation.options("diffusion");
-    const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
-        ? 1 : nonOrthogonalCorrections + 1;
-    phi = math::flux(U, momentumEquation.options());
-    if (methods.time == TimeMethod::Steady)
-        throw std::invalid_argument("transient SIMPLE requires a transient time scheme");
-    auto time = time::start(problem);
     const int writeInterval = readWriteInterval(problem);
-    auto U_old = time::history(U);
     time::HistoryGroup histories;
-    histories.add(U, U_old);
-    histories.track(phi);
-    histories.track(p);
-    turbulence.addHistories(histories);
-    problem.validate();
+    auto& U_old = histories.addHistory(U);
+    histories.trackForRollback(p, phi);
+    turbulence.registerTimeState(histories);
+    auto time = time::makeStepper(problem);
+    problem.finalizeInitialization();
 
     while (time.value() < time.end()) {
         time.advance();
         histories.save(time);
         turbulence.beginStep();
         bool converged = false;
-        for (int iter = 0; iter < maxIterations; ++iter) {
+        for (int iter = 0; iter < config.coupling.maxIterations; ++iter) {
             const VectorField U_previous = U; // previous SIMPLE iterate, not physical time history
 
             // Assemble the momentum equation.
             momentumEquation.reset();
-            equ::ddt(momentumEquation, rho, U_old);
-            equ::div(momentumEquation, phi, rho, "convection");
+            equ::ddt(momentumEquation, config.fluid.density, U_old);
+            equ::div(momentumEquation, phi, config.fluid.density, "convection");
             equ::laplacian(momentumEquation, muEff, -1, "diffusion");
             equ::source(momentumEquation, -math::grad(p, pressureOptions));
             if (turbulence)
@@ -72,9 +58,9 @@ SolverResult runTransientSimple(Case& problem) {
             // Measure the current outer iterate before relaxation or prediction.
             const double rU = diagnostics::relativeResidual(momentumEquation, U);
             if (!diagnostics::all(std::isfinite(rU))) return SolverResult::numericalFailure();
-            equ::relax(momentumEquation, U_previous, alphaU);
+            equ::relax(momentumEquation, U_previous, config.coupling.velocityRelaxation);
             // Preserve SIMPLE row normalization; V/aP below uses these scaled rows.
-            equ::scale(momentumEquation, alphaU);
+            equ::scale(momentumEquation, config.coupling.velocityRelaxation);
             const auto aP = momentumEquation.diagonal();
             const auto rAU = V / aP;
             const auto velocitySolve = equ::solve(momentumEquation);
@@ -105,11 +91,11 @@ SolverResult runTransientSimple(Case& problem) {
                 pressureLinearResidual = pressureSolve.relative_residual;
             }
 
-            p += alphaP * pPrime;
+            p += config.coupling.pressureRelaxation * pPrime;
             auto pressureFlux = equ::faceFlux(pressureCorrectionEquation, pPrime);
             // Preserve this transient algorithm's coupled pressure/velocity relaxation.
-            pPrime *= alphaP;
-            pressureFlux *= alphaP;
+            pPrime *= config.coupling.pressureRelaxation;
+            pressureFlux *= config.coupling.pressureRelaxation;
             U -= rAU * math::grad(pPrime, pressureOptions);
             phi = phiH + pressureFlux;
 
@@ -132,10 +118,10 @@ SolverResult runTransientSimple(Case& problem) {
                 && std::isfinite(dP) && std::isfinite(mass.relative))) return SolverResult::numericalFailure();
             const bool linearConverged = velocitySolve.converged() && pressureConverged;
             converged = diagnostics::all(linearConverged && turbulenceConverged
-                && rU <= momentumTolerance && dU <= velocityTolerance
-                && dP <= pressureTolerance && mass.relative <= massTolerance);
+                && rU <= config.convergence.momentum && dU <= config.convergence.velocity
+                && dP <= config.convergence.pressureCorrection && mass.relative <= config.convergence.continuity);
 
-            reporter.iteration(iter + 1, maxIterations, converged, {
+            reporter.iteration(iter + 1, config.coupling.maxIterations, converged, {
                 {"mass", mass.relative}, {"dU", dU}, {"rU", rU}, {"dP", dP},
                 {"linP", pressureLinearResidual}, {"dTurb", dTurbulence}, {"rTurb", rTurbulence},
                 {"linear", linearConverged ? "ok" : "inexact"}, {"converged", converged}});

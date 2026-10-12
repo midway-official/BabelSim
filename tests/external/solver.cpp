@@ -9,15 +9,16 @@ using namespace babelsim;
 
 // 外部方程驱动 Solver：不需要框架源码、专用 Case reader 或内置分派表。
 SolverResult transport(Case& problem) {
-    ScalarField& C = problem.scalarField("C");
-    VectorField& U = problem.createVectorField("U", Vec3{});
-    ScalarField& phi = problem.createFaceScalarField("phi");
-    const double D = problem.physics().nonnegative("diffusivity");
-    const double Q = problem.physics().number("source");
-    auto time=time::start(problem);
+    ScalarField& C = problem.load.scalarField("C");
+    VectorField& U = problem.create.vectorField("U", Vec3{});
+    ScalarField& phi = problem.create.faceScalarField("phi");
+    const double D = problem.read.physics().nonnegative("diffusivity");
+    const double Q = problem.read.physics().number("source");
+    auto time=time::makeStepper(problem);
     auto old=time::history(C);
     auto A=equ::createEquation(problem, "transport", C, {"convection", "diffusion"});
     phi = math::flux(U, A.options());
+    problem.finalizeInitialization();
     while(time.value()<time.end()) {
         time.advance(); old.save(C, time.dt());
         A.reset(); equ::ddt(A,1.0,old); equ::div(A,phi);
@@ -32,18 +33,19 @@ const SolverRegistration transport_registration("transport_extension", transport
 
 // 外部算法驱动 Solver：两个 PDE 的定点耦合，收敛判断由公开全局诊断提供。
 SolverResult coupled(Case& problem) {
-    ScalarField& T = problem.createScalarField("T", 1.0);
-    ScalarField& C = problem.createScalarField("C", 0.0);
-    ScalarField& previousT = problem.createScalarField("previousT", 0.0);
-    ScalarField& previousC = problem.createScalarField("previousC", 0.0);
-    const double D = problem.physics().nonnegative("diffusivity");
-    const double a = problem.physics().number("coupling");
+    ScalarField& T = problem.create.scalarField("T", 1.0);
+    ScalarField& C = problem.create.scalarField("C", 0.0);
+    ScalarField& previousT = problem.create.scalarField("previousT", 0.0);
+    ScalarField& previousC = problem.create.scalarField("previousC", 0.0);
+    const double D = problem.read.physics().nonnegative("diffusivity");
+    const double a = problem.read.physics().number("coupling");
     problem.output(T);
     problem.output(C);
-    auto time=time::start(problem);
+    auto time=time::makeStepper(problem);
     auto oldT=time::history(T),oldC=time::history(C);
     auto A=equ::createEquation(problem, "temperature", T, {"diffusion"});
     auto B=equ::createEquation(problem, "concentration", C, {"diffusion"});
+    problem.finalizeInitialization();
     while(time.value()<time.end()) {
         time.advance();
         oldT.save(T, time.dt()); oldC.save(C, time.dt());
@@ -71,29 +73,30 @@ const SolverRegistration coupled_registration("coupled_extension", coupled);
 
 // 验收非均匀矢量场源、动量响应、压力规范和派生场输出；不是新的流动物理模型。
 SolverResult vectorResponse(Case& problem) {
-    VectorField& U = problem.createVectorField("U", Vec3{});
-    VectorField& force = problem.createVectorField("force", Vec3{});
-    ScalarField& p = problem.createScalarField("p", 0.0);
-    ScalarField& rAU = problem.createScalarField("rAU", 0.0);
-    ScalarField& energy = problem.createScalarField("energy", 0.0);
-    const double strength = problem.physics().number("strength");
+    VectorField& U = problem.create.vectorField("U", Vec3{});
+    VectorField& force = problem.create.vectorField("force", Vec3{});
+    ScalarField& p = problem.create.scalarField("p", 0.0);
+    ScalarField& rAU = problem.create.scalarField("rAU", 0.0);
+    ScalarField& energy = problem.create.scalarField("energy", 0.0);
+    const double strength = problem.read.physics().number("strength");
     force.evaluate([](Vec3 position) { return Vec3{1 + position.x, 2 + position.y, 3 + position.z}; });
     // 新的组合算法仍能在声明阶段继续声明自己的数学场。
-    TensorField& stress = problem.createTensorField("stress", Tensor3{});
+    TensorField& stress = problem.create.tensorField("stress", Tensor3{});
     stress.evaluate([](Vec3) { return Tensor3{{Vec3{1, 2, 3}, Vec3{4, 5, 6}, Vec3{7, 8, 9}}}; });
-    problem.createFaceVectorField("faceU");
-    problem.createFaceTensorField("faceStress");
+    problem.create.faceVectorField("faceU");
+    problem.create.faceTensorField("faceStress");
     problem.output(U);
     problem.output(p);
     problem.output(rAU);
     problem.output(energy);
     problem.output(stress);
-    auto time=time::start(problem);
+    auto time=time::makeStepper(problem);
     auto old=time::history(U);
     auto A=equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
     auto P=equ::createEquation(problem, "pressureCorrection", p, {"diffusion"});
-    problem.validate();
+    problem.finalizeInitialization();
     const auto V = geometry::cellVolumes(problem.mesh());
+    problem.finalizeInitialization();
     while(time.value()<time.end()) {
         time.advance(); old.save(U, time.dt());
         A.reset(); equ::ddt(A,1.0,old); equ::source(A,strength*force);

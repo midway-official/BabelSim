@@ -7,7 +7,7 @@
 BabelSim 区分已知场数学与未知量方程。math 立即计算并返回独立 Field；equ 立即向已绑定未知场的 Equation 加入离散贡献。普通 C++ 负责物理时间、非线性与耦合循环。
 
 ```cpp
-auto equation = equ::createEquation(problem, "temperature", T, {"diffusion"});
+auto equation = equ::createEquation(problem, spec.equation("temperature"), T);
 equation.reset();
 equ::ddt(equation, rho * cp, history);
 equ::laplacian(equation, conductivity, -1, "diffusion");
@@ -17,45 +17,72 @@ const auto result = equ::solve(equation);
 
 这段代码装配 `rho*cp*dT/dt - div(k*grad(T)) = source`。它所在的完整可编译程序见[external_heat.cpp](../examples/external_heat.cpp)。
 
-## Case 与参数
+## 场的声明、初始化与使用
+
+求解器中的命名场统一由 Case 管理。加载的未知场、程序创建的物性场、通量和压力修正场使用同一种 Field，不需要选择局部或全局存储，也不需要手动注册。所有 `load/create/fields` 入口都返回稳定引用，统一使用 `auto&` 接收。
 
 ```cpp
-auto& T = problem.scalarField("T");           // 加载 T.field
-auto& total = problem.createScalarField("total");
-auto& same = problem.existingScalarField("total");
-problem.output(total);                       // 选择后续写出
+auto& U = problem.load.vectorField("U");
+auto& p = problem.load.scalarField("p");
+auto& phi = problem.create.faceScalarField("phi");
+auto& pPrime = problem.create.homogeneousCorrection(p, "pPrime");
+auto& conductivity = problem.create.scalarField("conductivity", 0.1);
+
+// 边界和数值操作直接作用于这个场。
+conductivity.fill(0.2);
+conductivity.evaluate([](const Vec3& x) { return 0.1 + 0.01 * x.x; });
+pPrime.fill(0.0);
+
+// 在其他模型或函数中取得同一个场，不再次读文件或创建。
+auto& samePressure = problem.fields.scalarField("p");
+problem.output(pPrime); // 选择结果输出，无需再注册
 ```
 
-| 操作 | 语义 |
+| 入口 | 语义 |
 | --- | --- |
-| scalarField / vectorField / tensorField | 从配置的 fields 目录加载命名单元场，重复加载返回同一对象 |
-| createScalarField / createVectorField / createTensorField | 新建 Case 命名单元场，不读取文件 |
-| existingScalarField 等 | 查找已声明的场，不隐式加载或创建 |
-| createFaceScalarField / createFaceVectorField / createFaceTensorField | 显式创建对应类型的面场 |
-| existingFaceField / existingFaceVectorField / existingFaceTensorField | 查找对应面场 |
-| output(field, enabled) | 选择/取消 Case 自有单元场输出，不立即写文件 |
-| validate | 检查 physics、solution、methods 的未使用配置 |
-| start / setTime | 进入开始状态，关闭新命名场声明 |
-| write / finish | 写快照；finish 同时结束 Case 状态，不判断求解收敛 |
+| `problem.load.scalarField/vectorField/tensorField(name)` | 从配置的 fields 目录加载单元值及边界；重复加载返回同一对象 |
+| `problem.create.scalarField/vectorField/tensorField(name, initial)` | 不读文件，创建单元场；初值默认零，默认边界为 zeroGradient |
+| `problem.create.faceScalarField/faceVectorField/faceTensorField(name, initial)` | 创建面场；初值默认零，可显式给定 |
+| `problem.create.homogeneousCorrection(original, name)` | 创建零单元场；fixedValue 对应 fixedValue(0)，symmetry 保留，其余边界对应 zeroGradient |
+| `problem.fields.scalarField/vectorField/tensorField(name)` | 取得已经声明的单元场，不区分其初值来源 |
+| `problem.fields.faceScalarField/faceVectorField/faceTensorField(name)` | 取得已经声明的面场 |
+| `problem.read.config(description)` | 按成员绑定描述读取、校验参数，返回可补全的普通 C++ 配置结构体 |
+| `problem.read.parameters(description)` | 动态工具入口，按描述返回 ParameterValues；通常求解器使用 config |
+| `problem.read.physics()/solution()` | 访问 Case 已加载的参数字典 |
+| `problem.read.methods()/timeControl()/outputControl()` | 访问已加载的数值方法、时间和输出配置 |
 
-`physics()`、`solution()` 返回只读 Parameters。通过 word、number、positive、nonnegative、fraction、integer、boolean 读取并消费配置。fraction 为 `(0,1]`；带默认值的 getter 仍验证范围。contains/inspect 不替代实际读取，不会让未使用键自动通过。
+名称在一个 Case 内唯一，创建只能执行一次。重复创建会报错并提示用 `problem.fields` 查找；读取尚未声明的场会报错；不能用 `load` 把程序创建场重新解释成输入文件。修正场也遵守同样规则，并要求原场位于当前 Case 的单元上。
 
-所有字段在推进前声明，所有自定义键在 validate 前读取；数值名字与字段绑定保持唯一。空的默认参数不能代替必需的逐方程配置。
+`auto& pPrime = problem.create.homogeneousCorrection(...)` 中的 `&` 是统一的场访问规则。写成 `auto pPrime = ...` 会按 C++ 值语义复制场；项目架构检查会拒绝求解器和示例中这类直接按值接收命名场的写法。这是源码检查，不是对外部 C++ 编译器语义的改变。
 
-## Field 值操作
-
-Field 持有明确的 Mesh、cell/face 位置、名称与边界语义。支持整场赋值、缩放、加法、乘系数和 babelsim::map。赋值要求布局兼容，并保留目标未知量的物理边界约束。
+## 场的数学操作与输出
 
 ```cpp
-const ScalarField previous = T;       // 独立快照
-total.assign(T + C);                  // 值赋入程序拥有的场
+auto& total = problem.create.scalarField("total");
+total = T + C;                        // 更新同一个场，保留它的名称和边界
+const ScalarField previous = T;       // 显式保留一份独立数值快照
 T.assignScaled(0.5, previous);
 T.addScaled(0.5, C);
+problem.output(total);                // 选择后续写出
 ```
 
-数学产生的临时场使用计算边界迹，不能等同于新的物理未知量。`field::homogeneousLike(p, "pPrime")` 可产生齐次校正场：如原固定压力值对应零校正值。它不是重新从 case 加载场，也不自动写入结果。
+Field 持有明确的 Mesh、位置、名称与边界语义。支持整场赋值、缩放、加法和乘系数；赋值要求布局兼容，并保留目标场的物理边界约束。`T + C`、梯度等数学表达式返回的计算结果会随作用域释放，不自动登记为命名场，因此循环中计算表达式不会持续扩充 Case 的场容器。`math::evaluate(operation, target)` 可以复用已有目标存储。
 
-公开接口不提供原始数组 `data()`、单元 `operator[]` 或 resize；局部底层遍历属于框架维护。通过整场函数实现自定义逐值操作，避免把分区/同步细节复制到 Physics。
+输入单元场遵循现有默认输出选择；程序创建的单元场（包括修正场）通过 `problem.output(field)` 或 `output.bs` 的 `writeFields` 选择输出。面场仍可正常参与数学运算，但当前结果文件格式只支持单元场。输出选择与场的生命周期独立。
+
+公开接口不提供原始数组 `data()`、单元 `operator[]` 或 resize。通过整场函数实现自定义逐值操作，避免把分区/同步细节复制到 Physics。
+
+## 配置与生命周期
+
+`problem.read.physics()`、`problem.read.solution()` 返回只读 Parameters。通过 word、number、positive、nonnegative、fraction、integer、boolean 读取并消费配置。fraction 为 `(0,1]`；带默认值的 getter 仍验证范围。contains/inspect 不替代实际读取，不会让未使用键自动通过。
+
+求解器优先使用 `const auto config = problem.read.config(spec)`。配置结构体只声明成员类型；`spec.bind(parameter, &Config::group, &Group::member)` 同时登记参数说明和成员绑定。默认值、范围、依赖默认值只写在描述中，循环访问 `config.fluid.density` 等普通成员。见[模块描述](module-descriptions.md)。
+
+`equ::createEquation(problem, spec.equation("momentum"), U)` 复用描述中的未知场名称和离散项，并检查实际字段名称、位置和网格。已有直接传名称与离散项的入口仍供没有模块描述的自定义低层算法使用。
+
+完成物理初值、模型和时间历史登记后，显式调用 `problem.finalizeInitialization()`。它检查已登记模块要求的字段、类型/位置、输入来源、修正场来源、方程未知量/离散项、边界能力和未消费配置，成功后关闭新的场、模块与方程配置声明。失败时仍可补齐声明后重试；重复完成调用无副作用。它不推进时间、保存历史、做预测或求解，也不能代替具体模型的物理初值检查。
+
+`time::makeStepper(problem)` 只构造时钟；`advance()/setTime()/write()/finish()` 要求初始化已完成。write/finish 写快照，finish 结束 Case，不判断求解收敛。查询已有字段和配置不推进时间。
 
 ## math：显式运算
 
@@ -110,7 +137,7 @@ Equation 表示单元积分系统 `A*x=b`，当前显式实例化标量 double �
 ## 时间与历史
 
 ```cpp
-auto clock = time::start(problem);
+auto clock = time::makeStepper(problem);
 auto history = time::history(T);
 while (!clock.finished()) {
     clock.advance();

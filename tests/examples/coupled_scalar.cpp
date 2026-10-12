@@ -8,16 +8,16 @@ namespace babelsim {
 // 二次开发验收：单个普通函数描述双场耦合，没有新类、解析器、矩阵或通信代码。
 // dT/dt = D laplacian(T) + a C；dC/dt = D laplacian(C) + a T。
 SolverResult runCoupledScalar(Case& problem) {
-    ScalarField& T = problem.scalarField("T");
-    ScalarField& C = problem.scalarField("C");
-    ScalarField& previous = problem.createScalarField("previous", 0.0);
-    ScalarField& previous_C = problem.createScalarField("previousC", 0.0);
-    const double D = problem.physics().nonnegative("diffusivity");
-    const double a = problem.physics().number("coupling");
-    const int corrections = problem.solution().integer("couplingIterations", 100);
-    const double tolerance = problem.solution().number("couplingTolerance", 1e-12);
+    ScalarField& T = problem.load.scalarField("T");
+    ScalarField& C = problem.load.scalarField("C");
+    ScalarField& previous = problem.create.scalarField("previous", 0.0);
+    ScalarField& previous_C = problem.create.scalarField("previousC", 0.0);
+    const double D = problem.read.physics().nonnegative("diffusivity");
+    const double a = problem.read.physics().number("coupling");
+    const int corrections = problem.read.solution().integer("couplingIterations", 100);
+    const double tolerance = problem.read.solution().number("couplingTolerance", 1e-12);
 
-    auto time=time::start(problem);
+    auto time=time::makeStepper(problem);
     auto oldT=time::history(T), oldC=time::history(C);
     time::HistoryGroup histories;
     histories.add(T, oldT); histories.add(C, oldC);
@@ -25,6 +25,7 @@ SolverResult runCoupledScalar(Case& problem) {
         problem, "temperature", T, {"diffusion"});
     auto B=equ::createEquation(
         problem, "concentration", C, {"diffusion"});
+    problem.finalizeInitialization();
     while(time.value()<time.end()) {
         time.advance();
         histories.save(time);

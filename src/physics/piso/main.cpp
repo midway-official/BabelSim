@@ -60,65 +60,27 @@ ScalarField temporalFluxCorrection(
 // 松弛后矩阵的对角响应，不再通过 SIMPLE 风格的额外缩放取消该响应。
 SolverResult runPiso(Case& problem) {
     const monitor::Reporter reporter("PISO");
-    auto& U = problem.vectorField("U");
-    auto& p = problem.scalarField("p");
-    auto& phi = problem.createFaceScalarField("phi");
-    const auto parameters = problem.parameters(builtin::piso());
-    const double rho = parameters.physics.number("density");
+    const auto& spec = builtin::piso();
+    const auto config = problem.read.config(spec);
+    const auto& methods = problem.read.methods();
 
-    const auto& methods = problem.methods(); // 方法字典由 Case/runtime 解析一次
-    const auto V = geometry::cellVolumes(problem.mesh());
-    const auto& settings = parameters.solution;
-    // 每个时间步的预测--修正外层遍数；1 就是标准 PISO。
-    const int maxIterations = settings.integer("maxIterations");
-    // 外层每遍的动量/压力校正次数，每次用更新后的 U 重建 HbyA。
-    const int correctors = settings.integer("nCorrectors");
-    const int maxCorrectors = settings.integer("maxCorrectors");
-    // Optional control on the corrected frozen momentum equation. A tiny
-    // continuity residual alone does not bound the PISO splitting error.
-    const double couplingTolerance = settings.number("couplingTolerance");
-    const int nonOrthogonalCorrections = settings.integer("nonOrthogonalCorrections");
-    // A settings comparison must be able to keep the projected initial state
-    // fixed while changing the pressure corrections inside physical steps.
-    const int initialNonOrthogonalCorrections = settings.integer("initialNonOrthogonalCorrections");
-    const double alphaU = settings.number("velocityRelaxation");
-    const double massTolerance = settings.number("continuityTolerance");
-    const double velocityTolerance = settings.number("velocityTolerance");
-    const double momentumTolerance = settings.number("momentumTolerance");
-    const double pressureTolerance = settings.number("pressureCorrectionTolerance");
-    const bool initializePotentialFlow = settings.integer("initializePotentialFlow") != 0;
-
-    auto turbulence = rans::load(problem, U, phi);
-    const std::string turbulenceCoupling = settings.word("turbulenceCoupling");
-    const bool segregatedTurbulence = turbulenceCoupling == "segregated";
-    if (segregatedTurbulence && maxIterations != 1)
-        throw std::invalid_argument("segregated turbulence requires one PISO momentum pass");
-    if (segregatedTurbulence && turbulence
-        && problem.solution().fraction("turbulenceRelaxation", 0.7) != 1.0)
-        throw std::invalid_argument("single-pass transient turbulence requires turbulenceRelaxation 1");
-    // With one momentum pass, converge the model's relaxed transport equations
-    // at the SAME time level. Otherwise relaxation changes physical time rates.
-    const int turbulenceLimit = settings.integer("turbulenceMaxIterations");
-    // Group model Picard solves before rebuilding the flow equations. History
-    // is still saved exactly once per physical step. The legacy multi-pass
-    // default remains one model correction per flow pass.
-    const int turbulenceCorrections = settings.contains("turbulenceCorrectors") ? settings.integer("turbulenceCorrectors")
-        : (turbulence && maxIterations == 1 && !segregatedTurbulence ? turbulenceLimit : 1);
-    if (segregatedTurbulence && turbulenceCorrections != 1)
-        throw std::invalid_argument("segregated turbulence requires one transport correction");
-    const auto& muEff = turbulence.effectiveViscosity();
-    auto pPrime = field::homogeneousLike(p, "pPrime");
-    auto momentumEquation = equ::createEquation(problem, "momentum", U, {"convection", "diffusion"});
-    const auto pressureControl = readEquationControl(problem, "pressureCorrection", p, {"diffusion"});
+    auto& U = problem.load.vectorField("U");
+    auto& p = problem.load.scalarField("p");
+    auto& phi = problem.create.faceScalarField("phi");
+    auto& pPrime = problem.create.homogeneousCorrection(p, "pPrime");
+    auto momentumEquation = equ::createEquation(problem, spec.equation("momentum"), U);
+    const auto pressureControl = readEquationControl(problem, spec.equation("pressureCorrection"), p);
     auto pressureEquation = equ::createEquation(p, pressureControl);
+    // The auxiliary initial projection reuses the pressure numerical profile.
     auto potentialEquation = equ::createEquation(pPrime, pressureControl);
     const auto pressureOptions = pressureEquation.options("diffusion");
     const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
-        ? 1 : nonOrthogonalCorrections + 1;
+        ? 1 : config.coupling.nonOrthogonalCorrections + 1;
     const int initialPressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
-        ? 1 : initialNonOrthogonalCorrections + 1;
+        ? 1 : config.coupling.initialNonOrthogonalCorrections + 1;
+
     phi = math::flux(U, pressureOptions);
-    if (initializePotentialFlow) {
+    if (config.coupling.initializePotentialFlow) {
         // Establish a conservative initial face flux before it enters convection
         // and the first physical time history. The potential is not pressure.
         const auto initialImbalance = math::div(phi);
@@ -138,34 +100,49 @@ SolverResult runPiso(Case& problem) {
             {"initialUmax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))},
             {"initialPressureSolves", initialPressureSolves}});
     }
-    if (methods.time == TimeMethod::Steady)
-        throw std::invalid_argument("PISO requires a transient time scheme");
-    auto time = time::start(problem);
+    // Model inputs and histories use the final projected initial state.
+    auto turbulence = rans::create(problem, U, phi, config.fluid, momentumEquation.options());
+    const auto& muEff = turbulence.effectiveViscosity();
+    const bool segregatedTurbulence = config.turbulence.mode == "segregated";
+    if (segregatedTurbulence && config.coupling.maxIterations != 1)
+        throw std::invalid_argument("segregated turbulence requires one PISO momentum pass");
+    if (segregatedTurbulence && turbulence
+        && turbulence.relaxation() != 1.0)
+        throw std::invalid_argument("single-pass transient turbulence requires turbulenceRelaxation 1");
+    // With one momentum pass, converge the model's relaxed transport equations
+    // at the SAME time level. Otherwise relaxation changes physical time rates.
+    // Group model Picard solves before rebuilding the flow equations. History
+    // is still saved exactly once per physical step. The legacy multi-pass
+    // default remains one model correction per flow pass.
+    const int turbulenceCorrections = config.turbulence.correctors ? *config.turbulence.correctors
+        : (turbulence && config.coupling.maxIterations == 1 && !segregatedTurbulence ? config.turbulence.maxIterations : 1);
+    if (segregatedTurbulence && turbulenceCorrections != 1)
+        throw std::invalid_argument("segregated turbulence requires one transport correction");
+    const auto V = geometry::cellVolumes(problem.mesh());
     const int writeInterval = readWriteInterval(problem);
-    auto U_old = time::history(U);
-    auto phi_old = time::history(phi);
     time::HistoryGroup histories;
-    histories.add(U, U_old);
-    histories.add(phi, phi_old);
-    histories.track(p);
-    turbulence.addHistories(histories);
-    problem.validate();
+    auto& U_old = histories.addHistory(U);
+    auto& phi_old = histories.addHistory(phi);
+    histories.trackForRollback(p);
+    turbulence.registerTimeState(histories);
+    auto time = time::makeStepper(problem);
+    problem.finalizeInitialization();
 
     while (time.value() < time.end()) {
         time.advance();
         histories.save(time);
         turbulence.beginStep();
-        const auto temporalFlux = rho * temporalFluxCorrection(
+        const auto temporalFlux = config.fluid.density * temporalFluxCorrection(
             U_old, phi_old, methods.time, pressureOptions);
 
         bool converged = false;
-        for (int iter = 0; iter < maxIterations; ++iter) {
+        for (int iter = 0; iter < config.coupling.maxIterations; ++iter) {
             const VectorField U_previous = U; // 上一个外层迭代值，不是物理时间历史
 
             // 动量预测：每个时间步求解一次，除非要求额外的外层迭代。
             momentumEquation.reset();
-            equ::ddt(momentumEquation, rho, U_old);
-            equ::div(momentumEquation, phi, rho, "convection");
+            equ::ddt(momentumEquation, config.fluid.density, U_old);
+            equ::div(momentumEquation, phi, config.fluid.density, "convection");
             equ::laplacian(momentumEquation, muEff, -1, "diffusion");
             const auto predictorGradP = math::grad(p, pressureOptions);
             equ::source(momentumEquation, -predictorGradP);
@@ -176,7 +153,7 @@ SolverResult runPiso(Case& problem) {
             // 在松弛或预测之前测量当前外层迭代的方程残差。
             const double rU = diagnostics::relativeResidual(momentumEquation, U);
             if (!diagnostics::all(std::isfinite(rU))) return SolverResult::numericalFailure();
-            equ::relax(momentumEquation, U_previous, alphaU);
+            equ::relax(momentumEquation, U_previous, config.coupling.velocityRelaxation);
             const auto aP = momentumEquation.diagonal();
             const auto rAU = V / aP;
             const auto inverseAP = 1.0 / aP;
@@ -191,7 +168,7 @@ SolverResult runPiso(Case& problem) {
             double pressureLinearResidual = 0.0;
             double dP = 0.0, firstCouplingResidual = 0.0, couplingResidual = 0.0;
             int correctionsUsed = 0;
-            for (int corrector = 0; corrector < maxCorrectors; ++corrector) {
+            for (int corrector = 0; corrector < config.coupling.maxCorrectors; ++corrector) {
                 // A = diag(aP) + N. HbyA = (b0 - N U)/aP must use the
                 // current corrected U on EVERY pass. equ::apply synchronises
                 // the full matrix action without exposing backend storage.
@@ -231,9 +208,9 @@ SolverResult runPiso(Case& problem) {
                 couplingResidual = scale > 0.0 ? norms[3] / scale : norms[3];
                 if (corrector == 0) firstCouplingResidual = couplingResidual;
                 correctionsUsed = corrector + 1;
-                const bool correctionDone = correctionsUsed >= correctors
-                    && diagnostics::all(couplingResidual <= couplingTolerance);
-                if (corrector == 0 || correctionDone || correctionsUsed == maxCorrectors)
+                const bool correctionDone = correctionsUsed >= config.coupling.correctors
+                    && diagnostics::all(couplingResidual <= config.coupling.tolerance);
+                if (corrector == 0 || correctionDone || correctionsUsed == config.coupling.maxCorrectors)
                     reporter.record({{"corrector", corrector + 1},
                         {"Umax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))},
                         {"coupling", couplingResidual}});
@@ -267,15 +244,15 @@ SolverResult runPiso(Case& problem) {
                 && turbulenceLinearConverged;
             // A conservative flux does not excuse a failed linear solve.
             // Physical changes between time levels are not steady convergence.
-            const bool stepAccepted = diagnostics::all(linearConverged && mass.relative <= massTolerance
-                && couplingResidual <= couplingTolerance);
+            const bool stepAccepted = diagnostics::all(linearConverged && mass.relative <= config.convergence.continuity
+                && couplingResidual <= config.coupling.tolerance);
             // 单次 PISO 不要求物理速度变化趋零；湍流的松弛输运仍须在本时间层收敛。
-            const bool outerSettled = diagnostics::all(rU <= momentumTolerance
-                && dU <= velocityTolerance && dP <= pressureTolerance && turbulenceConverged);
-            converged = stepAccepted && (maxIterations == 1
+            const bool outerSettled = diagnostics::all(rU <= config.convergence.momentum
+                && dU <= config.convergence.velocity && dP <= config.convergence.pressureCorrection && turbulenceConverged);
+            converged = stepAccepted && (config.coupling.maxIterations == 1
                 ? (segregatedTurbulence || turbulenceConverged) : outerSettled);
 
-            reporter.iteration(iter + 1, maxIterations, converged, {
+            reporter.iteration(iter + 1, config.coupling.maxIterations, converged, {
                 {"time", time.value()}, {"correctors", correctionsUsed},
                 {"CoMax", courant.maximum}, {"CoMean", courant.mean},
                 {"accepted", stepAccepted}, {"mass", mass.relative}, {"dU", dU}, {"rU", rU}, {"dP", dP},

@@ -8,6 +8,7 @@
 
 namespace babelsim {
 class Case;
+struct EquationDescription;
 
 // Resolved numerical data only: no dictionary, execution context or backend.
 struct EquationControl {
@@ -30,4 +31,6 @@ EquationControl readEquationControl(const Case&, const std::string&, const Scala
     std::initializer_list<std::string> terms = {});
 EquationControl readEquationControl(const Case&, const std::string&, const VectorField&,
     std::initializer_list<std::string> terms = {});
+EquationControl readEquationControl(const Case&, const EquationDescription&, const ScalarField&);
+EquationControl readEquationControl(const Case&, const EquationDescription&, const VectorField&);
 } // namespace babelsim

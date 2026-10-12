@@ -4,11 +4,13 @@
 #include "babelsim/methods.h"
 
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
 #include <variant>
 #include <vector>
+#include <type_traits>
 
 namespace babelsim {
 class Case;
@@ -55,7 +57,8 @@ struct ParameterDescription {
 
 enum class DescribedFieldType { Scalar, Vector, Tensor };
 enum class DescribedFieldLocation { Cell, Face };
-enum class FieldRole { Input, Derived };
+enum class FieldRole { Input, Output, Work };
+enum class FieldInitialization { File, Provided, Constant, Computed, HomogeneousCorrection };
 struct FieldDescription {
     std::string name;
     DescribedFieldType type = DescribedFieldType::Scalar;
@@ -65,6 +68,9 @@ struct FieldDescription {
     std::string explanation;
     // Values use the existing .field literal syntax without parentheses.
     std::string template_value = "0";
+    FieldInitialization initialization = FieldInitialization::File;
+    // HomogeneousCorrection names the physical field whose boundaries it uses.
+    std::string source_field{};
 };
 
 struct EquationDescription {
@@ -99,11 +105,59 @@ struct ModuleDescription {
     // The generic tutorial writer is opt-in: it creates a unit cube with the
     // input fields, complete numerical profiles, and the declared defaults.
     bool supports_case_template = false;
+    const EquationDescription& equation(const std::string& name) const;
 };
 
 struct ModuleParameters {
     ParameterValues physics;
     ParameterValues solution;
+};
+
+namespace detail {
+template<class T> struct ParameterMember { using Type = T; static constexpr bool optional = false; };
+template<class T> struct ParameterMember<std::optional<T>> { using Type = T; static constexpr bool optional = true; };
+template<class T> constexpr ParameterType parameterType() {
+    static_assert(std::is_same_v<T, double> || std::is_same_v<T, int> ||
+        std::is_same_v<T, bool> || std::is_same_v<T, std::string>, "unsupported configuration member type");
+    if constexpr (std::is_same_v<T, double>) return ParameterType::Number;
+    else if constexpr (std::is_same_v<T, int>) return ParameterType::Integer;
+    else if constexpr (std::is_same_v<T, bool>) return ParameterType::Boolean;
+    else return ParameterType::Word;
+}
+}
+
+// One declaration binds metadata and a C++ member (including nested members).
+// Defaults, ranges and templates stay in ParameterDescription, never in Config.
+// Parsing/binding happens once during initialization; loops read ordinary members.
+template<class Config> class ConfigurationDescription : public ModuleDescription {
+public:
+    template<class... Members> void bind(ParameterDescription parameter, Members... members) {
+        using Member = std::decay_t<decltype((std::declval<Config&>() .* ... .* members))>;
+        using Value = typename detail::ParameterMember<Member>::Type;
+        parameter.type = detail::parameterType<Value>();
+        if constexpr (!detail::ParameterMember<Member>::optional) {
+            if (!parameter.required && !parameter.default_value && !parameter.default_factory)
+                throw std::invalid_argument("optional unset parameter needs an std::optional member: " + parameter.name);
+        }
+        bindings_.push_back([=](Config& config, const ParameterDescription& metadata, const ModuleParameters& values) {
+            const auto& input = metadata.dictionary == ParameterDictionary::Physics ? values.physics : values.solution;
+            auto& member = (config .* ... .* members);
+            if constexpr (detail::ParameterMember<Member>::optional) {
+                if (!input.contains(metadata.name)) { member.reset(); return; }
+            }
+            member = std::get<Value>(input.value(metadata.name));
+        });
+        parameters.push_back(std::move(parameter));
+    }
+    Config configuration(const ModuleParameters& values) const {
+        if (bindings_.size() != parameters.size())
+            throw std::logic_error("all configuration parameters must be declared with bind(): " + name);
+        Config result{};
+        for (std::size_t i = 0; i < bindings_.size(); ++i) bindings_[i](result, parameters[i], values);
+        return result;
+    }
+private:
+    std::vector<std::function<void(Config&, const ParameterDescription&, const ModuleParameters&)>> bindings_;
 };
 
 // Optional metadata-only registration for composable models without a top-level
@@ -126,7 +180,7 @@ void validateModuleDescription(const ModuleDescription&);
 ModuleParameters readModuleParameters(const Case&, const ModuleDescription&);
 // Frontend checks only: parameter values, time/solver compatibility, input
 // headers, and declared profiles. It never loads/creates fields or marks
-// numerical profiles used. Case::validate() still enforces actual consumption.
+// numerical profiles used. Case::finalizeInitialization() checks actual bindings.
 void validateModuleConfiguration(const Case&, const ModuleDescription&);
 std::string moduleMarkdown(const ModuleDescription&);
 std::string moduleJson(const ModuleDescription&);

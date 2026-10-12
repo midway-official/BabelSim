@@ -9,7 +9,8 @@ k–epsilon。
 SIMPLE 只看到具有物理意义的对象：
 
 ~~~cpp
-auto turbulence = rans::load(problem, U, phi);
+phi = math::flux(U, momentumEquation.options());
+auto turbulence = rans::create(problem, U, phi, config.fluid, momentumEquation.options());
 const auto& muEff = turbulence.effectiveViscosity();
 
 equ::laplacian(momentumEquation, muEff, -1);
@@ -27,7 +28,7 @@ effectiveViscosity 是动量方程的有效黏度。deviatoricStressRemainder �
 
 physics 字典放 density、dynamicViscosity、turbulenceModel 和模型常数。solution 字典
 放 turbulenceRelaxation、turbulenceTolerance、线性求解器及算法迭代上限。通过
-Parameters::word/positive/fraction 等接口读取，模型不访问 entry().tokens。
+`problem.read.config(builtin::kOmega())` 等接口读取强类型成员；描述集中维护默认值、范围及文档。宿主显式提供已解析的流体属性、模型选择和动量空间选项，模型不重新读取宿主的 momentum/流体配置，也不访问 entry().tokens。
 
 ## 新模型的边界
 

@@ -26,6 +26,17 @@ ParallelContext activeParallel() {
     return ParallelContext::world();
 }
 
+const char* boundaryTypeName(BoundaryType type) {
+    switch (type) {
+    case BoundaryType::FixedValue: return "fixedValue";
+    case BoundaryType::FixedGradient: return "fixedGradient";
+    case BoundaryType::ZeroGradient: return "zeroGradient";
+    case BoundaryType::InletOutlet: return "inletOutlet";
+    case BoundaryType::Symmetry: return "symmetry";
+    }
+    throw std::invalid_argument("invalid field boundary type");
+}
+
 bool listed(const std::vector<std::string>& names, const std::string& value) {
     return std::find(names.begin(), names.end(), value) != names.end();
 }
@@ -145,7 +156,16 @@ PerformanceCounters maximumPerformance(
 }  // 匿名命名空间
 
 struct Case::Implementation {
-    mutable std::map<std::string, std::pair<const void*, bool>> equation_bindings;
+    struct EquationBinding { const void* field; bool vector; std::vector<std::string> terms; };
+    mutable std::map<std::string, EquationBinding> equation_bindings;
+    mutable std::map<std::string, ModuleDescription> modules;
+    std::map<std::string, std::string> correction_sources;
+    void requireInitialization() const {
+        if (started) throw std::logic_error("declarations are closed by finalizeInitialization()");
+    }
+    void requireReady() const {
+        if (!started) throw std::logic_error("call finalizeInitialization() before advancing time or writing results");
+    }
     Implementation(const std::filesystem::path& directory, const std::string& run_name)
         : definition(readCase(directory)), output(readOutputControl(definition)),
           physics(definition.physics_file), solution(definition.solution_file),
@@ -172,13 +192,12 @@ struct Case::Implementation {
             if (value->name() == name && value->location() == location) {
                 if (!read_file) {
                     throw std::logic_error("field " + name +
-                        " was already created; initialization is only accepted on the first create*Field call");
+                        " already exists; use problem.fields to access it without reinitializing");
                 }
                 for (const auto& source : field_sources) {
-                    if (source.first != name || source.second == read_file) continue;
-                    throw std::logic_error("field " + name + " was already " +
-                        (source.second ? "loaded; use scalarField/vectorField/tensorField" :
-                                         "created; use the create*Field API"));
+                    if (source.first == name && !source.second)
+                        throw std::logic_error("field " + name +
+                            " was created in code; use problem.fields to access it without loading a file");
                 }
                 return *value;
             }
@@ -186,7 +205,7 @@ struct Case::Implementation {
         for (const auto& info : field_names) {
             if (info == name) throw std::invalid_argument("field name reused with another type/location: " + name);
         }
-        if (started) throw std::logic_error("create fields before starting the time/algorithm loop");
+        requireInitialization();
         auto value = std::make_unique<Field<T>>(mesh, location, name, initial);
         if (location == FieldLocation::Cell) {
             if (read_file)
@@ -210,7 +229,7 @@ struct Case::Implementation {
         for (const auto& value : fields)
             if (value->name() == name && value->location() == location) return *value;
         throw std::logic_error("field " + name +
-            " has not been declared; use the load or create API first");
+            " has not been declared; use problem.load or problem.create first");
     }
 
     template <typename T>
@@ -299,72 +318,93 @@ struct Case::Implementation {
 };
 
 Case::Case(const std::filesystem::path& directory, const std::string& run_name)
-    : m_implementation(std::make_unique<Implementation>(directory, run_name)) {}
+    : load(*this), create(*this), fields(*this), read(*this),
+      m_implementation(std::make_unique<Implementation>(directory, run_name)) {}
 Case::~Case() = default;
 
 const std::string& Case::solver() const { return m_implementation->definition.solver; }
 const CaseDefinition& Case::definition() const { return m_implementation->definition; }
-ModuleParameters Case::parameters(const ModuleDescription& description) const {
-    return readModuleParameters(*this, description);
+ModuleParameters Case::Read::parameters(const ModuleDescription& description) const {
+    auto& state = *owner_.m_implementation;
+    state.requireInitialization();
+    auto result = readModuleParameters(owner_, description);
+    if (!description.time_methods.empty() && std::find(description.time_methods.begin(),
+        description.time_methods.end(), methods().time) == description.time_methods.end())
+        throw std::invalid_argument("module " + description.name + " does not support the configured time scheme");
+    if (!description.compatible_solvers.empty() && !listed(description.compatible_solvers, owner_.solver()))
+        throw std::invalid_argument("module " + description.name + " is incompatible with solver " + owner_.solver());
+    state.modules.emplace(description.name, description);
+    return result;
 }
 const Mesh& Case::mesh() const { return m_implementation->mesh; }
-const Parameters& Case::physics() const { return m_implementation->physics; }
-const Parameters& Case::solution() const { return m_implementation->solution; }
-const Methods& Case::methods() const { return m_implementation->run_time.methods(); }
+const Parameters& Case::Read::physics() const { return owner_.m_implementation->physics; }
+const Parameters& Case::Read::solution() const { return owner_.m_implementation->solution; }
+const Methods& Case::Read::methods() const { return owner_.m_implementation->run_time.methods(); }
 double Case::time() const { return m_implementation->run_time.time(); }
 int Case::step() const { return m_implementation->run_time.step(); }
 
-ScalarField& Case::scalarField(const std::string& name) {
-    return m_implementation->field(m_implementation->scalars, name, FieldLocation::Cell);
+ScalarField& Case::Load::scalarField(const std::string& name) {
+    return owner_.m_implementation->field(owner_.m_implementation->scalars, name, FieldLocation::Cell);
 }
-VectorField& Case::vectorField(const std::string& name) {
-    return m_implementation->field(m_implementation->vectors, name, FieldLocation::Cell);
+VectorField& Case::Load::vectorField(const std::string& name) {
+    return owner_.m_implementation->field(owner_.m_implementation->vectors, name, FieldLocation::Cell);
 }
-ScalarField& Case::existingScalarField(const std::string& name) {
-    return m_implementation->existing(m_implementation->scalars, name, FieldLocation::Cell);
+ScalarField& Case::Fields::scalarField(const std::string& name) {
+    return owner_.m_implementation->existing(owner_.m_implementation->scalars, name, FieldLocation::Cell);
 }
-VectorField& Case::existingVectorField(const std::string& name) {
-    return m_implementation->existing(m_implementation->vectors, name, FieldLocation::Cell);
+VectorField& Case::Fields::vectorField(const std::string& name) {
+    return owner_.m_implementation->existing(owner_.m_implementation->vectors, name, FieldLocation::Cell);
 }
-ScalarField& Case::createScalarField(const std::string& name, double initial) {
-    return m_implementation->field(m_implementation->scalars, name, FieldLocation::Cell, false, initial);
+ScalarField& Case::Create::scalarField(const std::string& name, double initial) {
+    return owner_.m_implementation->field(owner_.m_implementation->scalars, name, FieldLocation::Cell, false, initial);
 }
-VectorField& Case::createVectorField(const std::string& name, Vec3 initial) {
-    return m_implementation->field(m_implementation->vectors, name, FieldLocation::Cell, false, initial);
+VectorField& Case::Create::vectorField(const std::string& name, Vec3 initial) {
+    return owner_.m_implementation->field(owner_.m_implementation->vectors, name, FieldLocation::Cell, false, initial);
 }
-TensorField& Case::tensorField(const std::string& name) {
-    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell);
+TensorField& Case::Load::tensorField(const std::string& name) {
+    return owner_.m_implementation->field(owner_.m_implementation->tensors, name, FieldLocation::Cell);
 }
-TensorField& Case::existingTensorField(const std::string& name) {
-    return m_implementation->existing(m_implementation->tensors, name, FieldLocation::Cell);
+TensorField& Case::Fields::tensorField(const std::string& name) {
+    return owner_.m_implementation->existing(owner_.m_implementation->tensors, name, FieldLocation::Cell);
 }
-TensorField& Case::createTensorField(const std::string& name, Tensor3 initial) {
-    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Cell, false, initial);
+TensorField& Case::Create::tensorField(const std::string& name, Tensor3 initial) {
+    return owner_.m_implementation->field(owner_.m_implementation->tensors, name, FieldLocation::Cell, false, initial);
 }
-ScalarField& Case::createFaceScalarField(const std::string& name) {
-    return m_implementation->field(m_implementation->scalars, name, FieldLocation::Face, false);
+ScalarField& Case::Create::faceScalarField(const std::string& name, double initial) {
+    return owner_.m_implementation->field(owner_.m_implementation->scalars, name, FieldLocation::Face, false, initial);
 }
-VectorField& Case::createFaceVectorField(const std::string& name) {
-    return m_implementation->field(m_implementation->vectors, name, FieldLocation::Face, false);
+VectorField& Case::Create::faceVectorField(const std::string& name, Vec3 initial) {
+    return owner_.m_implementation->field(owner_.m_implementation->vectors, name, FieldLocation::Face, false, initial);
 }
-TensorField& Case::createFaceTensorField(const std::string& name) {
-    return m_implementation->field(m_implementation->tensors, name, FieldLocation::Face, false);
+TensorField& Case::Create::faceTensorField(const std::string& name, Tensor3 initial) {
+    return owner_.m_implementation->field(owner_.m_implementation->tensors, name, FieldLocation::Face, false, initial);
 }
-ScalarField& Case::existingFaceField(const std::string& name) {
-    return m_implementation->existing(m_implementation->scalars, name, FieldLocation::Face);
+ScalarField& Case::Fields::faceScalarField(const std::string& name) {
+    return owner_.m_implementation->existing(owner_.m_implementation->scalars, name, FieldLocation::Face);
 }
-VectorField& Case::existingFaceVectorField(const std::string& name) {
-    return m_implementation->existing(m_implementation->vectors, name, FieldLocation::Face);
+VectorField& Case::Fields::faceVectorField(const std::string& name) {
+    return owner_.m_implementation->existing(owner_.m_implementation->vectors, name, FieldLocation::Face);
 }
-TensorField& Case::existingFaceTensorField(const std::string& name) {
-    return m_implementation->existing(m_implementation->tensors, name, FieldLocation::Face);
+TensorField& Case::Fields::faceTensorField(const std::string& name) {
+    return owner_.m_implementation->existing(owner_.m_implementation->tensors, name, FieldLocation::Face);
+}
+
+ScalarField& Case::Create::homogeneousCorrection(
+    const ScalarField& original, const std::string& name) {
+    if (&original.mesh() != &owner_.mesh() || original.location() != FieldLocation::Cell)
+        throw std::invalid_argument("homogeneous correction requires a cell field on this Case mesh");
+    original.validateStorage();
+    auto& correction = scalarField(name);
+    setHomogeneousCorrectionBoundaries(correction, original);
+    owner_.m_implementation->correction_sources.emplace(name, original.name());
+    return correction;
 }
 
 void Case::selectOutput(const std::string& name, const void* field, bool enabled) {
     Implementation& state = *m_implementation;
     bool owned_cell_field = false;
-    const auto check = [&](const auto& fields) {
-        for (const auto& value : fields)
+    const auto check = [&](const auto& registered) {
+        for (const auto& value : registered)
             if (value.get() == field && value->location() == FieldLocation::Cell)
                 owned_cell_field = true;
     };
@@ -377,21 +417,66 @@ void Case::selectOutput(const std::string& name, const void* field, bool enabled
     if (!enabled && found != state.output_names.end()) state.output_names.erase(found);
 }
 
-void Case::validate() const {
-    physics().requireAllUsed();
-    solution().requireAllUsed();
-    methods().requireAllUsed();
+void Case::finalizeInitialization() {
+    auto& state = *m_implementation;
+    if (state.started) return;
+    for (const auto& item : state.modules) {
+        const auto& module = item.second;
+        for (const auto& described : module.fields) {
+            const void* identity = nullptr;
+            const auto check = [&](const auto& registered, DescribedFieldType type) {
+                for (const auto& field : registered) {
+                    if (field->name() != described.name) continue;
+                    const bool cell = field->location() == FieldLocation::Cell;
+                    if (type != described.type || cell != (described.location == DescribedFieldLocation::Cell))
+                        throw std::invalid_argument("module " + module.name + ": field type/location differs: " + described.name);
+                    field->validateStorage();
+                    if (cell && !field->calculatedBoundary() &&
+                        described.initialization != FieldInitialization::HomogeneousCorrection)
+                        for (Index patch = 0; patch < state.mesh.patchCount(); ++patch)
+                            if (!module.boundary_types.empty() && !listed(module.boundary_types,
+                                boundaryTypeName(field->boundary(patch).type)))
+                                throw std::invalid_argument("module " + module.name + ": unsupported boundary for " + described.name);
+                    identity = field.get();
+                }
+            };
+            check(state.scalars, DescribedFieldType::Scalar);
+            check(state.vectors, DescribedFieldType::Vector);
+            check(state.tensors, DescribedFieldType::Tensor);
+            if (!identity) throw std::logic_error("module " + module.name + ": required field is not declared: " + described.name);
+            const auto source = std::find_if(state.field_sources.begin(), state.field_sources.end(),
+                [&](const auto& value) { return value.first == described.name; });
+            if ((described.initialization == FieldInitialization::File && !source->second) ||
+                (described.initialization != FieldInitialization::File &&
+                 described.initialization != FieldInitialization::Provided && source->second))
+                throw std::invalid_argument("module " + module.name + ": field initialization source differs: " + described.name);
+            if (described.initialization == FieldInitialization::HomogeneousCorrection) {
+                const auto found = state.correction_sources.find(described.name);
+                if (found == state.correction_sources.end() || found->second != described.source_field)
+                    throw std::invalid_argument("module " + module.name + ": use create.homogeneousCorrection for " + described.name);
+            }
+            for (const auto& equation : module.equations) {
+                if (equation.unknown != described.name) continue;
+                const auto found = state.equation_bindings.find(equation.name);
+                if (found == state.equation_bindings.end())
+                    throw std::logic_error("module " + module.name + ": equation is not bound: " + equation.name);
+                if (found->second.field != identity)
+                    throw std::invalid_argument("module " + module.name + ": equation unknown differs: " + equation.name);
+                for (const auto& term : equation.terms)
+                    if (!listed(found->second.terms, term))
+                        throw std::invalid_argument("module " + module.name + ": equation term is not bound: " + equation.name + "." + term);
+            }
+        }
+    }
+    read.physics().requireAllUsed();
+    read.solution().requireAllUsed();
+    read.methods().requireAllUsed();
+    state.started = true;
 }
 
-void Case::start() {
-    if (m_implementation->started) return;
-    validate();
-    m_implementation->started = true;
-}
-
-TimeStepper::TimeStepper(Case& problem):case_(&problem),options_(problem.timeControl()),
+TimeStepper::TimeStepper(Case& problem):case_(&problem),options_(problem.read.timeControl()),
     value_(options_.start_time),dt_(options_.delta_t) { options_.validate(); }
-TimeStepper time::start(Case& problem) { return TimeStepper(problem); }
+TimeStepper time::makeStepper(Case& problem) { return TimeStepper(problem); }
 const Mesh& TimeStepper::mesh() const { return case_->mesh(); }
 void TimeStepper::advance() { advanceImpl(options_.delta_t,false); }
 void TimeStepper::advance(double requestedDt) { advanceImpl(requestedDt,true); }
@@ -421,29 +506,29 @@ void write(Case& problem,const TimeStepper& time) {
 }
 
 TimeOptions readTimeControl(const Case& problem) {
-    const auto& c=problem.timeControl(); return {c.start_time,c.end_time,c.delta_t};
+    const auto& c=problem.read.timeControl(); return {c.start_time,c.end_time,c.delta_t};
 }
 namespace {
 void numericalName(const std::string& name) {
     if (name.empty() || name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != std::string::npos)
         throw std::invalid_argument("invalid numerical configuration name: " + name);
 }
-EquationControl equationControl(const Case& problem, const std::string& name,
-    std::initializer_list<std::string> terms) {
+template<class Terms> EquationControl equationControl(const Case& problem, const std::string& name,
+    const Terms& terms) {
     numericalName(name);
     EquationControl result;
     result.name = name;
-    result.spatial = problem.methods().equationOptions(name);
+    result.spatial = problem.read.methods().equationOptions(name);
     result.spatial.requireComplete(name);
     for (const auto& term : terms) {
         numericalName(term);
         auto options = result.spatial;
-        options.overlay(problem.methods().equationTermOptions(name, term));
+        options.overlay(problem.read.methods().equationTermOptions(name, term));
         options.requireComplete(name + ".term." + term);
         if (!result.terms.emplace(term, options).second)
             throw std::invalid_argument("duplicate equation term " + name + "." + term);
     }
-    const auto& p = problem.solution();
+    const auto& p = problem.read.solution();
     auto& c = result.linear;
     const auto prefix = "equation." + name + ".";
     const auto solver = p.word(prefix + "kspType");
@@ -474,40 +559,61 @@ EquationControl equationControl(const Case& problem, const std::string& name,
     return result;
 }
 }
-void Case::bindEquationIdentity(const std::string& name, const void* field, bool vector) const {
-    auto& bindings = m_implementation->equation_bindings;
+void Case::bindEquationIdentity(const std::string& name, const void* field, bool vector,
+    const std::vector<std::string>& terms) const {
+    auto& state = *m_implementation;
+    state.requireInitialization();
+    auto& bindings = state.equation_bindings;
     const auto found = bindings.find(name);
-    if (found != bindings.end() && found->second != std::make_pair(field, vector))
-        throw std::invalid_argument("equation name bound to a different unknown: " + name);
-    bindings.emplace(name, std::make_pair(field, vector));
+    if (found != bindings.end()) {
+        if (found->second.field != field || found->second.vector != vector)
+            throw std::invalid_argument("equation name bound to a different unknown: " + name);
+        for (const auto& term : terms)
+            if (!listed(found->second.terms, term)) found->second.terms.push_back(term);
+    } else bindings.emplace(name, Implementation::EquationBinding{field, vector, terms});
+}
+template<class T, class Terms> EquationControl Case::bindEquationControl(const std::string& name,
+    const Field<T>& field, const Terms& terms, const std::string& expectedUnknown) const {
+    m_implementation->requireInitialization();
+    if (&field.mesh() != &mesh() || field.location() != FieldLocation::Cell)
+        throw std::invalid_argument("equation " + name + " requires a cell field on this Case mesh");
+    if (!expectedUnknown.empty() && field.name() != expectedUnknown)
+        throw std::invalid_argument("equation " + name + " requires Case cell unknown " + expectedUnknown);
+    auto result = equationControl(*this, name, terms);
+    bindEquationIdentity(name, &field, std::is_same_v<T, Vec3>, terms);
+    return result;
 }
 EquationControl readEquationControl(const Case& problem, const std::string& name,
     const ScalarField& field, std::initializer_list<std::string> terms) {
-    if (&field.mesh() != &problem.mesh()) throw std::invalid_argument("equation field belongs to a different case");
-    problem.bindEquationIdentity(name, &field, false);
-    return equationControl(problem,name,terms);
+    return problem.bindEquationControl(name, field, terms);
 }
 EquationControl readEquationControl(const Case& problem, const std::string& name,
     const VectorField& field, std::initializer_list<std::string> terms) {
-    if (&field.mesh() != &problem.mesh()) throw std::invalid_argument("equation field belongs to a different case");
-    problem.bindEquationIdentity(name, &field, true);
-    return equationControl(problem,name,terms);
+    return problem.bindEquationControl(name, field, terms);
 }
-int readWriteInterval(const Case& problem) { return problem.outputControl().write_interval; }
+EquationControl readEquationControl(const Case& problem, const EquationDescription& description,
+    const ScalarField& field) {
+    return problem.bindEquationControl(description.name, field, description.terms, description.unknown);
+}
+EquationControl readEquationControl(const Case& problem, const EquationDescription& description,
+    const VectorField& field) {
+    return problem.bindEquationControl(description.name, field, description.terms, description.unknown);
+}
+int readWriteInterval(const Case& problem) { return problem.read.outputControl().write_interval; }
 void write(Case& problem,double value,int step) {
-    problem.setTime(value,step,problem.timeControl().delta_t);
+    problem.setTime(value,step,problem.read.timeControl().delta_t);
     problem.write();
 }
 
-const TimeControl& Case::timeControl() const { return m_implementation->run_time.timeControl(); }
-const OutputControl& Case::outputControl() const { return m_implementation->output; }
+const TimeControl& Case::Read::timeControl() const { return owner_.m_implementation->run_time.timeControl(); }
+const OutputControl& Case::Read::outputControl() const { return owner_.m_implementation->output; }
 void Case::setTime(double value, int step_value, double dt) {
     if (m_implementation->finished) throw std::logic_error("cannot change a finished case");
-    start();
+    m_implementation->requireReady();
     m_implementation->run_time.setTime(value, step_value, dt);
 }
 void Case::write() {
-    start();
+    m_implementation->requireReady();
     m_implementation->writeStep(true);
     // Explicit writes update both the time series and the latest written snapshot.
     // This does not mark the physical calculation converged or complete.
@@ -517,7 +623,7 @@ void Case::write() {
 void Case::finish() {
     Implementation& state = *m_implementation;
     if (state.finished) return;
-    start();
+    m_implementation->requireReady();
     state.writeStep(true);
     if (state.final_directory != state.series_directory / timeName(time()))
         state.write(state.final_directory);

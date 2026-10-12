@@ -27,30 +27,30 @@ double strainSquared(const Tensor3& gradient) {
 class KOmega final : public Model {
 public:
     KOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
-             ScalarField& effectiveViscosity, double density, double viscosity)
-        : KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity,
-            problem.parameters(builtin::kOmega())) {}
+             ScalarField& effectiveViscosity, double density, double viscosity,
+             const OperatorOptions& hostMomentumOptions)
+        : KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity, hostMomentumOptions,
+            problem.read.config(builtin::kOmega())) {}
 
     KOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
              ScalarField& effectiveViscosity, double density, double viscosity,
-             const ModuleParameters& parameters)
+             const OperatorOptions& hostMomentumOptions, const builtin::KOmegaConfig& parameters)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
-          k(problem.scalarField("k")), omega(problem.scalarField("omega")),
-          mut(problem.createScalarField("mut", 0.0)),
-          relaxation(parameters.solution.number("turbulenceRelaxation")),
-          residualTolerance(parameters.solution.number("turbulenceTolerance")),
-          kMin(parameters.physics.number("kMin")),
-          omegaMin(parameters.physics.number("omegaMin")),
-          viscosityRatioMax(parameters.physics.number("maxTurbulentViscosityRatio")),
-          betaStar(parameters.physics.number("kOmegaBetaStar")),
-          beta(parameters.physics.number("kOmegaBeta")),
-          gamma(parameters.physics.number("kOmegaGamma")),
-          sigmaK(parameters.physics.number("kOmegaSigmaK")),
-          sigmaOmega(parameters.physics.number("kOmegaSigmaOmega")),
-          momentumOptions(readEquationControl(problem, "momentum", velocity,
-              {"convection", "diffusion"}).spatial),
-          kControl(readEquationControl(problem, "kTransport", k, {"convection", "diffusion"})),
-          omegaControl(readEquationControl(problem, "omegaTransport", omega, {"convection", "diffusion"})),
+          k(problem.load.scalarField("k")), omega(problem.load.scalarField("omega")),
+          mut(problem.create.scalarField("mut", 0.0)),
+          relaxation(parameters.controls.relaxation),
+          residualTolerance(parameters.controls.tolerance),
+          kMin(parameters.kMin),
+          omegaMin(parameters.omegaMin),
+          viscosityRatioMax(parameters.viscosityRatioMax),
+          betaStar(parameters.betaStar),
+          beta(parameters.beta),
+          gamma(parameters.gamma),
+          sigmaK(parameters.sigmaK),
+          sigmaOmega(parameters.sigmaOmega),
+          momentumOptions(hostMomentumOptions),
+          kControl(readEquationControl(problem, builtin::kOmega().equation("kTransport"), k)),
+          omegaControl(readEquationControl(problem, builtin::kOmega().equation("omegaTransport"), omega)),
           kHistory(time::history(k)), omegaHistory(time::history(omega))
     {
         mut.useCalculatedBoundary();
@@ -62,11 +62,12 @@ public:
 
     const char* modelName() const override { return "Wilcox1988m k-omega"; }
     double tolerance() const override { return residualTolerance; }
+    double relaxationFactor() const override { return relaxation; }
 
-    void addHistories(time::HistoryGroup& histories) override {
+    void registerTimeState(time::HistoryGroup& histories) override {
         histories.add(k, kHistory);
         histories.add(omega, omegaHistory);
-        histories.track(mut);
+        histories.trackForRollback(mut);
         histories.watch(correction);
         histories.watch(boundedOmegaCells);
     }
@@ -178,8 +179,9 @@ private:
 } // namespace
 
 Model* makeKOmega(Case& problem, VectorField& velocity, const ScalarField& flux,
-                   ScalarField& effectiveViscosity, double density, double viscosity) {
-    return new KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity);
+                   ScalarField& effectiveViscosity, double density, double viscosity,
+             const OperatorOptions& hostMomentumOptions) {
+    return new KOmega(problem, velocity, flux, effectiveViscosity, density, viscosity, hostMomentumOptions);
 }
 
 } // namespace babelsim::rans

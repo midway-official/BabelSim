@@ -26,29 +26,29 @@ double strainSquared(const Tensor3& gradient) {
 class KEpsilon final : public Model {
 public:
     KEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
-             ScalarField& effectiveViscosity, double density, double viscosity)
-        : KEpsilon(problem, velocity, flux, effectiveViscosity, density, viscosity,
-            problem.parameters(builtin::kEpsilon())) {}
+             ScalarField& effectiveViscosity, double density, double viscosity,
+             const OperatorOptions& hostMomentumOptions)
+        : KEpsilon(problem, velocity, flux, effectiveViscosity, density, viscosity, hostMomentumOptions,
+            problem.read.config(builtin::kEpsilon())) {}
 
     KEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
              ScalarField& effectiveViscosity, double density, double viscosity,
-             const ModuleParameters& parameters)
+             const OperatorOptions& hostMomentumOptions, const builtin::KEpsilonConfig& parameters)
         : U(velocity), phi(flux), muEff(effectiveViscosity), rho(density), mu(viscosity),
-          k(problem.scalarField("k")), epsilon(problem.scalarField("epsilon")),
-          mut(problem.createScalarField("mut", 0.0)),
-          relaxation(parameters.solution.number("turbulenceRelaxation")),
-          residualTolerance(parameters.solution.number("turbulenceTolerance")),
-          kMin(parameters.physics.number("kMin")),
-          epsilonMin(parameters.physics.number("epsilonMin")),
-          Cmu(parameters.physics.number("kEpsilonCmu")),
-          C1(parameters.physics.number("kEpsilonC1")),
-          C2(parameters.physics.number("kEpsilonC2")),
-          sigmaK(parameters.physics.number("kEpsilonSigmaK")),
-          sigmaEpsilon(parameters.physics.number("kEpsilonSigmaEpsilon")),
-          momentumOptions(readEquationControl(problem, "momentum", velocity,
-              {"convection", "diffusion"}).spatial),
-          kControl(readEquationControl(problem, "kTransport", k, {"convection", "diffusion"})),
-          epsilonControl(readEquationControl(problem, "epsilonTransport", epsilon, {"convection", "diffusion"})),
+          k(problem.load.scalarField("k")), epsilon(problem.load.scalarField("epsilon")),
+          mut(problem.create.scalarField("mut", 0.0)),
+          relaxation(parameters.controls.relaxation),
+          residualTolerance(parameters.controls.tolerance),
+          kMin(parameters.kMin),
+          epsilonMin(parameters.epsilonMin),
+          Cmu(parameters.Cmu),
+          C1(parameters.C1),
+          C2(parameters.C2),
+          sigmaK(parameters.sigmaK),
+          sigmaEpsilon(parameters.sigmaEpsilon),
+          momentumOptions(hostMomentumOptions),
+          kControl(readEquationControl(problem, builtin::kEpsilon().equation("kTransport"), k)),
+          epsilonControl(readEquationControl(problem, builtin::kEpsilon().equation("epsilonTransport"), epsilon)),
           kHistory(time::history(k)), epsilonHistory(time::history(epsilon))
     {
         mut.useCalculatedBoundary();
@@ -60,11 +60,12 @@ public:
 
     const char* modelName() const override { return "standard k-epsilon"; }
     double tolerance() const override { return residualTolerance; }
+    double relaxationFactor() const override { return relaxation; }
 
-    void addHistories(time::HistoryGroup& histories) override {
+    void registerTimeState(time::HistoryGroup& histories) override {
         histories.add(k, kHistory);
         histories.add(epsilon, epsilonHistory);
-        histories.track(mut);
+        histories.trackForRollback(mut);
     }
 
     TransportResult solveTransport() override {
@@ -148,8 +149,9 @@ private:
 } // namespace
 
 Model* makeKEpsilon(Case& problem, VectorField& velocity, const ScalarField& flux,
-                   ScalarField& effectiveViscosity, double density, double viscosity) {
-    return new KEpsilon(problem, velocity, flux, effectiveViscosity, density, viscosity);
+                   ScalarField& effectiveViscosity, double density, double viscosity,
+             const OperatorOptions& hostMomentumOptions) {
+    return new KEpsilon(problem, velocity, flux, effectiveViscosity, density, viscosity, hostMomentumOptions);
 }
 
 } // namespace babelsim::rans

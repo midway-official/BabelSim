@@ -7,7 +7,7 @@
 #include "babelsim/monitor.h"
 
 namespace {
-const babelsim::ModuleDescription& description() {
+const babelsim::ConfigurationDescription<babelsim::builtin::HeatConfig>& description() {
     static const auto module = [] {
         auto result = babelsim::builtin::heat();
         result.name = "customHeat";
@@ -18,30 +18,26 @@ const babelsim::ModuleDescription& description() {
 }
 babelsim::SolverResult runCustomHeat(babelsim::Case& problem) {
     using namespace babelsim;
-    auto& T = problem.scalarField("T");
-    const auto parameters = problem.parameters(description());
-    const auto& physical = parameters.physics;
-    const double rho = physical.number("density");
-    const double cp = physical.number("heatCapacity");
-    const double k = physical.number("conductivity");
-    const double Q = physical.number("source");
-    auto equation = equ::createEquation(problem, "temperature", T, {"diffusion"});
-    auto clock = time::start(problem);
-    auto history = time::history(T);
+    const auto& spec = description();
+    const auto config = problem.read.config(spec);
+    const auto method = problem.read.methods().time;
+    auto& T = problem.load.scalarField("T");
+    auto equation = equ::createEquation(problem, spec.equation("temperature"), T);
     time::HistoryGroup histories;
-    histories.add(T, history);
+    auto& history = histories.addHistory(T);
+    auto clock = time::makeStepper(problem);
     const int interval = readWriteInterval(problem);
     const monitor::Reporter reporter("customHeat");
-    problem.validate();
+    problem.finalizeInitialization();
 
     while (!clock.finished()) {
         auto step = time::beginStep(clock, histories);
-        if (problem.methods().time == TimeMethod::BDF2 && history.levels() >= 2)
-            time::predict(T, history, problem.methods().time);
+        if (method == TimeMethod::BDF2 && history.levels() >= 2)
+            time::predict(T, history, method);
         equation.reset();
-        equ::ddt(equation, rho * cp, history);
-        equ::laplacian(equation, k, -1, "diffusion");
-        equ::source(equation, Q);
+        equ::ddt(equation, config.density * config.heatCapacity, history);
+        equ::laplacian(equation, config.conductivity, -1, "diffusion");
+        equ::source(equation, config.source);
         const auto result = equ::solve(equation);
         reporter.record({{"time", clock.value()}, {"residual", result.relative_residual}});
         if (!result.converged()) return SolverResult{result.status};

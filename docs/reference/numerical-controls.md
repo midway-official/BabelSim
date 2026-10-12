@@ -28,7 +28,7 @@ equation.transport.term.convection.convection linearUpwind
 
 `time` 必需，可选 `steady/euler/bdf2`，只能定义一次。基础与覆盖键均严格校验，未知方法名、重复键、废弃全局写法与未使用配置会报错。
 
-独立已知场运算使用完整的 `operation.<name>.<option>` 配置，C++ 通过 `problem.methods().operationOptions(name)` 读取。例如由代码明确读取 `velocityGradient` 后，可配置该 operation 的四个基础选项。未使用的 operation 不应放入字典。
+独立已知场运算使用完整的 `operation.<name>.<option>` 配置，C++ 通过 `problem.read.methods().operationOptions(name)` 读取。例如由代码明确读取 `velocityGradient` 后，可配置该 operation 的四个基础选项。未使用的 operation 不应放入字典。
 
 ## 正式方程名称
 

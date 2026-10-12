@@ -119,7 +119,7 @@ void checkHistoryGroups() {
     ScalarField other(otherMesh, FieldLocation::Cell, "other");
     auto otherHistory = time::history(other);
     rejects([&] { group.add(other, otherHistory); }, "group accepted fields from another mesh");
-    rejects([&] { group.track(scalar); }, "history field registered again for tracking");
+    rejects([&] { group.trackForRollback(scalar); }, "history field registered again for tracking");
     group.save(0.1);
     group.validate();
     require(scalarHistory.levels() == 1 && velocityHistory.levels() == 1 && fluxHistory.levels() == 1,
@@ -150,6 +150,33 @@ void checkHistoryGroups() {
         "same-level group accepted mismatched dt");
 }
 
+void checkOwnedHistories() {
+    const auto mesh = makeHexBox({2, 1, 1}, {0, 0, 0}, {2, 1, 1});
+    ScalarField scalar(mesh, FieldLocation::Cell, "scalar", 1.0);
+    VectorField velocity(mesh, FieldLocation::Cell, "velocity", {1, 2, 3});
+    ScalarField flux(mesh, FieldLocation::Face, "flux", 2.0);
+    time::HistoryGroup group;
+    auto& scalarHistory = group.addHistory(scalar);
+    auto& velocityHistory = group.addHistory(velocity);
+    auto& fluxHistory = group.addHistory(flux);
+    std::vector<std::unique_ptr<ScalarField>> fields;
+    for (int i = 0; i < 64; ++i) {
+        fields.push_back(std::make_unique<ScalarField>(mesh, FieldLocation::Cell, "extra" + std::to_string(i), 4.0));
+        group.addHistory(*fields.back());
+    }
+    rejects([&] { group.addHistory(scalar); }, "owned duplicate history accepted");
+    group.save(0.1);
+    require(scalarHistory.levels() == 1 && velocityHistory.levels() == 1 && fluxHistory.levels() == 1,
+        "owning histories lost stable references after container growth");
+    const auto snapshot = group.checkpoint();
+    scalar.fill(9.0); group.save(0.2);
+    group.restore(snapshot);
+    require(scalarHistory.levels() == 1 && scalarHistory.dt() == 0.1, "owned history was not restored");
+    requireValues(scalar, 1.0, "owned field rollback");
+    scalarHistory.save(scalar, 0.1);
+    rejects([&] { group.save(0.1); }, "owned histories silently repaired external drift");
+}
+
 struct ModelState {
     int updates = 0;
     double coefficient = 1.0;
@@ -177,10 +204,10 @@ void checkStepTransactions() {
         "step trials must have unique movable ownership");
     CaseFixture fixture;
     Case problem(fixture.root);
-    auto& temperature = problem.scalarField("T");
-    auto& velocity = problem.createVectorField("velocity", {1, 2, 3});
-    auto& flux = problem.createFaceScalarField("flux");
-    auto& derived = problem.createScalarField("derived", 4.0);
+    auto& temperature = problem.load.scalarField("T");
+    auto& velocity = problem.create.vectorField("velocity", {1, 2, 3});
+    auto& flux = problem.create.faceScalarField("flux");
+    auto& derived = problem.create.scalarField("derived", 4.0);
     temperature.fill(1.0);
     temperature.boundary(0) = fixedValue(8.0);
     flux.fill(2.0);
@@ -189,12 +216,12 @@ void checkStepTransactions() {
     derived.useCalculatedBoundary();
     derived.fill(4.0);
     const Index boundaryFace = *problem.mesh().patchFaces(0).begin();
-    (void)problem.physics().positive("density");
-    (void)problem.physics().positive("heatCapacity");
-    (void)problem.physics().nonnegative("conductivity");
-    (void)problem.physics().number("source");
+    (void)problem.read.physics().positive("density");
+    (void)problem.read.physics().positive("heatCapacity");
+    (void)problem.read.physics().nonnegative("conductivity");
+    (void)problem.read.physics().number("source");
     auto equation = equ::createEquation(problem, "temperature", temperature, {"diffusion"});
-    auto clock = time::start(problem);
+    auto clock = time::makeStepper(problem);
     auto temperatureHistory = time::history(temperature);
     auto velocityHistory = time::history(velocity);
     auto fluxHistory = time::history(flux);
@@ -203,10 +230,11 @@ void checkStepTransactions() {
     group.add(temperature, temperatureHistory);
     group.add(velocity, velocityHistory);
     group.add(flux, fluxHistory);
-    group.track(derived);
+    group.trackForRollback(derived);
     group.watch(model);
-    rejects([&] { group.track(derived); }, "duplicate tracked field accepted");
+    rejects([&] { group.trackForRollback(derived); }, "duplicate tracked field accepted");
     rejects([&] { group.watch(model); }, "duplicate watched model state accepted");
+    problem.finalizeInitialization();
     rejects([&] { group.save(clock); }, "history saved before advancing clock");
     rejects([&] { auto invalid = time::beginStep(clock, group, -0.1); }, "invalid trial dt accepted");
     {
@@ -317,17 +345,18 @@ void checkStepTransactions() {
 void checkClockSaveGuards() {
     CaseFixture fixture;
     Case problem(fixture.root);
-    auto& field = problem.scalarField("T");
-    (void)problem.physics().positive("density");
-    (void)problem.physics().positive("heatCapacity");
-    (void)problem.physics().nonnegative("conductivity");
-    (void)problem.physics().number("source");
+    auto& field = problem.load.scalarField("T");
+    (void)problem.read.physics().positive("density");
+    (void)problem.read.physics().positive("heatCapacity");
+    (void)problem.read.physics().nonnegative("conductivity");
+    (void)problem.read.physics().number("source");
     auto equation = equ::createEquation(problem, "temperature", field, {"diffusion"});
-    auto clock = time::start(problem);
-    auto otherClock = time::start(problem);
+    auto clock = time::makeStepper(problem);
+    auto otherClock = time::makeStepper(problem);
     auto history = time::history(field);
     time::HistoryGroup group;
     group.add(field, history);
+    problem.finalizeInitialization();
     clock.advance();
     group.save(clock);
     rejects([&] { group.save(clock); }, "one physical step saved twice");
@@ -344,6 +373,7 @@ void checkClockSaveGuards() {
 int main() {
     checkWeightsAndPrediction();
     checkHistoryGroups();
+    checkOwnedHistories();
     checkStepTransactions();
     checkClockSaveGuards();
     std::cout << "time_tools_test: public weights/production assembly, prediction, grouped histories, "

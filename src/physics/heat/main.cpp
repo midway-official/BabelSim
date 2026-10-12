@@ -9,31 +9,27 @@
 namespace babelsim {
 SolverResult runHeat(Case& problem) {
     const monitor::Reporter reporter("heat");
-    auto& T = problem.scalarField("T");
-    const auto parameters = problem.parameters(builtin::heat());
-    const auto& physical = parameters.physics;
-    const double rho = physical.number("density");
-    const double cp = physical.number("heatCapacity");
-    const double k = physical.number("conductivity");
-    const double Q = physical.number("source");
-
+    const auto& spec = builtin::heat();
+    const auto config = problem.read.config(spec);
+    const auto method = problem.read.methods().time;
     const int writeInterval = readWriteInterval(problem);
-    auto time = time::start(problem);
-    auto T_old = time::history(T);
+
+    auto& T = problem.load.scalarField("T");
+    auto temperatureEquation = equ::createEquation(problem, spec.equation("temperature"), T);
     time::HistoryGroup histories;
-    histories.add(T, T_old);
-    auto temperatureEquation = equ::createEquation(problem, "temperature", T, {"diffusion"});
-    problem.validate();
+    auto& T_old = histories.addHistory(T);
+    auto time = time::makeStepper(problem);
+    problem.finalizeInitialization();
 
     while (time.value() < time.end()) {
         time.advance();
         histories.save(time);
-        if (problem.methods().time == TimeMethod::BDF2 && T_old.levels() >= 2)
-            time::predict(T, T_old, problem.methods().time);
+        if (method == TimeMethod::BDF2 && T_old.levels() >= 2)
+            time::predict(T, T_old, method);
         temperatureEquation.reset();
-        equ::ddt(temperatureEquation, rho * cp, T_old);
-        equ::laplacian(temperatureEquation, k, -1, "diffusion");
-        equ::source(temperatureEquation, Q);
+        equ::ddt(temperatureEquation, config.density * config.heatCapacity, T_old);
+        equ::laplacian(temperatureEquation, config.conductivity, -1, "diffusion");
+        equ::source(temperatureEquation, config.source);
         const auto result = equ::solve(temperatureEquation);
 
         reporter.record({{"time", time.value()}, {"residual", result.relative_residual}});
