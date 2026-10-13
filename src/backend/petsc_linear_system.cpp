@@ -369,6 +369,82 @@ void PetscLinearSystem::configureBlockJacobiSubsolvers(const LinearSolverConfig&
     }
 }
 
+void PetscLinearSystem::resetInitialGuess(const std::vector<double>& initial_guess) {
+    if (m_config.warm_start) {
+        PetscScalar* x_array = nullptr;
+        checkPetsc(VecGetArray(m_solution, &x_array), "VecGetArray(initial guess)");
+        for (std::size_t i = 0; i < initial_guess.size(); ++i)
+            x_array[i] = static_cast<PetscScalar>(initial_guess[i]);
+        checkPetsc(VecRestoreArray(m_solution, &x_array), "VecRestoreArray(initial guess)");
+    } else {
+        checkPetsc(VecSet(m_solution, 0.0), "VecSet(zero initial guess)");
+    }
+}
+
+double PetscLinearSystem::initialResidualNorm(double& rhs_norm) {
+    double initial_residual = 0.0;
+    if (m_config.warm_start) {
+        // Both norms are needed for the original residual scale. Queue them
+        // together so distributed solves pay for one collective, not two.
+        checkPetsc(MatMult(m_matrix, m_solution, m_residual), "MatMult(initial residual)");
+        checkPetsc(VecAYPX(m_residual, -1.0, m_rhs), "VecAYPX(initial residual)");
+        PetscReal b_norm = 0.0, r_norm = 0.0;
+        checkPetsc(VecNormBegin(m_rhs, NORM_2, &b_norm), "VecNormBegin(rhs)");
+        checkPetsc(VecNormBegin(m_residual, NORM_2, &r_norm), "VecNormBegin(initial residual)");
+        checkPetsc(VecNormEnd(m_rhs, NORM_2, &b_norm), "VecNormEnd(rhs)");
+        checkPetsc(VecNormEnd(m_residual, NORM_2, &r_norm), "VecNormEnd(initial residual)");
+        rhs_norm = static_cast<double>(b_norm);
+        initial_residual = static_cast<double>(r_norm);
+    } else {
+        // For x0=0, r0=b exactly; no SpMV or second norm is necessary.
+        initial_residual = rhs_norm = vectorNorm(m_rhs);
+    }
+    return initial_residual;
+}
+
+// One PC attempt may continue from x when the recursive Krylov norm passed
+// but the true b-A*x norm did not. All passes share the original iteration budget.
+PetscLinearSystem::KrylovAttempt
+PetscLinearSystem::solveWithTrueResidual(double target, PetscSolveMetrics& metrics) {
+    KrylovAttempt attempt;
+    constexpr int maximum_krylov_passes = 3;
+    for (int pass = 0; pass < maximum_krylov_passes; ++pass) {
+        checkPetsc(
+            KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
+                             static_cast<PetscInt>(m_config.max_iterations - attempt.iterations)),
+            "KSPSetTolerances(remaining iterations)");
+        const Clock::time_point solve_start = Clock::now();
+        checkPetsc(KSPSolve(m_ksp, m_rhs, m_solution), "KSPSolve");
+        metrics.solve_seconds += secondsSince(solve_start);
+        PetscInt iterations = 0;
+        checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
+        checkPetsc(KSPGetConvergedReason(m_ksp, &attempt.reason), "KSPGetConvergedReason");
+        attempt.iterations += static_cast<int>(iterations);
+        const Clock::time_point residual_start = Clock::now();
+        computeTrueResidual(m_rhs, m_solution, attempt.true_residual);
+        ++m_true_residual_checks;
+        ++metrics.true_residual_checks;
+        metrics.residual_seconds += secondsSince(residual_start);
+        if (residualConverged(attempt.true_residual, target) || attempt.reason <= 0 ||
+            !std::isfinite(attempt.true_residual) || attempt.iterations >= m_config.max_iterations)
+            break;
+        // A converged recursive Krylov norm may lie just below the true
+        // norm. Continue from this x using a tighter internal target;
+        // keep the original scale/acceptance target and iteration budget.
+        // VecNorm and KSP reason are collective, including zero-owned ranks.
+        m_convergence.target *= 0.5;
+        checkPetsc(KSPSetInitialGuessNonzero(m_ksp, PETSC_TRUE),
+                   "KSPSetInitialGuessNonzero(true-residual restart)");
+    }
+    checkPetsc(KSPSetInitialGuessNonzero(m_ksp, m_config.warm_start ? PETSC_TRUE : PETSC_FALSE),
+               "KSPSetInitialGuessNonzero(restore)");
+    checkPetsc(KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
+                                static_cast<PetscInt>(m_config.max_iterations)),
+               "KSPSetTolerances(restore)");
+
+    return attempt;
+}
+
 PetscSolveMetrics PetscLinearSystem::solveRhs(const std::vector<PetscScalar>& rhs_values,
                                               const std::vector<double>& initial_guess,
                                               std::vector<double>& solution,
@@ -382,41 +458,12 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(const std::vector<PetscScalar>& rh
         throw std::invalid_argument("PETSc initial guess does not match local ownership");
     PetscSolveMetrics metrics;
     const Clock::time_point rhs_start = Clock::now();
-    Vec rhs = m_rhs;
-    Vec x = m_solution;
-    setVectorValues(rhs, rhs_values);
-    const auto reset_guess = [&]() {
-        if (m_config.warm_start) {
-            PetscScalar* x_array = nullptr;
-            checkPetsc(VecGetArray(x, &x_array), "VecGetArray(initial guess)");
-            for (std::size_t i = 0; i < initial_guess.size(); ++i)
-                x_array[i] = static_cast<PetscScalar>(initial_guess[i]);
-            checkPetsc(VecRestoreArray(x, &x_array), "VecRestoreArray(initial guess)");
-        } else {
-            checkPetsc(VecSet(x, 0.0), "VecSet(zero initial guess)");
-        }
-    };
-    reset_guess();
+    setVectorValues(m_rhs, rhs_values);
+    resetInitialGuess(initial_guess);
     metrics.rhs_seconds = secondsSince(rhs_start);
 
     double rhs_norm = 0.0;
-    double initial_residual = 0.0;
-    if (m_config.warm_start) {
-        // Both norms are needed for the original residual scale. Queue them
-        // together so distributed solves pay for one collective, not two.
-        checkPetsc(MatMult(m_matrix, x, m_residual), "MatMult(initial residual)");
-        checkPetsc(VecAYPX(m_residual, -1.0, rhs), "VecAYPX(initial residual)");
-        PetscReal b_norm = 0.0, r_norm = 0.0;
-        checkPetsc(VecNormBegin(rhs, NORM_2, &b_norm), "VecNormBegin(rhs)");
-        checkPetsc(VecNormBegin(m_residual, NORM_2, &r_norm), "VecNormBegin(initial residual)");
-        checkPetsc(VecNormEnd(rhs, NORM_2, &b_norm), "VecNormEnd(rhs)");
-        checkPetsc(VecNormEnd(m_residual, NORM_2, &r_norm), "VecNormEnd(initial residual)");
-        rhs_norm = static_cast<double>(b_norm);
-        initial_residual = static_cast<double>(r_norm);
-    } else {
-        // For x0=0, r0=b exactly; no SpMV or second norm is necessary.
-        initial_residual = rhs_norm = vectorNorm(rhs);
-    }
+    const double initial_residual = initialResidualNorm(rhs_norm);
     const double scale = residualScale(initial_residual, rhs_norm);
     const double target = residualTarget(m_config, scale);
     m_convergence.target = static_cast<PetscReal>(target);
@@ -437,68 +484,34 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(const std::vector<PetscScalar>& rh
         return metrics;
     }
     int total_iterations = 0;
-    for (int attempt = 0; attempt < 2; ++attempt) {
-        int attempt_iterations = 0;
-        KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
-        double final_residual = 0.0;
-        for (int restart = 0; restart < 3; ++restart) {
-            checkPetsc(KSPSetTolerances(
-                           m_ksp, 0.0, 0.0, PETSC_DEFAULT,
-                           static_cast<PetscInt>(m_config.max_iterations - attempt_iterations)),
-                       "KSPSetTolerances(remaining iterations)");
-            const Clock::time_point solve_start = Clock::now();
-            checkPetsc(KSPSolve(m_ksp, rhs, x), "KSPSolve");
-            metrics.solve_seconds += secondsSince(solve_start);
-            PetscInt iterations = 0;
-            checkPetsc(KSPGetIterationNumber(m_ksp, &iterations), "KSPGetIterationNumber");
-            checkPetsc(KSPGetConvergedReason(m_ksp, &reason), "KSPGetConvergedReason");
-            attempt_iterations += static_cast<int>(iterations);
-            total_iterations += static_cast<int>(iterations);
-            const Clock::time_point residual_start = Clock::now();
-            computeTrueResidual(rhs, x, final_residual);
-            ++m_true_residual_checks;
-            ++metrics.true_residual_checks;
-            metrics.residual_seconds += secondsSince(residual_start);
-            if (residualConverged(final_residual, target) || reason <= 0 ||
-                !std::isfinite(final_residual) || attempt_iterations >= m_config.max_iterations)
-                break;
-            // A converged recursive Krylov norm may lie just below the true
-            // norm. Continue from this x using a tighter internal target;
-            // keep the original scale/acceptance target and iteration budget.
-            // VecNorm and KSP reason are collective, including zero-owned ranks.
-            m_convergence.target *= 0.5;
-            checkPetsc(KSPSetInitialGuessNonzero(m_ksp, PETSC_TRUE),
-                       "KSPSetInitialGuessNonzero(true-residual restart)");
-        }
-        checkPetsc(KSPSetInitialGuessNonzero(m_ksp, m_config.warm_start ? PETSC_TRUE : PETSC_FALSE),
-                   "KSPSetInitialGuessNonzero(restore)");
-        checkPetsc(KSPSetTolerances(m_ksp, 0.0, 0.0, PETSC_DEFAULT,
-                                    static_cast<PetscInt>(m_config.max_iterations)),
-                   "KSPSetTolerances(restore)");
+    constexpr int maximum_preconditioner_attempts = 2;
+    for (int attempt = 0; attempt < maximum_preconditioner_attempts; ++attempt) {
+        const KrylovAttempt krylov = solveWithTrueResidual(target, metrics);
+        total_iterations += krylov.iterations;
 
         SolveStatus status = SolveStatus::NumericalFailure;
-        if (residualConverged(final_residual, target))
+        if (residualConverged(krylov.true_residual, target))
             status = SolveStatus::Converged;
-        else if (reason == KSP_DIVERGED_ITS || attempt_iterations >= m_config.max_iterations)
+        else if (krylov.reason == KSP_DIVERGED_ITS || krylov.iterations >= m_config.max_iterations)
             status = SolveStatus::MaxIterations;
-        metrics.result = SolveResult(status, total_iterations, initial_residual, final_residual,
-                                     final_residual / scale);
+        metrics.result = SolveResult(status, total_iterations, initial_residual,
+                                     krylov.true_residual, krylov.true_residual / scale);
         if (status != SolveStatus::Converged && attempt == 0 && metrics.preconditioner_reused) {
             // Vec norms and iteration counts are collective, so all ranks
             // take this branch together. Restore the original x0 and target;
             // a failed stale PC never weakens BabelSim's residual contract.
             metrics.recovery_setup = setup(false);
             ++metrics.retries;
-            reset_guess();
+            resetInitialGuess(initial_guess);
             m_convergence.target = static_cast<PetscReal>(target);
             continue;
         }
         if (status == SolveStatus::Converged) {
             int& fresh = m_fresh_iterations[right_hand_side];
             if (m_preconditioner_matrix_update == m_matrix_updates)
-                fresh = std::max(fresh, attempt_iterations);
-            else if (attempt_iterations > m_config.preconditioner_reuse_iteration_growth *
-                                              static_cast<double>(std::max(fresh, 1)))
+                fresh = std::max(fresh, krylov.iterations);
+            else if (krylov.iterations > m_config.preconditioner_reuse_iteration_growth *
+                                             static_cast<double>(std::max(fresh, 1)))
                 m_force_rebuild = true;
         }
         break;
@@ -507,11 +520,11 @@ PetscSolveMetrics PetscLinearSystem::solveRhs(const std::vector<PetscScalar>& rh
         ++m_preconditioner_rhs_solves;
 
     PetscScalar* x_array = nullptr;
-    checkPetsc(VecGetArray(x, &x_array), "VecGetArray(solution)");
+    checkPetsc(VecGetArray(m_solution, &x_array), "VecGetArray(solution)");
     solution.resize(static_cast<std::size_t>(m_index_map->localSize()));
     for (std::size_t i = 0; i < solution.size(); ++i)
         solution[i] = static_cast<double>(PetscRealPart(x_array[i]));
-    checkPetsc(VecRestoreArray(x, &x_array), "VecRestoreArray(solution)");
+    checkPetsc(VecRestoreArray(m_solution, &x_array), "VecRestoreArray(solution)");
     return metrics;
 }
 

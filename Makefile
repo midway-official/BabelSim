@@ -67,8 +67,11 @@ COMPUTE_BACKEND_SOURCES ?= src/backend/petsc_backend.cpp \
                           src/backend/petsc_linear_system.cpp \
                           src/backend/solver_control.cpp
 SOURCES := src/core/mesh.cpp \
+           src/core/mesh_validation.cpp \
            src/io/config.cpp \
            src/io/model_description.cpp \
+           src/io/model_description_output.cpp \
+           src/io/case_template.cpp \
            src/io/time_step.cpp \
            src/io/case_reader.cpp \
            src/io/case.cpp \
@@ -80,6 +83,8 @@ SOURCES := src/core/mesh.cpp \
            src/io/monitor.cpp \
            src/geometry/geometry.cpp \
            src/discretization/operators.cpp \
+           src/discretization/gradients.cpp \
+           src/discretization/equation_assembly.cpp \
            src/discretization/fvm_execution.cpp \
            src/discretization/procedural_equation.cpp \
            src/discretization/field_math.cpp \

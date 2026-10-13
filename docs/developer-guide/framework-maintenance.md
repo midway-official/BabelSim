@@ -16,7 +16,7 @@
 4. [petsc_backend.cpp](../../src/backend/petsc_backend.cpp) 根据方程身份取得长期存在的线性系统，处理同步、装配和求解。
 5. [petsc_assembly_plan.cpp](../../src/backend/petsc_assembly_plan.cpp) 把面系数映射到预先确定的 COO 位置；[petsc_index_map.cpp](../../src/backend/petsc_index_map.cpp) 负责局部网格编号到 PETSc 自由度编号的转换。
 6. [petsc_linear_system.cpp](../../src/backend/petsc_linear_system.cpp) 更新矩阵与右端、控制预条件器复用、求解并检查真实残差。
-7. 求解值回到原来绑定的场。显式场运算经 [fvm_execution.cpp](../../src/discretization/fvm_execution.cpp) 校验输入并同步；几何离散公式在 [operators.cpp](../../src/discretization/operators.cpp)。
+7. 求解值回到原来绑定的场。显式场运算经 [fvm_execution.cpp](../../src/discretization/fvm_execution.cpp) 校验输入并同步；[operators.cpp](../../src/discretization/operators.cpp) 计算已知场的面值和通量，[gradients.cpp](../../src/discretization/gradients.cpp) 重建梯度，[equation_assembly.cpp](../../src/discretization/equation_assembly.cpp) 把隐式项加入矩阵系数和右端。
 
 `Equation<T>` 的模板实现留在 `.cpp`，文件末尾只为 `double` 和 `Vec3` 显式实例化。
 这不是动态类型分派；`if constexpr` 在编译时选择标量或向量分支。
@@ -26,8 +26,9 @@
 
 | 要修改的内容 | 首先阅读 | 需要保留的约定 |
 | --- | --- | --- |
-| 几何与连接 | [mesh.cpp](../../src/core/mesh.cpp)、[mesh_access.h](../../src/internal/mesh_access.h) | 面方向、owner/neighbour、体积及局部/全局编号 |
-| 梯度、插值、对流、扩散 | [operators.cpp](../../src/discretization/operators.cpp) | 共享面的符号、边界贡献、显式修正 |
+| 几何与连接 | [mesh.cpp](../../src/core/mesh.cpp)、[mesh_validation.cpp](../../src/core/mesh_validation.cpp)、[mesh_access.h](../../src/internal/mesh_access.h) | 面方向、owner/neighbour、体积及局部/全局编号；构造和校验各有独立入口 |
+| 梯度、插值、显式对流/扩散 | [gradients.cpp](../../src/discretization/gradients.cpp)、[operators.cpp](../../src/discretization/operators.cpp) | 共享面的符号、边界贡献、显式修正 |
+| 隐式对流/扩散/时间项 | [equation_assembly.cpp](../../src/discretization/equation_assembly.cpp) | 更新积分矩阵系数；保持单元和面的遍历顺序 |
 | `equ` 装配和矩阵操作 | [procedural_equation.cpp](../../src/discretization/procedural_equation.cpp) | 体积分量、绑定未知场、冻结通量、时间历史 |
 | `math` 执行及全局统计 | [fvm_execution.cpp](../../src/discretization/fvm_execution.cpp)、[field_math.cpp](../../src/discretization/field_math.cpp) | 输入输出位置、同步顺序、只归约 owned 数据 |
 | MPI 基本归约 | [parallel_context.cpp](../../src/parallel/parallel_context.cpp) | communicator、所有 rank 的 collective 顺序 |
@@ -36,7 +37,9 @@
 | 重复 halo 交换 | [halo_exchange.cpp](../../src/parallel/halo_exchange.cpp) | 已建计划、缓冲复用、begin/finish 对应关系 |
 | 线性求解性能 | [petsc_linear_system.cpp](../../src/backend/petsc_linear_system.cpp) | 当前矩阵与复用 PC 分离；真实残差决定接受 |
 | 数值配置解析 | [numerics_reader.cpp](../../src/io/numerics_reader.cpp)、[config.cpp](../../src/io/config.cpp) | 完整校验、清晰错误位置、命名选项优先级 |
-| 模块声明与生成 | [model_description.cpp](../../src/io/model_description.cpp) | 字段/参数声明、初始化检查、模板和描述输出一致 |
+| 模块声明与校验 | [model_description.cpp](../../src/io/model_description.cpp) | 注册、类型/范围/关系校验及参数读取 |
+| 模块描述输出与教程生成 | [model_description_output.cpp](../../src/io/model_description_output.cpp)、[case_template.cpp](../../src/io/case_template.cpp) | Markdown/JSON 和配置模板使用同一声明；失败时只回收本次新建的教程目录 |
+| 时钟与物理时间步接受/回滚 | [time_step.cpp](../../src/io/time_step.cpp) | 时间推进、历史快照和待决步状态一致；Case 只接收已明确的时间值 |
 | 结果读写 | [result_reader.cpp](../../src/io/result_reader.cpp)、[parallel_writer.cpp](../../src/parallel/parallel_writer.cpp)、[postprocess.cpp](../../src/io/postprocess.cpp) | 全局 ID、分区元数据、owned 输出 |
 
 ## 数学符号与存储
@@ -64,6 +67,22 @@
 再加装配时冻结的修正。限制器依赖旧场，不能在解更新后重新计算限制器来替代快照。
 方程复制共享不可变快照；方程相加先复制贡献列表，以支持自加而不使迭代器失效。
 
+[operator_support.h](../../src/discretization/operator_support.h) 只保存显式计算和隐式装配真正共用的面采样规则及类型对应关系。
+它不创建运行域，也不发起通信。标量梯度和向量梯度使用同一个 `leastSquaresSample` 构造边界镜像点，
+但各自的右端、求解和结果写回仍在 [gradients.cpp](../../src/discretization/gradients.cpp) 中直接可见。
+常系数和场系数时间项共用 `addCellTimeDerivative`，容量检查留在各自入口，Euler/BDF2 的运算顺序保持一致。
+
+## 初始化和校验的阅读顺序
+
+`Case::finalizeInitialization()` 先调用 `validateModules()`，随后检查配置是否全部消费，最后关闭声明阶段。
+模块校验依次检查实际场的类型/位置及边界能力、初始化来源、方程未知量和离散项绑定。
+这些步骤位于 Case 的私有实现中；添加一种校验时不应把它塞进输出循环或物理迭代。
+每个 `FieldRecord` 把字段名与 `FieldSource::File/Program` 放在一起，场本身仍由类型明确的容器拥有，借用引用保持稳定。
+
+`Mesh::validate()` 按存储长度、单元连接、面连接、单元闭合、patch 分配、owned 映射的顺序检查。
+前面的长度/编号检查通过后，后面的几何检查才能安全访问数组。每一步是普通函数，
+错误信息和检查顺序均保留；修改校验时要说明其失败是否会在所有 MPI rank 上一致传播。
+
 ## MPI 数据流和缓存
 
 `distributed_mesh.cpp` 中 `PackedPartition` 的计数槽有名称，打包和解包必须遵守相同顺序。
@@ -76,9 +95,21 @@
 标量、向量、张量分别使用 1、3、9 个连续 double。
 不要把全局 ID 查找、全局网格遍历或重复分配移回交换热循环。
 
+`QuotaBalance::apply()` 按边界登记、候选队列、直接迁移、跨分区路径迁移阅读。
+`Candidate` 的字段明确给出切边变化、全局 ID、本地单元、目标分区和候选版本；
+比较顺序决定相同代价下的稳定选择，不能随意更改。`m_versions` 用于淘汰陈旧队列项，
+`m_connectivity_revision` 与 `m_partition_revision` 用于使连通性判断缓存失效。
+`canRemoveWithoutDisconnecting()` 的 64 次访问预算只用于证明一次删除安全；没有证明时返回 false，
+这个预算不限制 stencil 或 halo 深度。
+
 PETSc 稀疏模式、矩阵数值和预条件器是三个不同层次。
 网格/编号/隐式 stencil 决定模式；当前系数决定矩阵；PC 可以在既有预算内复用，
 但残差始终针对当前 `b-A*x`。结构拆分不能放宽容差、减少迭代工作或改变复用策略来补偿性能。
+
+`PetscLinearSystem::solveRhs()` 先设置右端和初值，再建立原始残差尺度，最后决定是否需要 Krylov 求解或 PC 重建。
+`initialResidualNorm()` 保留暖启动时两次范数的批量归约；`solveWithTrueResidual()` 负责一次 PC 尝试，
+最多执行三次 Krylov 求解，并共享同一个最大迭代预算。若复用的 PC 失败，外层最多再尝试一次，
+恢复原始初值和接受阈值。这两个循环分别解决真实残差不足和陈旧 PC 失败，不能混成一个重试计数。
 
 ## 代码写法
 

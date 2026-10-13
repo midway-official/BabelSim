@@ -66,6 +66,12 @@ public:
     }
 
 private:
+    struct KrylovAttempt {
+        int iterations = 0;
+        KSPConvergedReason reason = KSP_CONVERGED_ITERATING;
+        double true_residual = 0.0;
+    };
+
     struct ConvergenceContext {
         PetscReal target = 0.0;
     };
@@ -79,6 +85,9 @@ private:
     void setVectorValues(Vec vector, const std::vector<PetscScalar>& values);
     double vectorNorm(Vec vector) const;
     void computeTrueResidual(Vec rhs, Vec solution, double& norm);
+    void resetInitialGuess(const std::vector<double>& initial_guess);
+    double initialResidualNorm(double& rhs_norm);
+    KrylovAttempt solveWithTrueResidual(double target, PetscSolveMetrics& metrics);
     void release() noexcept;
 
     std::string m_identity;

@@ -164,78 +164,12 @@ public:
     void apply() {
         if (m_counts == m_capacity)
             return;
-        m_recorded.assign(m_owners.size(), 0);
-        m_visited.assign(m_owners.size(), 0);
-        m_goals.assign(m_owners.size(), 0);
-        m_mobility.assign(m_owners.size(), 0);
-        m_epoch.assign(m_owners.size(), ~std::uint64_t{0});
-        m_versions.assign(m_owners.size(), 0);
-        m_targets.assign(m_parts, 0);
-        m_queue.reserve(256);
-        for (Index cell = 0; cell < m_mesh.cellCount(); ++cell) {
-            for (Index neighbour : m_mesh.cellNeighbours(cell)) {
-                if (m_owners[cell] != m_owners[neighbour]) {
-                    record(cell);
-                    break;
-                }
-            }
-        }
+        initializeBoundaryTracking();
         rebuildHeap();
         while (m_counts != m_capacity) {
-            Index chosen = invalid_index, target = invalid_index;
-            while (!m_heap.empty()) {
-                const auto candidate = m_heap.top();
-                m_heap.pop();
-                const Index cell = std::get<2>(candidate), peer = std::get<3>(candidate);
-                if (std::get<4>(candidate) != m_versions[cell] ||
-                    m_counts[m_owners[cell]] <= m_capacity[m_owners[cell]] ||
-                    m_counts[peer] >= m_capacity[peer] || !movable(cell))
-                    continue;
-                chosen = cell;
-                target = peer;
-                break;
-            }
-            if (chosen != invalid_index) {
-                move(chosen, target, true);
+            if (transferQueuedCell())
                 continue;
-            }
-
-            // A balanced part can separate a surplus from a deficit. One
-            // witness per directed part edge suffices to find a safe route.
-            std::vector<std::vector<Index>> adjacency(m_parts), safe(m_parts);
-            for (Index cell : m_boundary) {
-                const Index source = m_owners[cell];
-                for (Index neighbour : m_mesh.cellNeighbours(cell)) {
-                    const Index peer = m_owners[neighbour];
-                    if (source == peer)
-                        continue;
-                    adjacency[source].push_back(peer);
-                    if (std::find(safe[source].begin(), safe[source].end(), peer) ==
-                            safe[source].end() &&
-                        movable(cell))
-                        safe[source].push_back(peer);
-                }
-            }
-            for (auto* graph : {&adjacency, &safe}) {
-                for (auto& peers : *graph) {
-                    std::sort(peers.begin(), peers.end());
-                    peers.erase(std::unique(peers.begin(), peers.end()), peers.end());
-                }
-            }
-            auto path = balancePath(safe);
-            if (path.empty())
-                path = balancePath(adjacency);
-            if (path.empty()) {
-                // Disconnected input can require transfer without an
-                // interface. Exact quotas and unique ownership take priority.
-                target = 0;
-                while (m_counts[target] >= m_capacity[target])
-                    ++target;
-                move(bestTransfer(invalid_index, target), target, false);
-            } else {
-                for (std::size_t step = 1; step < path.size(); ++step)
-                    move(bestTransfer(path[step - 1], path[step]), path[step], false);
-            }
+            transferAlongPartPath();
             // Routes can temporarily turn a balanced part into a surplus.
             // Direct transfers update only the moved cell and its neighbours.
             rebuildHeap();
@@ -243,37 +177,125 @@ public:
     }
 
 private:
-    using Candidate = std::tuple<int, Index, Index, Index, std::uint64_t>;
+    struct Candidate {
+        int cut_edge_change;
+        Index global_cell_id;
+        Index cell;
+        Index target;
+        std::uint64_t version;
+
+        bool operator>(const Candidate& other) const {
+            // Preserve the deterministic ordering: cost first, then global ID,
+            // local cell, destination and version. A stale entry is rejected on pop.
+            return std::tie(cut_edge_change, global_cell_id, cell, target, version) >
+                   std::tie(other.cut_edge_change, other.global_cell_id, other.cell, other.target,
+                            other.version);
+        }
+    };
     const Mesh& m_mesh;
     int m_parts;
     std::vector<Index>& m_owners;
     std::vector<Index> m_counts, m_capacity, m_boundary, m_queue;
     std::vector<unsigned char> m_recorded;
     std::vector<std::uint64_t> m_visited, m_goals;
-    std::vector<unsigned char> m_mobility;
-    std::vector<std::uint64_t> m_epoch, m_versions, m_targets;
-    std::uint64_t m_state = 0, m_sequence = 0, m_target_sequence = 0;
+    std::vector<unsigned char> m_removal_safe;
+    std::vector<std::uint64_t> m_connectivity_revision, m_versions, m_target_seen;
+    std::uint64_t m_partition_revision = 0, m_search_stamp = 0, m_target_stamp = 0;
     std::priority_queue<Candidate, std::vector<Candidate>, std::greater<Candidate>> m_heap;
 
-    void record(Index cell) {
+    void initializeBoundaryTracking() {
+        m_recorded.assign(m_owners.size(), 0);
+        m_visited.assign(m_owners.size(), 0);
+        m_goals.assign(m_owners.size(), 0);
+        m_removal_safe.assign(m_owners.size(), 0);
+        m_connectivity_revision.assign(m_owners.size(), ~std::uint64_t{0});
+        m_versions.assign(m_owners.size(), 0);
+        m_target_seen.assign(m_parts, 0);
+        m_queue.reserve(256);
+        for (Index cell = 0; cell < m_mesh.cellCount(); ++cell) {
+            for (Index neighbour : m_mesh.cellNeighbours(cell)) {
+                if (m_owners[cell] != m_owners[neighbour]) {
+                    recordBoundaryCell(cell);
+                    break;
+                }
+            }
+        }
+    }
+
+    bool transferQueuedCell() {
+        while (!m_heap.empty()) {
+            const auto candidate = m_heap.top();
+            m_heap.pop();
+            const Index cell = candidate.cell, peer = candidate.target;
+            if (candidate.version != m_versions[cell] ||
+                m_counts[m_owners[cell]] <= m_capacity[m_owners[cell]] ||
+                m_counts[peer] >= m_capacity[peer] || !canRemoveWithoutDisconnecting(cell))
+                continue;
+            transferCell(cell, peer, true);
+            return true;
+        }
+
+        return false;
+    }
+
+    void transferAlongPartPath() {
+        // A balanced part can separate a surplus from a deficit. One
+        // witness per directed part edge suffices to find a safe route.
+        std::vector<std::vector<Index>> adjacency(m_parts), safe(m_parts);
+        for (Index cell : m_boundary) {
+            const Index source = m_owners[cell];
+            for (Index neighbour : m_mesh.cellNeighbours(cell)) {
+                const Index peer = m_owners[neighbour];
+                if (source == peer)
+                    continue;
+                adjacency[source].push_back(peer);
+                if (std::find(safe[source].begin(), safe[source].end(), peer) ==
+                        safe[source].end() &&
+                    canRemoveWithoutDisconnecting(cell))
+                    safe[source].push_back(peer);
+            }
+        }
+        for (auto* graph : {&adjacency, &safe}) {
+            for (auto& peers : *graph) {
+                std::sort(peers.begin(), peers.end());
+                peers.erase(std::unique(peers.begin(), peers.end()), peers.end());
+            }
+        }
+        auto path = balancePath(safe);
+        if (path.empty())
+            path = balancePath(adjacency);
+        if (path.empty()) {
+            // Disconnected input can require transfer without an
+            // interface. Exact quotas and unique ownership take priority.
+            Index target = 0;
+            while (m_counts[target] >= m_capacity[target])
+                ++target;
+            transferCell(selectTransferCell(invalid_index, target), target, false);
+        } else {
+            for (std::size_t step = 1; step < path.size(); ++step)
+                transferCell(selectTransferCell(path[step - 1], path[step]), path[step], false);
+        }
+    }
+
+    void recordBoundaryCell(Index cell) {
         if (!m_recorded[cell]) {
             m_recorded[cell] = 1;
             m_boundary.push_back(cell);
         }
     }
 
-    int cost(Index cell, Index target) const {
+    int cutEdgeChange(Index cell, Index target) const {
         int value = 0;
         for (Index neighbour : m_mesh.cellNeighbours(cell))
             value += (m_owners[neighbour] == m_owners[cell]) - (m_owners[neighbour] == target);
         return value;
     }
 
-    bool movable(Index cell) {
-        if (m_epoch[cell] == m_state)
-            return m_mobility[cell] != 0;
+    bool canRemoveWithoutDisconnecting(Index cell) {
+        if (m_connectivity_revision[cell] == m_partition_revision)
+            return m_removal_safe[cell] != 0;
         const Index source = m_owners[cell];
-        const std::uint64_t stamp = ++m_sequence;
+        const std::uint64_t stamp = ++m_search_stamp;
         Index seed = invalid_index, remaining = 0;
         for (Index neighbour : m_mesh.cellNeighbours(cell)) {
             if (m_owners[neighbour] != source)
@@ -288,7 +310,11 @@ private:
             --remaining;
             m_queue.clear();
             m_queue.push_back(seed);
-            for (std::size_t head = 0; head < m_queue.size() && head < 64 && !result; ++head) {
+            // A bounded search proves safe removals cheaply. Exhausting the
+            // budget means "not proven safe"; it never changes halo coverage.
+            constexpr std::size_t maximum_connectivity_visits = 64;
+            for (std::size_t head = 0;
+                 head < m_queue.size() && head < maximum_connectivity_visits && !result; ++head) {
                 for (Index neighbour : m_mesh.cellNeighbours(m_queue[head])) {
                     if (m_owners[neighbour] != source || m_visited[neighbour] == stamp)
                         continue;
@@ -301,53 +327,53 @@ private:
                 }
             }
         }
-        m_epoch[cell] = m_state;
-        m_mobility[cell] = static_cast<unsigned char>(result);
+        m_connectivity_revision[cell] = m_partition_revision;
+        m_removal_safe[cell] = static_cast<unsigned char>(result);
         return result;
     }
 
-    void push(Index cell) {
+    void queueTransfers(Index cell) {
         const Index source = m_owners[cell];
         if (m_counts[source] <= m_capacity[source])
             return;
-        const std::uint64_t stamp = ++m_target_sequence;
+        const std::uint64_t stamp = ++m_target_stamp;
         for (Index neighbour : m_mesh.cellNeighbours(cell)) {
             const Index target = m_owners[neighbour];
             if (source == target || m_counts[target] >= m_capacity[target] ||
-                m_targets[target] == stamp)
+                m_target_seen[target] == stamp)
                 continue;
-            m_targets[target] = stamp;
-            m_heap.emplace(cost(cell, target), globalCellId(m_mesh, cell), cell, target,
-                           m_versions[cell]);
+            m_target_seen[target] = stamp;
+            m_heap.push({cutEdgeChange(cell, target), globalCellId(m_mesh, cell), cell, target,
+                         m_versions[cell]});
         }
     }
 
     void rebuildHeap() {
         m_heap = decltype(m_heap){};
         for (Index cell : m_boundary)
-            push(cell);
+            queueTransfers(cell);
     }
 
-    void move(Index cell, Index target, bool update_heap) {
+    void transferCell(Index cell, Index target, bool update_heap) {
         if (cell == invalid_index)
             throw std::logic_error("partition quota transfer failed");
         --m_counts[m_owners[cell]];
         ++m_counts[target];
         m_owners[cell] = target;
-        ++m_state;
+        ++m_partition_revision;
         ++m_versions[cell];
-        record(cell);
+        recordBoundaryCell(cell);
         if (update_heap)
-            push(cell);
+            queueTransfers(cell);
         for (Index neighbour : m_mesh.cellNeighbours(cell)) {
             ++m_versions[neighbour];
-            record(neighbour);
+            recordBoundaryCell(neighbour);
             if (update_heap)
-                push(neighbour);
+                queueTransfers(neighbour);
         }
     }
 
-    Index bestTransfer(Index source, Index target) {
+    Index selectTransferCell(Index source, Index target) {
         Index chosen = invalid_index;
         std::pair<int, Index> best{std::numeric_limits<int>::max(),
                                    std::numeric_limits<Index>::max()};
@@ -365,8 +391,9 @@ private:
                     if (!adjacent)
                         return;
                 }
-                const auto score = std::make_pair(cost(cell, target), globalCellId(m_mesh, cell));
-                if (score < best && (attempt == 1 || movable(cell))) {
+                const auto score =
+                    std::make_pair(cutEdgeChange(cell, target), globalCellId(m_mesh, cell));
+                if (score < best && (attempt == 1 || canRemoveWithoutDisconnecting(cell))) {
                     best = score;
                     chosen = cell;
                 }

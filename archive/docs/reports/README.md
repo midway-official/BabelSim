@@ -5,6 +5,7 @@
 
 | 实验 | 范围 | 证据入口 |
 | --- | --- | --- |
+| [2026-10-13 框架可维护性](framework-maintainability-2026-10-13.md) | 离散/网格/Case/描述/MPI/PETSc 职责整理、回归及 1/4 MPI 固定工作量对照 | [维护指南](../../../docs/developer-guide/framework-maintenance.md) |
 | [2026-10-07—08 框架优化](flow-optimization-2026-10-07.md) | SIMPLE/PISO、1/4/8/12 MPI、48 个正式测点、强扩展、内存、字段与回归 | [证据说明](flow-optimization-2026-10-07-evidence/README.md) |
 | [2026-10-07 图划分](partition-model-2026-10-07.md) | 13 类合法网格、52 个图、572 次顺序候选实验 | [模型方法](../../../docs/developer-guide/partitioning.md) |
 | [2026-10-08 文档整理](documentation-refresh-2026-10-08.md) | 现行手册、历史归档、链接/示例/回归与源码核对 | [检查证据](documentation-refresh-2026-10-08-evidence/README.md) |
