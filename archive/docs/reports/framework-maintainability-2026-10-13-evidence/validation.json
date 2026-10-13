@@ -1,0 +1,1609 @@
+{
+  "date": "2026-10-13",
+  "baselineCommit": "c23d6d46aeaff379b2e2d2db8f01f4240bc90127",
+  "sourceCommit": "c5cd6e38ea7703a3e3cba2f8796ad9fae6247cad",
+  "scope": {
+    "physicsAndPublicHeadersUnchanged": true,
+    "preexistingFilesPreserved": 8
+  },
+  "sourceSha256": {
+    "Makefile": "9591aed25a5eec16463f6ec8b93e12a87b9c5f84694fe83dd4356079cf2cbd25",
+    "docs/developer-guide/framework-maintenance.md": "1d32adb455dbec75fadf4fd2fa23a25ada540e6d2c3288d3ce1695a22f37a55f",
+    "src/.clang-format": "7eccbab3ecc6b6494e5ea389aceda770361b644c4a0ad42f11fc48e8a6ebe7f9",
+    "src/apps/babelsim_post.cpp": "f03838c7c6fcf40ec77d9e3be646975b7c0f2007d57bd3e8e8eb24248be181d6",
+    "src/apps/babelsim_solve.cpp": "a3907f4b566e189a7eb2b56328316a229198322054a8fd7e17c62d3201cd682d",
+    "src/backend/petsc_assembly_plan.cpp": "cb0056c85d5e40bc76ec99eae30d2afb8cb4d71966be1d74196398148be40b5e",
+    "src/backend/petsc_backend.cpp": "f80f5cb955c05b7cf615fff4b690cac8d01259fd6f1f1c0e8c7a3ae79dd13799",
+    "src/backend/petsc_index_map.cpp": "3774ce1305144941c6b9afe91e441b4c58b3eb05cf7f9b3497207f41adf31d4e",
+    "src/backend/petsc_linear_system.cpp": "6d681d4b5a320726e4333d34e8b3e34b6839d4e0bde2292be037b7a3bfc8a967",
+    "src/backend/petsc_session.cpp": "047fc12047972f00ed6952512ba8e585efb6d270b12f720c400be17f6bdb3bf3",
+    "src/backend/solver_control.cpp": "fc7acab5f1eb9bcbcd8356879bfa643517a1173199db47c0ac7be6c2ba5514e9",
+    "src/core/mesh.cpp": "49d127c2e7bbfc35f0e11afe957364990efbda4204b7529063e5a32397c31a2b",
+    "src/core/mesh_validation.cpp": "dfc8614079a71bacff44fc0900684eb461eb6eadc225253f69f72ec4c3523657",
+    "src/discretization/equation_assembly.cpp": "8d77f7e815080c09ac63e44f35fb6d40e5db14cebba5f185b2cfa050b56c3b92",
+    "src/discretization/field_math.cpp": "dce380d0c2327b1ac790895356f7d66a0e9d22912420b23ab328ad3fed829de5",
+    "src/discretization/fvm_execution.cpp": "16e1db7c99f6f7da1230d0993788158afa9211217d4700bacdd9c2c1b7b9a2eb",
+    "src/discretization/gradients.cpp": "b8a5f2777e03d2ee8f59ab2c50ba85f92dd6652004ab0c6bede64be16a0c1a96",
+    "src/discretization/operator_support.h": "f2bd8fec764d9baf23ddc91b29fc7bfc9761d36279eee546e823fcdfedbbb542",
+    "src/discretization/operators.cpp": "1ea400bfb7816dc0254b757ed816c5f32d5fbfe7fc64fc0eb08a38b6d4b4a25b",
+    "src/discretization/procedural_equation.cpp": "89d0f39eb50c630eb591e14ce3d991029c389e8fc508c92d77ddaf53faa57886",
+    "src/geometry/geometry.cpp": "f4fc5028cabb692ac3a9ff56e0255a9342c81d6ee97dece4a9fd10ce672e6561",
+    "src/internal/boundary_evaluation.h": "28ecd1df377ffa018f44a474c810dd0b0c1e45fbb9da5bc1deb74a14651c8d60",
+    "src/internal/compute_backend.h": "8a3a06a1e99115a3f31efbf9688fc2effbfd9125de55fc275f165bf2c016c65e",
+    "src/internal/field_access.h": "ef89465efc530097304432e74e762489b374b92057af0f8b94ea45756d8b3f67",
+    "src/internal/fvm_execution.h": "007ad0e2f26a4cb71eb91e5357d1f42b455e3b876cbe99c07846f4b21aebf27e",
+    "src/internal/mesh_access.h": "781cd62332e6142d91b39416df4e6693a7fed27d64724d4c7d4cc0efda328014",
+    "src/internal/mesh_partition.h": "02bf1c43fc3c420432b473e7a84e1e1b6d2ab6e68fb66b54569c69b516724dd0",
+    "src/internal/petsc_assembly_plan.h": "f0ba00c61db7f54fc7164756cf47c687e45f3054b788b1e1f925159de382a0bb",
+    "src/internal/petsc_index_map.h": "300d161f4df7746336839e9f287a2d72a9334011842aa89cf00da10584ae85c0",
+    "src/internal/petsc_linear_system.h": "339fde45222c03f4cf5e7d11820fedb50cf72dd5a7b99eadde65413dffcc3ce0",
+    "src/internal/petsc_session.h": "cbbc71eef40ec84ebc22a5b22d1bd922587a6104dbf413e615c8598903c00620",
+    "src/io/case.cpp": "a2a7011debb0e7ed59e06f80f653a2cac9890330f79c6530cd5aa58a6d78d32a",
+    "src/io/case_reader.cpp": "9b20141078d7b150aa32f5a6a37a7d7fdc8fc0e69b77e9179a5dccfdcfb0d03c",
+    "src/io/case_template.cpp": "1d0660a1d99649fdd953ebd588eea8c7b8101078f26222df1494605668fd2daa",
+    "src/io/config.cpp": "1245df77dab9251a1a3639b6d529e6ca8abe9060e985d82ad21f8fee641c3b1d",
+    "src/io/field_reader.cpp": "412c423128a8e82a516c1b19003fc7347193c4020162c01ea02ac4e3989377ac",
+    "src/io/mesh_reader.cpp": "cdbea1b4187e78f8f5f7796e7d00b2b86a1fb3657c43c926555fca34abfb142f",
+    "src/io/model_description.cpp": "a96597ff3fe68ac70864bdbdb95990a99b81651d698e1ee983f9860e4b555dd0",
+    "src/io/model_description_output.cpp": "4b03acf89c6ed05c9d0e7ef338a436c228de56925b226c3a1c24fd980fdfee29",
+    "src/io/module_description_support.h": "d898a7852bf03d4c0ac9c72a667fa7677295de2a0b1d468e5e1f20610236e5b1",
+    "src/io/monitor.cpp": "f61e42d1f3882c79cb731b77033a7b77e919b1c5fa4e2f3ffb04c1a9da910359",
+    "src/io/numerics_reader.cpp": "95c591403dc3aa07cc41da9151086939d58099742a6c7a9ba631e07d4f2bf804",
+    "src/io/postprocess.cpp": "2239a1736a8a118ac1d3dd6fba6313cdd594eaa9e1dfeb8a5b10b7dc3b365de5",
+    "src/io/result_reader.cpp": "c20f6187c2011674058f12693db6eea37ec4b06bceb03c1559684866ed0ac9cf",
+    "src/io/time_step.cpp": "0ca8d6dc91dbdc479a06573898275768ba770315993743989fc0c00da3af045f",
+    "src/parallel/distributed_mesh.cpp": "b6ba8444812d634e4542c357865459ead451da072f9c04c96a875091ae5f8a59",
+    "src/parallel/halo_exchange.cpp": "73bfcf0f5da4da1c40416ce746f5b9c9973c68088ff10317de1744b3eef8e10a",
+    "src/parallel/mesh_partition.cpp": "3fcddcbb37d13732937a12279bda9a1729ad06d9456ba459fcef891f954b9e66",
+    "src/parallel/parallel_context.cpp": "f2f4ded284b3a0a092b5aa17da6d22dbe83daeaca49725051a3fcbc583b6c2d0",
+    "src/parallel/parallel_writer.cpp": "576c924cf244587749665343ca8854d3a5167424beac1a56685f6964612ae9e6",
+    "src/physics/RANS/README.md": "b38a41b935cc57425c0158a3e63b80060450c47498972fc8088b818af3b333c0",
+    "src/physics/RANS/api.h": "aa4275ebaa69b4aa77d2c868f22a180d69218c19e3c613b58e8e332568dd76a3",
+    "src/physics/RANS/k_epsilon.cpp": "c6322b328813f4d929581e3e904b9fcc06a7c67213b3a5c6ee5cca0fdb2d066e",
+    "src/physics/RANS/k_omega.cpp": "395aee3f6d6ccd935a1516d306fb872bdb9ad72a821acbb86a65c9b10f317ed6",
+    "src/physics/RANS/model.cpp": "149390ae93f77387a4a802bdc0914cb25a6588c803e6260efe458f85f85a80ea",
+    "src/physics/RANS/model.h": "4bc30086ad74269b2d6223dfca97f16321c3b5ad6304016855b004386ef5e086",
+    "src/physics/RANS/spalart_allmaras.cpp": "71db1d991f35221650851faff0ffdb26d636bed0c445e896c06f4de64eff2c64",
+    "src/physics/descriptions/builtin.cpp": "814bea59ab46d071966a3ae6b606e41d7b01357e809d7b045486cb2eec8414de",
+    "src/physics/heat/main.cpp": "e00386ff42fd2132aa06c2bb8549a51bf3382d3d9972577e3eba68b4f685575d",
+    "src/physics/piso/main.cpp": "47728e5d1c5d4c857da0c30fb67d8c97cd8f9e85f71a2451271db5852c24ea51",
+    "src/physics/simple/main.cpp": "fc39bcacdb2378e6eb08351527e1ac7c3b4329cc5b678316b4161bb7280fbdee",
+    "src/physics/transient_simple/main.cpp": "ce6d33d2b36108c5ddb39b3eb581d07992b1f1e752796edcf172fc27cb99d29e",
+    "src/physics/transport/main.cpp": "d7503ef3a4023a1745f4871213783a237a84205e28b05c313bb0e28ef7ff1e87",
+    "src/runtime/application.cpp": "ce8490f4f7658ba620ef13d535de5d96819c574be5ea594899186f9976ac144c",
+    "src/runtime/runtime.cpp": "274f830a062f86eb81d8cc174f264a404d4df571ee98fe1302e4308ab02fa4fb",
+    "src/runtime/solver_api.cpp": "00272bf004eead799fb1423fdb9f2835989c11f6f8dbd499d0dce2ebee0991b2"
+  },
+  "compilerFlags": {
+    "CXX": {
+      "baseline": "CXX := mpic++",
+      "candidate": "CXX := mpic++",
+      "equal": true
+    },
+    "AR": {
+      "baseline": "AR := gcc-ar",
+      "candidate": "AR := gcc-ar",
+      "equal": true
+    },
+    "OPTFLAGS": {
+      "baseline": "OPTFLAGS = -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects  -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG",
+      "candidate": "OPTFLAGS = -O3 -march=native -mtune=native -flto=auto -ffat-lto-objects  -ffast-math -fno-finite-math-only -ffp-contract=off -DNDEBUG",
+      "equal": true
+    },
+    "CXXFLAGS": {
+      "baseline": "CXXFLAGS = -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow  -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1",
+      "candidate": "CXXFLAGS = -std=c++17 $(OPTFLAGS) -Wall -Wextra -Wpedantic -Wshadow  -DOMPI_SKIP_MPICXX=1 -DMPICH_SKIP_MPICXX=1",
+      "equal": true
+    },
+    "PETSC_OPTFLAGS": {
+      "baseline": "PETSC_OPTFLAGS ?= -O3 -march=native -mtune=native",
+      "candidate": "PETSC_OPTFLAGS ?= -O3 -march=native -mtune=native",
+      "equal": true
+    },
+    "CPPFLAGS": {
+      "baseline": "CPPFLAGS ?= -Iinclude -Isrc -I$(EIGEN_DIR)",
+      "candidate": "CPPFLAGS ?= -Iinclude -Isrc -I$(EIGEN_DIR)",
+      "equal": true
+    }
+  },
+  "regressionBeforeFinalScratchLifetimePreservation": {
+    "status": "passed",
+    "build": {
+      "baseline": "68c5f548009ee20966e380682cc0b78f39bea9c8895af0403577a7204fef2e99",
+      "candidate": "8b3295f44af8d40831d5dc64c4ed9ba7815d404fa550df9aafe06bbc7e06a4e5"
+    },
+    "tests": {
+      "baseline-tests.log": {
+        "sha256": "ac1836738dc9402c416463f5a2f49bec78bc728e2187ec7435ef9eb0ce469fb7",
+        "validationLines": [
+          "architecture_test: 87 sources/headers, acyclic includes and layer boundaries passed",
+          "numerical_configuration_test: hierarchy, named solvers, explicit math, independent coefficient reconstruction and frozen flux passed",
+          "module_description_test: generated templates, typed defaults, frontend checks, and registry passed",
+          "time_tools_test: public weights/production assembly, prediction, grouped histories, rejected-step restoration and variable-step retry passed",
+          "procedural_equation_test: assembly, frozen inputs, algebra, BDF2, diffusion and vector solve passed",
+          "monitor_test: generic observations, cadence and urgent event passed",
+          "numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed",
+          "field_boundary_test: scalar/vector and mirror conditions passed",
+          "operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed",
+          "math_runtime_test: explicit Field operations passed",
+          "public_equation_test: vector source, response, reference and face operators passed",
+          "backend_interface_test: replaceable coarse-grained backend passed",
+          "petsc_backend_test: ranks=1 owned=16 iterations=40",
+          "residual_restart_test: ranks=1 repaired=5 honestRejections=0 strict targets and warm shortcut passed",
+          "case_lifecycle_test: stable references and deterministic destruction passed",
+          "case_io_test: SIMPLE, heat-compatible and transport dictionaries passed",
+          "field_writer_test: scalar/vector/tensor owned output passed",
+          "scalar_equation_test: heat coefficients and transport assembly passed",
+          "time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed",
+          "architecture_test: 87 sources/headers, acyclic includes and layer boundaries passed",
+          "time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed",
+          "ParaView: PVD time steps and VTU cell values passed",
+          "solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed",
+          "external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed",
+          "external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed",
+          "rans_validation_test: published terms, temporal order, SIMPLE/PISO 1/2/4 ranks and clipping/linear rejection passed",
+          "scalar_time_order_test: production BDF2 deferred corrections, shortened last step, 1/2/4 ranks passed",
+          "simple_parallel_consistency_test: all states, fields, geometry, and physical times passed",
+          "partition ranks=2 cells=4096 cutFaces=84 ghostCellsTotal=387 localFaceImbalance=1.00011 haloBytesTotal=6192 firstLayerBytesTotal=2080",
+          "partition ranks=2 cells=561 cutFaces=68 ghostCellsTotal=238 localFaceImbalance=1.02051 haloBytesTotal=3808 firstLayerBytesTotal=1408",
+          "partition ranks=2 cells=256 cutFaces=2 ghostCellsTotal=12 localFaceImbalance=1 haloBytesTotal=192 firstLayerBytesTotal=64",
+          "partition ranks=3 cells=4096 cutFaces=139 ghostCellsTotal=614 localFaceImbalance=1.00816 haloBytesTotal=9824 firstLayerBytesTotal=3248",
+          "partition ranks=3 cells=561 cutFaces=105 ghostCellsTotal=419 localFaceImbalance=1.06427 haloBytesTotal=6704 firstLayerBytesTotal=2240",
+          "partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128",
+          "partition ranks=4 cells=4096 cutFaces=169 ghostCellsTotal=726 localFaceImbalance=1.02198 haloBytesTotal=11616 firstLayerBytesTotal=3808",
+          "partition ranks=4 cells=561 cutFaces=122 ghostCellsTotal=504 localFaceImbalance=1.06333 haloBytesTotal=8064 firstLayerBytesTotal=2496",
+          "partition ranks=4 cells=256 cutFaces=6 ghostCellsTotal=36 localFaceImbalance=1.04085 haloBytesTotal=576 firstLayerBytesTotal=192",
+          "numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed",
+          "numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "petsc_backend_test: ranks=2 owned=8 iterations=55",
+          "petsc_backend_test: ranks=4 owned=4 iterations=50",
+          "residual_restart_test: ranks=2 repaired=4 honestRejections=1 strict targets and warm shortcut passed",
+          "residual_restart_test: ranks=4 repaired=4 honestRejections=1 strict targets and warm shortcut passed",
+          "parallel_unstructured_test: scrambled hex graph partition and halo passed",
+          "parallel_channel_test: ranks=2 iterations=1149 mass=1.27615e-15 dU=1.72338e-08 rU=9.85088e-07 dP=1.39283e-07 sumU=(4339.07,6.27948e-07,0) maxU=1.49895",
+          "parallel_simple_test: ranks=1 iterations=153 mass=6.66105e-15 dU=2.62494e-07 centreU=-0.149237",
+          "parallel_simple_test: ranks=2 iterations=153 mass=1.09013e-14 dU=2.62494e-07 centreU=-0.149237",
+          "parallel_simple_test: ranks=4 iterations=153 mass=8.8422e-15 dU=2.62494e-07 centreU=-0.149237",
+          "parallel_cavity_3d_test: ranks=2 iterations=66 mass=1.75622e-15 centreU=-0.114134 maxW=0.0192033",
+          "parallel_transport_test: ranks=2 max_error=0",
+          "module_description_test: generated templates, typed defaults, frontend checks, and registry passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "petsc_backend_test: ranks=1 owned=16 iterations=40",
+          "petsc_backend_test: ranks=2 owned=8 iterations=55",
+          "petsc_backend_test: ranks=4 owned=4 iterations=50",
+          "piso_coupling_test: conservative-but-unsettled rejection, adaptive correction, 1/2/4 ranks passed",
+          "module_description_workflow_test: discovery, schema/docs, no-overwrite templates, Euler/BDF2 tutorials passed"
+        ]
+      },
+      "refactor-tests.log": {
+        "sha256": "a11d5b8d82bcb7b83d6f959f162f173b54c16cb6cf627d366a842c4e47246623",
+        "validationLines": [
+          "architecture_test: 94 sources/headers, acyclic includes and layer boundaries passed",
+          "numerical_configuration_test: hierarchy, named solvers, explicit math, independent coefficient reconstruction and frozen flux passed",
+          "module_description_test: generated templates, typed defaults, frontend checks, and registry passed",
+          "time_tools_test: public weights/production assembly, prediction, grouped histories, rejected-step restoration and variable-step retry passed",
+          "procedural_equation_test: assembly, frozen inputs, algebra, BDF2, diffusion and vector solve passed",
+          "monitor_test: generic observations, cadence and urgent event passed",
+          "numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed",
+          "field_boundary_test: scalar/vector and mirror conditions passed",
+          "operators_test: scalar/vector grad, corrected diffusion, skew reconstruction, div/laplacian/time/convection passed",
+          "math_runtime_test: explicit Field operations passed",
+          "public_equation_test: vector source, response, reference and face operators passed",
+          "backend_interface_test: replaceable coarse-grained backend passed",
+          "petsc_backend_test: ranks=1 owned=16 iterations=40",
+          "residual_restart_test: ranks=1 repaired=5 honestRejections=0 strict targets and warm shortcut passed",
+          "case_lifecycle_test: stable references and deterministic destruction passed",
+          "case_io_test: SIMPLE, heat-compatible and transport dictionaries passed",
+          "field_writer_test: scalar/vector/tensor owned output passed",
+          "scalar_equation_test: heat coefficients and transport assembly passed",
+          "time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed",
+          "architecture_test: 94 sources/headers, acyclic includes and layer boundaries passed",
+          "time_history_test: repeated scalar/vector solves, Euler/BDF2, endTime passed",
+          "ParaView: PVD time steps and VTU cell values passed",
+          "solver_workflow_test: heat/transport/coupled, 1/2/4 ranks, physical times, failure paths passed",
+          "external_solver_test: private SIMPLE module rebuilt against public framework headers; 1/2/4 ranks passed",
+          "external_solver_test: out-of-tree equation/coupled/vector solvers, 1/2/4 ranks, 13 negative API checks, 7 application failures, MPI-free reader passed",
+          "rans_validation_test: published terms, temporal order, SIMPLE/PISO 1/2/4 ranks and clipping/linear rejection passed",
+          "scalar_time_order_test: production BDF2 deferred corrections, shortened last step, 1/2/4 ranks passed",
+          "simple_parallel_consistency_test: all states, fields, geometry, and physical times passed",
+          "partition ranks=2 cells=4096 cutFaces=84 ghostCellsTotal=387 localFaceImbalance=1.00011 haloBytesTotal=6192 firstLayerBytesTotal=2080",
+          "partition ranks=2 cells=561 cutFaces=68 ghostCellsTotal=238 localFaceImbalance=1.02051 haloBytesTotal=3808 firstLayerBytesTotal=1408",
+          "partition ranks=2 cells=256 cutFaces=2 ghostCellsTotal=12 localFaceImbalance=1 haloBytesTotal=192 firstLayerBytesTotal=64",
+          "partition ranks=3 cells=4096 cutFaces=139 ghostCellsTotal=614 localFaceImbalance=1.00816 haloBytesTotal=9824 firstLayerBytesTotal=3248",
+          "partition ranks=3 cells=561 cutFaces=105 ghostCellsTotal=419 localFaceImbalance=1.06427 haloBytesTotal=6704 firstLayerBytesTotal=2240",
+          "partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128",
+          "partition ranks=4 cells=4096 cutFaces=169 ghostCellsTotal=726 localFaceImbalance=1.02198 haloBytesTotal=11616 firstLayerBytesTotal=3808",
+          "partition ranks=4 cells=561 cutFaces=122 ghostCellsTotal=504 localFaceImbalance=1.06333 haloBytesTotal=8064 firstLayerBytesTotal=2496",
+          "partition ranks=4 cells=256 cutFaces=6 ghostCellsTotal=36 localFaceImbalance=1.04085 haloBytesTotal=576 firstLayerBytesTotal=192",
+          "numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed",
+          "numerical_contract_test: field traces, Sp, true residuals, tensor divergence; 30 solver/preconditioner/scale combinations passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "petsc_backend_test: ranks=2 owned=8 iterations=55",
+          "petsc_backend_test: ranks=4 owned=4 iterations=50",
+          "residual_restart_test: ranks=2 repaired=4 honestRejections=1 strict targets and warm shortcut passed",
+          "residual_restart_test: ranks=4 repaired=4 honestRejections=1 strict targets and warm shortcut passed",
+          "parallel_unstructured_test: scrambled hex graph partition and halo passed",
+          "parallel_channel_test: ranks=2 iterations=1149 mass=1.27785e-15 dU=1.72338e-08 rU=9.85088e-07 dP=1.39283e-07 sumU=(4339.07,6.27948e-07,0) maxU=1.49895",
+          "parallel_simple_test: ranks=1 iterations=153 mass=6.66043e-15 dU=2.62494e-07 centreU=-0.149237",
+          "parallel_simple_test: ranks=2 iterations=153 mass=1.09026e-14 dU=2.62494e-07 centreU=-0.149237",
+          "parallel_simple_test: ranks=4 iterations=153 mass=8.8456e-15 dU=2.62494e-07 centreU=-0.149237",
+          "parallel_cavity_3d_test: ranks=2 iterations=66 mass=1.76042e-15 centreU=-0.114134 maxW=0.0192033",
+          "parallel_transport_test: ranks=2 max_error=0",
+          "physics_contract_test: inflow, frozen diffusion flux, Courant and nonlinear pressure flux passed",
+          "module_description_test: generated templates, typed defaults, frontend checks, and registry passed",
+          "petsc_backend_test: ranks=1 owned=16 iterations=40",
+          "petsc_backend_test: ranks=2 owned=8 iterations=55",
+          "petsc_backend_test: ranks=4 owned=4 iterations=50",
+          "piso_coupling_test: conservative-but-unsettled rejection, adaptive correction, 1/2/4 ranks passed",
+          "module_description_workflow_test: discovery, schema/docs, no-overwrite templates, Euler/BDF2 tutorials passed"
+        ]
+      },
+      "fallback-tests.log": {
+        "sha256": "1d38216b76ce05a0d131501431da1f62063548a500201eaeba77cb0b68692ecf",
+        "validationLines": [
+          "partition ranks=2 cells=4096 cutFaces=126 ghostCellsTotal=436 localFaceImbalance=1 haloBytesTotal=6976 firstLayerBytesTotal=3040",
+          "partition ranks=2 cells=561 cutFaces=78 ghostCellsTotal=211 localFaceImbalance=1.00036 haloBytesTotal=3376 firstLayerBytesTotal=1152",
+          "partition ranks=2 cells=256 cutFaces=4 ghostCellsTotal=14 localFaceImbalance=1 haloBytesTotal=224 firstLayerBytesTotal=96",
+          "partition ranks=3 cells=4096 cutFaces=185 ghostCellsTotal=762 localFaceImbalance=1.07561 haloBytesTotal=12192 firstLayerBytesTotal=4048",
+          "partition ranks=3 cells=561 cutFaces=142 ghostCellsTotal=469 localFaceImbalance=1.17727 haloBytesTotal=7504 firstLayerBytesTotal=2496",
+          "partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128",
+          "partition ranks=4 cells=4096 cutFaces=234 ghostCellsTotal=907 localFaceImbalance=1.07006 haloBytesTotal=14512 firstLayerBytesTotal=4880",
+          "partition ranks=4 cells=561 cutFaces=188 ghostCellsTotal=670 localFaceImbalance=1.10864 haloBytesTotal=10720 firstLayerBytesTotal=3312",
+          "partition ranks=4 cells=256 cutFaces=16 ghostCellsTotal=64 localFaceImbalance=1.11538 haloBytesTotal=1024 firstLayerBytesTotal=384"
+        ]
+      }
+    },
+    "commands": [
+      "make -j4 all",
+      "make -j4 test-full",
+      "make -j4 test-piso-coupling petsc-check test-descriptions",
+      "make -j4 BUILD=build/maintainability-20261013/fallback PETSC_DIR=/home/midway/BabelSim/build/petsc USE_METIS=0 build/maintainability-20261013/fallback/parallel_partition_test",
+      "mpirun -np 2/3/4 build/maintainability-20261013/fallback/parallel_partition_test"
+    ]
+  },
+  "finalSourceTargetedRegression": {
+    "commands": [
+      "make -j4 all",
+      "make -j4 build/unstructured_mesh_test build/mesh_geometry_test build/parallel_partition_test petsc-check",
+      "build/unstructured_mesh_test",
+      "build/mesh_geometry_test",
+      "mpirun -np 2/3/4 build/parallel_partition_test"
+    ],
+    "status": "passed",
+    "buildLogSha256": "7dcdcab8aef7d3e7393727420eee4ec37bd2e85d15d702373b58f0d10fcaef2a",
+    "testLogSha256": "3271fca25d7dff62ea30dc7034da750fd272c88e5f2fbd2cee9894d882b5de52",
+    "validationLines": [
+      "unstructured_mesh_test: arbitrary order, patches, geometry and rejection paths passed",
+      "mesh_geometry_test: cells=18 volume=18.543 max_nonorth=0.383992 max_skew=0.00392164",
+      "petsc_backend_test: ranks=1 owned=16 iterations=40",
+      "petsc_backend_test: ranks=2 owned=8 iterations=55",
+      "petsc_backend_test: ranks=4 owned=4 iterations=50",
+      "partition ranks=2 cells=4096 cutFaces=84 ghostCellsTotal=387 localFaceImbalance=1.00011 haloBytesTotal=6192 firstLayerBytesTotal=2080",
+      "partition ranks=2 cells=561 cutFaces=68 ghostCellsTotal=238 localFaceImbalance=1.02051 haloBytesTotal=3808 firstLayerBytesTotal=1408",
+      "partition ranks=2 cells=256 cutFaces=2 ghostCellsTotal=12 localFaceImbalance=1 haloBytesTotal=192 firstLayerBytesTotal=64",
+      "partition ranks=3 cells=4096 cutFaces=139 ghostCellsTotal=614 localFaceImbalance=1.00816 haloBytesTotal=9824 firstLayerBytesTotal=3248",
+      "partition ranks=3 cells=561 cutFaces=105 ghostCellsTotal=419 localFaceImbalance=1.06427 haloBytesTotal=6704 firstLayerBytesTotal=2240",
+      "partition ranks=3 cells=256 cutFaces=5 ghostCellsTotal=24 localFaceImbalance=1.03946 haloBytesTotal=384 firstLayerBytesTotal=128",
+      "partition ranks=4 cells=4096 cutFaces=169 ghostCellsTotal=726 localFaceImbalance=1.02198 haloBytesTotal=11616 firstLayerBytesTotal=3808",
+      "partition ranks=4 cells=561 cutFaces=122 ghostCellsTotal=504 localFaceImbalance=1.06333 haloBytesTotal=8064 firstLayerBytesTotal=2496",
+      "partition ranks=4 cells=256 cutFaces=6 ghostCellsTotal=36 localFaceImbalance=1.04085 haloBytesTotal=576 firstLayerBytesTotal=192"
+    ]
+  },
+  "descriptionAndTemplateComparison": {
+    "status": "passed",
+    "comparisons": [
+      {
+        "module": "SA",
+        "format": "json",
+        "sha256": "eec32cc3ddebf0cfc7be27e1a6c0d5056f2cd554c20a00937481d8a687283f75"
+      },
+      {
+        "module": "SA",
+        "format": "markdown",
+        "sha256": "c1605ed9a10c7e50d0c77d0abff8779434ff9f1b97e8c1702173e2e62db47089"
+      },
+      {
+        "module": "heat",
+        "format": "json",
+        "sha256": "17d29eb273940c4c75482fc9c7bffdbab5c0ced276c836c40743724388569aa2"
+      },
+      {
+        "module": "heat",
+        "format": "markdown",
+        "sha256": "82ecd6707fb2ff4dc631cdb6cd431d29c46f945c9f53ce5092d9e9666a6f1cd2"
+      },
+      {
+        "module": "kEpsilon",
+        "format": "json",
+        "sha256": "8a9b4d3867205ac8a6ed14900dc53b57222745281263d277cc4dbbd72c8bf559"
+      },
+      {
+        "module": "kEpsilon",
+        "format": "markdown",
+        "sha256": "f8f9a35ec552e789c958262d1bfc99ee18f3803787b3fbce02f83c1c09cded3e"
+      },
+      {
+        "module": "kOmega",
+        "format": "json",
+        "sha256": "1055563b4068b632745e1616715fe296f5bbb60ec81c0e4daab59a64ea33fee2"
+      },
+      {
+        "module": "kOmega",
+        "format": "markdown",
+        "sha256": "f72f3804f19a70e192a20f19ba45c922514b15308b7fc56075fb6ef396d40815"
+      },
+      {
+        "module": "piso",
+        "format": "json",
+        "sha256": "79aacd7961fb89906458a15ee39d66fac094c7058128b9326b1fa4d7f0592ad8"
+      },
+      {
+        "module": "piso",
+        "format": "markdown",
+        "sha256": "a4c9841da0b6aa68a3f935032e2483cccc8af5195fa5aaf8b6e428aa7d1a3ed7"
+      },
+      {
+        "module": "simple",
+        "format": "json",
+        "sha256": "c2059da7710695c8c36875381441b2ca27eca069316d2caf19de3b0a6175a363"
+      },
+      {
+        "module": "simple",
+        "format": "markdown",
+        "sha256": "ccc0345f7f8724cd77baf74a38fc58e996d6c60f634e5b4f11fcf8d5aff2aba4"
+      },
+      {
+        "module": "transientSimple",
+        "format": "json",
+        "sha256": "fce59428438e88f9adb91361d6395b48fe33f43a63a398887016e5b8dea07cc8"
+      },
+      {
+        "module": "transientSimple",
+        "format": "markdown",
+        "sha256": "2baeb8d9d327ebee214ffe5c775777870e753cccfa824bacbcb723eb06c2373a"
+      },
+      {
+        "module": "transport",
+        "format": "json",
+        "sha256": "d233d65e330b138dfb4ca3968764091a81d2ac442be8d57f5d78ebd6f37473dd"
+      },
+      {
+        "module": "transport",
+        "format": "markdown",
+        "sha256": "71b7b8ab58dbeb57732e7c3b856c91dd66c71a1e69ac19da4aae2cf5dd18bb3e"
+      },
+      {
+        "module": "heat",
+        "format": "case-template",
+        "files": {
+          "output.bs": "b9f1a54b49cf9cd5d6126bf07f29e2895fa1621cd022294eeeea27ad3a05c4cc",
+          "control.bs": "b801ee674b8b1b0960de36478d5bcf5c6364483f4e0d97125ad0a01c9ecb0041",
+          "case.bs": "e083add51030263c2a4f5bbb58a2e69ff8e3aecf0494fed7874ed8ea7f4b94a6",
+          "README.md": "06679c8533303040935121529f826225b05f4bc7cfbbb23af195300d3c80e2b3",
+          "module.schema.json": "17d29eb273940c4c75482fc9c7bffdbab5c0ced276c836c40743724388569aa2",
+          "mesh/domain.mesh": "5019f3c936376c3222ab23c83b475d21c71eb01164a640bf07bad927469c3d3d",
+          "physics/model.bs": "896db8fb506bf6f1548467870f669e92f4432cb96aed2c2eda7780cf3537dd50",
+          "numerics/methods.bs": "36edf285954f65f5c38cf31a790f2e2596fce711e51770ec523914cad9826993",
+          "numerics/solution.bs": "98d55b1143f0048b631bab3bc64600a03cb575c9ddf545612e1789fb71cf4a5c",
+          "fields/initial/T.field": "f89bbc00fed4879bea1829d18aecbf9b9f6d0f35499d4b5bdc6281af8f3c8209"
+        }
+      },
+      {
+        "module": "transport",
+        "format": "case-template",
+        "files": {
+          "output.bs": "b9f1a54b49cf9cd5d6126bf07f29e2895fa1621cd022294eeeea27ad3a05c4cc",
+          "control.bs": "b801ee674b8b1b0960de36478d5bcf5c6364483f4e0d97125ad0a01c9ecb0041",
+          "case.bs": "17c189d65e6f0fdf9fa99de4147260ce50ee3be8a5ecd68158d909d3598d9553",
+          "README.md": "b761a44b4880ba61a31d29565fc4fa0ac3c7985c23a866922c4db238453b7e20",
+          "module.schema.json": "d233d65e330b138dfb4ca3968764091a81d2ac442be8d57f5d78ebd6f37473dd",
+          "mesh/domain.mesh": "5019f3c936376c3222ab23c83b475d21c71eb01164a640bf07bad927469c3d3d",
+          "physics/model.bs": "86f86dd199c03350875aeeceea134125f1de0f099cd74479717f74f8424327d9",
+          "numerics/methods.bs": "9e7df635c121534e664721742b28498e5713a247c9ea99cd815b5c7fc44bacd0",
+          "numerics/solution.bs": "417ec898b595bc6474a62491ee704921b80d2f1b9539868f953b9012a59c150a",
+          "fields/initial/U.field": "c3f2a681adda22db9dab819491fc4a973da9eb37dd6e681be76ef6cc66865e28",
+          "fields/initial/C.field": "aefa8388f56a48baec7b122e72e6a888f41945a41a770c9f93567857e390ffc3"
+        }
+      },
+      {
+        "module": "simple",
+        "format": "unsupported-case-template",
+        "error": "babelsim-solve: module simple has no generic case template\n--------------------------------------------------------------------------\nMPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD\nwith errorcode 1.\n\nNOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.\nYou may or may not see output from other processes, depending on\nexactly when Open MPI kills them.\n--------------------------------------------------------------------------\n"
+      },
+      {
+        "module": "transientSimple",
+        "format": "unsupported-case-template",
+        "error": "babelsim-solve: module transientSimple has no generic case template\n--------------------------------------------------------------------------\nMPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD\nwith errorcode 1.\n\nNOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.\nYou may or may not see output from other processes, depending on\nexactly when Open MPI kills them.\n--------------------------------------------------------------------------\n"
+      },
+      {
+        "module": "piso",
+        "format": "unsupported-case-template",
+        "error": "babelsim-solve: module piso has no generic case template\n--------------------------------------------------------------------------\nMPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD\nwith errorcode 1.\n\nNOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.\nYou may or may not see output from other processes, depending on\nexactly when Open MPI kills them.\n--------------------------------------------------------------------------\n"
+      }
+    ]
+  },
+  "finalFieldValidation": {
+    "piso": {
+      "status": "passed",
+      "atol": 0.0,
+      "rtol": 0.0,
+      "comparisons": [
+        {
+          "variant": "refactored",
+          "case": "piso54k",
+          "ranks": 1,
+          "repeat": 1,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/refactored/piso54k/results/benchmark-r1-n01",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "baseline",
+          "case": "piso54k",
+          "ranks": 1,
+          "repeat": 1,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "baseline",
+          "case": "piso54k",
+          "ranks": 1,
+          "repeat": 2,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n02",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "refactored",
+          "case": "piso54k",
+          "ranks": 1,
+          "repeat": 2,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/refactored/piso54k/results/benchmark-r1-n02",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "refactored",
+          "case": "piso54k",
+          "ranks": 1,
+          "repeat": 3,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/refactored/piso54k/results/benchmark-r1-n03",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "baseline",
+          "case": "piso54k",
+          "ranks": 1,
+          "repeat": 3,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r1-n03",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "baseline",
+          "case": "piso54k",
+          "ranks": 4,
+          "repeat": 1,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "refactored",
+          "case": "piso54k",
+          "ranks": 4,
+          "repeat": 1,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/refactored/piso54k/results/benchmark-r4-n01",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "refactored",
+          "case": "piso54k",
+          "ranks": 4,
+          "repeat": 2,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/refactored/piso54k/results/benchmark-r4-n02",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "baseline",
+          "case": "piso54k",
+          "ranks": 4,
+          "repeat": 2,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n02",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "refactored",
+          "case": "piso54k",
+          "ranks": 4,
+          "repeat": 3,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/refactored/piso54k/results/benchmark-r4-n03",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        },
+        {
+          "variant": "baseline",
+          "case": "piso54k",
+          "ranks": 4,
+          "repeat": 3,
+          "time": 3.0,
+          "reference": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n01",
+          "candidate": "/home/midway/BabelSim/build/maintainability-20261013/work-final/baseline/piso54k/results/benchmark-r4-n03",
+          "fields": {
+            "U": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            },
+            "p": {
+              "cells": 54000,
+              "maxAbsolute": 0.0,
+              "maxToleranceRatio": 0.0,
+              "relativeL2": 0.0
+            }
+          }
+        }
+      ],
+      "skipped": [],
+      "note": "Validate frozen binary A/B fields, coverage and saved time after measurement.\n\nSettings overrides need their own accuracy budget and are reported as skipped.\nThis checks numerical equivalence; it does not validate a physical model.\n"
+    },
+    "convergedSimple": {
+      "status": "passed",
+      "comparisons": [
+        {
+          "ranks": 1,
+          "fields": {
+            "U": {
+              "cells": 4340,
+              "maxAbsolute": 0
+            },
+            "p": {
+              "cells": 4340,
+              "maxAbsolute": 0
+            }
+          },
+          "status": "passed",
+          "atol": 0,
+          "rtol": 0
+        },
+        {
+          "ranks": 4,
+          "fields": {
+            "U": {
+              "cells": 4340,
+              "maxAbsolute": 0
+            },
+            "p": {
+              "cells": 4340,
+              "maxAbsolute": 0
+            }
+          },
+          "status": "passed",
+          "atol": 0,
+          "rtol": 0
+        }
+      ]
+    }
+  },
+  "performance": {
+    "metric": "max_rank(iterationComputeSeconds)",
+    "host": {
+      "hostname": "midway",
+      "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "cpuTopology": {
+        "allowedCpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "logicalCpus": 24,
+        "physicalCores": 12
+      }
+    },
+    "binaries": {
+      "baseline": {
+        "binary": "/home/midway/BabelSim/build/maintainability-20261013/bin/baseline-solve",
+        "sha256": "d6907038a2eff29391c7753912399b3e7ffb87ae9051dcbe53e0408c657346f1"
+      },
+      "refactored": {
+        "binary": "/home/midway/BabelSim/build/maintainability-20261013/bin/final-solve",
+        "sha256": "5043f3e851ae3b207f94af7dbec8c2203e5cee8df1cae48e721134ce5784c16f"
+      }
+    },
+    "finalStudy": {
+      "path": "build/maintainability-20261013/performance-final",
+      "cases": {
+        "piso54k": {
+          "path": "/home/midway/BabelSim/build/maintainability-20261013/inputs/piso54k",
+          "manifest": {
+            "sha256": "2aa61ab3a3ddec78ca05aa76ebeb3c9fc60ff8a27eae62811dec7e828ebe29e9",
+            "files": [
+              {
+                "path": "case.bs",
+                "bytes": 186,
+                "sha256": "ec44118ef613342df588c8422271fc1a48a2757a39c25e17b5508178e8a5374d"
+              },
+              {
+                "path": "control.bs",
+                "bytes": 34,
+                "sha256": "cd39d58eb9b22f9018ca0c417f003e96947f9f30165c6e511b6c5092adc61a3f"
+              },
+              {
+                "path": "fields/initial/U.field",
+                "bytes": 300,
+                "sha256": "192205da309f5d1b96d8d2d6b82d5b20e65426e4c974103aee2c994553e94af8"
+              },
+              {
+                "path": "fields/initial/p.field",
+                "bytes": 268,
+                "sha256": "84062f8b4a2ce677b0902e3862bdf34bf8d429de66096cb3718403f5a281d94d"
+              },
+              {
+                "path": "generation.json",
+                "bytes": 238,
+                "sha256": "5c0b7f1c9b6a192cef07cf627f71f26a8f4f3aa45cb63f551f3e17c3d073b6f9"
+              },
+              {
+                "path": "mesh/flow.mesh",
+                "bytes": 6936036,
+                "sha256": "fd32fa91c9d0082a7631f75125dd165347bf058375a2c6970ebb7d049ed2ce57"
+              },
+              {
+                "path": "numerics/methods.bs",
+                "bytes": 355,
+                "sha256": "870d4c58a73ac8c3b272915248b494bb4e6ffa6d6c732970cb65a2ca0c67f9dc"
+              },
+              {
+                "path": "numerics/solution.bs",
+                "bytes": 596,
+                "sha256": "e8198d25d9f3bf003804608b2497b7c58d4e732448c2b48bb5fa0ff8dd05d59b"
+              },
+              {
+                "path": "output.bs",
+                "bytes": 51,
+                "sha256": "ece86c50f91b1168baca33265291c5317b718e710cb2eebedbf44d6e71bcaaf7"
+              },
+              {
+                "path": "physics/flow.bs",
+                "bytes": 53,
+                "sha256": "282f382b9cd54c1ef253754bf6fbdedde960f933cbe3c9333f7f14486764f872"
+              }
+            ]
+          }
+        },
+        "simple54k": {
+          "path": "/home/midway/BabelSim/build/maintainability-20261013/inputs/simple54k",
+          "manifest": {
+            "sha256": "1719a88f1e7a481a779d773b792fdc0feda3d284b5a94d75a730801f4e6c5915",
+            "files": [
+              {
+                "path": "case.bs",
+                "bytes": 188,
+                "sha256": "a0c01fb5921215a2cfbce824a6491ec5af17f00b93567931828572a13bb85b14"
+              },
+              {
+                "path": "control.bs",
+                "bytes": 31,
+                "sha256": "33657de2177fdb85b51c5e101292a57c9561a217191e1f1f049be86971bd2ea0"
+              },
+              {
+                "path": "fields/initial/U.field",
+                "bytes": 300,
+                "sha256": "192205da309f5d1b96d8d2d6b82d5b20e65426e4c974103aee2c994553e94af8"
+              },
+              {
+                "path": "fields/initial/p.field",
+                "bytes": 268,
+                "sha256": "84062f8b4a2ce677b0902e3862bdf34bf8d429de66096cb3718403f5a281d94d"
+              },
+              {
+                "path": "generation.json",
+                "bytes": 240,
+                "sha256": "437c2a86b6a591970fe64151a7c95f1f55a066cf64b29e823bbe028ce9f29e89"
+              },
+              {
+                "path": "mesh/flow.mesh",
+                "bytes": 6936036,
+                "sha256": "fd32fa91c9d0082a7631f75125dd165347bf058375a2c6970ebb7d049ed2ce57"
+              },
+              {
+                "path": "numerics/methods.bs",
+                "bytes": 356,
+                "sha256": "bca5cd96a5a7f9067dd45f8aaec1b57fa5b5c37f0c6de2a0e08f116c5c3e5331"
+              },
+              {
+                "path": "numerics/solution.bs",
+                "bytes": 583,
+                "sha256": "a69024e92503eccd31061646b1cc898f159a9173673aaf387f4a5a180ac16628"
+              },
+              {
+                "path": "output.bs",
+                "bytes": 49,
+                "sha256": "c6ca13b1b0b504ac6d8b533d64926a0a4612f67e0b11586aac09e0fc4630c385"
+              },
+              {
+                "path": "physics/flow.bs",
+                "bytes": 53,
+                "sha256": "282f382b9cd54c1ef253754bf6fbdedde960f933cbe3c9333f7f14486764f872"
+              }
+            ]
+          }
+        }
+      },
+      "ranks": [
+        1,
+        4
+      ],
+      "repeat": 3,
+      "warmup": 1,
+      "seed": 20261013,
+      "minimumCompute": 20.0,
+      "environment": {
+        "TMPDIR": "/tmp",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "GOMP_CPU_AFFINITY": "",
+        "OMP_PROC_BIND": "",
+        "BABELSIM_ASYNC_KRYLOV_HALO": "",
+        "BABELSIM_CSR_SPMV": "",
+        "BABELSIM_SERIAL_CSR_SPMV": "",
+        "BABELSIM_INPLACE_PRECONDITIONER": ""
+      },
+      "summary": [
+        {
+          "case": "piso54k",
+          "variant": "baseline",
+          "ranks": 1,
+          "samples": 3,
+          "sustainedSamples": 3,
+          "computeMedian": 43.351255608,
+          "computeMin": 40.527040253,
+          "computeMax": 45.396424197,
+          "speedup": 1.0,
+          "efficiency": 1.0,
+          "workMedian": 300,
+          "setups": 176,
+          "iterations": 11349,
+          "setupSeconds": 2.8488797809999977,
+          "solveSeconds": 27.140556705999984,
+          "haloSeconds": 0,
+          "reductionSeconds": 0.01389671599999981
+        },
+        {
+          "case": "piso54k",
+          "variant": "baseline",
+          "ranks": 4,
+          "samples": 3,
+          "sustainedSamples": 2,
+          "computeMedian": 20.484969389,
+          "computeMin": 19.269982172000002,
+          "computeMax": 22.725685237,
+          "speedup": 2.116247028969383,
+          "efficiency": 0.5290617572423457,
+          "workMedian": 300,
+          "setups": 176,
+          "iterations": 14507,
+          "setupSeconds": 1.571427619000001,
+          "solveSeconds": 11.786326738000007,
+          "haloSeconds": 0.3848494389999997,
+          "reductionSeconds": 2.0310396040000005
+        },
+        {
+          "case": "piso54k",
+          "variant": "refactored",
+          "ranks": 1,
+          "samples": 3,
+          "sustainedSamples": 3,
+          "computeMedian": 42.266367265,
+          "computeMin": 40.094974415,
+          "computeMax": 51.971033975000005,
+          "speedup": 1.0,
+          "efficiency": 1.0,
+          "workMedian": 300,
+          "setups": 176,
+          "iterations": 11349,
+          "setupSeconds": 2.788598118000001,
+          "solveSeconds": 26.18490345299999,
+          "haloSeconds": 0,
+          "reductionSeconds": 0.013154414999999852
+        },
+        {
+          "case": "piso54k",
+          "variant": "refactored",
+          "ranks": 4,
+          "samples": 3,
+          "sustainedSamples": 1,
+          "computeMedian": 19.970669401000002,
+          "computeMin": 19.704198812,
+          "computeMax": 21.194457737,
+          "speedup": 2.1164221597340935,
+          "efficiency": 0.5291055399335234,
+          "workMedian": 300,
+          "setups": 176,
+          "iterations": 14507,
+          "setupSeconds": 1.5407768230000023,
+          "solveSeconds": 11.66672423100001,
+          "haloSeconds": 0.3758868520000002,
+          "reductionSeconds": 1.9079367120000095
+        },
+        {
+          "case": "simple54k",
+          "variant": "baseline",
+          "ranks": 1,
+          "samples": 3,
+          "sustainedSamples": 3,
+          "computeMedian": 38.852979993000005,
+          "computeMin": 37.289261398,
+          "computeMax": 45.625760048000004,
+          "speedup": 1.0,
+          "efficiency": 1.0,
+          "workMedian": 600,
+          "setups": 276,
+          "iterations": 11161,
+          "setupSeconds": 2.9025875319999948,
+          "solveSeconds": 23.734241926999992,
+          "haloSeconds": 0,
+          "reductionSeconds": 0.011807737999999774
+        },
+        {
+          "case": "simple54k",
+          "variant": "baseline",
+          "ranks": 4,
+          "samples": 3,
+          "sustainedSamples": 1,
+          "computeMedian": 19.146703291,
+          "computeMin": 18.950973709,
+          "computeMax": 22.605906469,
+          "speedup": 2.0292255748937746,
+          "efficiency": 0.5073063937234437,
+          "workMedian": 600,
+          "setups": 276,
+          "iterations": 16466,
+          "setupSeconds": 1.529488717000003,
+          "solveSeconds": 10.60276440799999,
+          "haloSeconds": 0.5008546759999992,
+          "reductionSeconds": 1.0645085849999998
+        },
+        {
+          "case": "simple54k",
+          "variant": "refactored",
+          "ranks": 1,
+          "samples": 3,
+          "sustainedSamples": 3,
+          "computeMedian": 37.373847494,
+          "computeMin": 36.871925744,
+          "computeMax": 38.637372747,
+          "speedup": 1.0,
+          "efficiency": 1.0,
+          "workMedian": 600,
+          "setups": 276,
+          "iterations": 11161,
+          "setupSeconds": 2.8254658980000023,
+          "solveSeconds": 22.55031077199994,
+          "haloSeconds": 0,
+          "reductionSeconds": 0.010711222999999895
+        },
+        {
+          "case": "simple54k",
+          "variant": "refactored",
+          "ranks": 4,
+          "samples": 3,
+          "sustainedSamples": 2,
+          "computeMedian": 20.3797755,
+          "computeMin": 18.937594084,
+          "computeMax": 21.146842969,
+          "speedup": 1.8338694405146907,
+          "efficiency": 0.4584673601286727,
+          "workMedian": 600,
+          "setups": 276,
+          "iterations": 16466,
+          "setupSeconds": 1.6073547269999984,
+          "solveSeconds": 11.344642638999982,
+          "haloSeconds": 0.5341541439999988,
+          "reductionSeconds": 1.2408776770000072
+        }
+      ],
+      "workValidation": {
+        "status": "passed",
+        "runs": 32,
+        "measuredRuns": 24,
+        "groups": {
+          "piso54k:np4": {
+            "inputSha256": "2aa61ab3a3ddec78ca05aa76ebeb3c9fc60ff8a27eae62811dec7e828ebe29e9",
+            "workUnits": 300,
+            "outerIterations": 300,
+            "rankCounters": [
+              {
+                "linearSolves": 1500,
+                "krylovIterations": 14507,
+                "sparseMatvecs": 0,
+                "haloExchanges": 7801,
+                "haloBytes": 927571752,
+                "globalReductions": 23102,
+                "equationAssemblies": 900,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 600,
+                "rhsOnlySolves": 300,
+                "trueResidualChecks": 1500,
+                "preconditionerSetups": 176,
+                "preconditionerReuses": 1047,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 2
+              },
+              {
+                "linearSolves": 1500,
+                "krylovIterations": 14507,
+                "sparseMatvecs": 0,
+                "haloExchanges": 7801,
+                "haloBytes": 927571752,
+                "globalReductions": 23102,
+                "equationAssemblies": 900,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 600,
+                "rhsOnlySolves": 300,
+                "trueResidualChecks": 1500,
+                "preconditionerSetups": 176,
+                "preconditionerReuses": 1047,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 2
+              },
+              {
+                "linearSolves": 1500,
+                "krylovIterations": 14507,
+                "sparseMatvecs": 0,
+                "haloExchanges": 7801,
+                "haloBytes": 927571752,
+                "globalReductions": 23102,
+                "equationAssemblies": 900,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 600,
+                "rhsOnlySolves": 300,
+                "trueResidualChecks": 1500,
+                "preconditionerSetups": 176,
+                "preconditionerReuses": 1047,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 2
+              },
+              {
+                "linearSolves": 1500,
+                "krylovIterations": 14507,
+                "sparseMatvecs": 0,
+                "haloExchanges": 7801,
+                "haloBytes": 927571752,
+                "globalReductions": 23102,
+                "equationAssemblies": 900,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 600,
+                "rhsOnlySolves": 300,
+                "trueResidualChecks": 1500,
+                "preconditionerSetups": 176,
+                "preconditionerReuses": 1047,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 2
+              }
+            ],
+            "intervals": [
+              299,
+              299,
+              299,
+              299
+            ]
+          },
+          "simple54k:np1": {
+            "inputSha256": "1719a88f1e7a481a779d773b792fdc0feda3d284b5a94d75a730801f4e6c5915",
+            "workUnits": 600,
+            "outerIterations": 600,
+            "rankCounters": [
+              {
+                "linearSolves": 2400,
+                "krylovIterations": 11161,
+                "sparseMatvecs": 0,
+                "haloExchanges": 0,
+                "haloBytes": 0,
+                "globalReductions": 6600,
+                "equationAssemblies": 1200,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 1200,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 2400,
+                "preconditionerSetups": 276,
+                "preconditionerReuses": 1722,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              }
+            ],
+            "intervals": [
+              599
+            ]
+          },
+          "piso54k:np1": {
+            "inputSha256": "2aa61ab3a3ddec78ca05aa76ebeb3c9fc60ff8a27eae62811dec7e828ebe29e9",
+            "workUnits": 300,
+            "outerIterations": 300,
+            "rankCounters": [
+              {
+                "linearSolves": 1500,
+                "krylovIterations": 11349,
+                "sparseMatvecs": 0,
+                "haloExchanges": 0,
+                "haloBytes": 0,
+                "globalReductions": 6600,
+                "equationAssemblies": 900,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 600,
+                "rhsOnlySolves": 300,
+                "trueResidualChecks": 1500,
+                "preconditionerSetups": 176,
+                "preconditionerReuses": 1047,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 2
+              }
+            ],
+            "intervals": [
+              299
+            ]
+          },
+          "simple54k:np4": {
+            "inputSha256": "1719a88f1e7a481a779d773b792fdc0feda3d284b5a94d75a730801f4e6c5915",
+            "workUnits": 600,
+            "outerIterations": 600,
+            "rankCounters": [
+              {
+                "linearSolves": 2400,
+                "krylovIterations": 16466,
+                "sparseMatvecs": 0,
+                "haloExchanges": 10801,
+                "haloBytes": 1452643752,
+                "globalReductions": 28802,
+                "equationAssemblies": 1200,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 1200,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 2400,
+                "preconditionerSetups": 276,
+                "preconditionerReuses": 1722,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              },
+              {
+                "linearSolves": 2400,
+                "krylovIterations": 16466,
+                "sparseMatvecs": 0,
+                "haloExchanges": 10801,
+                "haloBytes": 1452643752,
+                "globalReductions": 28802,
+                "equationAssemblies": 1200,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 1200,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 2400,
+                "preconditionerSetups": 276,
+                "preconditionerReuses": 1722,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              },
+              {
+                "linearSolves": 2400,
+                "krylovIterations": 16466,
+                "sparseMatvecs": 0,
+                "haloExchanges": 10801,
+                "haloBytes": 1452643752,
+                "globalReductions": 28802,
+                "equationAssemblies": 1200,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 1200,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 2400,
+                "preconditionerSetups": 276,
+                "preconditionerReuses": 1722,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              },
+              {
+                "linearSolves": 2400,
+                "krylovIterations": 16466,
+                "sparseMatvecs": 0,
+                "haloExchanges": 10801,
+                "haloBytes": 1452643752,
+                "globalReductions": 28802,
+                "equationAssemblies": 1200,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 1200,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 2400,
+                "preconditionerSetups": 276,
+                "preconditionerReuses": 1722,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              }
+            ],
+            "intervals": [
+              599,
+              599,
+              599,
+              599
+            ]
+          }
+        },
+        "belowMinimum": [
+          {
+            "variant": "baseline",
+            "case": "simple54k",
+            "ranks": 4,
+            "repeat": 2,
+            "computeSeconds": 18.950973709
+          },
+          {
+            "variant": "refactored",
+            "case": "piso54k",
+            "ranks": 4,
+            "repeat": 2,
+            "computeSeconds": 19.704198812
+          },
+          {
+            "variant": "refactored",
+            "case": "simple54k",
+            "ranks": 4,
+            "repeat": 2,
+            "computeSeconds": 18.937594084
+          },
+          {
+            "variant": "baseline",
+            "case": "simple54k",
+            "ranks": 4,
+            "repeat": 3,
+            "computeSeconds": 19.146703291
+          },
+          {
+            "variant": "refactored",
+            "case": "piso54k",
+            "ranks": 4,
+            "repeat": 3,
+            "computeSeconds": 19.970669401000002
+          },
+          {
+            "variant": "baseline",
+            "case": "piso54k",
+            "ranks": 4,
+            "repeat": 3,
+            "computeSeconds": 19.269982172000002
+          }
+        ]
+      }
+    },
+    "simpleFourRankLongStudy": {
+      "path": "build/maintainability-20261013/performance-final-simple4-long",
+      "cases": {
+        "simple54k-long": {
+          "path": "/home/midway/BabelSim/build/maintainability-20261013/inputs/simple54k-long",
+          "manifest": {
+            "sha256": "24c90ea7b57463e44cc179d743af0443d7b55f287a101569a785873368c8d722",
+            "files": [
+              {
+                "path": "case.bs",
+                "bytes": 188,
+                "sha256": "a0c01fb5921215a2cfbce824a6491ec5af17f00b93567931828572a13bb85b14"
+              },
+              {
+                "path": "control.bs",
+                "bytes": 31,
+                "sha256": "33657de2177fdb85b51c5e101292a57c9561a217191e1f1f049be86971bd2ea0"
+              },
+              {
+                "path": "fields/initial/U.field",
+                "bytes": 300,
+                "sha256": "192205da309f5d1b96d8d2d6b82d5b20e65426e4c974103aee2c994553e94af8"
+              },
+              {
+                "path": "fields/initial/p.field",
+                "bytes": 268,
+                "sha256": "84062f8b4a2ce677b0902e3862bdf34bf8d429de66096cb3718403f5a281d94d"
+              },
+              {
+                "path": "generation.json",
+                "bytes": 240,
+                "sha256": "437c2a86b6a591970fe64151a7c95f1f55a066cf64b29e823bbe028ce9f29e89"
+              },
+              {
+                "path": "mesh/flow.mesh",
+                "bytes": 6936036,
+                "sha256": "fd32fa91c9d0082a7631f75125dd165347bf058375a2c6970ebb7d049ed2ce57"
+              },
+              {
+                "path": "numerics/methods.bs",
+                "bytes": 356,
+                "sha256": "bca5cd96a5a7f9067dd45f8aaec1b57fa5b5c37f0c6de2a0e08f116c5c3e5331"
+              },
+              {
+                "path": "numerics/solution.bs",
+                "bytes": 584,
+                "sha256": "ebf746ba483fa3fbd2647afda55d12f3a381926258209d0e305ec1bd3d6122e0"
+              },
+              {
+                "path": "output.bs",
+                "bytes": 49,
+                "sha256": "c6ca13b1b0b504ac6d8b533d64926a0a4612f67e0b11586aac09e0fc4630c385"
+              },
+              {
+                "path": "physics/flow.bs",
+                "bytes": 53,
+                "sha256": "282f382b9cd54c1ef253754bf6fbdedde960f933cbe3c9333f7f14486764f872"
+              }
+            ]
+          }
+        }
+      },
+      "repeat": 5,
+      "warmup": 1,
+      "minimumCompute": 30,
+      "summary": [
+        {
+          "case": "simple54k-long",
+          "variant": "baseline",
+          "ranks": 4,
+          "samples": 5,
+          "sustainedSamples": 5,
+          "computeMedian": 42.993106298,
+          "computeMin": 37.377022262000004,
+          "computeMax": 50.80843182300001,
+          "speedup": null,
+          "efficiency": null,
+          "workMedian": 1200,
+          "setups": 551,
+          "iterations": 28298,
+          "setupSeconds": 3.6846812659999983,
+          "solveSeconds": 22.32057120799997,
+          "haloSeconds": 1.224946549999998,
+          "reductionSeconds": 3.144856328000002
+        },
+        {
+          "case": "simple54k-long",
+          "variant": "refactored",
+          "ranks": 4,
+          "samples": 5,
+          "sustainedSamples": 5,
+          "computeMedian": 43.52335232,
+          "computeMin": 37.008307528,
+          "computeMax": 45.656284920000004,
+          "speedup": null,
+          "efficiency": null,
+          "workMedian": 1200,
+          "setups": 551,
+          "iterations": 28298,
+          "setupSeconds": 3.7007913359999995,
+          "solveSeconds": 22.361847780000012,
+          "haloSeconds": 1.2356786289999953,
+          "reductionSeconds": 3.180695748000047
+        }
+      ],
+      "pairs": [
+        {
+          "repeat": 1,
+          "baselineSeconds": 38.894509278,
+          "refactoredSeconds": 37.008307528,
+          "changePercent": -4.849532196224149
+        },
+        {
+          "repeat": 2,
+          "baselineSeconds": 50.80843182300001,
+          "refactoredSeconds": 45.656284920000004,
+          "changePercent": -10.140338361452283
+        },
+        {
+          "repeat": 3,
+          "baselineSeconds": 45.667017307,
+          "refactoredSeconds": 44.002820111000005,
+          "changePercent": -3.6441994554019197
+        },
+        {
+          "repeat": 4,
+          "baselineSeconds": 42.993106298,
+          "refactoredSeconds": 43.52335232,
+          "changePercent": 1.2333280092038157
+        },
+        {
+          "repeat": 5,
+          "baselineSeconds": 37.377022262000004,
+          "refactoredSeconds": 38.818006113,
+          "changePercent": 3.8552665883847093
+        }
+      ],
+      "pairedMedianChangePercent": -3.6441994554019197,
+      "workValidation": {
+        "status": "passed",
+        "runs": 12,
+        "measuredRuns": 10,
+        "groups": {
+          "simple54k-long:np4": {
+            "inputSha256": "24c90ea7b57463e44cc179d743af0443d7b55f287a101569a785873368c8d722",
+            "workUnits": 1200,
+            "outerIterations": 1200,
+            "intervals": [
+              1199,
+              1199,
+              1199,
+              1199
+            ],
+            "rankCounters": [
+              {
+                "linearSolves": 4800,
+                "krylovIterations": 28298,
+                "sparseMatvecs": 0,
+                "haloExchanges": 21601,
+                "haloBytes": 2905157352,
+                "globalReductions": 57602,
+                "equationAssemblies": 2400,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 2400,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 4800,
+                "preconditionerSetups": 551,
+                "preconditionerReuses": 3447,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              },
+              {
+                "linearSolves": 4800,
+                "krylovIterations": 28298,
+                "sparseMatvecs": 0,
+                "haloExchanges": 21601,
+                "haloBytes": 2905157352,
+                "globalReductions": 57602,
+                "equationAssemblies": 2400,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 2400,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 4800,
+                "preconditionerSetups": 551,
+                "preconditionerReuses": 3447,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              },
+              {
+                "linearSolves": 4800,
+                "krylovIterations": 28298,
+                "sparseMatvecs": 0,
+                "haloExchanges": 21601,
+                "haloBytes": 2905157352,
+                "globalReductions": 57602,
+                "equationAssemblies": 2400,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 2400,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 4800,
+                "preconditionerSetups": 551,
+                "preconditionerReuses": 3447,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              },
+              {
+                "linearSolves": 4800,
+                "krylovIterations": 28298,
+                "sparseMatvecs": 0,
+                "haloExchanges": 21601,
+                "haloBytes": 2905157352,
+                "globalReductions": 57602,
+                "equationAssemblies": 2400,
+                "matrixPatternBuilds": 2,
+                "matrixValueUpdates": 2400,
+                "rhsOnlySolves": 0,
+                "trueResidualChecks": 4800,
+                "preconditionerSetups": 551,
+                "preconditionerReuses": 3447,
+                "preconditionerRetries": 0,
+                "preconditionerApplications": 0,
+                "outputWrites": 0
+              }
+            ]
+          }
+        },
+        "belowMinimum": []
+      }
+    },
+    "conclusion": "No stable regression was identified in these samples. SIMPLE four-rank group medians increased 6.44% in the short window and 1.23% in the long window; five long-window paired changes were mixed with a -3.64% median. This does not establish zero performance loss on every workload."
+  },
+  "localRawEvidence": "build/maintainability-20261013"
+}
