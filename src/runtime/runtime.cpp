@@ -13,13 +13,12 @@
 namespace babelsim {
 namespace {
 thread_local RunTime* active_run_time = nullptr;
-}  // 匿名命名空间
+} // 匿名命名空间
 
 struct RunTime::Implementation {
     Implementation(const Mesh& mesh_value, RuntimeControl settings, ParallelContext parallel_value)
         : mesh(&mesh_value), control(std::move(settings)), primary_rank(parallel_value.rank == 0),
-          fvm(mesh_value,
-              detail::makeComputeBackend(mesh_value, std::move(parallel_value))),
+          fvm(mesh_value, detail::makeComputeBackend(mesh_value, std::move(parallel_value))),
           started(std::chrono::steady_clock::now()) {}
     const Mesh* mesh;
     RuntimeControl control;
@@ -42,9 +41,7 @@ void RuntimeControl::validate() const {
         throw std::invalid_argument("time interval contains too many steps");
 }
 
-RunTime::RunTime(const Mesh& mesh, RuntimeControl control)
-    : m_implementation(nullptr)
-{
+RunTime::RunTime(const Mesh& mesh, RuntimeControl control) : m_implementation(nullptr) {
     if (active_run_time != nullptr) {
         throw std::logic_error(
             "only one RunTime may be active in a solver thread; destroy the previous run first");
@@ -55,7 +52,8 @@ RunTime::RunTime(const Mesh& mesh, RuntimeControl control)
     if (initialized != 0) {
         int finalized = 0;
         detail::checkMpi(MPI_Finalized(&finalized), "MPI_Finalized");
-        if (finalized != 0) throw std::logic_error("cannot create RunTime after MPI_Finalize");
+        if (finalized != 0)
+            throw std::logic_error("cannot create RunTime after MPI_Finalize");
         parallel = ParallelContext::world();
     }
     control.validate();
@@ -70,7 +68,8 @@ RunTime RunTime::forMesh(const Mesh& mesh, RuntimeControl control) {
 }
 
 RunTime::~RunTime() {
-    if (active_run_time == this) active_run_time = nullptr;
+    if (active_run_time == this)
+        active_run_time = nullptr;
 }
 
 RunTime& RunTime::current() {
@@ -80,14 +79,28 @@ RunTime& RunTime::current() {
     return *active_run_time;
 }
 
-const Mesh& RunTime::mesh() const { return *m_implementation->mesh; }
-const Methods& RunTime::methods() const { return m_implementation->control.methods; }
-double RunTime::time() const { return m_implementation->current_time; }
-double RunTime::deltaT() const { return m_implementation->current_delta_t; }
-int RunTime::step() const { return m_implementation->current_step; }
-bool RunTime::primary() const { return m_implementation->primary_rank; }
+const Mesh& RunTime::mesh() const {
+    return *m_implementation->mesh;
+}
+const Methods& RunTime::methods() const {
+    return m_implementation->control.methods;
+}
+double RunTime::time() const {
+    return m_implementation->current_time;
+}
+double RunTime::deltaT() const {
+    return m_implementation->current_delta_t;
+}
+int RunTime::step() const {
+    return m_implementation->current_step;
+}
+bool RunTime::primary() const {
+    return m_implementation->primary_rank;
+}
 
-const TimeControl& RunTime::timeControl() const { return m_implementation->control.time; }
+const TimeControl& RunTime::timeControl() const {
+    return m_implementation->control.time;
+}
 void RunTime::setTime(double value, int step_value, double dt) {
     if (!std::isfinite(value) || step_value < 0 || !(dt > 0) || !std::isfinite(dt))
         throw std::invalid_argument("invalid explicit time metadata");
@@ -100,10 +113,13 @@ PerformanceCounters RunTime::performance() const {
     PerformanceCounters result = m_implementation->fvm.performance();
     result.output_writes = m_implementation->lifecycle_performance.output_writes;
     result.output_seconds = m_implementation->lifecycle_performance.output_seconds;
-    result.reported_iteration_intervals = m_implementation->lifecycle_performance.reported_iteration_intervals;
-    result.iteration_compute_seconds = m_implementation->lifecycle_performance.iteration_compute_seconds;
-    result.elapsed_seconds = std::chrono::duration<double>(
-        std::chrono::steady_clock::now() - m_implementation->started).count();
+    result.reported_iteration_intervals =
+        m_implementation->lifecycle_performance.reported_iteration_intervals;
+    result.iteration_compute_seconds =
+        m_implementation->lifecycle_performance.iteration_compute_seconds;
+    result.elapsed_seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - m_implementation->started)
+            .count();
     return result;
 }
 
@@ -125,34 +141,38 @@ void RunTime::recordIteration() {
     }
     ++state.lifecycle_performance.reported_iteration_intervals;
     const double elapsed = std::chrono::duration<double>(now - state.first_iteration_end).count();
-    state.lifecycle_performance.iteration_compute_seconds = std::max(0.0, elapsed -
-        (state.lifecycle_performance.output_seconds - state.first_iteration_output_seconds));
+    state.lifecycle_performance.iteration_compute_seconds =
+        std::max(0.0, elapsed - (state.lifecycle_performance.output_seconds -
+                                 state.first_iteration_output_seconds));
 }
-
 
 bool RunTime::loop() {
     Implementation& state = *m_implementation;
     const TimeControl& control = state.control.time;
     // 当前 BDF2 是等步长离散，不能把缩短的末步冒充等步长 BDF2。
     if (state.control.methods.time == TimeMethod::BDF2 &&
-        std::abs(((control.end_time-control.start_time)/control.delta_t) - std::round((control.end_time-control.start_time)/control.delta_t)) >
-            64.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, (control.end_time-control.start_time)/control.delta_t))
+        std::abs(((control.end_time - control.start_time) / control.delta_t) -
+                 std::round((control.end_time - control.start_time) / control.delta_t)) >
+            64.0 * std::numeric_limits<double>::epsilon() *
+                std::max(1.0, (control.end_time - control.start_time) / control.delta_t))
         throw std::invalid_argument("BDF2 requires an integral number of uniform time steps");
-    const double tolerance = 32.0 * std::numeric_limits<double>::epsilon() *
+    const double tolerance =
+        32.0 * std::numeric_limits<double>::epsilon() *
         std::max({std::abs(control.start_time), std::abs(control.end_time), control.delta_t});
     const double remaining = control.end_time - state.current_time;
-    if (remaining <= tolerance) return false;
+    if (remaining <= tolerance)
+        return false;
 
-    const double next = static_cast<double>(static_cast<long double>(control.start_time) +
-        static_cast<long double>(state.current_step + 1) * control.delta_t);
+    const double next =
+        static_cast<double>(static_cast<long double>(control.start_time) +
+                            static_cast<long double>(state.current_step + 1) * control.delta_t);
     state.current_delta_t = remaining < control.delta_t - tolerance ? remaining : control.delta_t;
     state.current_time = next >= control.end_time - tolerance ? control.end_time : next;
     ++state.current_step;
     return true;
 }
 
-
 detail::FvmExecution& detail::execution() {
     return RunTime::current().m_implementation->fvm;
 }
-}  // babelsim 命名空间
+} // babelsim 命名空间

@@ -13,8 +13,7 @@ class ComputeBackend;
 // equ:: 显式对象承担，执行层只提供后端、网格与显式算法求值。
 class FvmExecution {
 public:
-    FvmExecution(
-        const Mesh&, std::unique_ptr<ComputeBackend>);
+    FvmExecution(const Mesh&, std::unique_ptr<ComputeBackend>);
     ~FvmExecution();
     FvmExecution(const FvmExecution&) = delete;
     FvmExecution& operator=(const FvmExecution&) = delete;
@@ -36,12 +35,11 @@ public:
     void evaluate(math::ScalarReconstruction operation, ScalarField& result);
     void evaluate(math::VectorReconstruction operation, VectorField& result);
     void evaluate(math::ScalarLaplacian operation, ScalarField& result);
-    void subtract(
-        const ScalarField& coefficient,
-        math::ScalarGradient operation,
-        VectorField& target);
+    void subtract(const ScalarField& coefficient, math::ScalarGradient operation,
+                  VectorField& target);
     void add(math::FaceFlux operation, ScalarField& target, math::FaceRegion region);
-    void subtract(math::ScalarDiffusionFlux operation, ScalarField& target, math::FaceRegion region);
+    void subtract(math::ScalarDiffusionFlux operation, ScalarField& target,
+                  math::FaceRegion region);
     double relativeChange(const VectorField& current, const VectorField& previous) const;
     double relativeChange(const ScalarField& current, const ScalarField& previous) const;
     double relativeMagnitude(const ScalarField& value, const ScalarField& reference) const;
@@ -50,10 +48,9 @@ public:
     bool all(bool local_condition) const;
     PerformanceCounters performance() const;
 
-
 private:
     struct Implementation;
     std::unique_ptr<Implementation> m_implementation;
 };
 FvmExecution& execution();
-}  // babelsim::detail 命名空间
+} // babelsim::detail 命名空间

@@ -85,6 +85,8 @@ SOURCES := src/core/mesh.cpp \
            src/discretization/field_math.cpp \
            $(COMPUTE_BACKEND_SOURCES) \
            src/parallel/parallel_context.cpp \
+           src/parallel/distributed_mesh.cpp \
+           src/parallel/halo_exchange.cpp \
            src/parallel/mesh_partition.cpp \
            src/parallel/parallel_writer.cpp \
            src/runtime/runtime.cpp \

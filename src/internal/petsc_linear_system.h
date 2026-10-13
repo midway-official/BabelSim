@@ -12,7 +12,10 @@
 
 namespace babelsim::detail {
 
-struct PetscSetupMetrics { bool preconditioner_was_setup = false; double seconds = 0.0; };
+struct PetscSetupMetrics {
+    bool preconditioner_was_setup = false;
+    double seconds = 0.0;
+};
 
 struct PetscSolveMetrics {
     SolveResult result;
@@ -25,7 +28,10 @@ struct PetscSolveMetrics {
     std::uint64_t true_residual_checks = 0;
 };
 
-struct PetscMatrixUpdateMetrics { bool changed = false; double seconds = 0.0; };
+struct PetscMatrixUpdateMetrics {
+    bool changed = false;
+    double seconds = 0.0;
+};
 
 // A long-lived PETSc matrix/vector/KSP set for one logical BabelSim equation.
 class PetscLinearSystem {
@@ -41,17 +47,28 @@ public:
     PetscSetupMetrics prepare(const LinearSolverConfig& config);
     PetscSolveMetrics solveRhs(const std::vector<PetscScalar>& rhs_values,
                                const std::vector<double>& initial_guess,
-                               std::vector<double>& solution,
-                               std::size_t right_hand_side = 0);
+                               std::vector<double>& solution, std::size_t right_hand_side = 0);
 
-    const std::string& identity() const { return m_identity; }
-    std::uint64_t matrixUpdates() const { return m_matrix_updates; }
-    std::uint64_t rhsOnlySolves() const { return m_rhs_only_solves; }
-    std::uint64_t preconditionerSetups() const { return m_preconditioner_setups; }
-    std::uint64_t trueResidualChecks() const { return m_true_residual_checks; }
+    const std::string& identity() const {
+        return m_identity;
+    }
+    std::uint64_t matrixUpdates() const {
+        return m_matrix_updates;
+    }
+    std::uint64_t rhsOnlySolves() const {
+        return m_rhs_only_solves;
+    }
+    std::uint64_t preconditionerSetups() const {
+        return m_preconditioner_setups;
+    }
+    std::uint64_t trueResidualChecks() const {
+        return m_true_residual_checks;
+    }
 
 private:
-    struct ConvergenceContext { PetscReal target = 0.0; };
+    struct ConvergenceContext {
+        PetscReal target = 0.0;
+    };
     static PetscErrorCode convergenceTest(KSP, PetscInt iteration, PetscReal norm,
                                           KSPConvergedReason* reason, void* context);
 
@@ -92,4 +109,4 @@ private:
     std::uint64_t m_true_residual_checks = 0;
 };
 
-}  // namespace babelsim::detail
+} // namespace babelsim::detail

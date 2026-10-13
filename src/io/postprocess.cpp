@@ -28,19 +28,23 @@ Arguments parseArguments(int argc, char* argv[]) {
     for (int index = 1; index < argc;) {
         const std::string option = argv[index++];
         if (option == "-case" || option == "-time") {
-            if (index == argc) throw std::invalid_argument("missing value for " + option);
-            if (option == "-case") result.case_directory = argv[index];
-            else result.time_name = argv[index];
+            if (index == argc)
+                throw std::invalid_argument("missing value for " + option);
+            if (option == "-case")
+                result.case_directory = argv[index];
+            else
+                result.time_name = argv[index];
             ++index;
         } else if (option == "-format") {
-            while (index < argc && argv[index][0] != '-') result.formats.emplace_back(argv[index++]);
+            while (index < argc && argv[index][0] != '-')
+                result.formats.emplace_back(argv[index++]);
         } else {
             throw std::invalid_argument("unknown option " + option);
         }
     }
     if (result.case_directory.empty() || result.formats.empty()) {
-        throw std::invalid_argument(
-            "usage: babelsim-post -case <case-directory> [-time <name|latest|all>] -format <vtk|tecplot> [...]");
+        throw std::invalid_argument("usage: babelsim-post -case <case-directory> [-time "
+                                    "<name|latest|all>] -format <vtk|tecplot> [...]");
     }
     return result;
 }
@@ -55,17 +59,20 @@ bool numericalTime(const std::string& name, double& time) {
     }
 }
 
-std::vector<std::filesystem::path> resolveTimeDirectories(
-    const CaseDefinition& definition, const OutputControl& output, const std::string& requested)
-{
+std::vector<std::filesystem::path> resolveTimeDirectories(const CaseDefinition& definition,
+                                                          const OutputControl& output,
+                                                          const std::string& requested) {
     const std::filesystem::path selection = requested.empty() ? output.time_name : requested;
-    if (selection.is_absolute()) throw std::invalid_argument("result selection must be relative");
+    if (selection.is_absolute())
+        throw std::invalid_argument("result selection must be relative");
     for (const auto& part : selection) {
-        if (part == ".." || part == ".") throw std::invalid_argument("invalid result selection");
+        if (part == ".." || part == ".")
+            throw std::invalid_argument("invalid result selection");
     }
     const auto root = definition.root / output.directory;
     const std::string mode = selection.filename().string();
-    if (mode != "latest" && mode != "all") return {root / selection};
+    if (mode != "latest" && mode != "all")
+        return {root / selection};
     std::vector<std::pair<double, std::filesystem::path>> sorted;
     for (const auto& entry : std::filesystem::directory_iterator(root / selection.parent_path())) {
         double time;
@@ -73,60 +80,74 @@ std::vector<std::filesystem::path> resolveTimeDirectories(
             sorted.emplace_back(time, entry.path());
     }
     std::sort(sorted.begin(), sorted.end());
-    if (sorted.empty()) throw std::runtime_error("case has no numerical result times");
+    if (sorted.empty())
+        throw std::runtime_error("case has no numerical result times");
     std::vector<std::filesystem::path> times;
     for (std::size_t i = 0; i < sorted.size(); ++i) {
         if (i > 0 && sorted[i].first == sorted[i - 1].first)
             throw std::runtime_error("duplicate physical time in results");
         times.push_back(sorted[i].second);
     }
-    if (mode == "latest") return {times.back()};
+    if (mode == "latest")
+        return {times.back()};
     return times;
 }
 
 std::string xml(const std::string& text) {
     std::string result;
     for (char c : text) {
-        if (c == '&') result += "&amp;";
-        else if (c == '<') result += "&lt;";
-        else if (c == '>') result += "&gt;";
-        else if (c == '"') result += "&quot;";
-        else result += c;
+        if (c == '&')
+            result += "&amp;";
+        else if (c == '<')
+            result += "&lt;";
+        else if (c == '>')
+            result += "&gt;";
+        else if (c == '"')
+            result += "&quot;";
+        else
+            result += c;
     }
     return result;
 }
 
 void writePvd(const std::filesystem::path& path, const std::vector<std::string>& times) {
     std::ofstream output(path);
-    if (!output) throw std::runtime_error("cannot create PVD index: " + path.string());
+    if (!output)
+        throw std::runtime_error("cannot create PVD index: " + path.string());
     output << "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\" "
               "byte_order=\"LittleEndian\">\n<Collection>\n";
     for (const std::string& name : times) {
         double time;
-        if (!numericalTime(name, time)) throw std::runtime_error("PVD needs physical times");
+        if (!numericalTime(name, time))
+            throw std::runtime_error("PVD needs physical times");
         output << "  <DataSet timestep=\"" << std::setprecision(17) << time
                << "\" group=\"\" part=\"0\" file=\"" << xml(name) << ".vtu\"/>\n";
     }
     output << "</Collection>\n</VTKFile>\n";
     output.close();
-    if (!output) throw std::runtime_error("cannot flush PVD index");
+    if (!output)
+        throw std::runtime_error("cannot flush PVD index");
 }
 
 std::string componentName(const ResultField& field, int component) {
-    if (field.components == 1) return field.info.name;
+    if (field.components == 1)
+        return field.info.name;
     static constexpr const char* vector_suffix[] = {"x", "y", "z"};
-    static constexpr const char* tensor_suffix[] = {"xx", "xy", "xz", "yx", "yy", "yz", "zx", "zy", "zz"};
+    static constexpr const char* tensor_suffix[] = {"xx", "xy", "xz", "yx", "yy",
+                                                    "yz", "zx", "zy", "zz"};
     return field.info.name + "_" +
-        (field.components == 3 ? vector_suffix[component] : tensor_suffix[component]);
+           (field.components == 3 ? vector_suffix[component] : tensor_suffix[component]);
 }
 
 bool sameGeometry(const std::vector<Vec3>& saved, IndexRange expected, const Mesh& mesh) {
-    if (saved.size() != expected.size()) return false;
+    if (saved.size() != expected.size())
+        return false;
     std::vector<bool> matched(expected.size(), false);
     for (const Vec3& point : saved) {
         bool found = false;
         for (std::size_t index = 0; index < expected.size(); ++index) {
-            if (matched[index]) continue;
+            if (matched[index])
+                continue;
             const Vec3& candidate = mesh.vertex(expected[index]);
             if (point.x == candidate.x && point.y == candidate.y && point.z == candidate.z) {
                 matched[index] = true;
@@ -134,21 +155,25 @@ bool sameGeometry(const std::vector<Vec3>& saved, IndexRange expected, const Mes
                 break;
             }
         }
-        if (!found) return false;
+        if (!found)
+            return false;
     }
     return true;
 }
 
 void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultData& data) {
     std::ofstream output(path);
-    if (!output) throw std::runtime_error("cannot create VTU output: " + path.string());
+    if (!output)
+        throw std::runtime_error("cannot create VTU output: " + path.string());
     output << "<?xml version=\"1.0\"?>\n"
               "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n"
-              "<UnstructuredGrid><Piece NumberOfPoints=\"" << mesh.vertexCount()
-           << "\" NumberOfCells=\"" << mesh.cellCount() << "\">\n"
+              "<UnstructuredGrid><Piece NumberOfPoints=\""
+           << mesh.vertexCount() << "\" NumberOfCells=\"" << mesh.cellCount()
+           << "\">\n"
               "<Points><DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">\n"
            << std::setprecision(17);
-    for (const Vec3& point : detail::meshData(mesh).vertices) output << point.x << ' ' << point.y << ' ' << point.z << '\n';
+    for (const Vec3& point : detail::meshData(mesh).vertices)
+        output << point.x << ' ' << point.y << ' ' << point.z << '\n';
     output << "</DataArray></Points>\n<Cells>\n"
               "<DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">\n";
     std::vector<Index> connectivity;
@@ -165,10 +190,12 @@ void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultD
         connectivity.insert(connectivity.end(), vertices.begin(), vertices.end());
         offsets.push_back(static_cast<Index>(connectivity.size()));
     }
-    for (Index vertex : connectivity) output << vertex << ' ';
+    for (Index vertex : connectivity)
+        output << vertex << ' ';
     output << '\n';
     output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">\n";
-    for (Index offset : offsets) output << offset << '\n';
+    for (Index offset : offsets)
+        output << offset << '\n';
     output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"faces\" format=\"ascii\">\n";
     std::vector<Index> face_offsets;
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
@@ -183,30 +210,37 @@ void writeVtk(const std::filesystem::path& path, const Mesh& mesh, const ResultD
         output << face_count;
         for (Index face : mesh.cellFaces(cell)) {
             output << ' ' << mesh.facePoints(face).size();
-            for (Index vertex : mesh.facePoints(face)) output << ' ' << vertex;
+            for (Index vertex : mesh.facePoints(face))
+                output << ' ' << vertex;
         }
         output << '\n';
-        face_offsets.push_back(static_cast<Index>(face_offsets.empty() ? count : face_offsets.back() + count));
+        face_offsets.push_back(
+            static_cast<Index>(face_offsets.empty() ? count : face_offsets.back() + count));
     }
     output << "</DataArray>\n<DataArray type=\"Int64\" Name=\"faceoffsets\" format=\"ascii\">\n";
-    for (Index offset : face_offsets) output << offset << '\n';
+    for (Index offset : face_offsets)
+        output << offset << '\n';
     output << "</DataArray>\n<DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">\n";
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) output << "42\n";
+    for (Index cell = 0; cell < mesh.cellCount(); ++cell)
+        output << "42\n";
     output << "</DataArray></Cells>\n<CellData>\n";
     for (const ResultField& field : data.fields) {
         output << "<DataArray type=\"Float64\" Name=\"" << xml(field.info.name)
                << "\" NumberOfComponents=\"" << field.components << "\" format=\"ascii\">\n";
-        for (double value : field.values) output << value << '\n';
+        for (double value : field.values)
+            output << value << '\n';
         output << "</DataArray>\n";
     }
     output << "</CellData>\n</Piece></UnstructuredGrid>\n</VTKFile>\n";
     output.close();
-    if (!output) throw std::runtime_error("cannot flush VTU output");
+    if (!output)
+        throw std::runtime_error("cannot flush VTU output");
 }
 
 void writeTecplot(const std::filesystem::path& path, const Mesh& mesh, const ResultData& data) {
     std::ofstream output(path);
-    if (!output) throw std::runtime_error("cannot create Tecplot output: " + path.string());
+    if (!output)
+        throw std::runtime_error("cannot create Tecplot output: " + path.string());
     output << "TITLE = \"BabelSim " << data.time_name << "\"\nVARIABLES = \"X\" \"Y\" \"Z\"";
     int variables = 3;
     for (const ResultField& field : data.fields) {
@@ -217,23 +251,29 @@ void writeTecplot(const std::filesystem::path& path, const Mesh& mesh, const Res
     }
     output << "\nZONE N=" << mesh.vertexCount() << ", E=" << mesh.cellCount()
            << ", DATAPACKING=BLOCK, ZONETYPE=FEBRICK, VARLOCATION=([4-" << variables
-           << "]=CELLCENTERED)\n" << std::setprecision(17);
+           << "]=CELLCENTERED)\n"
+           << std::setprecision(17);
     for (int coordinate = 0; coordinate < 3; ++coordinate) {
-        for (const Vec3& point : detail::meshData(mesh).vertices) output << point[coordinate] << '\n';
+        for (const Vec3& point : detail::meshData(mesh).vertices)
+            output << point[coordinate] << '\n';
     }
     for (const ResultField& field : data.fields) {
         for (int component = 0; component < field.components; ++component) {
             for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-                output << field.values[static_cast<std::size_t>(cell) * field.components + component] << '\n';
+                output
+                    << field.values[static_cast<std::size_t>(cell) * field.components + component]
+                    << '\n';
             }
         }
     }
     for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        for (Index vertex : mesh.cellVertices(cell)) output << vertex + 1 << ' ';
+        for (Index vertex : mesh.cellVertices(cell))
+            output << vertex + 1 << ' ';
         output << '\n';
     }
     output.close();
-    if (!output) throw std::runtime_error("cannot flush Tecplot output");
+    if (!output)
+        throw std::runtime_error("cannot flush Tecplot output");
 }
 
 int run(const Arguments& arguments) {
@@ -260,8 +300,9 @@ int run(const Arguments& arguments) {
                 const auto saved = results.cell_geometry[static_cast<std::size_t>(cell)];
                 const auto expected = mesh.cellVertices(cell);
                 if (!sameGeometry(saved, expected, mesh))
-                    throw std::runtime_error("result mesh provenance does not match the case mesh at cell " +
-                                             std::to_string(cell));
+                    throw std::runtime_error(
+                        "result mesh provenance does not match the case mesh at cell " +
+                        std::to_string(cell));
             }
         }
         // Version 2 provenance remains checked for old result directories.
@@ -272,8 +313,9 @@ int run(const Arguments& arguments) {
                     const Vec3& saved = results.cell_vertices[cell][vertex];
                     if (saved.x != expected_vertex.x || saved.y != expected_vertex.y ||
                         saved.z != expected_vertex.z)
-                        throw std::runtime_error("result mesh provenance does not match the case mesh at cell " +
-                                                 std::to_string(cell));
+                        throw std::runtime_error(
+                            "result mesh provenance does not match the case mesh at cell " +
+                            std::to_string(cell));
                 }
             }
         }
@@ -292,14 +334,15 @@ int run(const Arguments& arguments) {
         }
         times.push_back(name);
     }
-    if (all && writes_vtk) writePvd(post_directory / "series.pvd", times);
-    std::cout << "BabelSim postprocessed " << times.size()
-              << " time set(s) into " << post_directory << '\n';
+    if (all && writes_vtk)
+        writePvd(post_directory / "series.pvd", times);
+    std::cout << "BabelSim postprocessed " << times.size() << " time set(s) into " << post_directory
+              << '\n';
     return 0;
 }
 
-}  // 匿名命名空间
-}  // babelsim 命名空间
+} // 匿名命名空间
+} // babelsim 命名空间
 
 int babelsim::runPostprocess(int argc, char* argv[]) {
     try {

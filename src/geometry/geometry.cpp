@@ -6,8 +6,7 @@ namespace babelsim::geometry {
 namespace {
 
 template <typename T, typename Value>
-Field<T> values(const Mesh& mesh, FieldLocation location, const char* name,
-                Value value) {
+Field<T> values(const Mesh& mesh, FieldLocation location, const char* name, Value value) {
     Field<T> result(mesh, location, name);
     T* output = detail::fieldData(result);
     const Index count = location == FieldLocation::Cell ? mesh.cellCount() : mesh.faceCount();
@@ -19,7 +18,7 @@ Field<T> values(const Mesh& mesh, FieldLocation location, const char* name,
     return result;
 }
 
-}  // namespace
+} // namespace
 
 ScalarField cellVolumes(const Mesh& mesh) {
     return values<double>(mesh, FieldLocation::Cell, "cellVolumes",
@@ -51,4 +50,4 @@ VectorField faceUnitNormals(const Mesh& mesh) {
                         [&mesh](Index face) { return mesh.faceNormal(face); });
 }
 
-}  // namespace babelsim::geometry
+} // namespace babelsim::geometry

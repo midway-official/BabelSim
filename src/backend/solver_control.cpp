@@ -7,8 +7,7 @@ namespace babelsim {
 
 void LinearSolverConfig::validate() const {
     if (!(absolute_tolerance > 0.0) || !std::isfinite(absolute_tolerance) ||
-        !(relative_tolerance > 0.0) || !std::isfinite(relative_tolerance) ||
-        max_iterations <= 0) {
+        !(relative_tolerance > 0.0) || !std::isfinite(relative_tolerance) || max_iterations <= 0) {
         throw std::invalid_argument("linear solver tolerances or iteration limit are invalid");
     }
     switch (solver) {
@@ -39,8 +38,9 @@ void LinearSolverConfig::validate() const {
     if (preconditioner_rebuild_interval < 1 ||
         !std::isfinite(preconditioner_reuse_iteration_growth) ||
         preconditioner_reuse_iteration_growth < 1.0) {
-        throw std::invalid_argument("preconditioner rebuild interval must be positive and iteration growth must be finite and >= 1");
+        throw std::invalid_argument("preconditioner rebuild interval must be positive and "
+                                    "iteration growth must be finite and >= 1");
     }
 }
 
-}  // namespace babelsim
+} // namespace babelsim

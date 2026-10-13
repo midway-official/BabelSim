@@ -16,11 +16,13 @@ public:
     void cooPattern(std::vector<PetscInt>& rows, std::vector<PetscInt>& columns) const;
     PetscCount nonzeroContributions() const;
 
-    void matrixValues(const ScalarDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
-    void matrixValues(const VectorDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
+    void matrixValues(const ScalarDiscreteEquation& equation,
+                      std::vector<PetscScalar>& values) const;
+    void matrixValues(const VectorDiscreteEquation& equation,
+                      std::vector<PetscScalar>& values) const;
     void rhsValues(const ScalarDiscreteEquation& equation, std::vector<PetscScalar>& values) const;
     void rhsValues(const VectorDiscreteEquation& equation, std::size_t component,
-                  std::vector<PetscScalar>& values) const;
+                   std::vector<PetscScalar>& values) const;
 
 private:
     void validateEquation(const Mesh* equation_mesh, const std::vector<double>& diagonal,
@@ -36,4 +38,4 @@ private:
     std::vector<Index> m_lower_faces;
 };
 
-}  // namespace babelsim::detail
+} // namespace babelsim::detail

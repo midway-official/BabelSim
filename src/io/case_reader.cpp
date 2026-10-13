@@ -10,37 +10,28 @@
 namespace babelsim {
 namespace {
 
-[[noreturn]] void invalid(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    const std::string& message)
-{
-    throw std::runtime_error(
-        "invalid " + path.string() + ":" + std::to_string(line.number) +
-        ": " + message);
+[[noreturn]] void invalid(const std::filesystem::path& path, const ConfigLine& line,
+                          const std::string& message) {
+    throw std::runtime_error("invalid " + path.string() + ":" + std::to_string(line.number) + ": " +
+                             message);
 }
 
-void setPath(
-    const std::filesystem::path& path,
-    const ConfigLine& line,
-    std::filesystem::path& target,
-    const std::filesystem::path& root)
-{
+void setPath(const std::filesystem::path& path, const ConfigLine& line,
+             std::filesystem::path& target, const std::filesystem::path& root) {
     if (line.tokens.size() != 2 || !target.empty()) {
         invalid(path, line, "expected one unique value for " + line.tokens.front());
     }
     target = root / line.tokens[1];
 }
 
-}  // 匿名命名空间
+} // 匿名命名空间
 
 CaseDefinition readCase(const std::filesystem::path& case_directory) {
     CaseDefinition result;
     result.root = std::filesystem::absolute(case_directory);
     const auto path = result.root / "case.bs";
     if (!std::filesystem::is_directory(result.root)) {
-        throw std::runtime_error("BabelSim case directory does not exist: " +
-                                 result.root.string());
+        throw std::runtime_error("BabelSim case directory does not exist: " + result.root.string());
     }
 
     bool has_ghost_layers = false;
@@ -55,8 +46,11 @@ CaseDefinition readCase(const std::filesystem::path& case_directory) {
             if (line.tokens.size() != 2 || has_ghost_layers)
                 invalid(path, line, "expected one unique ghostLayers integer >= 3");
             std::size_t consumed = 0;
-            try { result.ghost_layers = std::stoi(line.tokens[1], &consumed); }
-            catch (const std::exception&) { invalid(path, line, "invalid ghostLayers integer"); }
+            try {
+                result.ghost_layers = std::stoi(line.tokens[1], &consumed);
+            } catch (const std::exception&) {
+                invalid(path, line, "invalid ghostLayers integer");
+            }
             if (consumed != line.tokens[1].size() || result.ghost_layers < 3)
                 invalid(path, line, "ghostLayers must be an integer >= 3");
             has_ghost_layers = true;
@@ -78,12 +72,11 @@ CaseDefinition readCase(const std::filesystem::path& case_directory) {
             invalid(path, line, "unknown entry " + key);
         }
     }
-    if (result.solver.empty() || result.mesh_file.empty() ||
-        result.fields_directory.empty() || result.physics_file.empty() ||
-        result.methods_file.empty() || result.solution_file.empty() ||
-        result.control_file.empty() || result.output_file.empty()) {
-        throw std::runtime_error(
-            "case.bs must define solver, mesh, fields, physics, methods, solution, control, and output");
+    if (result.solver.empty() || result.mesh_file.empty() || result.fields_directory.empty() ||
+        result.physics_file.empty() || result.methods_file.empty() ||
+        result.solution_file.empty() || result.control_file.empty() || result.output_file.empty()) {
+        throw std::runtime_error("case.bs must define solver, mesh, fields, physics, methods, "
+                                 "solution, control, and output");
     }
     return result;
 }
@@ -97,30 +90,40 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
     bool has_exclude_fields = false;
     for (const ConfigLine& line : readConfigLines(definition.output_file)) {
         const std::string& key = line.tokens.front();
-        if (line.tokens.size() < 2) invalid(definition.output_file, line, "expected a value for " + key);
+        if (line.tokens.size() < 2)
+            invalid(definition.output_file, line, "expected a value for " + key);
         if (key == "directory") {
-            if (line.tokens.size() != 2) invalid(definition.output_file, line, "directory expects one value");
-            if (has_directory) invalid(definition.output_file, line, "duplicate directory");
+            if (line.tokens.size() != 2)
+                invalid(definition.output_file, line, "directory expects one value");
+            if (has_directory)
+                invalid(definition.output_file, line, "duplicate directory");
             result.directory = line.tokens[1];
             has_directory = true;
         } else if (key == "timeName" || key == "time_name") {
-            if (line.tokens.size() != 2) invalid(definition.output_file, line, "timeName expects one value");
+            if (line.tokens.size() != 2)
+                invalid(definition.output_file, line, "timeName expects one value");
             if (has_time || line.tokens[1].empty()) {
                 invalid(definition.output_file, line, "duplicate or empty time_name");
             }
             result.time_name = line.tokens[1];
             has_time = true;
         } else if (key == "writeInterval") {
-            if (line.tokens.size() != 2) invalid(definition.output_file, line, "writeInterval expects one value");
-            if (has_interval) invalid(definition.output_file, line, "duplicate writeInterval");
+            if (line.tokens.size() != 2)
+                invalid(definition.output_file, line, "writeInterval expects one value");
+            if (has_interval)
+                invalid(definition.output_file, line, "duplicate writeInterval");
             std::size_t consumed = 0;
-            try { result.write_interval = std::stoi(line.tokens[1], &consumed); }
-            catch (const std::exception&) { invalid(definition.output_file, line, "invalid writeInterval"); }
+            try {
+                result.write_interval = std::stoi(line.tokens[1], &consumed);
+            } catch (const std::exception&) {
+                invalid(definition.output_file, line, "invalid writeInterval");
+            }
             if (consumed != line.tokens[1].size() || result.write_interval <= 0)
                 invalid(definition.output_file, line, "writeInterval must be a positive integer");
             has_interval = true;
         } else if (key == "writeFields" || key == "fields") {
-            if (has_write_fields) invalid(definition.output_file, line, "duplicate writeFields");
+            if (has_write_fields)
+                invalid(definition.output_file, line, "duplicate writeFields");
             result.write_fields.assign(line.tokens.begin() + 1, line.tokens.end());
             std::set<std::string> names;
             for (const auto& name : result.write_fields) {
@@ -129,7 +132,8 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
             }
             has_write_fields = true;
         } else if (key == "excludeFields" || key == "exclude") {
-            if (has_exclude_fields) invalid(definition.output_file, line, "duplicate excludeFields");
+            if (has_exclude_fields)
+                invalid(definition.output_file, line, "duplicate excludeFields");
             result.exclude_fields.assign(line.tokens.begin() + 1, line.tokens.end());
             std::set<std::string> names;
             for (const auto& name : result.exclude_fields) {
@@ -147,4 +151,4 @@ OutputControl readOutputControl(const CaseDefinition& definition) {
     return result;
 }
 
-}  // babelsim 命名空间
+} // babelsim 命名空间

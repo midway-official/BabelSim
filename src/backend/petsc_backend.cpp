@@ -29,32 +29,46 @@ double secondsSince(Clock::time_point start) {
 
 const char* kspName(LinearSolverType type) {
     switch (type) {
-    case LinearSolverType::ConjugateGradient: return "cg";
-    case LinearSolverType::BiCGSTAB: return "bcgs";
-    case LinearSolverType::GMRES: return "gmres";
-    case LinearSolverType::FGMRES: return "fgmres";
+    case LinearSolverType::ConjugateGradient:
+        return "cg";
+    case LinearSolverType::BiCGSTAB:
+        return "bcgs";
+    case LinearSolverType::GMRES:
+        return "gmres";
+    case LinearSolverType::FGMRES:
+        return "fgmres";
     }
     return "unknown";
 }
 
 const char* pcName(PreconditionerType type) {
     switch (type) {
-    case PreconditionerType::None: return "none";
-    case PreconditionerType::IncompleteCholesky: return "icc";
-    case PreconditionerType::Hypre: return "hypre-boomeramg";
-    case PreconditionerType::GAMG: return "gamg";
-    case PreconditionerType::BlockJacobi: return "bjacobi";
-    case PreconditionerType::ASM: return "asm";
-    case PreconditionerType::Jacobi: return "jacobi";
+    case PreconditionerType::None:
+        return "none";
+    case PreconditionerType::IncompleteCholesky:
+        return "icc";
+    case PreconditionerType::Hypre:
+        return "hypre-boomeramg";
+    case PreconditionerType::GAMG:
+        return "gamg";
+    case PreconditionerType::BlockJacobi:
+        return "bjacobi";
+    case PreconditionerType::ASM:
+        return "asm";
+    case PreconditionerType::Jacobi:
+        return "jacobi";
     }
     return "unknown";
 }
 
 const char* solveStatusName(SolveStatus status) {
     switch (status) {
-    case SolveStatus::Converged: return "converged";
-    case SolveStatus::MaxIterations: return "maxIterations";
-    case SolveStatus::NumericalFailure: return "numericalFailure";
+    case SolveStatus::Converged:
+        return "converged";
+    case SolveStatus::MaxIterations:
+        return "maxIterations";
+    case SolveStatus::NumericalFailure:
+        return "numericalFailure";
     }
     return "unknown";
 }
@@ -69,21 +83,27 @@ public:
         // ghosts while still being part of a distributed global mesh.
         const bool mesh_is_distributed = ownedCellCount(mesh) < mesh.globalCellCount();
         if (m_parallel.distributed() != mesh_is_distributed)
-            throw std::invalid_argument(
-                "PETSc backend and mesh ownership are inconsistent (rank=" +
-                std::to_string(m_parallel.rank) + ", ranks=" +
-                std::to_string(m_parallel.size) + ", owned=" +
-                std::to_string(ownedCellCount(mesh)) + ", local=" +
-                std::to_string(mesh.cellCount()) + ")");
+            throw std::invalid_argument("PETSc backend and mesh ownership are inconsistent (rank=" +
+                                        std::to_string(m_parallel.rank) +
+                                        ", ranks=" + std::to_string(m_parallel.size) +
+                                        ", owned=" + std::to_string(ownedCellCount(mesh)) +
+                                        ", local=" + std::to_string(mesh.cellCount()) + ")");
         ensurePetscSession();
         m_index_map = std::make_unique<PetscIndexMap>(mesh, m_parallel);
         m_assembly_plan = std::make_unique<PetscAssemblyPlan>(mesh, *m_index_map);
-        if (m_parallel.distributed()) m_halo = std::make_unique<HaloExchange>(mesh, m_parallel);
+        if (m_parallel.distributed())
+            m_halo = std::make_unique<HaloExchange>(mesh, m_parallel);
     }
 
-    void synchronize(ScalarField& field) override { synchronizeField(field); }
-    void synchronize(VectorField& field) override { synchronizeField(field); }
-    void synchronize(TensorField& field) override { synchronizeField(field); }
+    void synchronize(ScalarField& field) override {
+        synchronizeField(field);
+    }
+    void synchronize(VectorField& field) override {
+        synchronizeField(field);
+    }
+    void synchronize(TensorField& field) override {
+        synchronizeField(field);
+    }
 
     void sum(const double* local, double* global, int count) const override {
         const Clock::time_point start = Clock::now();
@@ -113,7 +133,8 @@ public:
         result.equation_systems.reserve(m_equation_performance.size());
         for (const auto& entry : m_equation_performance)
             result.equation_systems.push_back(entry.second);
-        std::sort(result.equation_systems.begin(), result.equation_systems.end(),
+        std::sort(
+            result.equation_systems.begin(), result.equation_systems.end(),
             [](const EquationPerformanceCounters& left, const EquationPerformanceCounters& right) {
                 return left.identity < right.identity;
             });
@@ -124,7 +145,8 @@ public:
                       const LinearSolverConfig& config) override {
         config.validate();
         equation.validateStorage();
-        const std::string identity = equationIdentity(equation.numerical_identity, unknown.name(), false);
+        const std::string identity =
+            equationIdentity(equation.numerical_identity, unknown.name(), false);
         PetscLinearSystem& system = getSystem(identity, 1);
         recordEquationConfig(identity, config);
         const Clock::time_point assembly_start = Clock::now();
@@ -153,12 +175,12 @@ public:
         return metrics.result;
     }
 
-    std::array<SolveResult, 3> solve(const VectorDiscreteEquation& equation,
-                                     VectorField& unknown,
+    std::array<SolveResult, 3> solve(const VectorDiscreteEquation& equation, VectorField& unknown,
                                      const LinearSolverConfig& config) override {
         config.validate();
         equation.validateStorage();
-        const std::string identity = equationIdentity(equation.numerical_identity, unknown.name(), true);
+        const std::string identity =
+            equationIdentity(equation.numerical_identity, unknown.name(), true);
         PetscLinearSystem& system = getSystem(identity, 3);
         recordEquationConfig(identity, config);
         const Clock::time_point assembly_start = Clock::now();
@@ -175,22 +197,30 @@ public:
         for (std::size_t component = 0; component < 3; ++component) {
             m_assembly_plan->rhsValues(equation, component, m_rhs_values);
             if (config.warm_start) {
-              m_initial.resize(static_cast<std::size_t>(m_index_map->localSize()));
-              for (Index cell : meshData(*m_mesh).owned_cells) {
-                const Vec3& value = values[cell];
-                const double component_value = component == 0 ? value.x : component == 1 ? value.y : value.z;
-                m_initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] = component_value;
-              }
+                m_initial.resize(static_cast<std::size_t>(m_index_map->localSize()));
+                for (Index cell : meshData(*m_mesh).owned_cells) {
+                    const Vec3& value = values[cell];
+                    const double component_value = component == 0   ? value.x
+                                                   : component == 1 ? value.y
+                                                                    : value.z;
+                    m_initial[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))] =
+                        component_value;
+                }
             }
-            const PetscSolveMetrics metrics = system.solveRhs(m_rhs_values, m_initial, m_solution, component);
+            const PetscSolveMetrics metrics =
+                system.solveRhs(m_rhs_values, m_initial, m_solution, component);
             results[component] = metrics.result;
             recordSolve(identity, metrics);
             for (Index cell : meshData(*m_mesh).owned_cells) {
                 Vec3& value = values[cell];
-                const double solved = m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
-                if (component == 0) value.x = solved;
-                else if (component == 1) value.y = solved;
-                else value.z = solved;
+                const double solved =
+                    m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
+                if (component == 0)
+                    value.x = solved;
+                else if (component == 1)
+                    value.y = solved;
+                else
+                    value.z = solved;
             }
         }
         synchronize(unknown);
@@ -199,9 +229,9 @@ public:
 
 private:
     static std::string equationIdentity(const std::string& equation_name,
-                                       const std::string& field_name, bool vector) {
+                                        const std::string& field_name, bool vector) {
         return std::string(vector ? "vector:" : "scalar:") +
-            (equation_name.empty() ? field_name : equation_name) + ":" + field_name;
+               (equation_name.empty() ? field_name : equation_name) + ":" + field_name;
     }
 
     PetscLinearSystem& getSystem(const std::string& identity, std::size_t right_hand_sides) {
@@ -233,8 +263,7 @@ private:
         metrics.pc_type = pcName(config.preconditioner);
     }
 
-    void recordMatrixUpdate(const std::string& identity,
-                            const PetscMatrixUpdateMetrics& metrics) {
+    void recordMatrixUpdate(const std::string& identity, const PetscMatrixUpdateMetrics& metrics) {
         EquationPerformanceCounters& equation = equationMetrics(identity);
         m_performance.matrix_update_seconds += metrics.seconds;
         equation.matrix_update_seconds += metrics.seconds;
@@ -247,8 +276,7 @@ private:
         }
     }
 
-    void recordPreconditionerSetup(const std::string& identity,
-                                   const PetscSetupMetrics& metrics) {
+    void recordPreconditionerSetup(const std::string& identity, const PetscSetupMetrics& metrics) {
         EquationPerformanceCounters& equation = equationMetrics(identity);
         m_performance.preconditioner_seconds += metrics.seconds;
         equation.preconditioner_seconds += metrics.seconds;
@@ -294,16 +322,19 @@ private:
         // Cache validity is local: a different owner may have modified the
         // field. Agree before skipping this collective, including on ranks
         // with no neighbours. Count the decision in reduction diagnostics.
-        if (m_halo ? all(haloValid(field)) : haloValid(field)) return;
+        if (m_halo ? all(haloValid(field)) : haloValid(field))
+            return;
         if (m_halo) {
             const Clock::time_point start = Clock::now();
             m_halo->exchange(field);
             ++m_performance.halo_exchanges;
             std::size_t components = 1;
-            if constexpr (std::is_same_v<T, Vec3>) components = 3;
-            else if constexpr (std::is_same_v<T, Tensor3>) components = 9;
-            m_performance.halo_bytes += m_halo->plannedBytes(
-                components, false, field.location() == FieldLocation::Face);
+            if constexpr (std::is_same_v<T, Vec3>)
+                components = 3;
+            else if constexpr (std::is_same_v<T, Tensor3>)
+                components = 9;
+            m_performance.halo_bytes +=
+                m_halo->plannedBytes(components, false, field.location() == FieldLocation::Face);
             m_performance.halo_seconds += secondsSince(start);
         }
         markHaloValid(field);
@@ -325,10 +356,10 @@ private:
     mutable PerformanceCounters m_performance;
 };
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<ComputeBackend> makeComputeBackend(const Mesh& mesh, ParallelContext parallel) {
     return std::make_unique<PetscBackend>(mesh, std::move(parallel));
 }
 
-}  // namespace babelsim::detail
+} // namespace babelsim::detail

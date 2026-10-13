@@ -56,3 +56,5 @@ Runtime 不猜 PDE、不判断工程物理收敛、不打印具体算法进度�
 ## 维护要求
 
 修改公开接口时检查所有正式求解器、RANS 和外部示例；修改离散或后端时保持积分量、方向和冻结装配契约；修改并行时检查 owned/ghost、跨分区面和全局归约。`make test-architecture` 按实际 include 闭包检查这些边界，详细测试矩阵见[验证指南](verification.md)。
+
+维护底层实现时，参见[框架源码阅读与修改](framework-maintenance.md)，其中给出了装配到 PETSc 的调用链、MPI 分发与 halo 的职责，以及积分系数和冻结通量的约定。

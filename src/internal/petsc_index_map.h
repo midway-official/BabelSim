@@ -18,10 +18,18 @@ public:
 
     PetscInt globalCell(Index local_cell) const;
     PetscInt row(Index owned_cell) const;
-    PetscInt localSize() const { return m_local_size; }
-    PetscInt globalSize() const { return m_global_size; }
-    PetscInt rowBegin() const { return m_row_begin; }
-    PetscInt rowEnd() const { return m_row_end; }
+    PetscInt localSize() const {
+        return m_local_size;
+    }
+    PetscInt globalSize() const {
+        return m_global_size;
+    }
+    PetscInt rowBegin() const {
+        return m_row_begin;
+    }
+    PetscInt rowEnd() const {
+        return m_row_end;
+    }
 
 private:
     const Mesh* m_mesh;
@@ -32,4 +40,4 @@ private:
     std::vector<PetscInt> m_local_to_global;
 };
 
-}  // namespace babelsim::detail
+} // namespace babelsim::detail

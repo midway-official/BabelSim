@@ -14,6 +14,7 @@
 | 高级 [时间推进与关联历史](time-integration.md) | 公共时间权重、预测、历史同步与可选步骤回滚 |
 | 高级 [模块描述与模板](module-descriptions.md) | 单份字段/参数声明、前端检查、生成文档与算例模板 |
 | 记录 [模块描述与时间工具验证](dsl-time-validation.md) | 源码精简、代码量、回归与性能对照 |
+| 维护 [框架源码阅读与修改](framework-maintenance.md) | 非 Physics 实现的调用链、数学符号、MPI 数据流和维护规则 |
 | 高级 [性能测量](performance.md) | 固定工作量、计时、并行与内存证据 |
 | 高级 [图分区模型](partitioning.md) | 合法网格图、分区候选与负载比较 |
 

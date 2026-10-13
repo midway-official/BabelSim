@@ -25,17 +25,18 @@ const SolverRegistration*& SolverRegistration::first() noexcept {
 }
 
 SolverRegistration::SolverRegistration(const char* name, SolverResult (*run)(Case&),
-    const ModuleDescription* description) noexcept
-    : m_name(name), m_run(run), m_description(description), m_next(first())
-{
+                                       const ModuleDescription* description) noexcept
+    : m_name(name), m_run(run), m_description(description), m_next(first()) {
     first() = this;
 }
 
 SolverRegistration::~SolverRegistration() noexcept {
     // 既支持正常静态析构，也避免临时注册对象离开作用域后留下悬空描述项。
     const SolverRegistration** link = &first();
-    while (*link != nullptr && *link != this) link = &(*link)->m_next;
-    if (*link != nullptr) *link = m_next;
+    while (*link != nullptr && *link != this)
+        link = &(*link)->m_next;
+    if (*link != nullptr)
+        *link = m_next;
 }
 
 namespace {
@@ -60,27 +61,45 @@ Arguments parseArguments(int argc, char* argv[]) {
         "or -template <solver> -output <new-directory>; or -list";
     for (int index = 1; index < argc;) {
         const std::string option = argv[index++];
-        if (!used.insert(option).second) throw std::invalid_argument("duplicate argument " + option);
-        if (option == "-list") { result.list = true; continue; }
+        if (!used.insert(option).second)
+            throw std::invalid_argument("duplicate argument " + option);
+        if (option == "-list") {
+            result.list = true;
+            continue;
+        }
         if ((option != "-case" && option != "-time" && option != "-performance" &&
              option != "-describe" && option != "-template" && option != "-format" &&
-             option != "-output") || index == argc) throw std::invalid_argument(usage);
-        if (option == "-case") result.case_directory = argv[index];
-        else if (option == "-time") result.time_name = argv[index];
-        else if (option == "-performance") result.performance_directory = argv[index];
-        else if (option == "-describe") result.describe = argv[index];
-        else if (option == "-template") result.case_template = argv[index];
-        else if (option == "-format") result.format = argv[index];
-        else result.output_directory = argv[index];
+             option != "-output") ||
+            index == argc)
+            throw std::invalid_argument(usage);
+        if (option == "-case")
+            result.case_directory = argv[index];
+        else if (option == "-time")
+            result.time_name = argv[index];
+        else if (option == "-performance")
+            result.performance_directory = argv[index];
+        else if (option == "-describe")
+            result.describe = argv[index];
+        else if (option == "-template")
+            result.case_template = argv[index];
+        else if (option == "-format")
+            result.format = argv[index];
+        else
+            result.output_directory = argv[index];
         ++index;
     }
     const int commands = !result.describe.empty() + !result.case_template.empty() + result.list;
     if (commands > 1 || (commands && (!result.case_directory.empty() || !result.time_name.empty() ||
-        !result.performance_directory.empty()))) throw std::invalid_argument(usage);
-    if (!result.case_template.empty() && result.output_directory.empty()) throw std::invalid_argument(usage);
-    if (result.case_template.empty() && !result.output_directory.empty()) throw std::invalid_argument(usage);
-    if (used.count("-format") && result.describe.empty()) throw std::invalid_argument(usage);
-    if (result.format != "markdown" && result.format != "json") throw std::invalid_argument(usage);
+                                      !result.performance_directory.empty())))
+        throw std::invalid_argument(usage);
+    if (!result.case_template.empty() && result.output_directory.empty())
+        throw std::invalid_argument(usage);
+    if (result.case_template.empty() && !result.output_directory.empty())
+        throw std::invalid_argument(usage);
+    if (used.count("-format") && result.describe.empty())
+        throw std::invalid_argument(usage);
+    if (result.format != "markdown" && result.format != "json")
+        throw std::invalid_argument(usage);
     if (!commands && result.case_directory.empty()) {
         throw std::invalid_argument("babelsim-solve needs -case <case-directory>");
     }
@@ -89,46 +108,43 @@ Arguments parseArguments(int argc, char* argv[]) {
 
 const char* statusName(SolveStatus status) {
     switch (status) {
-    case SolveStatus::Converged: return "converged";
-    case SolveStatus::MaxIterations: return "maxIterations";
-    case SolveStatus::NumericalFailure: return "numericalFailure";
+    case SolveStatus::Converged:
+        return "converged";
+    case SolveStatus::MaxIterations:
+        return "maxIterations";
+    case SolveStatus::NumericalFailure:
+        return "numericalFailure";
     }
     return "unknown";
 }
 
-void writePerformance(
-    const std::filesystem::path& directory,
-    const Case& problem,
-    const SolverResult& result,
-    double mpi_init_seconds,
-    double case_setup_seconds,
-    double solver_seconds,
-    double application_seconds)
-{
+void writePerformance(const std::filesystem::path& directory, const Case& problem,
+                      const SolverResult& result, double mpi_init_seconds,
+                      double case_setup_seconds, double solver_seconds,
+                      double application_seconds) {
     const ParallelContext parallel = ParallelContext::world();
-    if (parallel.rank == 0) std::filesystem::create_directories(directory);
+    if (parallel.rank == 0)
+        std::filesystem::create_directories(directory);
     parallel.barrier();
     const PerformanceCounters counters = problem.performance();
     const PerformanceCounters local = problem.localPerformance();
     const MeshPartitionInfo partition = problem.mesh().partitionInfo();
-    const double solver_compute_seconds = std::max(
-        0.0, solver_seconds - local.output_seconds);
+    const double solver_compute_seconds = std::max(0.0, solver_seconds - local.output_seconds);
     std::ostringstream name;
     name << "rank-" << std::setw(4) << std::setfill('0') << parallel.rank << ".json";
     std::ofstream output(directory / name.str());
-    if (!output) throw std::runtime_error("cannot write performance report");
-    output << std::setprecision(17)
-           << "{\n  \"rank\": " << parallel.rank
-           << ",\n  \"ranks\": " << parallel.size
-           << ",\n  \"status\": \"" << statusName(result.status) << "\""
+    if (!output)
+        throw std::runtime_error("cannot write performance report");
+    output << std::setprecision(17) << "{\n  \"rank\": " << parallel.rank
+           << ",\n  \"ranks\": " << parallel.size << ",\n  \"status\": \""
+           << statusName(result.status) << "\""
            << ",\n  \"mpiInitSeconds\": " << mpi_init_seconds
            << ",\n  \"caseSetupSeconds\": " << case_setup_seconds
            << ",\n  \"solverSeconds\": " << solver_seconds
            << ",\n  \"solverComputeSeconds\": " << solver_compute_seconds
            << ",\n  \"iterationComputeSeconds\": " << local.iteration_compute_seconds
            << ",\n  \"reportedIterationIntervals\": " << local.reported_iteration_intervals
-           << ",\n  \"applicationSeconds\": " << application_seconds
-           << ",\n  \"partition\": {"
+           << ",\n  \"applicationSeconds\": " << application_seconds << ",\n  \"partition\": {"
            << "\n    \"globalCells\": " << partition.global_cells
            << ",\n    \"localCells\": " << partition.local_cells
            << ",\n    \"ownedCells\": " << partition.owned_cells
@@ -136,8 +152,7 @@ void writePerformance(
            << ",\n    \"localFaces\": " << partition.local_faces
            << ",\n    \"ownedFaces\": " << partition.owned_faces
            << ",\n    \"communicationFaces\": " << partition.communication_faces
-           << ",\n    \"neighbourRanks\": " << partition.neighbour_ranks
-           << "\n  }"
+           << ",\n    \"neighbourRanks\": " << partition.neighbour_ranks << "\n  }"
            << ",\n  \"linearSolves\": " << counters.linear_solves
            << ",\n  \"krylovIterations\": " << counters.krylov_iterations
            << ",\n  \"sparseMatvecs\": " << counters.sparse_matvecs
@@ -166,8 +181,7 @@ void writePerformance(
            << ",\n  \"sparseMatvecSeconds\": " << counters.sparse_matvec_seconds
            << ",\n  \"haloSeconds\": " << counters.halo_seconds
            << ",\n  \"globalReductionSeconds\": " << counters.global_reduction_seconds
-           << ",\n  \"outputSeconds\": " << counters.output_seconds
-           << ",\n  \"local\": {"
+           << ",\n  \"outputSeconds\": " << counters.output_seconds << ",\n  \"local\": {"
            << "\n    \"linearSolves\": " << local.linear_solves
            << ",\n    \"krylovIterations\": " << local.krylov_iterations
            << ",\n    \"sparseMatvecs\": " << local.sparse_matvecs
@@ -200,10 +214,10 @@ void writePerformance(
            << ",\n    \"equationSystems\": [";
     for (std::size_t index = 0; index < local.equation_systems.size(); ++index) {
         const auto& equation = local.equation_systems[index];
-        if (index != 0) output << ',';
-        output << "\n      {\"identity\": \"" << equation.identity
-               << "\", \"kspType\": \"" << equation.ksp_type
-               << "\", \"pcType\": \"" << equation.pc_type
+        if (index != 0)
+            output << ',';
+        output << "\n      {\"identity\": \"" << equation.identity << "\", \"kspType\": \""
+               << equation.ksp_type << "\", \"pcType\": \"" << equation.pc_type
                << "\", \"lastStatus\": \"" << equation.last_status
                << "\", \"matrixPatternBuilds\": " << equation.matrix_pattern_builds
                << ", \"matrixValueUpdates\": " << equation.matrix_value_updates
@@ -225,55 +239,65 @@ void writePerformance(
                << ", \"residualCheckSeconds\": " << equation.residual_check_seconds << '}';
     }
     output << "\n    ]\n  }\n}\n";
-    if (!output) throw std::runtime_error("cannot finish performance report");
+    if (!output)
+        throw std::runtime_error("cannot finish performance report");
 }
 
-}  // 匿名命名空间
-}  // babelsim 命名空间
+} // 匿名命名空间
+} // babelsim 命名空间
 
 int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onError) {
     int initialized = 0;
     int finalized = 0;
-    if (MPI_Initialized(&initialized) != MPI_SUCCESS ||
-        MPI_Finalized(&finalized) != MPI_SUCCESS || finalized) {
-        if (onError) onError("invalid MPI application lifecycle");
+    if (MPI_Initialized(&initialized) != MPI_SUCCESS || MPI_Finalized(&finalized) != MPI_SUCCESS ||
+        finalized) {
+        if (onError)
+            onError("invalid MPI application lifecycle");
         return 1;
     }
     const bool owns_mpi = initialized == 0;
     const auto mpi_start = std::chrono::steady_clock::now();
     const int init_status = owns_mpi ? MPI_Init(&argc, &argv) : MPI_SUCCESS;
     if (init_status != MPI_SUCCESS) {
-        if (onError) onError("MPI_Init failed");
+        if (onError)
+            onError("MPI_Init failed");
         return 1;
     }
     const auto application_start = std::chrono::steady_clock::now();
-    const double mpi_init_seconds = std::chrono::duration<double>(
-        application_start - mpi_start).count();
+    const double mpi_init_seconds =
+        std::chrono::duration<double>(application_start - mpi_start).count();
     int status = 1;
     try {
         const Arguments arguments = parseArguments(argc, argv);
         const SolverRegistration* solvers = SolverRegistration::first();
-        if (solvers == nullptr) throw std::invalid_argument("no registered solvers");
+        if (solvers == nullptr)
+            throw std::invalid_argument("no registered solvers");
         for (const auto* entry = solvers; entry != nullptr; entry = entry->m_next) {
             if (entry->m_name == nullptr || entry->m_run == nullptr)
                 throw std::invalid_argument("invalid solver registration");
-            if (entry->m_name[0] == '\0') throw std::invalid_argument("empty solver name");
+            if (entry->m_name[0] == '\0')
+                throw std::invalid_argument("empty solver name");
             if (entry->m_description) {
                 validateModuleDescription(*entry->m_description);
                 if (entry->m_name != entry->m_description->name)
-                    throw std::invalid_argument("solver registration and description names differ: " + std::string(entry->m_name));
+                    throw std::invalid_argument(
+                        "solver registration and description names differ: " +
+                        std::string(entry->m_name));
             }
             for (const auto* previous = solvers; previous != entry; previous = previous->m_next)
                 if (std::strcmp(previous->m_name, entry->m_name) == 0)
-                    throw std::invalid_argument("duplicate solver registration: " + std::string(entry->m_name));
+                    throw std::invalid_argument("duplicate solver registration: " +
+                                                std::string(entry->m_name));
         }
         if (arguments.list || !arguments.describe.empty() || !arguments.case_template.empty()) {
             const auto models = registeredModuleDescriptions();
             std::set<std::string> moduleNames;
-            for (const auto* entry = solvers; entry; entry = entry->m_next) moduleNames.insert(entry->m_name);
+            for (const auto* entry = solvers; entry; entry = entry->m_next)
+                moduleNames.insert(entry->m_name);
             for (const auto* description : models)
                 if (!moduleNames.insert(description->name).second)
-                    throw std::invalid_argument("duplicate module registration: " + description->name);
+                    throw std::invalid_argument("duplicate module registration: " +
+                                                description->name);
             const auto parallel = ParallelContext::world();
             if (arguments.list) {
                 if (parallel.rank == 0) {
@@ -285,17 +309,25 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
                     writeModuleList(modules);
                 }
             } else {
-                const std::string name = arguments.describe.empty() ? arguments.case_template : arguments.describe;
+                const std::string name =
+                    arguments.describe.empty() ? arguments.case_template : arguments.describe;
                 const ModuleDescription* description = nullptr;
                 for (const auto* entry = solvers; entry; entry = entry->m_next)
-                    if (name == entry->m_name) description = entry->m_description;
-                if (!description) for (const auto* model : models)
-                    if (model->name == name) description = model;
-                if (!description) throw std::invalid_argument("no description registered for module: " + name);
+                    if (name == entry->m_name)
+                        description = entry->m_description;
+                if (!description)
+                    for (const auto* model : models)
+                        if (model->name == name)
+                            description = model;
+                if (!description)
+                    throw std::invalid_argument("no description registered for module: " + name);
                 if (parallel.rank == 0) {
-                    if (!arguments.case_template.empty()) writeCaseTemplate(*description, arguments.output_directory);
-                    else writeModuleDescription(*description, arguments.format == "json"
-                        ? ModuleOutputFormat::Json : ModuleOutputFormat::Markdown);
+                    if (!arguments.case_template.empty())
+                        writeCaseTemplate(*description, arguments.output_directory);
+                    else
+                        writeModuleDescription(*description, arguments.format == "json"
+                                                                 ? ModuleOutputFormat::Json
+                                                                 : ModuleOutputFormat::Markdown);
                 }
                 parallel.barrier();
             }
@@ -303,35 +335,43 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
         } else {
             const auto case_start = std::chrono::steady_clock::now();
             Case problem(arguments.case_directory, arguments.time_name);
-            const double case_setup_seconds = std::chrono::duration<double>(
-                std::chrono::steady_clock::now() - case_start).count();
+            const double case_setup_seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - case_start)
+                    .count();
             const SolverRegistration* selected = solvers;
-            while (selected != nullptr && problem.solver() != selected->m_name) selected = selected->m_next;
-            if (selected == nullptr) throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
-            if (selected->m_description) validateModuleConfiguration(problem, *selected->m_description);
+            while (selected != nullptr && problem.solver() != selected->m_name)
+                selected = selected->m_next;
+            if (selected == nullptr)
+                throw std::invalid_argument("unknown BabelSim solver: " + problem.solver());
+            if (selected->m_description)
+                validateModuleConfiguration(problem, *selected->m_description);
             const auto solver_start = std::chrono::steady_clock::now();
             const SolverResult result = selected->m_run(problem);
-            const double solver_seconds = std::chrono::duration<double>(
-                std::chrono::steady_clock::now() - solver_start).count();
+            const double solver_seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - solver_start)
+                    .count();
             if (!arguments.performance_directory.empty()) {
-                const double application_seconds = std::chrono::duration<double>(
-                    std::chrono::steady_clock::now() - application_start).count();
-                writePerformance(
-                    arguments.performance_directory, problem, result,
-                    mpi_init_seconds, case_setup_seconds, solver_seconds, application_seconds);
+                const double application_seconds =
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                                  application_start)
+                        .count();
+                writePerformance(arguments.performance_directory, problem, result, mpi_init_seconds,
+                                 case_setup_seconds, solver_seconds, application_seconds);
             }
             // Keep the established CLI contract: both nonconvergence and numerical
             // failure are exit 2; configuration/application errors remain exit 1.
-            status = ParallelContext::world().maximum(
-                result.status == SolveStatus::Converged ? 0 : 2);
+            status =
+                ParallelContext::world().maximum(result.status == SolveStatus::Converged ? 0 : 2);
         }
     } catch (const std::exception& error) {
-        if (onError) onError(error.what());
+        if (onError)
+            onError(error.what());
         // 单个 rank 的 I/O 失败不能让其他 rank 阻塞在后续 halo 交换或集体通信；
         // 正常的不收敛通过状态码 2 返回。
         const int abort_status = MPI_Abort(MPI_COMM_WORLD, 1);
         if (abort_status != MPI_SUCCESS) {
-            if (onError) onError("MPI_Abort failed");
+            if (onError)
+                onError("MPI_Abort failed");
         }
         return 1;
     }
@@ -342,12 +382,15 @@ int babelsim::runApplication(int argc, char* argv[], ApplicationErrorHandler onE
         detail::finalizePetscSession();
     } catch (const std::exception& error) {
         petsc_finalize_status = 1;
-        if (onError) onError(error.what());
+        if (onError)
+            onError(error.what());
     }
-    if (petsc_finalize_status != 0) return 1;
+    if (petsc_finalize_status != 0)
+        return 1;
     const int finalize_status = owns_mpi ? MPI_Finalize() : MPI_SUCCESS;
     if (finalize_status != MPI_SUCCESS) {
-        if (onError) onError("MPI_Finalize failed");
+        if (onError)
+            onError("MPI_Finalize failed");
         return 1;
     }
     return status;

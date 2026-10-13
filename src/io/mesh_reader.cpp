@@ -17,7 +17,8 @@ namespace {
 template <typename T>
 T read(std::istream& input, const std::filesystem::path& path, const char* what) {
     T value{};
-    if (!(input >> value)) invalidFile(path, std::string("missing ") + what);
+    if (!(input >> value))
+        invalidFile(path, std::string("missing ") + what);
     return value;
 }
 
@@ -30,20 +31,27 @@ Index count(std::istream& input, const std::filesystem::path& path, const char* 
 }
 
 PatchKind patchKind(const std::string& name, const std::filesystem::path& path) {
-    if (name == "generic") return PatchKind::Generic;
-    if (name == "wall") return PatchKind::Wall;
-    if (name == "inlet") return PatchKind::Inlet;
-    if (name == "outlet") return PatchKind::Outlet;
-    if (name == "symmetry" || name == "mirror") return PatchKind::Symmetry;
-    if (name == "processor") return PatchKind::Processor;
+    if (name == "generic")
+        return PatchKind::Generic;
+    if (name == "wall")
+        return PatchKind::Wall;
+    if (name == "inlet")
+        return PatchKind::Inlet;
+    if (name == "outlet")
+        return PatchKind::Outlet;
+    if (name == "symmetry" || name == "mirror")
+        return PatchKind::Symmetry;
+    if (name == "processor")
+        return PatchKind::Processor;
     invalidFile(path, "unknown patch kind " + name);
 }
 
-}  // namespace
+} // namespace
 
 Mesh readMeshFile(const std::filesystem::path& path) {
     std::ifstream input(path);
-    if (!input) throw std::runtime_error("cannot open BabelSim mesh file: " + path.string());
+    if (!input)
+        throw std::runtime_error("cannot open BabelSim mesh file: " + path.string());
 
     const std::string magic = read<std::string>(input, path, "file header");
     const int version = read<int>(input, path, "format version");
@@ -58,7 +66,8 @@ Mesh readMeshFile(const std::filesystem::path& path) {
     for (Vec3& vertex : vertices) {
         vertex = {read<double>(input, path, "vertex x"), read<double>(input, path, "vertex y"),
                   read<double>(input, path, "vertex z")};
-        if (!isFinite(vertex)) invalidFile(path, "vertex must be finite");
+        if (!isFinite(vertex))
+            invalidFile(path, "vertex must be finite");
     }
 
     if (read<std::string>(input, path, "faces keyword") != "faces") {
@@ -95,13 +104,16 @@ Mesh readMeshFile(const std::filesystem::path& path) {
         }
         const std::string name = read<std::string>(input, path, "patch name");
         const PatchKind kind = patchKind(read<std::string>(input, path, "patch kind"), path);
-        if (name.empty()) invalidFile(path, "patch name must not be empty");
+        if (name.empty())
+            invalidFile(path, "patch name must not be empty");
         patches.push_back({name, kind});
     }
     const std::string end = read<std::string>(input, path, "end marker");
-    if (end != "end") invalidFile(path, "expected end");
+    if (end != "end")
+        invalidFile(path, "expected end");
     std::string trailing;
-    if (input >> trailing) invalidFile(path, "unexpected trailing token " + trailing);
+    if (input >> trailing)
+        invalidFile(path, "unexpected trailing token " + trailing);
 
     try {
         return Mesh::polyhedral(std::move(vertices), std::move(faces), std::move(patches));
@@ -110,4 +122,4 @@ Mesh readMeshFile(const std::filesystem::path& path) {
     }
 }
 
-}  // namespace babelsim
+} // namespace babelsim

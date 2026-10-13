@@ -11,10 +11,7 @@
 namespace babelsim {
 namespace {
 
-std::filesystem::path rankDirectory(
-    const std::filesystem::path& time_directory,
-    int rank)
-{
+std::filesystem::path rankDirectory(const std::filesystem::path& time_directory, int rank) {
     std::ostringstream name;
     name << "rank-" << std::setfill('0') << std::setw(4) << rank;
     return time_directory / name.str();
@@ -39,13 +36,8 @@ void ensureDirectory(const std::filesystem::path& time_directory, const Parallel
 }
 
 template <typename T, typename WriteValue>
-void writeField(
-    const std::filesystem::path& time_directory,
-    const Field<T>& field,
-    const ParallelContext& parallel,
-    int components,
-    WriteValue write_value)
-{
+void writeField(const std::filesystem::path& time_directory, const Field<T>& field,
+                const ParallelContext& parallel, int components, WriteValue write_value) {
     const Mesh& mesh = field.mesh();
     if (field.location() != FieldLocation::Cell || field.name().empty()) {
         throw std::invalid_argument("parallel result output requires a named cell field");
@@ -63,7 +55,8 @@ void writeField(
     output << '\n' << std::setprecision(17);
     for (Index cell : detail::meshData(mesh).owned_cells) {
         const Vec3& centre = mesh.cellCentre(cell);
-        output << detail::globalCellId(mesh, cell) << ',' << centre.x << ',' << centre.y << ',' << centre.z;
+        output << detail::globalCellId(mesh, cell) << ',' << centre.x << ',' << centre.y << ','
+               << centre.z;
         write_value(output, detail::fieldData(field)[cell]);
         output << '\n';
     }
@@ -76,52 +69,42 @@ void writeField(
 
 const char* locationName(FieldLocation location) {
     switch (location) {
-        case FieldLocation::Cell: return "cell";
-        case FieldLocation::Face: return "face";
-        case FieldLocation::Vertex: return "vertex";
+    case FieldLocation::Cell:
+        return "cell";
+    case FieldLocation::Face:
+        return "face";
+    case FieldLocation::Vertex:
+        return "vertex";
     }
     throw std::invalid_argument("unknown field location");
 }
 
-}  // 匿名命名空间
+} // 匿名命名空间
 
-void writeOwnedFieldCsv(
-    const std::filesystem::path& time_directory,
-    const ScalarField& field,
-    const ParallelContext& parallel)
-{
-    writeField(time_directory, field, parallel, 1, [](std::ostream& output, double value) {
-        output << ',' << value;
-    });
+void writeOwnedFieldCsv(const std::filesystem::path& time_directory, const ScalarField& field,
+                        const ParallelContext& parallel) {
+    writeField(time_directory, field, parallel, 1,
+               [](std::ostream& output, double value) { output << ',' << value; });
 }
 
-void writeOwnedFieldCsv(
-    const std::filesystem::path& time_directory,
-    const VectorField& field,
-    const ParallelContext& parallel)
-{
+void writeOwnedFieldCsv(const std::filesystem::path& time_directory, const VectorField& field,
+                        const ParallelContext& parallel) {
     writeField(time_directory, field, parallel, 3, [](std::ostream& output, const Vec3& value) {
         output << ',' << value.x << ',' << value.y << ',' << value.z;
     });
 }
 
-void writeOwnedFieldCsv(
-    const std::filesystem::path& time_directory,
-    const TensorField& field,
-    const ParallelContext& parallel)
-{
+void writeOwnedFieldCsv(const std::filesystem::path& time_directory, const TensorField& field,
+                        const ParallelContext& parallel) {
     writeField(time_directory, field, parallel, 9, [](std::ostream& output, const Tensor3& value) {
-        for (const Vec3& row : value.rows) output << ',' << row.x << ',' << row.y << ',' << row.z;
+        for (const Vec3& row : value.rows)
+            output << ',' << row.x << ',' << row.y << ',' << row.z;
     });
 }
 
-void writeOwnedResultMetadata(
-    const std::filesystem::path& time_directory,
-    const Mesh& mesh,
-    const ParallelContext& parallel,
-    const std::string& time_name,
-    const std::vector<FieldOutputInfo>& fields)
-{
+void writeOwnedResultMetadata(const std::filesystem::path& time_directory, const Mesh& mesh,
+                              const ParallelContext& parallel, const std::string& time_name,
+                              const std::vector<FieldOutputInfo>& fields) {
     if (time_name.empty() || fields.empty()) {
         throw std::invalid_argument("result metadata needs a time name and fields");
     }
@@ -158,8 +141,8 @@ void writeOwnedResultMetadata(
         if (field.name.empty() || field.type.empty()) {
             throw std::invalid_argument("result metadata field is incomplete");
         }
-        output << "field " << field.name << ' ' << field.type << ' '
-               << locationName(field.location) << '\n';
+        output << "field " << field.name << ' ' << field.type << ' ' << locationName(field.location)
+               << '\n';
     }
     output.close();
     if (parallel.maximum(output ? 0 : 1) != 0) {
@@ -168,4 +151,4 @@ void writeOwnedResultMetadata(
     parallel.barrier();
 }
 
-}  // babelsim 命名空间
+} // babelsim 命名空间

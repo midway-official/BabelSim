@@ -38,20 +38,34 @@ void requireDistinct(const void* input, const void* result) {
         throw std::invalid_argument("explicit operator input and result must not alias");
 }
 
-}  // 匿名命名空间
+// Reconstruct only the normal derivative; preserve the tangential gradient.
+// For a fixed value: phi_b - phi_P = grad_t(phi) . d_t + snGrad(phi) * d_n.
+double boundaryNormalDerivative(BoundaryType type, double prescribed, double owner_value,
+                                const Vec3& cell_gradient, const Vec3& displacement,
+                                const Vec3& normal) {
+    if (type == BoundaryType::FixedValue) {
+        return (prescribed - owner_value -
+                dot(cell_gradient, displacement - dot(displacement, normal) * normal)) /
+               dot(displacement, normal);
+    }
+    if (type == BoundaryType::FixedGradient)
+        return prescribed;
+    return 0.0;
+}
+
+} // 匿名命名空间
 
 struct FvmExecution::Implementation {
     Implementation(const Mesh& mesh_value, std::unique_ptr<ComputeBackend> backend_value)
-        : mesh(&mesh_value),
-          backend(std::move(backend_value)),
+        : mesh(&mesh_value), backend(std::move(backend_value)),
           gradient_workspace(mesh_value, FieldLocation::Cell, "grad"),
           face_coefficient_workspace(mesh_value, FieldLocation::Face, "faceCoefficient"),
-          face_flux_workspace(mesh_value, FieldLocation::Face, "faceFlux")
-    {
+          face_flux_workspace(mesh_value, FieldLocation::Face, "faceFlux") {
         mesh->validate();
         if (meshData(*mesh).ghost_layers != 0 && meshData(*mesh).ghost_layers < 3)
             throw std::invalid_argument("FVM composite operators require ghostLayers >= 3");
-        if (!backend) throw std::invalid_argument("FVM execution requires a compute backend");
+        if (!backend)
+            throw std::invalid_argument("FVM execution requires a compute backend");
     }
 
     template <typename T>
@@ -66,8 +80,10 @@ struct FvmExecution::Implementation {
             throw std::invalid_argument("unknown face region");
         for (Index face : detail::meshData(*mesh).owned_faces) {
             if (region == math::FaceRegion::Interior &&
-                detail::meshData(*mesh).face_neighbour[face] == invalid_index) continue;
-            detail::fieldData(target)[face] += factor * detail::fieldData(face_flux_workspace)[face];
+                detail::meshData(*mesh).face_neighbour[face] == invalid_index)
+                continue;
+            detail::fieldData(target)[face] +=
+                factor * detail::fieldData(face_flux_workspace)[face];
         }
         synchronize(target);
     }
@@ -79,26 +95,25 @@ struct FvmExecution::Implementation {
     ScalarField face_flux_workspace;
 };
 
-
-FvmExecution::FvmExecution(const Mesh& mesh,
-                           std::unique_ptr<ComputeBackend> backend)
-    : m_implementation(std::make_unique<Implementation>(
-          mesh, std::move(backend))) {}
+FvmExecution::FvmExecution(const Mesh& mesh, std::unique_ptr<ComputeBackend> backend)
+    : m_implementation(std::make_unique<Implementation>(mesh, std::move(backend))) {}
 FvmExecution::~FvmExecution() = default;
-ComputeBackend& FvmExecution::backend() { return *m_implementation->backend; }
-const Mesh& FvmExecution::mesh() const { return *m_implementation->mesh; }
+ComputeBackend& FvmExecution::backend() {
+    return *m_implementation->backend;
+}
+const Mesh& FvmExecution::mesh() const {
+    return *m_implementation->mesh;
+}
 
-double FvmExecution::relativeChange(
-    const VectorField& current,
-    const VectorField& previous) const
-{
+double FvmExecution::relativeChange(const VectorField& current, const VectorField& previous) const {
     const Implementation& state = *m_implementation;
     requireCellField(current, *state.mesh, "relative-change current");
     requireCellField(previous, *state.mesh, "relative-change previous");
     double difference_squared = 0.0;
     double current_squared = 0.0;
     for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-        difference_squared += squaredNorm(detail::fieldData(current)[cell] - detail::fieldData(previous)[cell]);
+        difference_squared +=
+            squaredNorm(detail::fieldData(current)[cell] - detail::fieldData(previous)[cell]);
         current_squared += squaredNorm(detail::fieldData(current)[cell]);
     }
     const double local[2] = {difference_squared, current_squared};
@@ -107,17 +122,15 @@ double FvmExecution::relativeChange(
     return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
 }
 
-double FvmExecution::relativeChange(
-    const ScalarField& current,
-    const ScalarField& previous) const
-{
+double FvmExecution::relativeChange(const ScalarField& current, const ScalarField& previous) const {
     const Implementation& state = *m_implementation;
     requireCellField(current, *state.mesh, "relative-change current");
     requireCellField(previous, *state.mesh, "relative-change previous");
     double difference_squared = 0.0;
     double current_squared = 0.0;
     for (Index cell : detail::meshData(*state.mesh).owned_cells) {
-        const double difference = detail::fieldData(current)[cell] - detail::fieldData(previous)[cell];
+        const double difference =
+            detail::fieldData(current)[cell] - detail::fieldData(previous)[cell];
         difference_squared += difference * difference;
         current_squared += detail::fieldData(current)[cell] * detail::fieldData(current)[cell];
     }
@@ -127,10 +140,8 @@ double FvmExecution::relativeChange(
     return std::sqrt(global[0]) / std::max(std::sqrt(global[1]), 1e-30);
 }
 
-double FvmExecution::relativeMagnitude(
-    const ScalarField& value,
-    const ScalarField& reference) const
-{
+double FvmExecution::relativeMagnitude(const ScalarField& value,
+                                       const ScalarField& reference) const {
     const Implementation& state = *m_implementation;
     requireCellField(value, *state.mesh, "relative-magnitude value");
     requireCellField(reference, *state.mesh, "relative-magnitude reference");
@@ -138,7 +149,8 @@ double FvmExecution::relativeMagnitude(
     double reference_squared = 0.0;
     for (Index cell : detail::meshData(*state.mesh).owned_cells) {
         value_squared += detail::fieldData(value)[cell] * detail::fieldData(value)[cell];
-        reference_squared += detail::fieldData(reference)[cell] * detail::fieldData(reference)[cell];
+        reference_squared +=
+            detail::fieldData(reference)[cell] * detail::fieldData(reference)[cell];
     }
     const double local[2] = {value_squared, reference_squared};
     double global[2]{};
@@ -157,7 +169,8 @@ FluxBalance FvmExecution::fluxBalance(const ScalarField& face_flux) const {
         for (Index face : state.mesh->cellFaces(cell)) {
             const std::size_t index = static_cast<std::size_t>(face);
             const double outward = detail::meshData(*state.mesh).face_owner[index] == cell
-                ? detail::fieldData(face_flux)[face] : -detail::fieldData(face_flux)[face];
+                                       ? detail::fieldData(face_flux)[face]
+                                       : -detail::fieldData(face_flux)[face];
             imbalance += outward;
             scale += std::abs(outward);
         }
@@ -220,20 +233,20 @@ void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result)
     state.synchronize(result);
     if (result.calculatedBoundary()) {
         for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
-          for (Index face : state.mesh->patchFaces(patch)) {
-            const Index owner = state.mesh->owner(face);
-            const Vec3 n = state.mesh->faceNormal(face);
-            const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
-            Vec3 g = fieldData(static_cast<const VectorField&>(result))[owner];
-            const auto bc = FieldAccess::condition(operation.field, face);
-            const double sn = bc.type == BoundaryType::FixedValue
-                ? (bc.value - fieldData(operation.field)[owner] - dot(g, d - dot(d,n)*n)) / dot(d,n)
-                : bc.type == BoundaryType::FixedGradient ? bc.value : 0.0;
-            g += (sn - dot(g,n)) * n;
-            FieldAccess::setTrace(result, face, g);
-        }
+            for (Index face : state.mesh->patchFaces(patch)) {
+                const Index owner = state.mesh->owner(face);
+                const Vec3 normal = state.mesh->faceNormal(face);
+                const Vec3 displacement =
+                    state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
+                Vec3 boundary_gradient = fieldData(static_cast<const VectorField&>(result))[owner];
+                const auto boundary = FieldAccess::condition(operation.field, face);
+                const double normal_derivative = boundaryNormalDerivative(
+                    boundary.type, boundary.value, fieldData(operation.field)[owner],
+                    boundary_gradient, displacement, normal);
+                boundary_gradient += (normal_derivative - dot(boundary_gradient, normal)) * normal;
+                FieldAccess::setTrace(result, face, boundary_gradient);
+            }
     }
-
 }
 
 void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result) {
@@ -246,24 +259,29 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
     state.synchronize(result);
     if (result.calculatedBoundary()) {
         for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
-          for (Index face : state.mesh->patchFaces(patch)) {
-            const Index owner = state.mesh->owner(face);
-            const Vec3 n = state.mesh->faceNormal(face);
-            const Vec3 d = state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
-            Tensor3 g = fieldData(static_cast<const TensorField&>(result))[owner];
-            const auto bc = FieldAccess::condition(operation.field, face);
-            if (bc.type == BoundaryType::Symmetry) g = symmetricBoundaryValue(g, n);
-            else for (int component = 0; component < 3; ++component) {
-                const double sn = bc.type == BoundaryType::FixedValue
-                    ? (bc.value[component] - fieldData(operation.field)[owner][component] -
-                       dot(g[component], d - dot(d,n)*n)) / dot(d,n)
-                    : bc.type == BoundaryType::FixedGradient ? bc.value[component] : 0.0;
-                g[component] += (sn - dot(g[component],n)) * n;
+            for (Index face : state.mesh->patchFaces(patch)) {
+                const Index owner = state.mesh->owner(face);
+                const Vec3 normal = state.mesh->faceNormal(face);
+                const Vec3 displacement =
+                    state.mesh->faceCentre(face) - state.mesh->cellCentre(owner);
+                Tensor3 boundary_gradient =
+                    fieldData(static_cast<const TensorField&>(result))[owner];
+                const auto boundary = FieldAccess::condition(operation.field, face);
+                if (boundary.type == BoundaryType::Symmetry)
+                    boundary_gradient = symmetricBoundaryValue(boundary_gradient, normal);
+                else
+                    for (int component = 0; component < 3; ++component) {
+                        const double normal_derivative = boundaryNormalDerivative(
+                            boundary.type, boundary.value[component],
+                            fieldData(operation.field)[owner][component],
+                            boundary_gradient[component], displacement, normal);
+                        boundary_gradient[component] +=
+                            (normal_derivative - dot(boundary_gradient[component], normal)) *
+                            normal;
+                    }
+                FieldAccess::setTrace(result, face, boundary_gradient);
             }
-            FieldAccess::setTrace(result, face, g);
-        }
     }
-
 }
 
 void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
@@ -271,8 +289,7 @@ void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
     operation.options.requireComplete("face flux");
     requireFaceField(result, *state.mesh, "flux result");
     state.synchronize(const_cast<VectorField&>(operation.velocity));
-    flux(operation.velocity, result,
-         operation.options.interpolation.value(),
+    flux(operation.velocity, result, operation.options.interpolation.value(),
          operation.options.gradient.value());
     state.synchronize(result);
     if (operation.velocity.location() == FieldLocation::Cell)
@@ -295,9 +312,8 @@ void FvmExecution::evaluate(math::VectorDivergence operation, ScalarField& resul
     requireCellField(operation.field, *state.mesh, "divergence input");
     requireCellField(result, *state.mesh, "divergence result");
     state.synchronize(const_cast<VectorField&>(operation.field));
-    divergence(
-        operation.field, result, operation.options.interpolation.value(),
-        operation.options.gradient.value());
+    divergence(operation.field, result, operation.options.interpolation.value(),
+               operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
@@ -324,11 +340,8 @@ void FvmExecution::evaluate(math::ScalarConvection operation, ScalarField& resul
     state.synchronize(const_cast<ScalarField&>(operation.flux));
     const_cast<ScalarField&>(operation.field).setBoundaryFlux(operation.flux);
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    convection(
-        operation.flux, operation.field, result,
-        operation.options.convection.value(),
-        operation.options.interpolation.value(),
-        operation.options.gradient.value());
+    convection(operation.flux, operation.field, result, operation.options.convection.value(),
+               operation.options.interpolation.value(), operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
@@ -343,11 +356,8 @@ void FvmExecution::evaluate(math::VectorConvection operation, VectorField& resul
     state.synchronize(const_cast<ScalarField&>(operation.flux));
     const_cast<VectorField&>(operation.field).setBoundaryFlux(operation.flux);
     state.synchronize(const_cast<VectorField&>(operation.field));
-    convection(
-        operation.flux, operation.field, result,
-        operation.options.convection.value(),
-        operation.options.interpolation.value(),
-        operation.options.gradient.value());
+    convection(operation.flux, operation.field, result, operation.options.convection.value(),
+               operation.options.interpolation.value(), operation.options.gradient.value());
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
@@ -358,9 +368,8 @@ void FvmExecution::evaluate(math::ScalarInterpolation operation, ScalarField& re
     requireCellField(operation.field, *state.mesh, "interpolation input");
     requireFaceField(result, *state.mesh, "interpolation result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    interpolate(
-        operation.field, result, operation.options.interpolation.value(),
-        operation.options.gradient.value());
+    interpolate(operation.field, result, operation.options.interpolation.value(),
+                operation.options.gradient.value());
     state.synchronize(result);
 }
 
@@ -372,9 +381,8 @@ void FvmExecution::evaluate(math::VectorInterpolation operation, VectorField& re
         throw std::invalid_argument("vector interpolation result must be a face field");
     }
     state.synchronize(const_cast<VectorField&>(operation.field));
-    interpolate(
-        operation.field, result, operation.options.interpolation.value(),
-        operation.options.gradient.value());
+    interpolate(operation.field, result, operation.options.interpolation.value(),
+                operation.options.gradient.value());
     state.synchronize(result);
 }
 
@@ -411,44 +419,35 @@ void FvmExecution::evaluate(math::ScalarLaplacian operation, ScalarField& result
     requireCellField(result, *state.mesh, "laplacian result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
     if (operation.coefficient_field == nullptr) {
-        laplacian(
-            operation.coefficient, operation.field, result,
-            operation.options.gradient.value(),
-            operation.options.diffusion.value());
+        laplacian(operation.coefficient, operation.field, result,
+                  operation.options.gradient.value(), operation.options.diffusion.value());
     } else {
         const ScalarField& coefficient = *operation.coefficient_field;
-        if (&coefficient.mesh() != state.mesh ||
-            (coefficient.location() != FieldLocation::Cell &&
-             coefficient.location() != FieldLocation::Face)) {
+        if (&coefficient.mesh() != state.mesh || (coefficient.location() != FieldLocation::Cell &&
+                                                  coefficient.location() != FieldLocation::Face)) {
             throw std::invalid_argument("laplacian diffusivity must be a cell or face field");
         }
         state.synchronize(const_cast<ScalarField&>(coefficient));
         if (coefficient.location() == FieldLocation::Cell) {
             interpolate(
                 coefficient, state.face_coefficient_workspace,
-                operation.options.coefficientInterpolation.value_or(operation.options.interpolation.value()),
+                operation.options.coefficientInterpolation.value_or(
+                    operation.options.interpolation.value()),
                 operation.options.coefficientGradient.value_or(operation.options.gradient.value()));
             state.synchronize(state.face_coefficient_workspace);
-            laplacian(
-                state.face_coefficient_workspace, operation.field, result,
-            operation.options.gradient.value(),
-            operation.options.diffusion.value());
+            laplacian(state.face_coefficient_workspace, operation.field, result,
+                      operation.options.gradient.value(), operation.options.diffusion.value());
         } else {
-            laplacian(
-                coefficient, operation.field, result,
-            operation.options.gradient.value(),
-            operation.options.diffusion.value());
+            laplacian(coefficient, operation.field, result, operation.options.gradient.value(),
+                      operation.options.diffusion.value());
         }
     }
     state.synchronize(result);
     FieldAccess::extrapolateTrace(result);
 }
 
-void FvmExecution::subtract(
-    const ScalarField& coefficient,
-    math::ScalarGradient operation,
-    VectorField& target)
-{
+void FvmExecution::subtract(const ScalarField& coefficient, math::ScalarGradient operation,
+                            VectorField& target) {
     Implementation& state = *m_implementation;
     requireCellField(coefficient, *state.mesh, "gradient multiplier");
     requireCellField(operation.field, *state.mesh, "gradient input");
@@ -479,8 +478,7 @@ void FvmExecution::evaluate(math::ScalarDiffusionFlux operation, ScalarField& ta
     state.synchronize(const_cast<ScalarField&>(operation.coefficient));
     const VectorField* reconstructed_gradient = operation.gradient;
     if (reconstructed_gradient == nullptr) {
-        gradient(operation.field, state.gradient_workspace,
-                 operation.options.gradient.value());
+        gradient(operation.field, state.gradient_workspace, operation.options.gradient.value());
         reconstructed_gradient = &state.gradient_workspace;
     }
     state.synchronize(const_cast<VectorField&>(*reconstructed_gradient));
@@ -489,14 +487,14 @@ void FvmExecution::evaluate(math::ScalarDiffusionFlux operation, ScalarField& ta
     if (operation.coefficient.location() == FieldLocation::Cell) {
         interpolate(
             operation.coefficient, state.face_coefficient_workspace,
-            operation.options.coefficientInterpolation.value_or(operation.options.interpolation.value()),
+            operation.options.coefficientInterpolation.value_or(
+                operation.options.interpolation.value()),
             operation.options.coefficientGradient.value_or(operation.options.gradient.value()));
         state.synchronize(state.face_coefficient_workspace);
         face_coefficient = &state.face_coefficient_workspace;
     }
-    diffusionFlux(
-        *face_coefficient, operation.field, *reconstructed_gradient,
-        target, operation.options.diffusion.value());
+    diffusionFlux(*face_coefficient, operation.field, *reconstructed_gradient, target,
+                  operation.options.diffusion.value());
     state.synchronize(target);
 }
 
@@ -530,18 +528,19 @@ void FvmExecution::evaluate(math::NormalGradient operation, ScalarField& result)
         requireCellField(*scalar_gradient, *state.mesh, "normal-gradient supplied gradient");
         state.synchronize(const_cast<VectorField&>(*scalar_gradient));
     } else {
-        gradient(operation.field, state.gradient_workspace,
-                 operation.options.gradient.value());
+        gradient(operation.field, state.gradient_workspace, operation.options.gradient.value());
         state.synchronize(state.gradient_workspace);
         scalar_gradient = &state.gradient_workspace;
     }
     for (Index face : detail::meshData(*state.mesh).owned_faces) {
-        detail::fieldData(result)[face] = integratedNormalGradient(operation.field, *scalar_gradient, face,
-            operation.options.diffusion.value()) / state.mesh->faceArea(face);
+        detail::fieldData(result)[face] =
+            integratedNormalGradient(operation.field, *scalar_gradient, face,
+                                     operation.options.diffusion.value()) /
+            state.mesh->faceArea(face);
     }
     state.synchronize(result);
 }
 
-}  // detail 命名空间
+} // detail 命名空间
 
-}  // babelsim 命名空间
+} // babelsim 命名空间

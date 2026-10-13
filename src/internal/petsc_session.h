@@ -8,4 +8,4 @@ namespace babelsim::detail {
 void ensurePetscSession();
 void finalizePetscSession();
 
-}  // namespace babelsim::detail
+} // namespace babelsim::detail

@@ -3,8 +3,12 @@
 
 namespace babelsim {
 
-const Methods& numericalMethods() { return RunTime::current().methods(); }
-bool primaryProcess() { return RunTime::current().primary(); }
+const Methods& numericalMethods() {
+    return RunTime::current().methods();
+}
+bool primaryProcess() {
+    return RunTime::current().primary();
+}
 
 namespace math {
 
@@ -55,11 +59,7 @@ void evaluate(ScalarLaplacian operation, ScalarField& result) {
     detail::execution().evaluate(operation, result);
 }
 
-void subtract(
-    const ScalarField& coefficient,
-    ScalarGradient operation,
-    VectorField& target)
-{
+void subtract(const ScalarField& coefficient, ScalarGradient operation, VectorField& target) {
     detail::execution().subtract(coefficient, operation, target);
 }
 
@@ -71,7 +71,7 @@ void subtract(ScalarDiffusionFlux operation, ScalarField& target, FaceRegion reg
     detail::execution().subtract(operation, target, region);
 }
 
-}  // math 命名空间
+} // math 命名空间
 
 namespace diagnostics {
 double relativeChange(const VectorField& current, const VectorField& previous) {
@@ -98,6 +98,6 @@ bool all(bool local_condition) {
     return detail::execution().all(local_condition);
 }
 
-}  // diagnostics 命名空间
+} // diagnostics 命名空间
 
-}  // babelsim 命名空间
+} // babelsim 命名空间

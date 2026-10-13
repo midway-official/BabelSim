@@ -27,16 +27,22 @@ struct Metadata {
 }
 
 int components(const std::string& type, const std::filesystem::path& path) {
-    if (type == "scalar") return 1;
-    if (type == "vector") return 3;
-    if (type == "tensor") return 9;
+    if (type == "scalar")
+        return 1;
+    if (type == "vector")
+        return 3;
+    if (type == "tensor")
+        return 9;
     invalid(path, "unknown field type " + type);
 }
 
 FieldLocation location(const std::string& name, const std::filesystem::path& path) {
-    if (name == "cell") return FieldLocation::Cell;
-    if (name == "face") return FieldLocation::Face;
-    if (name == "vertex") return FieldLocation::Vertex;
+    if (name == "cell")
+        return FieldLocation::Cell;
+    if (name == "face")
+        return FieldLocation::Face;
+    if (name == "vertex")
+        return FieldLocation::Vertex;
     invalid(path, "unknown field location " + name);
 }
 
@@ -44,7 +50,8 @@ int integer(const std::string& value, const std::filesystem::path& path) {
     try {
         std::size_t consumed = 0;
         const int result = std::stoi(value, &consumed);
-        if (consumed == value.size()) return result;
+        if (consumed == value.size())
+            return result;
     } catch (const std::exception&) {
     }
     invalid(path, "expected integer " + value);
@@ -73,13 +80,15 @@ Metadata readMetadata(const std::filesystem::path& path) {
             result.global_cell_count = integer(line.tokens[1], path);
             global_cell_count = true;
         } else if (key == "field" && line.tokens.size() == 4) {
-            const FieldOutputInfo info{line.tokens[1], line.tokens[2], location(line.tokens[3], path)};
+            const FieldOutputInfo info{line.tokens[1], line.tokens[2],
+                                       location(line.tokens[3], path)};
             if (info.location != FieldLocation::Cell || components(info.type, path) == 0) {
                 invalid(path, "only cell field results are currently supported");
             }
-            if (std::find_if(result.fields.begin(), result.fields.end(), [&](const FieldOutputInfo& other) {
-                    return other.name == info.name;
-                }) != result.fields.end()) {
+            if (std::find_if(result.fields.begin(), result.fields.end(),
+                             [&](const FieldOutputInfo& other) {
+                                 return other.name == info.name;
+                             }) != result.fields.end()) {
                 invalid(path, "duplicate field " + info.name);
             }
             result.fields.push_back(info);
@@ -97,7 +106,8 @@ Metadata readMetadata(const std::filesystem::path& path) {
 std::vector<std::string> csv(const std::string& line) {
     std::vector<std::string> values;
     std::stringstream input(line);
-    for (std::string value; std::getline(input, value, ',');) values.push_back(std::move(value));
+    for (std::string value; std::getline(input, value, ',');)
+        values.push_back(std::move(value));
     return values;
 }
 
@@ -105,27 +115,28 @@ double number(const std::string& value, const std::filesystem::path& path) {
     try {
         std::size_t consumed = 0;
         const double result = std::stod(value, &consumed);
-        if (consumed == value.size() && std::isfinite(result)) return result;
+        if (consumed == value.size() && std::isfinite(result))
+            return result;
     } catch (const std::exception&) {
     }
     invalid(path, "expected finite number " + value);
 }
 
 bool sameFields(const std::vector<FieldOutputInfo>& a, const std::vector<FieldOutputInfo>& b) {
-    if (a.size() != b.size()) return false;
+    if (a.size() != b.size())
+        return false;
     for (std::size_t field = 0; field < a.size(); ++field) {
         if (a[field].name != b[field].name || a[field].type != b[field].type ||
-            a[field].location != b[field].location) return false;
+            a[field].location != b[field].location)
+            return false;
     }
     return true;
 }
 
-}  // 匿名命名空间
+} // 匿名命名空间
 
-ResultData readParallelResults(
-    const std::filesystem::path& time_directory,
-    Index global_cell_count)
-{
+ResultData readParallelResults(const std::filesystem::path& time_directory,
+                               Index global_cell_count) {
     if (global_cell_count <= 0 || !std::filesystem::is_directory(time_directory)) {
         throw std::invalid_argument("result directory or global cell count is invalid");
     }
@@ -136,7 +147,8 @@ ResultData readParallelResults(
         }
     }
     std::sort(rank_directories.begin(), rank_directories.end());
-    if (rank_directories.empty()) invalid(time_directory, "contains no rank directories");
+    if (rank_directories.empty())
+        invalid(time_directory, "contains no rank directories");
 
     const Metadata first = readMetadata(rank_directories.front() / "metadata.bs");
     if (static_cast<int>(rank_directories.size()) != first.ranks) {
@@ -148,22 +160,25 @@ ResultData readParallelResults(
     ResultData result;
     result.time_name = first.time_name;
     result.global_cell_count = first.global_cell_count;
-    if (first.version == 2) result.cell_vertices.resize(global_cell_count);
-    if (first.version == 3) result.cell_geometry.resize(global_cell_count);
+    if (first.version == 2)
+        result.cell_vertices.resize(global_cell_count);
+    if (first.version == 3)
+        result.cell_geometry.resize(global_cell_count);
     std::vector<bool> geometry_seen(global_cell_count, false);
     result.fields.reserve(first.fields.size());
     std::vector<std::vector<bool>> seen;
     for (const FieldOutputInfo& info : first.fields) {
         const int count = components(info.type, time_directory);
-        result.fields.push_back({info, count,
-            std::vector<double>(static_cast<std::size_t>(global_cell_count) * count)});
+        result.fields.push_back(
+            {info, count,
+             std::vector<double>(static_cast<std::size_t>(global_cell_count) * count)});
         seen.emplace_back(static_cast<std::size_t>(global_cell_count), false);
     }
 
     for (const auto& rank_directory : rank_directories) {
         const Metadata metadata = readMetadata(rank_directory / "metadata.bs");
-        if (metadata.version != first.version ||
-            metadata.time_name != first.time_name || metadata.ranks != first.ranks ||
+        if (metadata.version != first.version || metadata.time_name != first.time_name ||
+            metadata.ranks != first.ranks ||
             metadata.global_cell_count != first.global_cell_count ||
             !sameFields(metadata.fields, first.fields)) {
             invalid(rank_directory, "metadata does not match the other ranks");
@@ -171,24 +186,27 @@ ResultData readParallelResults(
         if (first.version == 2 || first.version == 3) {
             const auto path = rank_directory / "mesh.geometry";
             std::ifstream geometry(path);
-            if (!geometry) invalid(path, "missing mesh provenance");
+            if (!geometry)
+                invalid(path, "missing mesh provenance");
             for (std::string line; std::getline(geometry, line);) {
                 const auto values = csv(line);
-                if (values.size() < 2) invalid(path, "invalid mesh provenance");
+                if (values.size() < 2)
+                    invalid(path, "invalid mesh provenance");
                 const int id = integer(values[0], path);
                 if (id < 0 || id >= global_cell_count || geometry_seen[id])
                     invalid(path, "duplicate or out-of-range mesh cell id");
                 geometry_seen[id] = true;
                 if (first.version == 2) {
-                    if (values.size() != 25) invalid(path, "invalid hexahedron provenance");
+                    if (values.size() != 25)
+                        invalid(path, "invalid hexahedron provenance");
                     for (int vertex = 0; vertex < 8; ++vertex)
-                        result.cell_vertices[id][vertex] = {
-                            number(values[1 + 3 * vertex], path),
-                            number(values[2 + 3 * vertex], path),
-                            number(values[3 + 3 * vertex], path)};
+                        result.cell_vertices[id][vertex] = {number(values[1 + 3 * vertex], path),
+                                                            number(values[2 + 3 * vertex], path),
+                                                            number(values[3 + 3 * vertex], path)};
                 } else {
                     const int vertex_count = integer(values[1], path);
-                    if (vertex_count < 4 || values.size() != static_cast<std::size_t>(2 + 3 * vertex_count))
+                    if (vertex_count < 4 ||
+                        values.size() != static_cast<std::size_t>(2 + 3 * vertex_count))
                         invalid(path, "invalid variable-length mesh provenance");
                     auto& geometry_vertices = result.cell_geometry[static_cast<std::size_t>(id)];
                     geometry_vertices.resize(static_cast<std::size_t>(vertex_count));
@@ -204,19 +222,24 @@ ResultData readParallelResults(
             const ResultField& descriptor = result.fields[field];
             const auto path = rank_directory / (descriptor.info.name + ".csv");
             std::ifstream input(path);
-            if (!input) invalid(path, "cannot open field data");
+            if (!input)
+                invalid(path, "cannot open field data");
             std::string line;
-            if (!std::getline(input, line)) invalid(path, "missing CSV header");
+            if (!std::getline(input, line))
+                invalid(path, "missing CSV header");
             const std::vector<std::string> header = csv(line);
             if (header.size() != static_cast<std::size_t>(4 + descriptor.components) ||
-                header[0] != "global_id" || header[1] != "x" || header[2] != "y" || header[3] != "z") {
+                header[0] != "global_id" || header[1] != "x" || header[2] != "y" ||
+                header[3] != "z") {
                 invalid(path, "unexpected CSV header");
             }
             while (std::getline(input, line)) {
                 const std::vector<std::string> values = csv(line);
-                if (values.size() != header.size()) invalid(path, "malformed CSV record");
+                if (values.size() != header.size())
+                    invalid(path, "malformed CSV record");
                 const int id = integer(values[0], path);
-                if (id < 0 || id >= global_cell_count || seen[field][static_cast<std::size_t>(id)]) {
+                if (id < 0 || id >= global_cell_count ||
+                    seen[field][static_cast<std::size_t>(id)]) {
                     invalid(path, "duplicate or out-of-range global cell id");
                 }
                 number(values[1], path);
@@ -224,7 +247,8 @@ ResultData readParallelResults(
                 number(values[3], path);
                 const std::size_t begin = static_cast<std::size_t>(id) * descriptor.components;
                 for (int component = 0; component < descriptor.components; ++component) {
-                    result.fields[field].values[begin + component] = number(values[4 + component], path);
+                    result.fields[field].values[begin + component] =
+                        number(values[4 + component], path);
                 }
                 seen[field][static_cast<std::size_t>(id)] = true;
             }
@@ -241,4 +265,4 @@ ResultData readParallelResults(
     return result;
 }
 
-}  // babelsim 命名空间
+} // babelsim 命名空间

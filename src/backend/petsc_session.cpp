@@ -14,7 +14,8 @@ bool initialized_by_babelsim = false;
 bool return_handler_pushed = false;
 
 void checkPetsc(PetscErrorCode code, const char* operation) {
-    if (code == 0) return;
+    if (code == 0)
+        return;
     const char* message = nullptr;
     PetscErrorMessage(code, &message, nullptr);
     throw std::runtime_error(std::string(operation) + " failed with PETSc error " +
@@ -22,7 +23,7 @@ void checkPetsc(PetscErrorCode code, const char* operation) {
                              (message ? std::string(": ") + message : std::string{}));
 }
 
-}  // namespace
+} // namespace
 
 void ensurePetscSession() {
     std::lock_guard<std::mutex> lock(session_mutex);
@@ -54,4 +55,4 @@ void finalizePetscSession() {
     }
 }
 
-}  // namespace babelsim::detail
+} // namespace babelsim::detail
