@@ -227,6 +227,16 @@ const ConfigurationDescription<PisoConfig>& piso() {
         result.bind(initial, &PisoConfig::coupling, &PisoCoupling::initialNonOrthogonalCorrections);
         result.bind(fraction("velocityRelaxation", 1.0, "Momentum underrelaxation."), &PisoConfig::coupling, &PisoCoupling::velocityRelaxation);
         result.bind(integer("initializePotentialFlow", 0, 0, 1, "Enable initial potential-flow projection."), &PisoConfig::coupling, &PisoCoupling::initializePotentialFlow);
+        result.bind(integer("consistentPressureCorrection", 0, 0, 1,
+                            "Use the consistent momentum response in the pressure correction."),
+                    &PisoConfig::coupling, &PisoCoupling::consistentPressureCorrection);
+        auto intermediatePressure = number(
+            "intermediatePressureRelativeTolerance", "1",
+            "Optional relative tolerance for pressure solves before the minimum corrector count.",
+            0.0, 0.0, true, ParameterDictionary::Solution);
+        intermediatePressure.default_value.reset();
+        result.bind(intermediatePressure, &PisoConfig::coupling,
+                    &PisoCoupling::intermediatePressureRelativeTolerance);
         result.bind(number("continuityTolerance", "1", "Normalized continuity tolerance.", 1e-8, 0.0, true, ParameterDictionary::Solution), &PisoConfig::convergence, &ConvergenceConfig::continuity);
         result.bind(number("velocityTolerance", "1", "Relative velocity change tolerance.", 1e-7, 0.0, true, ParameterDictionary::Solution), &PisoConfig::convergence, &ConvergenceConfig::velocity);
         result.bind(number("momentumTolerance", "1", "Normalized momentum residual tolerance.", 1e-6, 0.0, true, ParameterDictionary::Solution), &PisoConfig::convergence, &ConvergenceConfig::momentum);

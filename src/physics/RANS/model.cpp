@@ -50,6 +50,19 @@ Turbulence::Turbulence(Case& problem, VectorField& velocity, const ScalarField& 
 
 void destroy(Model* model) noexcept { delete model; }
 
+TransportResult Model::solveTransport(int maxCorrections) {
+    const auto kinematics = transportKinematics();
+    for (int correction = 1;; ++correction) {
+        auto result = solveTransport(kinematics);
+        if (correction >= maxCorrections ||
+            !diagnostics::all(result.healthy() && result.linearConverged()) ||
+            diagnostics::all(result.relativeChange() <= tolerance() &&
+                             result.initialResidual() <= tolerance())) {
+            return result;
+        }
+    }
+}
+
 TensorField Turbulence::deviatoricStressRemainder(const VectorField& velocity) const {
     const auto gradU = math::grad(velocity, momentumOptions_);
     return effectiveViscosity() * (math::transpose(gradU)

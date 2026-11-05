@@ -6,6 +6,7 @@
 #include "babelsim/methods.h"
 #include "babelsim/solver_control.h"
 #include <memory>
+#include <optional>
 
 namespace babelsim::equ {
 namespace detail { struct EquationAccess; }
@@ -81,6 +82,7 @@ template<class T> void add(Equation<T>&, const Equation<T>&, double factor = 1.0
 template<class T> void addDiagonal(Equation<T>&, const ScalarField&);
 template<class T> void addRhs(Equation<T>&, const Field<T>&);
 template<class T> Field<T> apply(const Equation<T>&, const Field<T>&);
+ScalarField offDiagonalSum(const Equation<Vec3>&); // integrated sum of neighbour coefficients
 template<class T> Field<T> residual(const Equation<T>&, const Field<T>&); // b-Ax
 // Canonical relaxation: diagonal/=alpha; b+=(new-old diagonal)*previous.
 template<class T> void relax(Equation<T>&, const Field<T>& previous, double alpha);
@@ -96,6 +98,27 @@ template<class T> SolveResult solve(const Equation<T>&, const LinearSolverConfig
 
 extern template class Equation<double>;
 extern template class Equation<Vec3>;
+
+// Repeated -div(k grad(x)) solves. assemble() freezes the face coefficient,
+// boundary constraints and optional pressure gauge. Each solve refreshes
+// the explicit correction and adds its own volumetric source.
+class ScalarDiffusion {
+public:
+    ScalarDiffusion(ScalarField& unknown, const EquationControl&, const std::string& term = {});
+    void assemble(const ScalarField& faceCoefficient, std::optional<double> reference = {});
+    // An optional gradient must correspond to the current iterate, assembled
+    // boundary constraints and this diffusion term's gradient method.
+    SolveResult solve(const ScalarField& source, const LinearSolverConfig&,
+                      const VectorField* reconstructedGradient = nullptr);
+    ScalarField faceFlux(); // LHS flux from the most recently assembled RHS
+
+private:
+    Equation<double> equation_;
+    OperatorOptions options_;
+    std::optional<ScalarField> coefficient_, iterate_, correction_;
+    Index referenceCell_ = invalid_index;
+    double referenceRhs_ = 0.0;
+};
 } // namespace babelsim::equ
 
 namespace babelsim::diagnostics {

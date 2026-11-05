@@ -598,6 +598,7 @@ Mesh Mesh::polyhedral(std::vector<Vec3> vertices, std::vector<PolyhedralFaceSpec
     mesh.setPartition(cell_count, 0, std::move(cell_ids), std::move(cell_owners),
                       std::move(cell_depths), std::move(face_ids), std::move(face_owners), 0);
     mesh.validate();
+    mesh.m_storage.least_squares_cache = std::make_shared<detail::LeastSquaresCache>();
     return mesh;
 }
 

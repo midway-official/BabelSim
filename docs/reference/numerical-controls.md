@@ -113,11 +113,15 @@ PC 复用只影响预条件器生命周期，矩阵贡献仍按装配更新。�
 | momentumTolerance | 1e-6 | 正数 |
 | pressureCorrectionTolerance | 1e-6 | 正数 |
 | initializePotentialFlow | 0 | 整数 0 或 1 |
+| consistentPressureCorrection | 0 | 设为 1 时用动量非对角行和修正压力响应 |
+| intermediatePressureRelativeTolerance | 未设 | 只用于达到 nCorrectors 前的压力求解。要求 nCorrectors 至少为 2，且大于最终压力相对容差、小于 1 |
 | turbulenceCoupling | iterated | iterated / segregated |
 | turbulenceMaxIterations | 1000 | 正整数 |
 | turbulenceCorrectors | 按模式选择 | 正整数，不能超过 turbulenceMaxIterations |
 
 启用模型、`maxIterations=1` 且 `iterated` 时，turbulenceCorrectors 默认取 turbulenceMaxIterations；其他情况下默认 1。segregated 模式要求 maxIterations=1、turbulenceCorrectors=1，启用模型时还要求 turbulenceRelaxation=1。
+
+一致压力校正同时补偿预测速度和面通量。分阶段压力求解保持原绝对容差，最低次数的最后一次校正及后续校正使用原线性配置，`linP` 报告这些严格求解的最大相对残差。初始投影也使用原线性配置。两项均为独立启用的算法选项。
 
 接受步至少需要线性成功、质量与配置的耦合条件通过。单次瞬态流程不要求速度已经稳态，但 iterated 湍流仍需收敛；多次流程还使用相应外层变化/残差条件。Courant 数只记录，不自动控制步长。该求解器不读取 pressureRelaxation，将 SIMPLE 参数块直接复制过来会触发未使用项错误。
 

@@ -8,6 +8,15 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <type_traits>
+
+namespace babelsim::detail {
+struct LeastSquaresGeometry {
+    std::vector<Vec3> weighted_displacements;
+    std::vector<bool> skew_boundaries;
+    std::vector<Eigen::LDLT<Eigen::Matrix3d>> factors;
+};
+} // namespace babelsim::detail
 
 namespace babelsim {
 using namespace detail::operators;
@@ -68,58 +77,153 @@ void greenGaussGradient(const ScalarField& scalar, VectorField& result) {
     }
 }
 
-template <typename T>
-void leastSquaresSample(const Field<T>& field, Index cell, Index face, Vec3& delta, T& difference) {
-    const Mesh& mesh = field.mesh();
-    const auto c = static_cast<std::size_t>(cell);
-    const auto f = static_cast<std::size_t>(face);
-    const Index owner = detail::meshData(mesh).face_owner[f];
-    const Index neighbour = detail::meshData(mesh).face_neighbour[f];
-    if (neighbour != invalid_index) {
-        const Index other = owner == cell ? neighbour : owner;
-        delta = detail::meshData(mesh).cell_centres[static_cast<std::size_t>(other)] -
-                detail::meshData(mesh).cell_centres[c];
-        difference = detail::fieldData(field)[other] - detail::fieldData(field)[cell];
-    } else {
-        // Mirror the boundary sample. Fixed values use the centre-to-face
-        // displacement; normal-gradient conditions use its normal projection.
-        const auto type = detail::FieldAccess::condition(field, face).type;
-        const Vec3 offset =
-            detail::meshData(mesh).face_centres[f] - detail::meshData(mesh).cell_centres[c];
-        delta = type == BoundaryType::FixedValue
-                    ? 2.0 * offset
-                    : 2.0 * boundaryNormalDistance(mesh, face) * mesh.faceNormal(face);
-        difference = 2.0 * (boundaryFaceValue(field, face) - detail::fieldData(field)[cell]);
-    }
+Vec3 boundaryDisplacement(const Mesh& mesh, Index cell, Index face, bool fixedValue) {
+    return fixedValue ? 2.0 * (mesh.faceCentre(face) - mesh.cellCentre(cell))
+                      : 2.0 * boundaryNormalDistance(mesh, face) * mesh.faceNormal(face);
 }
 
-void leastSquaresGradient(const ScalarField& scalar, VectorField& result) {
-    const Mesh& mesh = scalar.mesh();
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
-        Eigen::Vector3d rhs = Eigen::Vector3d::Zero();
-        for (Index face : mesh.cellFaces(cell)) {
-            Vec3 delta{};
-            double difference = 0.0;
-            leastSquaresSample(scalar, cell, face, delta, difference);
-            const double distance_squared = squaredNorm(delta);
-            if (!(distance_squared > 0.0)) {
-                throw std::runtime_error("least-squares neighbour distance is invalid");
+double sampleWeight(const Vec3& displacement) {
+    const double distanceSquared = squaredNorm(displacement);
+    if (!(distanceSquared > 0.0))
+        throw std::runtime_error("least-squares neighbour distance is invalid");
+    return 1.0 / distanceSquared;
+}
+
+const detail::LeastSquaresGeometry& leastSquaresGeometry(const Mesh& mesh) {
+    auto& cache = *detail::meshData(mesh).least_squares_cache;
+    std::call_once(cache.initialized, [&] {
+        auto geometry = std::make_shared<detail::LeastSquaresGeometry>();
+        geometry->weighted_displacements.resize(mesh.faceCount());
+        geometry->skew_boundaries.resize(mesh.faceCount());
+        geometry->factors.resize(mesh.cellCount());
+
+        std::vector<Vec3> displacements(mesh.faceCount());
+        std::vector<double> weights(mesh.faceCount());
+        for (Index face = 0; face < mesh.faceCount(); ++face) {
+            const Index owner = mesh.owner(face), neighbour = mesh.neighbour(face);
+            auto& displacement = displacements[face];
+            if (neighbour == invalid_index) {
+                displacement = boundaryDisplacement(mesh, owner, face, false);
+                const auto fixed = boundaryDisplacement(mesh, owner, face, true);
+                geometry->skew_boundaries[face] = fixed.x != displacement.x ||
+                                                  fixed.y != displacement.y ||
+                                                  fixed.z != displacement.z;
+            } else {
+                displacement = mesh.cellCentre(neighbour) - mesh.cellCentre(owner);
             }
-            const Eigen::Vector3d d = toEigen(delta);
-            const double weight = 1.0 / distance_squared;
-            normal.noalias() += weight * d * d.transpose();
-            rhs.noalias() += weight * d * difference;
+            weights[face] = sampleWeight(displacement);
+            geometry->weighted_displacements[face] = weights[face] * displacement;
         }
-        Eigen::LDLT<Eigen::Matrix3d> decomposition(normal);
-        if (decomposition.info() != Eigen::Success) {
-            throw std::runtime_error("least-squares gradient matrix is singular");
+        for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
+            Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
+            for (Index face : mesh.cellFaces(cell)) {
+                const auto displacement = toEigen(displacements[face]);
+                normal.noalias() += weights[face] * displacement * displacement.transpose();
+            }
+            geometry->factors[cell].compute(normal);
         }
-        const Eigen::Vector3d value = decomposition.solve(rhs);
-        if (decomposition.info() != Eigen::Success || !value.allFinite()) {
-            throw std::runtime_error("least-squares gradient solve failed");
+        cache.geometry = std::move(geometry);
+    });
+    return *cache.geometry;
+}
+
+void addLeastSquaresRhs(Eigen::Vector3d& rhs, const Eigen::Vector3d& weighted, double difference) {
+    rhs.noalias() += weighted * difference;
+}
+
+void addLeastSquaresRhs(Eigen::Matrix3d& rhs, const Eigen::Vector3d& weighted,
+                        const Vec3& difference) {
+    for (std::size_t component = 0; component < 3; ++component)
+        rhs.col(static_cast<Eigen::Index>(component)).noalias() += weighted * difference[component];
+}
+
+template <class Rhs>
+Rhs solveLeastSquares(const Eigen::LDLT<Eigen::Matrix3d>& factor, const Rhs& rhs) {
+    if (factor.info() != Eigen::Success)
+        throw std::runtime_error("least-squares gradient matrix is singular");
+    const Rhs value = factor.solve(rhs);
+    if (!value.allFinite())
+        throw std::runtime_error("least-squares gradient solve failed");
+    return value;
+}
+
+template <class T, class Rhs>
+Rhs leastSquaresWithBoundarySamples(const Field<T>& field, Index cell) {
+    const Mesh& mesh = field.mesh();
+    const auto* values = detail::fieldData(field);
+    Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
+    Rhs rhs = Rhs::Zero();
+    for (Index face : mesh.cellFaces(cell)) {
+        Vec3 displacement;
+        T difference;
+        if (mesh.boundaryFace(face)) {
+            const bool fixed =
+                detail::FieldAccess::condition(field, face).type == BoundaryType::FixedValue;
+            displacement = boundaryDisplacement(mesh, cell, face, fixed);
+            difference = 2.0 * (boundaryFaceValue(field, face) - values[cell]);
+        } else {
+            const Index other = mesh.owner(face) == cell ? mesh.neighbour(face) : mesh.owner(face);
+            displacement = mesh.cellCentre(other) - mesh.cellCentre(cell);
+            difference = values[other] - values[cell];
         }
-        detail::fieldData(result)[cell] = toVec3(value);
+        const auto direction = toEigen(displacement);
+        const double weight = sampleWeight(displacement);
+        normal.noalias() += weight * direction * direction.transpose();
+        addLeastSquaresRhs(rhs, weight * direction, difference);
+    }
+    return solveLeastSquares(Eigen::LDLT<Eigen::Matrix3d>(normal), rhs);
+}
+
+template <class T, class Gradient>
+void leastSquaresGradient(const Field<T>& field, Field<Gradient>& result, bool ownedOnly = false) {
+    using Rhs = std::conditional_t<std::is_same_v<T, double>, Eigen::Vector3d, Eigen::Matrix3d>;
+    const Mesh& mesh = field.mesh();
+    if (mesh.cellCount() <= 0)
+        return;
+    const auto& geometry = leastSquaresGeometry(mesh);
+    const auto& meshData = detail::meshData(mesh);
+    const auto* values = detail::fieldData(field);
+    auto* gradients = detail::fieldData(result);
+    const auto reconstructCell = [&](Index cell) {
+        Rhs rhs = Rhs::Zero();
+        bool needsBoundarySamples = false;
+        for (Index face : mesh.cellFaces(cell)) {
+            const Index owner = meshData.face_owner[face],
+                        neighbour = meshData.face_neighbour[face];
+            const auto weighted = toEigen(geometry.weighted_displacements[face]);
+            if (neighbour == invalid_index) {
+                // A skew fixed-value face uses a different mirror point. Mixed
+                // boundaries can switch at runtime, so use their current type.
+                if (geometry.skew_boundaries[face] &&
+                    detail::FieldAccess::condition(field, face).type == BoundaryType::FixedValue) {
+                    needsBoundarySamples = true;
+                    break;
+                }
+                addLeastSquaresRhs(rhs, weighted,
+                                   2.0 * (boundaryFaceValue(field, face) - values[cell]));
+            } else if (owner == cell) {
+                addLeastSquaresRhs(rhs, weighted, values[neighbour] - values[cell]);
+            } else {
+                addLeastSquaresRhs(rhs, -weighted, values[owner] - values[cell]);
+            }
+        }
+        const auto value = needsBoundarySamples
+                               ? leastSquaresWithBoundarySamples<T, Rhs>(field, cell)
+                               : solveLeastSquares(geometry.factors[cell], rhs);
+        if constexpr (std::is_same_v<T, double>) {
+            gradients[cell] = toVec3(value);
+        } else {
+            for (std::size_t component = 0; component < 3; ++component)
+                gradients[cell][component] =
+                    toVec3(value.col(static_cast<Eigen::Index>(component)));
+        }
+    };
+    if (ownedOnly) {
+        for (Index cell : meshData.owned_cells)
+            reconstructCell(cell);
+    } else {
+        for (Index cell = 0; cell < mesh.cellCount(); ++cell)
+            reconstructCell(cell);
     }
 }
 
@@ -171,43 +275,29 @@ void greenGaussGradient(const VectorField& vector, TensorField& result) {
     }
 }
 
-void leastSquaresGradient(const VectorField& vector, TensorField& result) {
-    const Mesh& mesh = vector.mesh();
-    for (Index cell = 0; cell < mesh.cellCount(); ++cell) {
-        Eigen::Matrix3d normal = Eigen::Matrix3d::Zero();
-        Eigen::Matrix3d rhs = Eigen::Matrix3d::Zero();
-        for (Index face : mesh.cellFaces(cell)) {
-            Vec3 delta{};
-            Vec3 difference{};
-            leastSquaresSample(vector, cell, face, delta, difference);
-            const double distance_squared = squaredNorm(delta);
-            if (!(distance_squared > 0.0)) {
-                throw std::runtime_error("least-squares neighbour distance is invalid");
-            }
-            const Eigen::Vector3d d = toEigen(delta);
-            const double weight = 1.0 / distance_squared;
-            normal.noalias() += weight * d * d.transpose();
-            for (std::size_t component = 0; component < 3; ++component) {
-                rhs.col(static_cast<Eigen::Index>(component)).noalias() +=
-                    weight * d * difference[component];
-            }
-        }
-        Eigen::LDLT<Eigen::Matrix3d> decomposition(normal);
-        if (decomposition.info() != Eigen::Success) {
-            throw std::runtime_error("least-squares vector-gradient matrix is singular");
-        }
-        const Eigen::Matrix3d value = decomposition.solve(rhs);
-        if (decomposition.info() != Eigen::Success || !value.allFinite()) {
-            throw std::runtime_error("least-squares vector-gradient solve failed");
-        }
-        for (std::size_t component = 0; component < 3; ++component) {
-            detail::fieldData(result)[cell][component] =
-                toVec3(value.col(static_cast<Eigen::Index>(component)));
-        }
+} // namespace
+
+namespace detail::operators {
+template <class T, class Gradient>
+void gradientForExchangeImpl(const Field<T>& field, Field<Gradient>& result,
+                             GradientMethod method) {
+    if (method != GradientMethod::LeastSquares) {
+        gradient(field, result, method);
+        return;
     }
+    requireField(field, field.mesh(), FieldLocation::Cell, "gradient input");
+    requireField(result, field.mesh(), FieldLocation::Cell, "gradient result");
+    leastSquaresGradient(field, result, true);
 }
 
-} // namespace
+void gradientForExchange(const ScalarField& field, VectorField& result, GradientMethod method) {
+    gradientForExchangeImpl(field, result, method);
+}
+
+void gradientForExchange(const VectorField& field, TensorField& result, GradientMethod method) {
+    gradientForExchangeImpl(field, result, method);
+}
+} // namespace detail::operators
 
 void gradient(const ScalarField& scalar, VectorField& result, GradientMethod method) {
     const Mesh& mesh = scalar.mesh();

@@ -64,9 +64,16 @@ public:
     virtual void registerTimeState(time::HistoryGroup&) = 0;
     virtual void beginStep() {}
     virtual const char* modelName() const = 0;
-    virtual TransportResult solveTransport() = 0;
+    TransportResult solveTransport() {
+        return solveTransport(transportKinematics());
+    }
+    TransportResult solveTransport(int maxCorrections);
     virtual double tolerance() const = 0;
     virtual double relaxationFactor() const = 0;
+
+protected:
+    virtual ScalarField transportKinematics() = 0;
+    virtual TransportResult solveTransport(const ScalarField& kinematics) = 0;
 };
 
 Model* createModel(Case&, VectorField&, const ScalarField&, ScalarField&,
@@ -91,6 +98,10 @@ public:
     void beginStep() { if (model_) model_->beginStep(); }
     TransportResult solveTransport() {
         return model_ ? model_->solveTransport() : TransportResult{};
+    }
+    // U and phi stay fixed for one group of transport corrections.
+    TransportResult solveTransport(int maxCorrections) {
+        return model_ ? model_->solveTransport(maxCorrections) : TransportResult{};
     }
     double relaxation() const { return model_ ? model_->relaxationFactor() : 1.0; }
     double tolerance() const { return model_ ? model_->tolerance() : 0.0; }

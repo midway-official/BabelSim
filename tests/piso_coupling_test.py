@@ -69,4 +69,18 @@ with tempfile.TemporaryDirectory(prefix='babelsim-piso-coupling-') as temporary:
                 else:
                     assert data.keys() == reference.keys()
                     assert max(abs(a-b) for i in data for a,b in zip(data[i], reference[i])) < 1e-7
-    print('piso_coupling_test: conservative-but-unsettled rejection, adaptive correction, 1/2/4 ranks passed')
+
+    for option, value in (('consistentPressureCorrection', '1'),
+                          ('intermediatePressureRelativeTolerance', '1e-5')):
+        case = root / option
+        shutil.copytree(baseline, case, ignore=shutil.ignore_patterns('results'))
+        (case/'numerics/solution.bs').write_text(
+            settings.replace('nCorrectors 1', 'nCorrectors 2') + f'{option} {value}\n')
+        process, row = invoke(case, 2)
+        assert process.returncode == 0, process.stdout + process.stderr
+        assert row['converged'] == 'true' and row['linear'] == 'ok', row
+        assert int(row['correctors']) == 2 and float(row['mass']) <= 1e-8, row
+        assert float(row['linP']) <= 1e-8, row
+
+    print('piso_coupling_test: conservative-but-unsettled rejection, adaptive correction, '
+          'consistent and staged options, 1/2/4 ranks passed')

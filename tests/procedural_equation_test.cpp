@@ -84,6 +84,37 @@ int main() {
     require(near(detail::fieldData(freePressure)[0], 3.0) &&
             near(detail::fieldData(freePressure)[1], 3.0), "pressure reference value");
 
+    const auto diffusionControl = testEquationControl("repeatedDiffusion");
+    equ::ScalarDiffusion repeated(freePressure, diffusionControl);
+    ScalarField diffusivity(mesh, FieldLocation::Face, "diffusivity", 1.0);
+    ScalarField forcing(mesh, FieldLocation::Cell, "forcing");
+    repeated.assemble(diffusivity, 3.0);
+    for (const double strength : {1.0, -2.0}) {
+        const auto initial = freePressure;
+        forcing.evaluate([&](Vec3 point) { return point.x < 2.0 ? strength : -strength; });
+        require(repeated.solve(forcing, diffusionControl.linear).converged(), "repeated diffusion solve");
+        const auto repeatedFlux = repeated.faceFlux();
+        const auto repeatedSolution = freePressure;
+
+        // Use the same backend equation identity for the conventional solve.
+        // Interleaving the two assembly paths must invalidate matrix reuse.
+        freePressure = initial;
+        auto fresh = equ::createEquation(freePressure, diffusionControl);
+        equ::laplacian(fresh, diffusivity, -1.0);
+        equ::source(fresh, forcing);
+        fresh.referenceIfUnanchored(3.0);
+        require(equ::solve(fresh).converged(), "fresh diffusion solve");
+        require(math::normL2(freePressure - repeatedSolution) < 1e-10,
+                "repeated diffusion changed the anchored RHS");
+        require(math::normL2(equ::faceFlux(fresh, freePressure) - repeatedFlux) < 1e-10,
+                "repeated diffusion changed the assembled face flux");
+        fresh.reset();
+        equ::reaction(fresh, 1.0);
+        equ::source(fresh, 0.0);
+        require(equ::solve(fresh).converged(), "replace repeated diffusion matrix");
+        freePressure = repeatedSolution;
+    }
+
     VectorField u(mesh,FieldLocation::Cell,"U");
     auto v=testEquation(u); equ::reaction(v,2.0); equ::source(v,Vec3{2,4,6});
     require(equ::solve(v).converged(),"bound vector solve");

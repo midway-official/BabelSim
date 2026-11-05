@@ -104,6 +104,15 @@ public:
     void synchronize(TensorField& field) override {
         synchronizeField(field);
     }
+    void synchronizeUpdated(ScalarField& field) override {
+        synchronizeField(field, true);
+    }
+    void synchronizeUpdated(VectorField& field) override {
+        synchronizeField(field, true);
+    }
+    void synchronizeUpdated(TensorField& field) override {
+        synchronizeField(field, true);
+    }
 
     void sum(const double* local, double* global, int count) const override {
         const Clock::time_point start = Clock::now();
@@ -150,12 +159,16 @@ public:
         PetscLinearSystem& system = getSystem(identity, 1);
         recordEquationConfig(identity, config);
         const Clock::time_point assembly_start = Clock::now();
-        m_assembly_plan->matrixValues(equation, m_matrix_values);
+        const bool rhsOnly = system.reuseMatrix(equation.immutable_matrix);
+        if (!rhsOnly)
+            m_assembly_plan->matrixValues(equation, m_matrix_values);
         m_assembly_plan->rhsValues(equation, m_rhs_values);
         ++m_performance.equation_assemblies;
         m_performance.assembly_seconds += secondsSince(assembly_start);
 
-        const PetscMatrixUpdateMetrics update = system.updateMatrix(m_matrix_values);
+        const auto update = rhsOnly
+                                ? PetscMatrixUpdateMetrics{}
+                                : system.updateMatrix(m_matrix_values, equation.immutable_matrix);
         recordMatrixUpdate(identity, update);
         const PetscSetupMetrics setup = system.prepare(config);
         recordPreconditionerSetup(identity, setup);
@@ -171,7 +184,7 @@ public:
         double* target = fieldData(unknown);
         for (Index cell : meshData(*m_mesh).owned_cells)
             target[cell] = m_solution[static_cast<std::size_t>(ownedIndex(*m_mesh, cell))];
-        synchronize(unknown);
+        synchronizeUpdated(unknown);
         return metrics.result;
     }
 
@@ -223,7 +236,7 @@ public:
                     value.z = solved;
             }
         }
-        synchronize(unknown);
+        synchronizeUpdated(unknown);
         return results;
     }
 
@@ -314,7 +327,7 @@ private:
     }
 
     template <typename T>
-    void synchronizeField(Field<T>& field) {
+    void synchronizeField(Field<T>& field, bool updatedOnAllRanks = false) {
         field.validateStorage();
         if (&field.mesh() != m_mesh ||
             (field.location() != FieldLocation::Cell && field.location() != FieldLocation::Face))
@@ -322,7 +335,7 @@ private:
         // Cache validity is local: a different owner may have modified the
         // field. Agree before skipping this collective, including on ranks
         // with no neighbours. Count the decision in reduction diagnostics.
-        if (m_halo ? all(haloValid(field)) : haloValid(field))
+        if (!updatedOnAllRanks && (m_halo ? all(haloValid(field)) : haloValid(field)))
             return;
         if (m_halo) {
             const Clock::time_point start = Clock::now();

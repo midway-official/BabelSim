@@ -69,6 +69,10 @@ void diffusionFlux(
     ScalarField& face_flux,
     DiffusionMethod diffusion_method = DiffusionMethod::Corrected);
 
+// Rebuild the scalar diffusion source while retaining its frozen LHS.
+void refreshDiffusionRhs(ScalarDiscreteEquation&, const ScalarField& face_diffusivity,
+    const ScalarField&, const VectorField* reconstructed_gradient, DiffusionMethod);
+
 void divergence(
     const VectorField& vector,
     ScalarField& result,

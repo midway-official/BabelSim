@@ -192,6 +192,17 @@ void PetscLinearSystem::configure(const LinearSolverConfig& config) {
     config.validate();
     if (m_configured && config == m_config)
         return;
+    if (m_configured) {
+        // The convergence callback reads these for each RHS. A tolerance
+        // change alone has no effect on KSP or PC setup.
+        auto previous = m_config;
+        previous.absolute_tolerance = config.absolute_tolerance;
+        previous.relative_tolerance = config.relative_tolerance;
+        if (config == previous) {
+            m_config = config;
+            return;
+        }
+    }
     checkPetsc(KSPSetType(m_ksp, kspType(config.solver)), "KSPSetType");
     // Merge CG's two inner products on distributed systems. PETSc owns the
     // recurrence and work vectors; the final b-A*x acceptance and restart
@@ -274,7 +285,16 @@ void PetscLinearSystem::computeTrueResidual(Vec rhs, Vec solution, double& norm)
     norm = vectorNorm(m_residual);
 }
 
-PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(std::vector<PetscScalar>& matrix_values) {
+bool PetscLinearSystem::reuseMatrix(const std::shared_ptr<const MatrixIdentity>& identity) {
+    if (!identity || identity != m_immutable_matrix)
+        return false;
+    ++m_rhs_only_solves;
+    return true;
+}
+
+PetscMatrixUpdateMetrics
+PetscLinearSystem::updateMatrix(std::vector<PetscScalar>& matrix_values,
+                                const std::shared_ptr<const MatrixIdentity>& identity) {
     if (matrix_values.size() != static_cast<std::size_t>(m_plan->nonzeroContributions()))
         throw std::invalid_argument("PETSc matrix values do not match fixed COO pattern");
     PetscMatrixUpdateMetrics metrics;
@@ -296,6 +316,7 @@ PetscMatrixUpdateMetrics PetscLinearSystem::updateMatrix(std::vector<PetscScalar
     } else {
         ++m_rhs_only_solves;
     }
+    m_immutable_matrix = identity;
     metrics.seconds = secondsSince(update_start);
     return metrics;
 }

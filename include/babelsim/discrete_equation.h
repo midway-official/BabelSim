@@ -3,11 +3,13 @@
 #include "babelsim/mesh.h"
 
 #include <algorithm>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace babelsim {
+namespace detail { struct MatrixIdentity {}; }
 
 // 框架维护接口：FVM 后端的 LDU 存储，不是 Solver 使用的数学 EquationDefinition。
 // 离散、装配、执行和分布式代数共享此唯一表示；不再保留含混的 Equation 兼容别名。
@@ -34,6 +36,7 @@ struct DiscreteEquation {
     }
 
     void reset() {
+        immutable_matrix.reset();
         std::fill(diagonal.begin(), diagonal.end(), 0.0);
         std::fill(upper.begin(), upper.end(), 0.0);
         std::fill(lower.begin(), lower.end(), 0.0);
@@ -42,6 +45,8 @@ struct DiscreteEquation {
 
     // Stable numerical identity; assembly and algebra do not interpret its name.
     std::string numerical_identity;
+    // Only the owner of a frozen matrix may set this. RHS edits retain it.
+    std::shared_ptr<const detail::MatrixIdentity> immutable_matrix;
     const Mesh* mesh;
     std::vector<double> diagonal;
     std::vector<double> upper;

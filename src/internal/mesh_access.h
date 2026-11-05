@@ -1,8 +1,15 @@
 #pragma once
 
 #include "babelsim/mesh.h"
+#include <mutex>
 
 namespace babelsim::detail {
+
+struct LeastSquaresGeometry;
+struct LeastSquaresCache {
+    std::once_flag initialized;
+    std::shared_ptr<const LeastSquaresGeometry> geometry;
+};
 
 // 维护接口：仅网格构造、分区和离散实现可访问缓存/映射；普通 Solver 只读几何。
 struct MeshAccess {

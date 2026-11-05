@@ -10,6 +10,10 @@
 
 namespace babelsim::detail::operators {
 
+// The caller exchanges the reconstructed field before using remote cells.
+void gradientForExchange(const ScalarField&, VectorField&, GradientMethod);
+void gradientForExchange(const VectorField&, TensorField&, GradientMethod);
+
 // Private face sampling rules shared by explicit operators and matrix assembly.
 // These functions only read synchronized values; communication stays in the backend.
 template <typename T>

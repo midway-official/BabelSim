@@ -43,7 +43,10 @@ public:
     PetscLinearSystem(const PetscLinearSystem&) = delete;
     PetscLinearSystem& operator=(const PetscLinearSystem&) = delete;
 
-    PetscMatrixUpdateMetrics updateMatrix(std::vector<PetscScalar>& matrix_values);
+    bool reuseMatrix(const std::shared_ptr<const MatrixIdentity>&);
+    PetscMatrixUpdateMetrics
+    updateMatrix(std::vector<PetscScalar>& matrix_values,
+                 const std::shared_ptr<const MatrixIdentity>& identity = {});
     PetscSetupMetrics prepare(const LinearSolverConfig& config);
     PetscSolveMetrics solveRhs(const std::vector<PetscScalar>& rhs_values,
                                const std::vector<double>& initial_guess,
@@ -102,6 +105,7 @@ private:
     Vec m_solution = nullptr;
     Vec m_residual = nullptr;
     std::vector<PetscScalar> m_previous_matrix_values;
+    std::shared_ptr<const MatrixIdentity> m_immutable_matrix;
     std::size_t m_right_hand_sides = 0;
     bool m_matrix_ready = false;
     bool m_setup_pending = true;

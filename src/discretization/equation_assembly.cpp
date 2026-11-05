@@ -246,7 +246,8 @@ struct FaceDiffusivity {
 void addScalarDiffusion(ScalarDiscreteEquation& equation, FaceDiffusivity diffusivity,
                         const ScalarField& scalar, GradientMethod gradient_method,
                         DiffusionMethod diffusion_method,
-                        const VectorField* reconstructed_gradient = nullptr) {
+                        const VectorField* reconstructed_gradient = nullptr,
+                        bool assemble_matrix = true) {
     const Mesh& mesh = scalar.mesh();
     requireEquation(equation, mesh);
     requireField(scalar, mesh, FieldLocation::Cell, "scalar");
@@ -278,10 +279,12 @@ void addScalarDiffusion(ScalarDiscreteEquation& equation, FaceDiffusivity diffus
         }
         const double coefficient = gamma * detail::meshData(mesh).face_orthogonal_coefficients[f];
         if (neighbour != invalid_index) {
-            equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
-            equation.diagonal[static_cast<std::size_t>(neighbour)] += coefficient;
-            equation.upper[f] -= coefficient;
-            equation.lower[f] -= coefficient;
+            if (assemble_matrix) {
+                equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
+                equation.diagonal[static_cast<std::size_t>(neighbour)] += coefficient;
+                equation.upper[f] -= coefficient;
+                equation.lower[f] -= coefficient;
+            }
             if (correctedDiffusion(diffusion_method)) {
                 const double orthogonal =
                     detail::meshData(mesh).face_orthogonal_coefficients[f] *
@@ -298,7 +301,8 @@ void addScalarDiffusion(ScalarDiscreteEquation& equation, FaceDiffusivity diffus
 
         const auto& condition = detail::FieldAccess::condition(scalar, face);
         if (condition.type == BoundaryType::FixedValue) {
-            equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
+            if (assemble_matrix)
+                equation.diagonal[static_cast<std::size_t>(owner)] += coefficient;
             equation.source[static_cast<std::size_t>(owner)] += coefficient * condition.value;
             if (correctedDiffusion(diffusion_method)) {
                 const double orthogonal = detail::meshData(mesh).face_orthogonal_coefficients[f] *
@@ -381,6 +385,15 @@ void addVectorDiffusion(VectorDiscreteEquation& equation, FaceDiffusivity diffus
 }
 
 } // 匿名命名空间
+
+void refreshDiffusionRhs(ScalarDiscreteEquation& equation, const ScalarField& diffusivity,
+                         const ScalarField& scalar, const VectorField* gradient,
+                         DiffusionMethod method) {
+    requireField(diffusivity, scalar.mesh(), FieldLocation::Face, "face diffusivity");
+    std::fill(equation.source.begin(), equation.source.end(), 0.0);
+    addScalarDiffusion(equation, {0.0, &diffusivity}, scalar, GradientMethod::GreenGauss, method,
+                       gradient, false);
+}
 
 void addDiffusion(ScalarDiscreteEquation& equation, double diffusivity, const ScalarField& scalar,
                   GradientMethod gradient_method, DiffusionMethod diffusion_method) {

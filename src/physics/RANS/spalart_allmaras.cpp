@@ -70,9 +70,13 @@ public:
         histories.trackForRollback(mut);
     }
 
-    TransportResult solveTransport() override {
-        const ScalarField previousNuTilda = nuTilda;
+    ScalarField transportKinematics() override {
         U.setBoundaryFlux(phi);
+        return math::map(math::grad(U, momentumOptions), vorticityMagnitude);
+    }
+
+    TransportResult solveTransport(const ScalarField& rotation) override {
+        const ScalarField previousNuTilda = nuTilda;
 
         // Closure functions, evaluated at the current nonlinear iterate.
         const double nu = mu / rho;
@@ -84,7 +88,6 @@ public:
         });
         const auto distance = math::max(wallDistance, wallDistanceMin);
         const auto inverseDistanceSquared = 1.0 / (distance * distance);
-        const auto rotation = math::map(math::grad(U, momentumOptions), vorticityMagnitude);
         // Existing positive S-tilde regularization; this is not SA-neg.
         const auto modifiedRotation = math::max(
             rotation + nuTilda * fv2 * inverseDistanceSquared / (kappa * kappa), 1e-30);

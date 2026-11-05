@@ -49,12 +49,14 @@ public:
           sigmaK(parameters.sigmaK),
           sigmaOmega(parameters.sigmaOmega),
           momentumOptions(hostMomentumOptions),
-          kControl(readEquationControl(problem, builtin::kOmega().equation("kTransport"), k)),
-          omegaControl(readEquationControl(problem, builtin::kOmega().equation("omegaTransport"), omega)),
+          kEquation(equ::createEquation(problem, builtin::kOmega().equation("kTransport"), k)),
+          omegaEquation(equ::createEquation(problem, builtin::kOmega().equation("omegaTransport"), omega)),
           kHistory(time::history(k)), omegaHistory(time::history(omega))
     {
         mut.useCalculatedBoundary();
         muEff.useCalculatedBoundary();
+        k.setBoundaryFlux(phi);
+        omega.setBoundaryFlux(phi);
         boundTransportFields();
         updateViscosity();
         problem.output(mut);
@@ -73,23 +75,28 @@ public:
     }
     void beginStep() override { correction = 0; }
 
-    TransportResult solveTransport() override {
+    ScalarField transportKinematics() override {
+        U.setBoundaryFlux(phi);
+        return math::map(math::grad(U, momentumOptions), strainSquared);
+    }
+
+    TransportResult solveTransport(const ScalarField& strain) override {
         boundedOmegaCells = 0.0;
         const ScalarField previousK = k;
         const ScalarField previousOmega = omega;
-        U.setBoundaryFlux(phi);
 
         // Freeze closure coefficients at the current nonlinear iterate.
         updateViscosity();
-        const auto production = mut * math::map(math::grad(U, momentumOptions), strainSquared);
-        const auto kDiffusivity = mu + sigmaK * mut;
-        const auto omegaDiffusivity = mu + sigmaOmega * mut;
+        const auto production = mut * strain;
+        const auto kDiffusivity = math::map(mut, [&](double value) { return mu + sigmaK * value; });
+        const auto omegaDiffusivity =
+            math::map(mut, [&](double value) { return mu + sigmaOmega * value; });
         const auto omegaDestructionRate = beta * rho * omega;
         const auto omegaProduction = gamma * production * omega / math::max(k, kMin);
 
         // Solve omega first, then use its new value in k's implicit sink.
         // Production and diffusivity stay frozen for this segregated update.
-        auto omegaEquation = equ::createEquation(omega, omegaControl);
+        omegaEquation.reset();
         equ::ddt(omegaEquation, rho, omegaHistory);
         equ::div(omegaEquation, phi, rho, "convection");
         equ::laplacian(omegaEquation, omegaDiffusivity, -1, "diffusion");
@@ -103,7 +110,7 @@ public:
         const double rawOmegaMin = -math::max(-omega);
         boundOmega();
 
-        auto kEquation = equ::createEquation(k, kControl);
+        kEquation.reset();
         equ::ddt(kEquation, rho, kHistory);
         equ::div(kEquation, phi, rho, "convection");
         equ::laplacian(kEquation, kDiffusivity, -1, "diffusion");
@@ -137,9 +144,7 @@ public:
 
 private:
     void boundTransportFields() {
-        k.setBoundaryFlux(phi);
-        omega.setBoundaryFlux(phi);
-        k = math::max(k, kMin);
+        k.evaluate(k, [&](double value) { return std::max(value, kMin); });
         boundOmega();
     }
 
@@ -150,14 +155,16 @@ private:
             math::sum(fieldBinary(omega, k, [&](double w, double energy) {
                 return w < std::max(omegaMin, rho * energy / (viscosityRatioMax * mu)) ? 1.0 : 0.0;
             })));
-        omega = fieldBinary(omega, k, [&](double w, double energy) {
+        omega.evaluate(omega, k, [&](double w, double energy) {
             return std::max({w, omegaMin, rho * energy / (viscosityRatioMax * mu)});
         });
     }
 
     void updateViscosity() {
-        mut = rho * k / math::max(omega, omegaMin);
-        muEff = mu + mut;
+        mut.evaluate(k, omega, [&](double energy, double frequency) {
+            return rho * energy / std::max(frequency, omegaMin);
+        });
+        muEff.evaluate(mut, [&](double value) { return mu + value; });
     }
 
     VectorField& U;
@@ -170,7 +177,7 @@ private:
     const double relaxation, residualTolerance, kMin, omegaMin, viscosityRatioMax;
     const double betaStar, beta, gamma, sigmaK, sigmaOmega;
     const OperatorOptions momentumOptions;
-    const EquationControl kControl, omegaControl;
+    equ::Equation<double> kEquation, omegaEquation;
     time::History<double> kHistory, omegaHistory;
     int correction = 0;
     double boundedOmegaCells = 0.0;

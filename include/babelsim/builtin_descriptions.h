@@ -13,6 +13,8 @@ struct PisoCoupling {
     int maxIterations, correctors, maxCorrectors, nonOrthogonalCorrections, initialNonOrthogonalCorrections;
     double tolerance, velocityRelaxation;
     int initializePotentialFlow;
+    int consistentPressureCorrection;
+    std::optional<double> intermediatePressureRelativeTolerance;
 };
 struct TurbulenceCoupling { std::string mode; int maxIterations; std::optional<int> correctors; };
 struct PisoConfig { FluidConfig fluid; PisoCoupling coupling; ConvergenceConfig convergence; TurbulenceCoupling turbulence; };

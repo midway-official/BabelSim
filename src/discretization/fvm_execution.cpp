@@ -5,6 +5,7 @@
 #include "internal/fvm_execution.h"
 
 #include "babelsim/operators.h"
+#include "operator_support.h"
 
 #include <algorithm>
 #include <cmath>
@@ -229,8 +230,8 @@ void FvmExecution::evaluate(math::ScalarGradient operation, VectorField& result)
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
     state.synchronize(const_cast<ScalarField&>(operation.field));
-    gradient(operation.field, result, operation.options.gradient.value());
-    state.synchronize(result);
+    operators::gradientForExchange(operation.field, result, operation.options.gradient.value());
+    state.backend->synchronizeUpdated(result);
     if (result.calculatedBoundary()) {
         for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
             for (Index face : state.mesh->patchFaces(patch)) {
@@ -255,8 +256,8 @@ void FvmExecution::evaluate(math::VectorGradient operation, TensorField& result)
     requireCellField(operation.field, *state.mesh, "gradient input");
     requireCellField(result, *state.mesh, "gradient result");
     state.synchronize(const_cast<VectorField&>(operation.field));
-    gradient(operation.field, result, operation.options.gradient.value());
-    state.synchronize(result);
+    operators::gradientForExchange(operation.field, result, operation.options.gradient.value());
+    state.backend->synchronizeUpdated(result);
     if (result.calculatedBoundary()) {
         for (Index patch = 0; patch < state.mesh->patchCount(); ++patch)
             for (Index face : state.mesh->patchFaces(patch)) {
@@ -291,7 +292,7 @@ void FvmExecution::evaluate(math::FaceFlux operation, ScalarField& result) {
     state.synchronize(const_cast<VectorField&>(operation.velocity));
     flux(operation.velocity, result, operation.options.interpolation.value(),
          operation.options.gradient.value());
-    state.synchronize(result);
+    state.backend->synchronizeUpdated(result);
     if (operation.velocity.location() == FieldLocation::Cell)
         const_cast<VectorField&>(operation.velocity).setBoundaryFlux(result);
 }
@@ -302,7 +303,7 @@ void FvmExecution::evaluate(math::FaceDivergence operation, ScalarField& result)
     requireCellField(result, *state.mesh, "divergence result");
     state.synchronize(const_cast<ScalarField&>(operation.flux));
     divergence(operation.flux, result);
-    state.synchronize(result);
+    state.backend->synchronizeUpdated(result);
     FieldAccess::extrapolateTrace(result);
 }
 
@@ -314,7 +315,7 @@ void FvmExecution::evaluate(math::VectorDivergence operation, ScalarField& resul
     state.synchronize(const_cast<VectorField&>(operation.field));
     divergence(operation.field, result, operation.options.interpolation.value(),
                operation.options.gradient.value());
-    state.synchronize(result);
+    state.backend->synchronizeUpdated(result);
     FieldAccess::extrapolateTrace(result);
 }
 
@@ -326,7 +327,7 @@ void FvmExecution::evaluate(math::TensorDivergence operation, VectorField& resul
     state.synchronize(const_cast<TensorField&>(operation.field));
     divergence(operation.field, result, operation.options.interpolation.value(),
                operation.options.gradient.value());
-    state.synchronize(result);
+    state.backend->synchronizeUpdated(result);
     FieldAccess::extrapolateTrace(result);
 }
 
@@ -370,7 +371,7 @@ void FvmExecution::evaluate(math::ScalarInterpolation operation, ScalarField& re
     state.synchronize(const_cast<ScalarField&>(operation.field));
     interpolate(operation.field, result, operation.options.interpolation.value(),
                 operation.options.gradient.value());
-    state.synchronize(result);
+    state.backend->synchronizeUpdated(result);
 }
 
 void FvmExecution::evaluate(math::VectorInterpolation operation, VectorField& result) {
@@ -383,7 +384,7 @@ void FvmExecution::evaluate(math::VectorInterpolation operation, VectorField& re
     state.synchronize(const_cast<VectorField&>(operation.field));
     interpolate(operation.field, result, operation.options.interpolation.value(),
                 operation.options.gradient.value());
-    state.synchronize(result);
+    state.backend->synchronizeUpdated(result);
 }
 
 void FvmExecution::evaluate(math::ScalarReconstruction operation, ScalarField& result) {

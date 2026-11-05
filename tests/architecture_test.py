@@ -182,7 +182,8 @@ for module in ("simple", "transient_simple", "piso"):
         # Total-pressure Rhie-Chow form: pressure-free HbyA plus temporal
         # correction, then the flux of the actual assembled pressure matrix.
         assert "math::flux(HbyA, pressureOptions)" in text
-        assert "equ::faceFlux(pressureEquation, p)" in text
+        assert "equ::ScalarDiffusion pressureEquation" in text
+        assert "phi = phiH + pressureEquation.faceFlux()" in text
         assert "rAUf * temporalFlux" in text
     else:
         assert re.search(r"math::interpolate\(rAU \* gradP(?:, pressureOptions)?\)", text)
@@ -190,7 +191,7 @@ for module in ("simple", "transient_simple", "piso"):
 assert "while (time.value() < time.end())" in texts[ROOT / "src/physics/transient_simple/main.cpp"]
 # The model contract has no data or transport implementation.
 model_api = texts[ROOT / "src/physics/RANS/api.h"]
-assert "virtual TransportResult solveTransport() = 0" in model_api
+assert "virtual TransportResult solveTransport(const ScalarField& kinematics) = 0" in model_api
 assert "equ::" not in model_api
 for name in ("k_omega", "k_epsilon", "spalart_allmaras"):
     text = texts[ROOT / "src/physics/RANS" / (name + ".cpp")]

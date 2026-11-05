@@ -3,12 +3,13 @@
 #include "babelsim/vector.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace babelsim {
-namespace detail { struct MeshAccess; }
+namespace detail { struct MeshAccess; struct LeastSquaresCache; }
 
 using Index = std::int32_t;
 constexpr Index invalid_index = -1;
@@ -174,6 +175,7 @@ private:
         MeshStorage<Index> cell_ghost_depths;
         MeshStorage<Index> face_global_ids;
         MeshStorage<Index> face_owner_ranks;
+        std::shared_ptr<detail::LeastSquaresCache> least_squares_cache;
     } m_storage;
 
 public:

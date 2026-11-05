@@ -1,10 +1,10 @@
 #include "babelsim/equ.h"
-#include "babelsim/math.h"
 #include "babelsim/operators.h"
 #include "internal/fvm_execution.h"
 #include "internal/compute_backend.h"
 #include "internal/field_access.h"
 #include "internal/mesh_access.h"
+#include "operator_support.h"
 #include <cmath>
 #include <optional>
 #include <stdexcept>
@@ -23,8 +23,9 @@ struct Equation<T>::Storage {
     const ScalarField* boundary_flux = nullptr;
     struct DiffusionSnapshot {
         ScalarField coefficient;
-        ScalarField boundary;
-        ScalarField correction;
+        ScalarField iterate;
+        std::optional<VectorField> gradient;
+        DiffusionMethod method;
     };
     struct DiffusionContribution {
         std::shared_ptr<const DiffusionSnapshot> snapshot;
@@ -167,10 +168,11 @@ void div(Equation<T>& equation, const ScalarField& phi, double factor, const std
         throw std::invalid_argument("one equation requires one boundary flux context");
     equation_state.boundary_flux = &phi;
     backend().synchronize(const_cast<ScalarField&>(phi));
-    field.setBoundaryFlux(phi);
-    synchronize(field);
     auto options = equation.options(term);
     options.overlay(overrides);
+    // Upwind reads only the face flux and the local owner at physical boundaries.
+    if (*options.convection != ConvectionMethod::Upwind)
+        synchronize(field);
     addConvection(equation_state.coefficients, phi, field, *options.convection,
                   *options.interpolation, *options.gradient, factor);
 }
@@ -189,22 +191,20 @@ void laplacian(Equation<T>& equation, double diffusivity, double factor, const s
         std::optional<VectorField> reconstructed_gradient;
         if (*options.diffusion != DiffusionMethod::Orthogonal) {
             reconstructed_gradient.emplace(field.mesh(), FieldLocation::Cell, "equ.frozenGradient");
-            gradient(field, *reconstructed_gradient, *options.gradient);
-            synchronize(*reconstructed_gradient);
+            impl::operators::gradientForExchange(field, *reconstructed_gradient, *options.gradient);
+            backend().synchronizeUpdated(*reconstructed_gradient);
             addDiffusion(contribution, diffusivity, field, *reconstructed_gradient,
                          *options.diffusion);
         } else
             addDiffusion(contribution, diffusivity, field, *options.gradient, *options.diffusion);
         ScalarField face_diffusivity(field.mesh(), FieldLocation::Face, "equ.frozenDiffusivity",
                                      diffusivity);
-        auto correction = diffusionCorrection(
-            face_diffusivity, field, reconstructed_gradient ? &*reconstructed_gradient : nullptr,
-            *options.diffusion);
         using Snapshot =
             typename std::remove_reference_t<decltype(equation_state)>::DiffusionSnapshot;
         equation_state.diffusion.push_back(
             {std::make_shared<Snapshot>(
-                 Snapshot{std::move(face_diffusivity), field, std::move(correction)}),
+                 Snapshot{std::move(face_diffusivity), field, std::move(reconstructed_gradient),
+                          *options.diffusion}),
              factor});
     } else
         addDiffusion(contribution, diffusivity, field, *options.gradient, *options.diffusion);
@@ -232,26 +232,30 @@ void laplacian(Equation<T>& equation, const ScalarField& diffusivity, double fac
         interpolate(diffusivity, *face_diffusivity,
                     options.coefficientInterpolation.value_or(*options.interpolation),
                     options.coefficientGradient.value_or(*options.gradient));
-        synchronize(*face_diffusivity);
+        backend().synchronizeUpdated(*face_diffusivity);
         face = &*face_diffusivity;
     }
     DiscreteEquation<T> contribution(field.mesh());
     if constexpr (std::is_same_v<T, double>) {
         std::optional<VectorField> reconstructed_gradient;
         if (*options.diffusion != DiffusionMethod::Orthogonal) {
+            // Flux recovery can read every local face, including ghost faces.
+            // Validate the frozen coefficients here, while assembling the term.
+            for (double value : impl::fieldValues(*face))
+                if (value < 0.0 || !std::isfinite(value))
+                    throw std::invalid_argument("face diffusivity must be non-negative and finite");
             reconstructed_gradient.emplace(field.mesh(), FieldLocation::Cell, "equ.frozenGradient");
-            gradient(field, *reconstructed_gradient, *options.gradient);
-            synchronize(*reconstructed_gradient);
+            impl::operators::gradientForExchange(field, *reconstructed_gradient, *options.gradient);
+            backend().synchronizeUpdated(*reconstructed_gradient);
             addDiffusion(contribution, *face, field, *reconstructed_gradient, *options.diffusion);
         } else
             addDiffusion(contribution, *face, field, *options.gradient, *options.diffusion);
-        auto correction = diffusionCorrection(
-            *face, field, reconstructed_gradient ? &*reconstructed_gradient : nullptr,
-            *options.diffusion);
         using Snapshot =
             typename std::remove_reference_t<decltype(equation_state)>::DiffusionSnapshot;
         equation_state.diffusion.push_back(
-            {std::make_shared<Snapshot>(Snapshot{*face, field, std::move(correction)}), factor});
+            {std::make_shared<Snapshot>(
+                 Snapshot{*face, field, std::move(reconstructed_gradient), *options.diffusion}),
+             factor});
     } else
         addDiffusion(contribution, *face, field, *options.gradient, *options.diffusion);
     // addDiffusion assembles -div(k grad(field)); equ::laplacian represents
@@ -426,7 +430,7 @@ ScalarField diagonal(const Equation<T>& equation) {
     ScalarField d(equation_state.unknown->mesh(), FieldLocation::Cell, "equ.diagonal");
     for (Index i : impl::meshData(d.mesh()).owned_cells)
         impl::fieldData(d)[i] = equation_state.coefficients.diagonal[i];
-    synchronize(d);
+    backend().synchronizeUpdated(d);
     return d;
 }
 template <class T>
@@ -435,11 +439,12 @@ Field<T> rhs(const Equation<T>& equation) {
     const auto& coefficients = equationState(equation).coefficients;
     for (Index i : impl::meshData(b.mesh()).owned_cells)
         impl::fieldData(b)[i] = coefficients.source[i];
-    synchronize(b);
+    backend().synchronizeUpdated(b);
     return b;
 }
+namespace {
 template <class T>
-Field<T> apply(const Equation<T>& equation, const Field<T>& field) {
+Field<T> applyOwned(const Equation<T>& equation, const Field<T>& field) {
     const auto& equation_state = equationState(equation);
     const auto& mesh = equation_state.unknown->mesh();
     requireCellField(field, mesh);
@@ -448,12 +453,13 @@ Field<T> apply(const Equation<T>& equation, const Field<T>& field) {
     auto* values = impl::fieldData(y);
     const auto* xv = impl::fieldData(field);
     const auto& coefficients = equation_state.coefficients;
-    for (Index i : impl::meshData(mesh).owned_cells)
+    const auto& geometry = impl::meshData(mesh);
+    for (Index i : geometry.owned_cells)
         values[i] = coefficients.diagonal[i] * xv[i];
     // upper couples owner <- neighbour; lower couples neighbour <- owner.
     // Ghost values are readable, but only owned rows are written.
-    for (Index f = 0; f < mesh.faceCount(); ++f) {
-        const Index o = mesh.owner(f), n = mesh.neighbour(f);
+    for (Index f : geometry.owned_faces) {
+        const Index o = geometry.face_owner[f], n = geometry.face_neighbour[f];
         if (n == invalid_index)
             continue;
         if (impl::isOwned(mesh, o))
@@ -461,18 +467,46 @@ Field<T> apply(const Equation<T>& equation, const Field<T>& field) {
         if (impl::isOwned(mesh, n))
             values[n] += coefficients.lower[f] * xv[o];
     }
-    synchronize(y);
+    return y;
+}
+} // namespace
+
+template <class T>
+Field<T> apply(const Equation<T>& equation, const Field<T>& field) {
+    auto y = applyOwned(equation, field);
+    backend().synchronizeUpdated(y);
     return y;
 }
 template <class T>
 Field<T> residual(const Equation<T>& equation, const Field<T>& field) {
-    auto r = apply(equation, field);
+    auto r = applyOwned(equation, field);
     const auto& coefficients = equationState(equation).coefficients;
+    auto* values = impl::fieldData(r);
     for (Index i : impl::meshData(field.mesh()).owned_cells)
-        impl::fieldData(r)[i] = coefficients.source[i] - impl::fieldData(r)[i];
-    synchronize(r);
+        values[i] = coefficients.source[i] - values[i];
+    backend().synchronizeUpdated(r);
     return r;
 }
+
+ScalarField offDiagonalSum(const Equation<Vec3>& equation) {
+    const auto& state = equationState(equation);
+    const auto& mesh = state.unknown->mesh();
+    const auto& coefficients = state.coefficients;
+    ScalarField result(mesh, FieldLocation::Cell, "equ.offDiagonalSum");
+    auto* values = impl::fieldData(result);
+    for (Index face = 0; face < mesh.faceCount(); ++face) {
+        const Index owner = mesh.owner(face), neighbour = mesh.neighbour(face);
+        if (neighbour == invalid_index)
+            continue;
+        if (impl::isOwned(mesh, owner))
+            values[owner] += coefficients.upper[face];
+        if (impl::isOwned(mesh, neighbour))
+            values[neighbour] += coefficients.lower[face];
+    }
+    synchronize(result);
+    return result;
+}
+
 template <class T>
 void relax(Equation<T>& equation, const Field<T>& previous, double alpha) {
     if (!(alpha > 0 && alpha <= 1))
@@ -486,13 +520,12 @@ void relax(Equation<T>& equation, const Field<T>& previous, double alpha) {
         coefficients.source[i] += extra * impl::fieldData(previous)[i];
     }
 }
+namespace {
 // Reference constraints use global cell IDs; every rank participates.
-void reference(Equation<double>& equation, Index global_cell, double value) {
+Index applyReference(ScalarDiscreteEquation& coefficients, Index global_cell, double value) {
     requireFinite(value);
-    auto& equation_state = equationState(equation);
-    auto& coefficients = equation_state.coefficients;
-    const auto& mesh = equation_state.unknown->mesh();
-    bool found = false;
+    const auto& mesh = *coefficients.mesh;
+    Index localCell = invalid_index;
     for (Index i : impl::meshData(mesh).owned_cells) {
         if (impl::globalCellId(mesh, i) != global_cell)
             continue;
@@ -500,16 +533,15 @@ void reference(Equation<double>& equation, Index global_cell, double value) {
             throw std::invalid_argument("reference requires a positive diagonal");
         coefficients.source[i] += coefficients.diagonal[i] * value;
         coefficients.diagonal[i] *= 2;
-        found = true;
+        localCell = i;
     }
-    if (backend().all(!found))
+    if (backend().all(localCell == invalid_index))
         throw std::invalid_argument("reference global cell does not exist");
+    return localCell;
 }
-void reference(Equation<double>& equation, double value) {
-    requireFinite(value);
-    const auto& equation_state = equationState(equation);
-    const auto& mesh = equation_state.unknown->mesh();
-    const auto& coefficients = equation_state.coefficients;
+
+bool hasConstantNullMode(const ScalarDiscreteEquation& coefficients) {
+    const auto& mesh = *coefficients.mesh;
     auto rowSum = coefficients.diagonal;
     auto magnitude = coefficients.diagonal;
     for (auto& v : magnitude)
@@ -532,8 +564,27 @@ void reference(Equation<double>& equation, double value) {
         constantMode =
             constantMode && std::isfinite(rowSum[i]) &&
             std::abs(rowSum[i]) <= 64 * std::numeric_limits<double>::epsilon() * magnitude[i];
-    if (backend().all(constantMode))
-        reference(equation, 0, value);
+    return backend().all(constantMode);
+}
+
+ScalarField frozenDiffusionFlux(const ScalarField& coefficient, const ScalarField& iterate,
+                                const ScalarField& correction, const VectorField& unusedGradient) {
+    ScalarField flux(iterate.mesh(), FieldLocation::Face, "equ.diffusionFluxTerm");
+    diffusionFlux(coefficient, iterate, unusedGradient, flux, DiffusionMethod::Orthogonal);
+    flux += correction;
+    return flux;
+}
+} // namespace
+
+void reference(Equation<double>& equation, Index global_cell, double value) {
+    applyReference(equationState(equation).coefficients, global_cell, value);
+}
+
+void reference(Equation<double>& equation, double value) {
+    requireFinite(value);
+    auto& coefficients = equationState(equation).coefficients;
+    if (hasConstantNullMode(coefficients))
+        applyReference(coefficients, 0, value);
 }
 
 ScalarField faceFlux(const Equation<double>& equation, const ScalarField& solution) {
@@ -541,21 +592,101 @@ ScalarField faceFlux(const Equation<double>& equation, const ScalarField& soluti
     requireCellField(solution, equation_state.unknown->mesh());
     ScalarField result(solution.mesh(), FieldLocation::Face, "equ.diffusionFlux");
     // Orthogonal flux ignores this gradient; the explicit part is already frozen.
-    VectorField zeroGradient(solution.mesh(), FieldLocation::Cell);
+    const VectorField unusedGradient(solution.mesh(), FieldLocation::Cell);
     for (const auto& contribution : equation_state.diffusion) {
         const auto& snapshot = *contribution.snapshot;
-        auto value = snapshot.boundary;
+        auto value = snapshot.iterate;
         value = solution; // keep the assembled boundary constraints
         synchronize(value);
-        ScalarField increment(solution.mesh(), FieldLocation::Face, "equ.diffusionFluxTerm");
-        diffusionFlux(snapshot.coefficient, value, zeroGradient, increment,
-                      DiffusionMethod::Orthogonal);
-        increment += snapshot.correction;
+        // Only consumers of a face flux need this second evaluation. The
+        // gradient, limiter inputs and boundary conditions are assembly-time
+        // snapshots, independent of subsequent solves or field changes.
+        const auto correction = diffusionCorrection(
+            snapshot.coefficient, snapshot.iterate,
+            snapshot.gradient ? &*snapshot.gradient : nullptr, snapshot.method);
+        const auto increment =
+            frozenDiffusionFlux(snapshot.coefficient, value, correction, unusedGradient);
         result.addScaled(contribution.factor, increment);
     }
     synchronize(result);
     return result;
 }
+
+ScalarDiffusion::ScalarDiffusion(ScalarField& unknown, const EquationControl& control,
+                                 const std::string& term)
+    : equation_(unknown, control), options_(equation_.options(term)) {}
+
+void ScalarDiffusion::assemble(const ScalarField& faceCoefficient,
+                               std::optional<double> reference) {
+    equation_.reset();
+    correction_.reset();
+    auto& state = equationState(equation_);
+    auto& matrix = state.coefficients;
+    if (&faceCoefficient.mesh() != matrix.mesh || faceCoefficient.location() != FieldLocation::Face)
+        throw std::invalid_argument("scalar diffusion requires a compatible face coefficient");
+    coefficient_.emplace(faceCoefficient);
+    synchronize(*coefficient_);
+    iterate_.emplace(*state.unknown);
+    referenceCell_ = invalid_index;
+    addDiffusion(matrix, *coefficient_, *iterate_, *options_.gradient, DiffusionMethod::Orthogonal);
+    if (reference) {
+        requireFinite(*reference);
+        if (hasConstantNullMode(matrix)) {
+            referenceCell_ = applyReference(matrix, 0, *reference);
+            if (referenceCell_ != invalid_index)
+                referenceRhs_ = 0.5 * matrix.diagonal[referenceCell_] * *reference;
+        }
+    }
+    matrix.immutable_matrix = std::make_shared<const impl::MatrixIdentity>();
+}
+
+SolveResult ScalarDiffusion::solve(const ScalarField& source, const LinearSolverConfig& config,
+                                   const VectorField* reconstructedGradient) {
+    auto& state = equationState(equation_);
+    if (!state.coefficients.immutable_matrix)
+        throw std::logic_error("assemble scalar diffusion before solving");
+    correction_.reset();
+    *iterate_ = *state.unknown; // preserve the assembled boundary constraints
+    synchronize(*iterate_);
+    std::optional<VectorField> gradientWorkspace;
+    const VectorField* correctionGradient = nullptr;
+    if (*options_.diffusion != DiffusionMethod::Orthogonal) {
+        if (reconstructedGradient) {
+            requireCellField(*reconstructedGradient, iterate_->mesh());
+            synchronize(const_cast<VectorField&>(*reconstructedGradient));
+            correctionGradient = reconstructedGradient;
+        } else {
+            gradientWorkspace.emplace(iterate_->mesh(), FieldLocation::Cell, "equ.frozenGradient");
+            impl::operators::gradientForExchange(*iterate_, *gradientWorkspace, *options_.gradient);
+            backend().synchronizeUpdated(*gradientWorkspace);
+            correctionGradient = &*gradientWorkspace;
+        }
+    }
+    refreshDiffusionRhs(state.coefficients, *coefficient_, *iterate_, correctionGradient,
+                        *options_.diffusion);
+    equ::source(equation_, source);
+    if (referenceCell_ != invalid_index)
+        state.coefficients.source[referenceCell_] += referenceRhs_;
+    auto correction =
+        diffusionCorrection(*coefficient_, *iterate_, correctionGradient, *options_.diffusion);
+    const auto result = equ::solve(equation_, config);
+    correction_.emplace(std::move(correction));
+    return result;
+}
+
+ScalarField ScalarDiffusion::faceFlux() {
+    if (!correction_)
+        throw std::logic_error("solve scalar diffusion before recovering its face flux");
+    *iterate_ = *equationState(equation_).unknown;
+    synchronize(*iterate_);
+    ScalarField result(iterate_->mesh(), FieldLocation::Face, "equ.diffusionFlux");
+    const VectorField unusedGradient(iterate_->mesh(), FieldLocation::Cell);
+    result.addScaled(-1.0,
+                     frozenDiffusionFlux(*coefficient_, *iterate_, *correction_, unusedGradient));
+    backend().synchronizeUpdated(result);
+    return result;
+}
+
 template <class T>
 SolveResult solveConfigured(const Equation<T>& equation, Field<T>& field,
                             const LinearSolverConfig* config) {
@@ -672,13 +803,24 @@ INSTANTIATE(Vec3)
 } // namespace babelsim::equ
 
 namespace babelsim::diagnostics {
+namespace {
+double square(double value) { return value * value; }
+double square(Vec3 value) { return squaredNorm(value); }
+}
+
 template <class T>
 double relativeResidual(const equ::Equation<T>& equation, const Field<T>& field) {
-    auto ax = equ::apply(equation, field);
-    auto b = equation.rhs();
-    auto r = b - ax;
-    const auto norms = math::normsL2({r, ax, b});
-    return norms[0] / std::max(norms[1] + norms[2], 1e-30);
+    const auto ax = equ::applyOwned(equation, field);
+    const auto* values = detail::fieldData(ax);
+    const auto& source = equ::equationState(equation).coefficients.source;
+    double local[3]{}, global[3]{};
+    for (Index cell : detail::meshData(field.mesh()).owned_cells) {
+        local[0] += square(source[cell] - values[cell]);
+        local[1] += square(values[cell]);
+        local[2] += square(source[cell]);
+    }
+    equ::backend().sum(local, global, 3);
+    return std::sqrt(global[0]) / std::max(std::sqrt(global[1]) + std::sqrt(global[2]), 1e-30);
 }
 template double relativeResidual(const equ::Equation<double>&, const ScalarField&);
 template double relativeResidual(const equ::Equation<Vec3>&, const VectorField&);

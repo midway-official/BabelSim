@@ -68,14 +68,18 @@ public:
         histories.trackForRollback(mut);
     }
 
-    TransportResult solveTransport() override {
+    ScalarField transportKinematics() override {
+        U.setBoundaryFlux(phi);
+        return math::map(math::grad(U, momentumOptions), strainSquared);
+    }
+
+    TransportResult solveTransport(const ScalarField& strain) override {
         const ScalarField previousK = k;
         const ScalarField previousEpsilon = epsilon;
-        U.setBoundaryFlux(phi);
 
         // Freeze closure coefficients at the current nonlinear iterate.
         updateViscosity();
-        const auto production = mut * math::map(math::grad(U, momentumOptions), strainSquared);
+        const auto production = mut * strain;
         const auto kDiffusivity = mu + mut / sigmaK;
         const auto epsilonDiffusivity = mu + mut / sigmaEpsilon;
         const auto epsilonOverK = epsilon / math::max(k, kMin);

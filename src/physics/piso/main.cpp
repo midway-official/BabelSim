@@ -9,6 +9,7 @@
 #include "babelsim/monitor.h"
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 namespace babelsim {
@@ -47,6 +48,31 @@ ScalarField temporalFluxCorrection(
     return result;
 }
 
+struct ConsistentResponse {
+    ScalarField velocity;
+    ScalarField faces;
+    ScalarField velocityChange;
+    ScalarField fluxWeights;
+};
+
+ConsistentResponse consistentResponse(const equ::Equation<Vec3>& momentum,
+                                      const ScalarField& diagonal, const ScalarField& volumes,
+                                      const ScalarField& originalVelocity,
+                                      const ScalarField& originalFaces,
+                                      const OperatorOptions& pressureOptions) {
+    // Approximate the neighbour velocity corrections by the local
+    // correction. Bound the resulting diagonal response away from zero.
+    const auto rowSum = diagonal + equ::offDiagonalSum(momentum);
+    auto velocity = volumes / fieldBinary(rowSum, diagonal, [](double row, double aP) {
+                        return std::max(row, 0.1 * aP);
+                    });
+    auto faces = math::interpolate(velocity, pressureOptions.coefficientOptions());
+    auto velocityChange = velocity - originalVelocity;
+    auto fluxWeights = (faces - originalFaces) * geometry::faceAreas(volumes.mesh());
+    return {std::move(velocity), std::move(faces), std::move(velocityChange),
+            std::move(fluxWeights)};
+}
+
 } // namespace
 
 // 瞬态 PISO。每遍预测--修正外迭代组装并求解一次动量预测方程，随后用 nCorrectors
@@ -70,10 +96,22 @@ SolverResult runPiso(Case& problem) {
     auto& pPrime = problem.create.homogeneousCorrection(p, "pPrime");
     auto momentumEquation = equ::createEquation(problem, spec.equation("momentum"), U);
     const auto pressureControl = readEquationControl(problem, spec.equation("pressureCorrection"), p);
-    auto pressureEquation = equ::createEquation(p, pressureControl);
+    equ::ScalarDiffusion pressureEquation(p, pressureControl, "diffusion");
     // The auxiliary initial projection reuses the pressure numerical profile.
     auto potentialEquation = equ::createEquation(pPrime, pressureControl);
-    const auto pressureOptions = pressureEquation.options("diffusion");
+    const auto pressureOptions = pressureControl.options("diffusion");
+    auto intermediatePressure = pressureControl.linear;
+    if (config.coupling.intermediatePressureRelativeTolerance) {
+        intermediatePressure.relative_tolerance =
+            *config.coupling.intermediatePressureRelativeTolerance;
+        if (config.coupling.correctors < 2 ||
+            intermediatePressure.relative_tolerance <= pressureControl.linear.relative_tolerance ||
+            intermediatePressure.relative_tolerance >= 1.0) {
+            throw std::invalid_argument(
+                "intermediatePressureRelativeTolerance requires nCorrectors >= 2 and a "
+                "tolerance between the final pressure relative tolerance and 1");
+        }
+    }
     const int pressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
         ? 1 : config.coupling.nonOrthogonalCorrections + 1;
     const int initialPressureSolves = pressureOptions.diffusion == DiffusionMethod::Orthogonal
@@ -134,6 +172,9 @@ SolverResult runPiso(Case& problem) {
         turbulence.beginStep();
         const auto temporalFlux = config.fluid.density * temporalFluxCorrection(
             U_old, phi_old, methods.time, pressureOptions);
+        // Only pressure solves update p during the step. The last corrector
+        // supplies the gradient used by the next momentum predictor.
+        auto pressureGradient = math::grad(p, pressureOptions);
 
         bool converged = false;
         for (int iter = 0; iter < config.coupling.maxIterations; ++iter) {
@@ -144,8 +185,7 @@ SolverResult runPiso(Case& problem) {
             equ::ddt(momentumEquation, config.fluid.density, U_old);
             equ::div(momentumEquation, phi, config.fluid.density, "convection");
             equ::laplacian(momentumEquation, muEff, -1, "diffusion");
-            const auto predictorGradP = math::grad(p, pressureOptions);
-            equ::source(momentumEquation, -predictorGradP);
+            equ::source(momentumEquation, -pressureGradient);
             if (turbulence)
             equ::source(momentumEquation, math::div(
                 turbulence.deviatoricStressRemainder(U), momentumEquation.options()));
@@ -158,50 +198,72 @@ SolverResult runPiso(Case& problem) {
             const auto rAU = V / aP;
             const auto inverseAP = 1.0 / aP;
             const auto rAUf = math::interpolate(rAU, pressureOptions.coefficientOptions());
+            std::optional<ConsistentResponse> consistent;
+            if (config.coupling.consistentPressureCorrection)
+                consistent.emplace(
+                    consistentResponse(momentumEquation, aP, V, rAU, rAUf, pressureOptions));
+            const auto& pressureFaces = consistent ? consistent->faces : rAUf;
             // Integrated non-pressure RHS of the frozen momentum equation.
             // Relaxation changes aP and b; the pressure source remains -V grad(p).
-            const auto nonPressureRhs = momentumEquation.rhs() + V * predictorGradP;
+            const auto nonPressureRhs = momentumEquation.rhs() + V * pressureGradient;
             const auto velocitySolve = equ::solve(momentumEquation);
             if (!diagnostics::all(velocitySolve.healthy())) return SolverResult::numericalFailure();
 
+            pressureEquation.assemble(pressureFaces, 0.0);
+            const auto temporalFaceFlux = rAUf * temporalFlux;
+            auto action = equ::apply(momentumEquation, U);
+            VectorField HbyA = U; // retain physical U boundary constraints
             bool pressureConverged = true;
             double pressureLinearResidual = 0.0;
             double dP = 0.0, firstCouplingResidual = 0.0, couplingResidual = 0.0;
             int correctionsUsed = 0;
             for (int corrector = 0; corrector < config.coupling.maxCorrectors; ++corrector) {
                 // A = diag(aP) + N. HbyA = (b0 - N U)/aP must use the
-                // current corrected U on EVERY pass. equ::apply synchronises
-                // the full matrix action without exposing backend storage.
-                VectorField HbyA = U; // retain physical U boundary constraints
-                HbyA = inverseAP * (nonPressureRhs - equ::apply(momentumEquation, U) + aP * U);
+                // current corrected U. The previous pass already evaluated
+                // its matrix action while measuring the coupling residual.
+                HbyA = nonPressureRhs;
+                HbyA -= action;
+                HbyA.addProduct(1.0, aP, U);
+                HbyA.assignProduct(inverseAP, HbyA);
                 HbyA.setBoundaryFlux(phi);
                 const ScalarField previousPressure = p;
                 auto phiH = math::flux(HbyA, pressureOptions);
-                math::add(rAUf * temporalFlux, phiH, math::FaceRegion::Interior);
-                const auto imbalance = math::div(phiH);
+                math::add(temporalFaceFlux, phiH, math::FaceRegion::Interior);
+                if (consistent) {
+                    // Compensate for the response change using the old pressure.
+                    // When p stops changing this recovers the original flux
+                    // and velocity, including the physical-time flux term.
+                    const auto normalGradient =
+                        math::normalGradient(p, pressureGradient, pressureOptions);
+                    phiH += consistent->fluxWeights * normalGradient;
+                    HbyA += consistent->velocityChange * pressureGradient;
+                }
+                const auto pressureSourceTerm = -math::div(phiH);
+                const bool intermediate = config.coupling.intermediatePressureRelativeTolerance &&
+                                          corrector + 1 < config.coupling.correctors;
+                const auto& linear = intermediate ? intermediatePressure : pressureControl.linear;
                 // Solve for total pressure. A limited non-orthogonal flux is
                 // nonlinear: L(p + dp) != L(p) + L(dp). Splitting those fluxes
                 // leaves the corrected velocity and conservative phi inconsistent.
                 for (int correction = 0; correction < pressureSolves; ++correction) {
-                    pressureEquation.reset();
-                    equ::laplacian(pressureEquation, rAUf, -1, "diffusion");
-                    equ::source(pressureEquation, -imbalance);
-                    pressureEquation.referenceIfUnanchored(0.0);
-                    const auto pressureSolve = equ::solve(pressureEquation);
+                    const auto pressureSolve = pressureEquation.solve(
+                        pressureSourceTerm, linear, correction == 0 ? &pressureGradient : nullptr);
                     if (!diagnostics::all(pressureSolve.healthy())) return SolverResult::numericalFailure();
                     pressureConverged = pressureConverged && pressureSolve.converged();
-                    pressureLinearResidual = std::max(pressureLinearResidual, pressureSolve.relative_residual);
+                    if (!intermediate)
+                        pressureLinearResidual =
+                            std::max(pressureLinearResidual, pressureSolve.relative_residual);
                 }
                 // Use the same frozen explicit correction as the assembled
                 // pressure equation, never a separately reconstructed flux.
-                phi = phiH + equ::faceFlux(pressureEquation, p);
-                const auto correctedGradP = math::grad(p, pressureOptions);
+                phi = phiH + pressureEquation.faceFlux();
+                math::evaluate(math::ScalarGradient{p, pressureOptions}, pressureGradient);
                 U = HbyA;
-                math::subtract(rAU, correctedGradP, U);
+                math::subtract(consistent ? consistent->velocity : rAU, pressureGradient, U);
                 U.setBoundaryFlux(phi);
-                dP = std::max(dP, diagnostics::relativeMagnitude(p - previousPressure, p));
-                const auto action = equ::apply(momentumEquation, U);
-                const auto pressureSource = V * correctedGradP;
+                dP = std::max(dP, diagnostics::relativeChange(p, previousPressure));
+                action = equ::apply(momentumEquation, U);
+                const auto pressureSource = V * pressureGradient;
                 const auto defect = nonPressureRhs - action - pressureSource;
                 const auto norms = math::normsL2({nonPressureRhs, action, pressureSource, defect});
                 const double scale = norms[0] + norms[1] + norms[2];
@@ -209,7 +271,7 @@ SolverResult runPiso(Case& problem) {
                 if (corrector == 0) firstCouplingResidual = couplingResidual;
                 correctionsUsed = corrector + 1;
                 const bool correctionDone = correctionsUsed >= config.coupling.correctors
-                    && diagnostics::all(couplingResidual <= config.coupling.tolerance);
+                    && couplingResidual <= config.coupling.tolerance;
                 if (corrector == 0 || correctionDone || correctionsUsed == config.coupling.maxCorrectors)
                     reporter.record({{"corrector", corrector + 1},
                         {"Umax", math::max(math::map(U, [](Vec3 v) { return norm(v); }))},
@@ -221,17 +283,15 @@ SolverResult runPiso(Case& problem) {
             bool turbulenceLinearConverged = true;
             double dTurbulence = 0.0, rTurbulence = 0.0;
             if (turbulence) {
-                for (int correction = 0; correction < turbulenceCorrections; ++correction) {
-                    const auto result = turbulence.solveTransport();
-                    dTurbulence = result.relativeChange();
-                    rTurbulence = result.initialResidual();
-                    if (!diagnostics::all(result.healthy() && std::isfinite(dTurbulence) && std::isfinite(rTurbulence))) return SolverResult::numericalFailure();
-                    turbulenceLinearConverged = diagnostics::all(result.linearConverged());
-                    turbulenceConverged = diagnostics::all(turbulenceLinearConverged
-                        && dTurbulence <= turbulence.tolerance()
-                        && rTurbulence <= turbulence.tolerance());
-                    if (!turbulenceLinearConverged || turbulenceConverged) break;
-                }
+                const auto result = turbulence.solveTransport(turbulenceCorrections);
+                dTurbulence = result.relativeChange();
+                rTurbulence = result.initialResidual();
+                if (!diagnostics::all(result.healthy()))
+                    return SolverResult::numericalFailure();
+                turbulenceLinearConverged = diagnostics::all(result.linearConverged());
+                turbulenceConverged = diagnostics::all(turbulenceLinearConverged &&
+                                                       dTurbulence <= turbulence.tolerance() &&
+                                                       rTurbulence <= turbulence.tolerance());
             }
 
             const double dU = diagnostics::relativeChange(U, U_previous);

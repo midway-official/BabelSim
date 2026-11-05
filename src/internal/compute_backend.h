@@ -24,6 +24,12 @@ public:
     virtual void synchronize(VectorField& field) = 0;
     virtual void synchronize(TensorField& field) = 0;
 
+    // Every rank has just written owned values as part of the same operation.
+    // The backend may exchange directly, without checking cache validity.
+    virtual void synchronizeUpdated(ScalarField& field) { synchronize(field); }
+    virtual void synchronizeUpdated(VectorField& field) { synchronize(field); }
+    virtual void synchronizeUpdated(TensorField& field) { synchronize(field); }
+
     virtual void sum(const double* local, double* global, int count) const = 0;
     virtual void maximum(const double* local, double* global, int count) const = 0;
     virtual bool all(bool local_condition) const = 0;
