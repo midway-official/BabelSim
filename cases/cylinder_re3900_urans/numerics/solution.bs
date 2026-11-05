@@ -21,7 +21,7 @@ equation.momentum.maxIterations 1500
 equation.pressureCorrection.kspType cg
 equation.pressureCorrection.pcType hypre
 equation.pressureCorrection.absoluteTolerance 1e-13
-equation.pressureCorrection.relativeTolerance 1e-8
+equation.pressureCorrection.relativeTolerance 1e-6
 equation.pressureCorrection.maxIterations 1500
 equation.pressureCorrection.preconditionerRebuildInterval 64
 equation.kTransport.kspType bcgs
